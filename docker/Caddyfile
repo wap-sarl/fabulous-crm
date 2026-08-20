@@ -1,0 +1,23 @@
+:80 {
+	root * /srv
+
+	# Hashed static assets — cache aggressively
+	@hashed path /assets/*
+	header @hashed Cache-Control "public, max-age=31536000, immutable"
+
+	# HTML and runtime config — never cache (ensures fresh deployments)
+	@html path *.html / /env.js
+	header @html Cache-Control "no-cache, no-store, must-revalidate"
+
+	# Security headers
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	# SPA fallback: serve file if it exists, otherwise index.html
+	try_files {path} /index.html
+	file_server
+}

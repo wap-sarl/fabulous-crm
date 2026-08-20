@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  crm:
+    image: ${DOCKER_REPO}/${APP_NAME}:${IMAGE_TAG}
+    environment:
+      - VITE_CONVEX_URL=${VITE_CONVEX_URL}
+      - VITE_CONVEX_SITE_URL=${VITE_CONVEX_SITE_URL}
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.labels.env == prod
+      update_config:
+        parallelism: 1
+        order: start-first
+      restart_policy:
+        condition: on-failure
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://localhost:80/ || exit 1']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      proxy:
+        aliases:
+          - est-sante-crm
+
+networks:
+  proxy:
+    name: ${PROXY_NETWORK}
+    external: true

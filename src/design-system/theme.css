@@ -1,0 +1,254 @@
+/* Import brand fonts - must be first */
+@import url('https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@plugin "@tailwindcss/typography";
+
+/* Dark mode is class-driven only; no `.dark` class is ever applied, so the
+   `dark:` utilities left in components stay inert instead of following the
+   OS media query with light-theme variables. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Scan shared packages for class names */
+@source "./**/*.{ts,tsx}";
+
+:root {
+  --background: #f6f7f9;
+  --foreground: #14161c;
+  --card: #ffffff;
+  --card-foreground: #3a3f4a;
+  --popover: #ffffff;
+  --popover-foreground: #3a3f4a;
+  --primary: #5b50f5;
+  --primary-foreground: #ffffff;
+  --primary-strong: #4b41e0;
+  --primary-soft: #eeedfe;
+  --secondary: #f1f2f5;
+  --secondary-foreground: #14161c;
+  --muted: #f2f3f5;
+  --muted-foreground: #8a909c;
+  --accent: #f4f5f7;
+  --accent-foreground: #14161c;
+  --destructive: #d23b3f;
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fbe9e9;
+  --success: #0c8a43;
+  --success-foreground: #ffffff;
+  --success-soft: #e3f6ec;
+  --warning: #b4740a;
+  --warning-foreground: #ffffff;
+  --warning-soft: #fcf1dd;
+  --info: #1d6be0;
+  --info-foreground: #ffffff;
+  --info-soft: #e7f0ff;
+  --border: #eaecf0;
+  --input: #e4e7ec;
+  --ring: #5b50f5;
+
+  /* Text ramp (Cadence) */
+  --ink: #14161c;
+  --body: #3a3f4a;
+  --soft: #5b6270;
+  --faint: #98a0ad;
+  --placeholder: #a6abb6;
+
+  --chart-1: #6a4bf0;
+  --chart-2: #12a150;
+  --chart-3: #2e7bff;
+  --chart-4: #0e8a8a;
+  --chart-5: #4b41e0;
+
+  --font-sans: Onest, -apple-system, sans-serif;
+  --font-display: Onest, -apple-system, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: 'JetBrains Mono', monospace;
+
+  --radius: 10px;
+
+  --shadow-card: 0 1px 2px rgba(16, 18, 28, 0.04);
+  --shadow-card-hover: 0 4px 14px rgba(16, 18, 28, 0.07);
+  --shadow-2xs: 0 1px 2px rgba(16, 18, 28, 0.04);
+  --shadow-xs: 0 1px 2px rgba(16, 18, 28, 0.04);
+  --shadow-sm: 0 1px 2px rgba(16, 18, 28, 0.06);
+  --shadow: 0 1px 2px rgba(16, 18, 28, 0.06), 0 1px 3px rgba(16, 18, 28, 0.05);
+  --shadow-md: 0 4px 14px rgba(16, 18, 28, 0.07);
+  --shadow-lg: 0 8px 24px rgba(16, 18, 28, 0.09);
+  --shadow-xl: 0 12px 32px rgba(16, 18, 28, 0.12);
+  --shadow-2xl: 0 16px 48px rgba(16, 18, 28, 0.16);
+
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-strong: var(--primary-strong);
+  --color-primary-soft: var(--primary-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-soft: var(--soft);
+  --color-faint: var(--faint);
+  --color-placeholder: var(--placeholder);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-sans);
+  --font-display: var(--font-display);
+  --font-mono: var(--font-mono);
+  --font-serif: var(--font-serif);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-card-hover: var(--shadow-card-hover);
+  --shadow-2xs: var(--shadow-2xs);
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+  --shadow-2xl: var(--shadow-2xl);
+}
+
+@layer base {
+  *,
+  *::before,
+  *::after {
+    border-color: var(--color-border);
+  }
+
+  body {
+    min-height: 100vh;
+    background-color: var(--color-background);
+    color: var(--body);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #dcdfe6;
+    border-radius: 8px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #c4c8d2;
+    background-clip: content-box;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: var(--placeholder);
+  }
+}
+
+/* Animation utilities for smooth loading transitions */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes hand-raise-inset {
+  0%,
+  100% {
+    box-shadow: inset 0 0 20px 6px rgba(234, 179, 8, 0.25);
+  }
+  50% {
+    box-shadow: inset 0 0 30px 12px rgba(234, 179, 8, 0.5);
+  }
+}
+
+@keyframes hand-raise-halo {
+  0% {
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.9);
+  }
+  40% {
+    box-shadow: 0 0 24px 10px rgba(234, 179, 8, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 179, 8, 0);
+  }
+}
+
+/* Card entrance — subtle rise + fade. Honours an inline `animationDelay` for
+   staggered grids; `both` fill keeps the element hidden until its delay starts. */
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fade-in 300ms ease-out;
+  }
+
+  .animate-card-in {
+    animation: card-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .animate-hand-raise-halo {
+    animation: hand-raise-halo 1.5s ease-out forwards;
+  }
+
+  .animate-hand-raise-inset {
+    animation: hand-raise-inset 2s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-in {
+    animation: none;
+  }
+}

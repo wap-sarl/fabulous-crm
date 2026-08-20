@@ -1,0 +1,32 @@
+ARG BUN_VERSION=1.3.9
+
+# Debian-based bun (musl bun from -alpine won't run glibc-linked tooling).
+FROM oven/bun:${BUN_VERSION}
+
+ARG UID=$UID
+ARG GID=$GID
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl git unzip && \
+    rm -rf /var/lib/apt/lists/*
+
+# Recreate the `node` user with host UID/GID so the bind-mounted /app gets
+# correct ownership. The base image may already occupy the target UID/GID
+# under a different name (e.g. bun:1000) — clear those first.
+RUN existing_user=$(getent passwd $UID | cut -d: -f1) && \
+    [ -n "$existing_user" ] && userdel -r "$existing_user" 2>/dev/null || true; \
+    existing_group=$(getent group $GID | cut -d: -f1) && \
+    [ -n "$existing_group" ] && groupdel "$existing_group" 2>/dev/null || true; \
+    groupadd -g $GID node && \
+    useradd -u $UID -g $GID -m -s /bin/bash node
+
+RUN mkdir -p /app && chown -R node:node /app
+
+USER node
+WORKDIR /app
+
+# Vite dev server (4202) is bound to 0.0.0.0 by vite.config.mts.
+EXPOSE 4202
+
+# Long-lived container; exec into it and run `bun run dev`.
+ENTRYPOINT ["tail", "-f", "/dev/null"]
