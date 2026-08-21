@@ -1,4 +1,4 @@
-import { Infer } from 'convex/values';
+import type { Infer } from 'convex/values';
 import { employeeValidator } from './employees';
 
 export const userValidator = employeeValidator;

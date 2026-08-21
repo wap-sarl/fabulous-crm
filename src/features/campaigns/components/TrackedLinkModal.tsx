@@ -62,7 +62,7 @@ const STANDARD_TARGETS: { field: TrackedLinkStandardField; label: string }[] = [
 /** Mirror of the server-side value check (createCampaign) for inline errors. */
 function standardValueError(
   field: TrackedLinkStandardField,
-  value: LeadPropertyValue | undefined
+  value: LeadPropertyValue | undefined,
 ): string | null {
   if (value === undefined) return null; // "missing" is handled by canSubmit
   switch (field) {
@@ -84,7 +84,13 @@ function standardValueError(
  * Confirming hands the link to the parent, which inserts its
  * {{ params.lienN }} placeholder into the message.
  */
-export function TrackedLinkModal({ open, onOpenChange, definitions, existingLinks, onCreate }: Props) {
+export function TrackedLinkModal({
+  open,
+  onOpenChange,
+  definitions,
+  existingLinks,
+  onCreate,
+}: Props) {
   const [label, setLabel] = useState('');
   // 'std:<field>' or 'custom:<definitionId>' (same encoding as the lead filters).
   const [targetKey, setTargetKey] = useState('');
@@ -109,7 +115,7 @@ export function TrackedLinkModal({ open, onOpenChange, definitions, existingLink
       targetKey.startsWith('custom:')
         ? definitions.find((d) => d._id === targetKey.slice('custom:'.length))
         : undefined,
-    [definitions, targetKey]
+    [definitions, targetKey],
   );
 
   const valueError = selectedDef
@@ -148,8 +154,8 @@ export function TrackedLinkModal({ open, onOpenChange, definitions, existingLink
         <DialogHeader>
           <DialogTitle>Lien de suivi</DialogTitle>
           <DialogDescription>
-            Chaque destinataire reçoit une URL unique ; un clic met à jour la propriété choisie
-            puis redirige le contact.
+            Chaque destinataire reçoit une URL unique ; un clic met à jour la propriété choisie puis
+            redirige le contact.
           </DialogDescription>
         </DialogHeader>
 

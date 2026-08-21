@@ -137,7 +137,10 @@ export type { FunnelBarProps } from './components/data-display/funnel-bar';
 export { Sparkline } from './components/data-display/sparkline';
 export type { SparklineProps } from './components/data-display/sparkline';
 export { TimeSeriesChart } from './components/data-display/time-series-chart';
-export type { TimeSeriesChartProps, TimeSeriesPoint } from './components/data-display/time-series-chart';
+export type {
+  TimeSeriesChartProps,
+  TimeSeriesPoint,
+} from './components/data-display/time-series-chart';
 export { Badge, badgeVariants } from './components/data-display/badge';
 export type { BadgeProps } from './components/data-display/badge';
 export {
@@ -210,7 +213,10 @@ export {
 } from './components/navigation/sheet';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/navigation/tabs';
 export { SegmentedControl } from './components/navigation/segmented-control';
-export type { SegmentedControlProps, SegmentedControlItem } from './components/navigation/segmented-control';
+export type {
+  SegmentedControlProps,
+  SegmentedControlItem,
+} from './components/navigation/segmented-control';
 
 // UI Components - Layout
 export { Separator } from './components/layout/separator';

@@ -72,7 +72,7 @@ export function ImageUploadField({
       const { storageId } = (await res.json()) as { storageId: Id<'_storage'> };
       // Swap the preview to the new object URL only after a successful upload.
       setPreview((prev) => {
-        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+        if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
         return objectUrl;
       });
       onUploaded(storageId, objectUrl);

@@ -131,7 +131,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
 
     // Block on any invalid custom-property value (email/number/text rules).
     const invalid = propertyDefinitions.some(
-      (def) => validateLeadPropertyValue(def, form.customProperties[def._id]) !== null
+      (def) => validateLeadPropertyValue(def, form.customProperties[def._id]) !== null,
     );
     if (invalid) {
       toast.error('Certaines propriétés personnalisées sont invalides.');

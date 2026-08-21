@@ -64,7 +64,7 @@ export function HtmlImportDropzone({ onLoad, fileName, onFileNameChange }: Props
       onDrop={handleDrop}
       className={cn(
         'flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-4 text-center transition-colors',
-        isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+        isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
       )}
     >
       <Upload className="h-6 w-6 text-muted-foreground" />

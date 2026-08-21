@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 type StatusTone = 'blue' | 'amber' | 'violet' | 'green' | 'red' | 'gray';
@@ -27,7 +27,7 @@ function StatusBadge({ tone, withDot = true, className, children, ...props }: St
     <span
       className={cn(
         'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-[3px] text-xs font-semibold',
-        className
+        className,
       )}
       style={{ backgroundColor: bg, color: fg }}
       {...props}

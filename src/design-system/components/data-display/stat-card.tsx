@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -27,10 +27,7 @@ function StatCard({
   ...props
 }: StatCardProps) {
   return (
-    <div
-      className={cn('rounded-xl border bg-card p-4 shadow-card', className)}
-      {...props}
-    >
+    <div className={cn('rounded-xl border bg-card p-4 shadow-card', className)} {...props}>
       <div className="flex items-start justify-between gap-2">
         <div className="text-[12.5px] font-medium text-faint">{label}</div>
         {icon && (

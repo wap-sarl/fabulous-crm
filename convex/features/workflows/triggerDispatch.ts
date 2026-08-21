@@ -3,11 +3,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import { isNotDeleted } from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
-import {
-  matchesTrigger,
-  MAX_ENROLLMENTS_PER_LEAD_PER_DAY,
-  type WorkflowTriggerEvent,
-} from './lib';
+import { matchesTrigger, MAX_ENROLLMENTS_PER_LEAD_PER_DAY, type WorkflowTriggerEvent } from './lib';
 
 /**
  * The single entry point CRM mutations call when a triggerable event happens
@@ -34,7 +30,7 @@ export async function enrollLead(
   workflow: Doc<'workflows'>,
   leadId: Id<'leads'>,
   triggerType: string,
-  opts?: { manual?: boolean }
+  opts?: { manual?: boolean },
 ): Promise<Id<'workflowRuns'> | null> {
   if (!workflow.startNodeId) return null;
 
@@ -76,11 +72,11 @@ export async function dispatchWorkflowTrigger(
   opts?: {
     source?: { runId: Id<'workflowRuns'>; workflowId: Id<'workflows'> };
     workflows?: Doc<'workflows'>[];
-  }
+  },
 ): Promise<void> {
   try {
     const workflows = (opts?.workflows ?? (await loadActiveWorkflows(ctx))).filter((w) =>
-      matchesTrigger(w.trigger, event)
+      matchesTrigger(w.trigger, event),
     );
     if (workflows.length === 0) return;
 
@@ -97,9 +93,7 @@ export async function dispatchWorkflowTrigger(
 
       const runs = await ctx.db
         .query('workflowRuns')
-        .withIndex('by_workflow_lead', (q) =>
-          q.eq('workflowId', workflow._id).eq('leadId', leadId)
-        )
+        .withIndex('by_workflow_lead', (q) => q.eq('workflowId', workflow._id).eq('leadId', leadId))
         .collect();
       if (runs.some((r) => r.status === 'active')) continue;
       if (!workflow.allowReEnrollment && runs.length > 0) continue;

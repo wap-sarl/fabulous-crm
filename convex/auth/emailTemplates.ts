@@ -43,7 +43,7 @@ export const INVITE_EMAIL: EmailContent = {
   intro:
     'Vous avez été invité·e à rejoindre l’espace CRM. Cliquez sur le bouton ci-dessous, puis connectez-vous avec cette adresse e-mail pour activer votre accès.',
   cta: 'Rejoindre l’espace CRM',
-  disclaimer: "Si vous ne vous attendiez pas à cette invitation, vous pouvez ignorer cet e-mail.",
+  disclaimer: 'Si vous ne vous attendiez pas à cette invitation, vous pouvez ignorer cet e-mail.',
 };
 
 export const LOGIN_ACCENT: AccentColors = {
@@ -55,7 +55,7 @@ export const LOGIN_ACCENT: AccentColors = {
 export function generateEmailHtml(
   magicLink: string,
   content: EmailContent,
-  accent: AccentColors
+  accent: AccentColors,
 ): string {
   return `
 <!DOCTYPE html>

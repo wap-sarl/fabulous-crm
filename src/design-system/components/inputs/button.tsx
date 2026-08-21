@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 
@@ -92,8 +92,7 @@ const buttonVariants = cva(
       {
         variant: 'ghost',
         color: 'destructive',
-        class:
-          'text-destructive hover:bg-destructive-soft focus-visible:ring-destructive/20',
+        class: 'text-destructive hover:bg-destructive-soft focus-visible:ring-destructive/20',
       },
       {
         variant: 'ghost',
@@ -111,7 +110,7 @@ const buttonVariants = cva(
       color: 'default',
       size: 'default',
     },
-  }
+  },
 );
 
 type ButtonProps = React.ComponentProps<'button'> &

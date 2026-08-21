@@ -13,11 +13,7 @@ import {
   cn,
 } from '@crm/design-system';
 import { ChevronUp, ChevronDown, ChevronRight, Pencil, Trash2, Flag } from 'lucide-react';
-import {
-  LEAD_STATUS_LABEL,
-  LEAD_STATUS_TONE,
-  CONSENT_CHANNEL_LABEL,
-} from '../../../lib/constants';
+import { LEAD_STATUS_LABEL, LEAD_STATUS_TONE, CONSENT_CHANNEL_LABEL } from '../../../lib/constants';
 import type { LeadSortField, SortDirection } from '../hooks/useLeadFilters';
 import type { LeadRow, LeadPropertyDefinitionRow } from '../types';
 import { formatPropertyValue } from '../lib/customProperties';
@@ -243,7 +239,7 @@ export function LeadsTable({
                         onClick={() => onEdit(lead)}
                         aria-label="Modifier"
                         className={cn(
-                          'flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-faint transition-colors hover:bg-[#EEF0F3] hover:text-body'
+                          'flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-faint transition-colors hover:bg-[#EEF0F3] hover:text-body',
                         )}
                       >
                         <Pencil className="h-4 w-4" />

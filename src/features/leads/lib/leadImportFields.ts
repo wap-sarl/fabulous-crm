@@ -204,15 +204,15 @@ export interface ImportTargetGroup {
 
 /** Build the grouped target list for the mapping selects, given the live custom defs. */
 export function buildImportTargetGroups(
-  customDefs: LeadPropertyDefinitionRow[]
+  customDefs: LeadPropertyDefinitionRow[],
 ): ImportTargetGroup[] {
   const toOption = (f: ImportFieldDef): ImportTargetOption => ({ id: f.header, label: f.label });
   const groups: ImportTargetGroup[] = [
     {
       label: LEAD_FIELDS_GROUP,
-      options: IMPORT_FIELDS.filter((f) => (f.group ?? LEAD_FIELDS_GROUP) === LEAD_FIELDS_GROUP).map(
-        toOption
-      ),
+      options: IMPORT_FIELDS.filter(
+        (f) => (f.group ?? LEAD_FIELDS_GROUP) === LEAD_FIELDS_GROUP,
+      ).map(toOption),
     },
     {
       label: ADDRESS_GROUP,
@@ -246,7 +246,7 @@ export function builtinFieldForTarget(targetId: string): ImportFieldDef | undefi
  */
 export function autoDetectTarget(
   header: string,
-  customDefs: LeadPropertyDefinitionRow[]
+  customDefs: LeadPropertyDefinitionRow[],
 ): string | null {
   const h = header.trim().toLowerCase();
   if (IMPORT_FIELD_BY_HEADER.has(h)) return h;
@@ -258,7 +258,7 @@ export function autoDetectTarget(
 function matchOption(def: LeadPropertyDefinitionRow, raw: string): string | undefined {
   const needle = raw.trim().toLowerCase();
   return (def.options ?? []).find(
-    (o) => o.value.toLowerCase() === needle || o.label.toLowerCase() === needle
+    (o) => o.value.toLowerCase() === needle || o.label.toLowerCase() === needle,
   )?.value;
 }
 
@@ -271,7 +271,7 @@ type CustomParseResult = { value: LeadPropertyValue } | { error: string };
  */
 export function coerceCustomPropertyValue(
   def: LeadPropertyDefinitionRow,
-  raw: string
+  raw: string,
 ): CustomParseResult {
   switch (def.type) {
     case 'text':

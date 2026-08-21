@@ -38,12 +38,12 @@ export interface AddressSuggestion {
 
 export type AddressSuggestionsProvider = (
   query: string,
-  signal: AbortSignal
+  signal: AbortSignal,
 ) => Promise<AddressSuggestion[]>;
 
 export type AddressDetailsResolver = (
   suggestion: AddressSuggestion,
-  signal: AbortSignal
+  signal: AbortSignal,
 ) => Promise<Partial<AddressValue>>;
 
 type AddressFieldKey = 'streetNumber' | 'street' | 'postalCode' | 'city' | 'country';
@@ -167,7 +167,7 @@ export function createGooglePlacesProvider({
           'X-Goog-Api-Key': apiKey,
           'X-Goog-FieldMask': 'id,addressComponents,location,formattedAddress',
         },
-      }
+      },
     );
     if (!res.ok) return {};
     const data = (await res.json()) as {

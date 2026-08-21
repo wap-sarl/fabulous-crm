@@ -12,7 +12,11 @@ function HiddenHandles() {
   return (
     <>
       <Handle type="target" position={Position.Top} className="!pointer-events-none !opacity-0" />
-      <Handle type="source" position={Position.Bottom} className="!pointer-events-none !opacity-0" />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="!pointer-events-none !opacity-0"
+      />
     </>
   );
 }
@@ -21,7 +25,7 @@ const cardClass = (selected: boolean, invalid: boolean) =>
   cn(
     'flex cursor-pointer flex-col justify-center gap-1 rounded-[10px] border bg-card px-4 py-3 text-left shadow-card transition-all hover:shadow-card-hover',
     selected ? 'border-primary ring-2 ring-primary/20' : 'hover:border-[#DADDE4]',
-    invalid && !selected && 'border-amber-400'
+    invalid && !selected && 'border-amber-400',
   );
 
 export function TriggerNode({ data }: NodeProps) {
@@ -30,7 +34,10 @@ export function TriggerNode({ data }: NodeProps) {
   return (
     <div
       style={{ width: NODE_W, height: NODE_H }}
-      className={cn(cardClass(selectedId === 'trigger', trigger === null), 'border-t-4 border-t-primary')}
+      className={cn(
+        cardClass(selectedId === 'trigger', trigger === null),
+        'border-t-4 border-t-primary',
+      )}
       data-testid="workflow-trigger-node"
     >
       <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
@@ -68,7 +75,9 @@ export function StepNode({ data }: NodeProps) {
               <Icon className="size-3.5" />
             </span>
           ) : null}
-          <span className="truncate text-[13.5px] font-bold text-ink">{meta?.label ?? node.type}</span>
+          <span className="truncate text-[13.5px] font-bold text-ink">
+            {meta?.label ?? node.type}
+          </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           {invalid ? <TriangleAlert className="size-4 text-amber-500" /> : null}

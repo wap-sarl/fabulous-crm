@@ -61,7 +61,7 @@ export function CampaignCreatePage() {
 
   const placeholders = useMemo(
     () => buildPlaceholders(propertyDefinitions, trackedLinks),
-    [propertyDefinitions, trackedLinks]
+    [propertyDefinitions, trackedLinks],
   );
 
   // Default channel (email) + marketing seed the recipient filter once on mount.
@@ -138,9 +138,7 @@ export function CampaignCreatePage() {
       const hasContent = htmlBody.replace(/<[^>]*>/g, '').trim() !== '' || /<img/i.test(htmlBody);
       if (!hasContent) {
         toast.error(
-          emailMode === 'import'
-            ? 'Importez un fichier HTML.'
-            : 'Le corps de l’e-mail est requis.'
+          emailMode === 'import' ? 'Importez un fichier HTML.' : 'Le corps de l’e-mail est requis.',
         );
         return;
       }
@@ -268,9 +266,7 @@ export function CampaignCreatePage() {
               'Calcul des destinataires…'
             ) : (
               <span>
-                <span className="font-semibold text-ink">
-                  {numberFormat.format(total)} lead(s)
-                </span>{' '}
+                <span className="font-semibold text-ink">{numberFormat.format(total)} lead(s)</span>{' '}
                 correspondent ({numberFormat.format(reachable)}{' '}
                 {channel === 'sms' ? 'avec téléphone' : 'avec e-mail'}).{' '}
                 {channel === 'sms'

@@ -26,7 +26,7 @@ import {
  */
 function validateOptions(
   type: LeadPropertyType,
-  options: LeadPropertyOption[] | undefined
+  options: LeadPropertyOption[] | undefined,
 ): LeadPropertyOption[] | undefined {
   if (!OPTION_BASED_TYPES.includes(type)) return undefined;
   const cleaned = (options ?? [])
@@ -45,7 +45,7 @@ function validateOptions(
  */
 function validateValidation(
   type: LeadPropertyType,
-  validation: LeadPropertyValidation | undefined
+  validation: LeadPropertyValidation | undefined,
 ): LeadPropertyValidation | undefined {
   if (!validation) return undefined;
   let cleaned: LeadPropertyValidation | undefined;
@@ -133,18 +133,18 @@ export const updateDefinition = adminMutation({
     if (rest.label !== undefined) {
       const label = rest.label.trim();
       if (!label) throw new Error('label_required');
-      updates['label'] = label;
+      updates.label = label;
     }
     if (rest.options !== undefined) {
       // Re-validate against the definition's (immutable) type.
-      updates['options'] = validateOptions(def.type, rest.options);
+      updates.options = validateOptions(def.type, rest.options);
     }
 
     // Validation is applied outside filterUndefined so an emptied rule set
     // (validateValidation → undefined) actually clears the stored field.
     const patchData: Record<string, unknown> = filterUndefined(updates);
     if (validation !== undefined) {
-      patchData['validation'] = validateValidation(def.type, validation);
+      patchData.validation = validateValidation(def.type, validation);
     }
 
     const changes = computeChanges(def, patchData);

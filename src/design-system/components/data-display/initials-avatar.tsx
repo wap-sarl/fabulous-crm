@@ -45,7 +45,7 @@ function InitialsAvatar({ name, size = 36, className, style, ...props }: Initial
     <span
       className={cn(
         'inline-flex shrink-0 select-none items-center justify-center rounded-full font-semibold',
-        className
+        className,
       )}
       style={{
         width: size,

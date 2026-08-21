@@ -1,4 +1,4 @@
-import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   cn,
   InitialsAvatar,
@@ -53,7 +53,7 @@ function NavItemButton({
           'flex w-full cursor-pointer items-center gap-[11px] rounded-[9px] px-2.5 py-2 text-left text-sm font-semibold transition-colors [&_svg]:size-[18px] [&_svg]:shrink-0',
           active
             ? 'bg-primary-soft text-primary-strong'
-            : 'text-soft hover:bg-accent hover:text-ink'
+            : 'text-soft hover:bg-accent hover:text-ink',
         )}
       >
         {item.icon}

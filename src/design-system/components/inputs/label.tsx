@@ -1,15 +1,14 @@
-import * as React from 'react';
+import type * as React from 'react';
 import * as LabelPrimitive from '@radix-ui/react-label';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../theme/utils';
 
 const labelVariants = cva(
-  'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70'
+  'text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70',
 );
 
 interface LabelProps
-  extends
-    React.ComponentPropsWithRef<typeof LabelPrimitive.Root>,
+  extends React.ComponentPropsWithRef<typeof LabelPrimitive.Root>,
     VariantProps<typeof labelVariants> {
   /** Append a green `*` after the label text. */
   required?: boolean;

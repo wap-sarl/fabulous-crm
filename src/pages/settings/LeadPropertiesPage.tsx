@@ -82,16 +82,20 @@ function num(s: string): number | undefined {
 /** Build the validation payload for the given type, or undefined when no rules. */
 function buildValidation(
   type: LeadPropertyType,
-  dv: DraftValidation
+  dv: DraftValidation,
 ): LeadPropertyValidation | undefined {
   let obj: LeadPropertyValidation = {};
   if (type === 'number') {
     obj = { min: num(dv.min), max: num(dv.max) };
   } else if (type === 'text') {
-    obj = { minLength: num(dv.minLength), maxLength: num(dv.maxLength), pattern: dv.pattern.trim() || undefined };
+    obj = {
+      minLength: num(dv.minLength),
+      maxLength: num(dv.maxLength),
+      pattern: dv.pattern.trim() || undefined,
+    };
   }
   const cleaned = Object.fromEntries(
-    Object.entries(obj).filter(([, v]) => v !== undefined)
+    Object.entries(obj).filter(([, v]) => v !== undefined),
   ) as LeadPropertyValidation;
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
@@ -288,8 +292,8 @@ function DefinitionDialog({
                           setField(
                             'options',
                             draft.options.map((o, i) =>
-                              i === index ? { ...o, value: e.target.value } : o
-                            )
+                              i === index ? { ...o, value: e.target.value } : o,
+                            ),
                           )
                         }
                       />
@@ -305,8 +309,8 @@ function DefinitionDialog({
                         setField(
                           'options',
                           draft.options.map((o, i) =>
-                            i === index ? { ...o, label: e.target.value } : o
-                          )
+                            i === index ? { ...o, label: e.target.value } : o,
+                          ),
                         )
                       }
                     />
@@ -316,7 +320,7 @@ function DefinitionDialog({
                       onClick={() =>
                         setField(
                           'options',
-                          draft.options.filter((_, i) => i !== index)
+                          draft.options.filter((_, i) => i !== index),
                         )
                       }
                       className="flex size-8 shrink-0 items-center justify-center rounded-lg text-faint transition-colors hover:bg-destructive-soft hover:text-destructive"
@@ -329,9 +333,7 @@ function DefinitionDialog({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() =>
-                  setField('options', [...draft.options, { value: '', label: '' }])
-                }
+                onClick={() => setField('options', [...draft.options, { value: '', label: '' }])}
               >
                 <Plus className="h-4 w-4" />
                 Ajouter une option
@@ -493,10 +495,7 @@ export function LeadPropertiesPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
-      <PageHeader
-        title="Propriétés"
-        subtitle="Champs personnalisés pour les leads"
-      />
+      <PageHeader title="Propriétés" subtitle="Champs personnalisés pour les leads" />
       <div className="mt-6">
         {user?.role === 'admin' ? (
           <LeadPropertiesManager />

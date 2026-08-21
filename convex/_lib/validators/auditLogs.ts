@@ -1,4 +1,4 @@
-import { Infer, v } from 'convex/values';
+import { type Infer, v } from 'convex/values';
 
 export const auditLogEntityTypeValidator = v.union(
   v.literal('lead'),
@@ -10,13 +10,13 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('leadNote'),
   v.literal('leadList'),
   v.literal('workflow'),
-  v.literal('workflowRun')
+  v.literal('workflowRun'),
 );
 
 export const auditLogActionValidator = v.union(
   v.literal('create'),
   v.literal('update'),
-  v.literal('delete')
+  v.literal('delete'),
 );
 
 export const auditLogValidator = v.object({

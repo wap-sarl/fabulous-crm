@@ -3,7 +3,7 @@ import { Input, SegmentedControl } from '@crm/design-system';
 import { Search } from 'lucide-react';
 import type { LeadStatus } from '@crm/lib/backend';
 import { LEAD_STATUSES } from '../../../lib/constants';
-import { type LeadFilters } from '../hooks/useLeadFilters';
+import type { LeadFilters } from '../hooks/useLeadFilters';
 
 interface LeadsToolbarProps {
   filters: LeadFilters;

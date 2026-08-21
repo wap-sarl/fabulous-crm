@@ -21,5 +21,5 @@ root.render(
     <ConvexProvider url={convexUrl}>
       <App />
     </ConvexProvider>
-  </StrictMode>
+  </StrictMode>,
 );

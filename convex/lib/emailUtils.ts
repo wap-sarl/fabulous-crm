@@ -80,7 +80,7 @@ function escapeHtml(value: string): string {
 
 /**
  * Substitute `{{ params.KEY }}` placeholders (whitespace-tolerant) with the
- * matching value from `params`. Unknown keys are left untouched. When `escape`
+ * matching value from `params`. Unknown keys are left untouched. When `escapeValues`
  * is true (HTML body/subject rendered into markup) values are HTML-escaped so a
  * recipient's name can never inject markup. Deterministic and unit-testable —
  * we substitute ourselves rather than relying on Brevo to interpolate raw HTML.
@@ -88,12 +88,12 @@ function escapeHtml(value: string): string {
 export function renderPlaceholders(
   text: string,
   params: Record<string, string>,
-  escape = true
+  escapeValues = true,
 ): string {
   return text.replace(/\{\{\s*params\.([\w]+)\s*\}\}/g, (match, key: string) => {
     if (!(key in params)) return match;
     const value = params[key];
-    return escape ? escapeHtml(value) : value;
+    return escapeValues ? escapeHtml(value) : value;
   });
 }
 
@@ -142,7 +142,7 @@ export async function sendBrevoEmail(
     attachment?: { name: string; content: string }; // content = base64
     /** Overrides the env-derived SENDER (e.g. from runtime appConfig). */
     sender?: { name: string; email: string };
-  }
+  },
 ): Promise<{ ok: boolean; status: number; error?: string; messageId?: string }> {
   const body: Record<string, unknown> = {
     sender: sender ?? SENDER,
@@ -152,7 +152,7 @@ export async function sendBrevoEmail(
   };
 
   if (attachment) {
-    body['attachment'] = [attachment];
+    body.attachment = [attachment];
   }
 
   const headers: Record<string, string> = {
@@ -192,7 +192,7 @@ export async function sendBrevoTemplateEmail(
     to: { email: string; name?: string }[];
     templateId: number;
     params?: Record<string, unknown>;
-  }
+  },
 ): Promise<{ ok: boolean; status: number; error?: string; messageId?: string }> {
   const response = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
@@ -213,4 +213,3 @@ export async function sendBrevoTemplateEmail(
   const data = (await response.json().catch(() => ({}))) as { messageId?: string };
   return { ok: true, status: response.status, messageId: data.messageId };
 }
-

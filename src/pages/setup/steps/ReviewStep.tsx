@@ -10,7 +10,9 @@ export function ReviewStep({ data, error }: StepProps) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-soft">Vérifiez la configuration avant de finaliser l'installation.</p>
+      <p className="text-sm text-soft">
+        Vérifiez la configuration avant de finaliser l'installation.
+      </p>
       <KeyValueList>
         <KeyValueRow label="Organisation">{data.organizationName}</KeyValueRow>
         <KeyValueRow label="URL">{data.appUrl}</KeyValueRow>

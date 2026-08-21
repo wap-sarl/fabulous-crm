@@ -38,7 +38,7 @@ const FIXED_PLACEHOLDERS: PlaceholderItem[] = [
  */
 export function buildPlaceholders(
   definitions: LeadPropertyDefinitionRow[],
-  trackedLinks: CampaignTrackedLink[]
+  trackedLinks: CampaignTrackedLink[],
 ): PlaceholderItem[] {
   return [
     ...FIXED_PLACEHOLDERS,
@@ -52,7 +52,7 @@ export function buildPlaceholders(
         label: link.label,
         token: `{{ params.${link.key} }}`,
         kind: 'link',
-      })
+      }),
     ),
   ];
 }
@@ -66,7 +66,7 @@ export function insertAtCaret(
   el: HTMLTextAreaElement | HTMLInputElement | null,
   currentValue: string,
   text: string,
-  onChange: (next: string) => void
+  onChange: (next: string) => void,
 ) {
   const start = el?.selectionStart ?? currentValue.length;
   const end = el?.selectionEnd ?? currentValue.length;

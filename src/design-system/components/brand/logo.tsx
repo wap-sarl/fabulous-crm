@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 import { LogoIcon } from './logo-icon';
 
@@ -37,7 +37,7 @@ function Logo({
         <div
           className={cn(
             'font-mono text-[10px]',
-            variant === 'light' ? 'text-white/60' : 'text-placeholder'
+            variant === 'light' ? 'text-white/60' : 'text-placeholder',
           )}
         >
           espace de travail

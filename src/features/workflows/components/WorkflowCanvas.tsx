@@ -35,7 +35,7 @@ function CanvasInner({ draft, invalidIds, handlers }: WorkflowCanvasProps) {
         invalidIds,
         criteriaCount: countActiveRules(draft.enrollmentCriteria),
       }),
-    [draft, invalidIds]
+    [draft, invalidIds],
   );
 
   // Re-frame when the graph grows/shrinks (not on config-only edits).
@@ -57,7 +57,7 @@ function CanvasInner({ draft, invalidIds, handlers }: WorkflowCanvasProps) {
         handlers.onInsert((node.data as AddNodeData).slot);
       }
     },
-    [handlers]
+    [handlers],
   );
 
   return (

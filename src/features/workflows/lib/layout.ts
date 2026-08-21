@@ -40,7 +40,7 @@ const slotKey = (slot: InsertSlot): string =>
 
 export function layoutWorkflow(
   draft: WorkflowDraft,
-  opts?: { invalidIds?: Set<string>; criteriaCount?: number }
+  opts?: { invalidIds?: Set<string>; criteriaCount?: number },
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];
   const edges: Edge[] = [];
@@ -61,7 +61,7 @@ export function layoutWorkflow(
     sourceId: string,
     targetId: string,
     slot: InsertSlot,
-    branchLabel?: 'Oui' | 'Non'
+    branchLabel?: 'Oui' | 'Non',
   ) => {
     edges.push({
       id: `e:${sourceId}->${targetId}`,
@@ -79,7 +79,7 @@ export function layoutWorkflow(
     row: number,
     sourceId: string,
     slot: InsertSlot,
-    branchLabel?: 'Oui' | 'Non'
+    branchLabel?: 'Oui' | 'Non',
   ): void => {
     if (id === undefined || !draft.nodes[id]) {
       const addId = `add:${slotKey(slot)}`;
@@ -119,7 +119,7 @@ export function layoutWorkflow(
         row + 1,
         id,
         { parentId: id, slot: 'nextTrue' },
-        'Oui'
+        'Oui',
       );
       place(
         node.nextFalse,
@@ -127,7 +127,7 @@ export function layoutWorkflow(
         row + 1,
         id,
         { parentId: id, slot: 'nextFalse' },
-        'Non'
+        'Non',
       );
       return;
     }

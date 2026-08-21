@@ -68,7 +68,7 @@ export function ColorPickerField({ label, hint, value, onChange }: ColorPickerFi
               className={cn(
                 'flex size-8 items-center justify-center rounded-lg border border-border transition',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft',
-                selected && 'ring-2 ring-primary ring-offset-2 ring-offset-card'
+                selected && 'ring-2 ring-primary ring-offset-2 ring-offset-card',
               )}
             >
               {selected && <Check className="size-4 text-white" aria-hidden="true" />}

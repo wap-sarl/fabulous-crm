@@ -119,7 +119,7 @@ const CountrySelect = ({
                     onChange={onChange}
                     onSelectComplete={() => setIsOpen(false)}
                   />
-                ) : null
+                ) : null,
               )}
             </CommandGroup>
           </CommandList>

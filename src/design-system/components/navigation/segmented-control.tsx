@@ -30,7 +30,7 @@ function SegmentedControl<T extends string>({
       role="tablist"
       className={cn(
         'inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[11px] bg-secondary p-1',
-        className
+        className,
       )}
       {...props}
     >
@@ -45,7 +45,9 @@ function SegmentedControl<T extends string>({
             onClick={() => onChange(item.value)}
             className={cn(
               'inline-flex h-[30px] cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-all',
-              active ? 'bg-card text-ink shadow-[0_1px_2px_rgba(16,18,28,0.12)]' : 'text-soft hover:text-ink'
+              active
+                ? 'bg-card text-ink shadow-[0_1px_2px_rgba(16,18,28,0.12)]'
+                : 'text-soft hover:text-ink',
             )}
           >
             {item.label}

@@ -15,7 +15,11 @@ import {
 import { Calendar, Plus, Search, Users } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { CampaignChannelBadge } from '../../features/campaigns/components/CampaignChannelBadge';
-import { CAMPAIGN_STATUSES, CAMPAIGN_STATUS_LABEL, CAMPAIGN_STATUS_TONE } from '../../lib/constants';
+import {
+  CAMPAIGN_STATUSES,
+  CAMPAIGN_STATUS_LABEL,
+  CAMPAIGN_STATUS_TONE,
+} from '../../lib/constants';
 
 const numberFormat = new Intl.NumberFormat('fr-FR');
 
@@ -41,7 +45,7 @@ export function CampaignsPage() {
     return campaigns.filter(
       (c) =>
         (statusFilter === 'all' || c.status === statusFilter) &&
-        (q === '' || c.name.toLowerCase().includes(q))
+        (q === '' || c.name.toLowerCase().includes(q)),
     );
   }, [campaigns, search, statusFilter]);
 

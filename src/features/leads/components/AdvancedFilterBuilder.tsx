@@ -321,7 +321,10 @@ function RuleRow({
       </div>
 
       <div className="w-40 shrink-0">
-        <Select value={rule.operator} onValueChange={(v) => handleOperatorChange(v as FilterOperator)}>
+        <Select
+          value={rule.operator}
+          onValueChange={(v) => handleOperatorChange(v as FilterOperator)}
+        >
           <SelectTrigger className="w-full">
             <SelectValue />
           </SelectTrigger>
@@ -408,7 +411,10 @@ function RuleValueInput({ rule, type, def, employees, onChange }: RuleValueInput
           placeholder="Min"
           value={typeof asRange.min === 'number' ? String(asRange.min) : ''}
           onChange={(e) =>
-            setValue({ ...asRange, min: e.target.value === '' ? undefined : Number(e.target.value) })
+            setValue({
+              ...asRange,
+              min: e.target.value === '' ? undefined : Number(e.target.value),
+            })
           }
         />
         <span className="text-sm text-faint">et</span>
@@ -417,7 +423,10 @@ function RuleValueInput({ rule, type, def, employees, onChange }: RuleValueInput
           placeholder="Max"
           value={typeof asRange.max === 'number' ? String(asRange.max) : ''}
           onChange={(e) =>
-            setValue({ ...asRange, max: e.target.value === '' ? undefined : Number(e.target.value) })
+            setValue({
+              ...asRange,
+              max: e.target.value === '' ? undefined : Number(e.target.value),
+            })
           }
         />
       </div>
@@ -435,9 +444,7 @@ function RuleValueInput({ rule, type, def, employees, onChange }: RuleValueInput
       );
 
     case 'date':
-      return (
-        <DatePicker value={asString} onValueChange={(v) => setValue(v || undefined)} />
-      );
+      return <DatePicker value={asString} onValueChange={(v) => setValue(v || undefined)} />;
 
     case 'boolean':
       return (
@@ -501,8 +508,6 @@ function RuleValueInput({ rule, type, def, employees, onChange }: RuleValueInput
 
     // text / email → free text
     default:
-      return (
-        <Input value={asString} onChange={(e) => setValue(e.target.value || undefined)} />
-      );
+      return <Input value={asString} onChange={(e) => setValue(e.target.value || undefined)} />;
   }
 }

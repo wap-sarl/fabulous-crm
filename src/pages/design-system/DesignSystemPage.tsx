@@ -100,15 +100,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function Swatch({
-  color,
-  label,
-  className,
-}: {
-  color: string;
-  label: string;
-  className?: string;
-}) {
+function Swatch({ color, label, className }: { color: string; label: string; className?: string }) {
   return (
     <div className="flex flex-col gap-1.5">
       <div
@@ -120,7 +112,15 @@ function Swatch({
   );
 }
 
-function Field({ label, children, htmlFor }: { label: string; children: ReactNode; htmlFor?: string }) {
+function Field({
+  label,
+  children,
+  htmlFor,
+}: {
+  label: string;
+  children: ReactNode;
+  htmlFor?: string;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={htmlFor}>{label}</Label>
@@ -169,8 +169,13 @@ export function DesignSystemPage() {
         <Section title="Typographie — Onest / JetBrains Mono">
           <div className="flex flex-col gap-4">
             {TYPE_SPECIMENS.map((spec) => (
-              <div key={spec.caption} className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-6">
-                <span className="w-40 shrink-0 font-mono text-[11px] text-faint">{spec.caption}</span>
+              <div
+                key={spec.caption}
+                className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:gap-6"
+              >
+                <span className="w-40 shrink-0 font-mono text-[11px] text-faint">
+                  {spec.caption}
+                </span>
                 <span className={spec.className}>{spec.text}</span>
               </div>
             ))}
@@ -228,7 +233,13 @@ export function DesignSystemPage() {
               <DatePicker value={date} onValueChange={setDate} />
             </Field>
             <Field label="Code de vérification">
-              <OtpInput length={4} numeric value={otp} onChange={setOtp} className="justify-start" />
+              <OtpInput
+                length={4}
+                numeric
+                value={otp}
+                onChange={setOtp}
+                className="justify-start"
+              />
             </Field>
             <div className="flex items-center gap-2.5">
               <Checkbox
@@ -291,7 +302,10 @@ export function DesignSystemPage() {
                 { caption: 'Envois', statuses: SEND_STATUSES },
               ] as const
             ).map((row) => (
-              <div key={row.caption} className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-6">
+              <div
+                key={row.caption}
+                className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-6"
+              >
                 <span className="w-24 shrink-0 text-[12.5px] font-medium text-faint">
                   {row.caption}
                 </span>

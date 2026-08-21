@@ -15,7 +15,13 @@ function cfg(email?: AppConfig['email'], sender?: Partial<AppConfig>): AppConfig
   } as AppConfig;
 }
 
-const ENV_KEYS = ['BREVO_API_KEY', 'BREVO_WEBHOOK_SECRET', 'BREVO_SMS_SENDER', 'EMAIL_SENDER_EMAIL', 'EMAIL_SENDER_NAME'];
+const ENV_KEYS = [
+  'BREVO_API_KEY',
+  'BREVO_WEBHOOK_SECRET',
+  'BREVO_SMS_SENDER',
+  'EMAIL_SENDER_EMAIL',
+  'EMAIL_SENDER_NAME',
+];
 let saved: Record<string, string | undefined>;
 
 beforeEach(() => {
@@ -41,7 +47,11 @@ describe('resolveEmailProvider', () => {
   it('falls back to the env Brevo API key when config value is empty', () => {
     process.env.BREVO_API_KEY = 'env-key';
     const r = resolveEmailProvider(cfg({ provider: 'brevo' }));
-    expect(r).toEqual({ kind: 'brevo', apiKey: 'env-key', sender: { name: 'CRM', email: 'from@crm.local' } });
+    expect(r).toEqual({
+      kind: 'brevo',
+      apiKey: 'env-key',
+      sender: { name: 'CRM', email: 'from@crm.local' },
+    });
   });
 
   it('prefers the stored Brevo API key over the env var', () => {
@@ -51,7 +61,9 @@ describe('resolveEmailProvider', () => {
   });
 
   it('resolves SMTP settings with defaults for missing port/secure', () => {
-    const r = resolveEmailProvider(cfg({ provider: 'smtp', smtpHost: 'smtp.example.com', smtpUser: 'u', smtpPass: 'p' }));
+    const r = resolveEmailProvider(
+      cfg({ provider: 'smtp', smtpHost: 'smtp.example.com', smtpUser: 'u', smtpPass: 'p' }),
+    );
     expect(r).toEqual({
       kind: 'smtp',
       smtp: { host: 'smtp.example.com', port: 587, secure: false, user: 'u', pass: 'p' },
@@ -71,12 +83,16 @@ describe('isEmailProviderConfigured', () => {
   });
 
   it('is false for SMTP with no host', () => {
-    expect(isEmailProviderConfigured(resolveEmailProvider(cfg({ provider: 'smtp', smtpUser: 'u' })))).toBe(false);
+    expect(
+      isEmailProviderConfigured(resolveEmailProvider(cfg({ provider: 'smtp', smtpUser: 'u' }))),
+    ).toBe(false);
   });
 
   it('is true for SMTP with a host', () => {
     expect(
-      isEmailProviderConfigured(resolveEmailProvider(cfg({ provider: 'smtp', smtpHost: 'smtp.example.com' })))
+      isEmailProviderConfigured(
+        resolveEmailProvider(cfg({ provider: 'smtp', smtpHost: 'smtp.example.com' })),
+      ),
     ).toBe(true);
   });
 });

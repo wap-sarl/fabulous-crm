@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 interface CollapseProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -23,7 +23,7 @@ function Collapse({
       className={cn(
         'grid ease-out motion-safe:transition-[grid-template-rows]',
         open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
-        className
+        className,
       )}
       style={{ transitionDuration: `${durationMs}ms`, ...style }}
       {...props}

@@ -13,7 +13,13 @@ interface SparklineProps {
  * Tiny trend polyline, no axes. Renders a muted "Pas encore de données"
  * placeholder when fewer than 2 points are provided.
  */
-function Sparkline({ points, width = 132, height = 34, color = 'var(--chart-1)', className }: SparklineProps) {
+function Sparkline({
+  points,
+  width = 132,
+  height = 34,
+  color = 'var(--chart-1)',
+  className,
+}: SparklineProps) {
   if (points.length < 2) {
     return (
       <span className={cn('text-[11px] text-[#C4C8D2]', className)}>Pas encore de données</span>

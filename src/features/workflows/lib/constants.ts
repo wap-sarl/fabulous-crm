@@ -90,7 +90,7 @@ export const TRIGGER_GROUPS: {
 ];
 
 const TRIGGER_OPTION_LABEL = new Map<TriggerOptionValue, string>(
-  TRIGGER_GROUPS.flatMap((g) => g.options).map((o) => [o.value, o.label])
+  TRIGGER_GROUPS.flatMap((g) => g.options).map((o) => [o.value, o.label]),
 );
 
 /** Flat Select value of a stored trigger. */
@@ -129,7 +129,7 @@ const SMS_OPTION_TO_EVENT = {
  */
 export function optionToTrigger(
   value: TriggerOptionValue,
-  prev: WorkflowTrigger | null
+  prev: WorkflowTrigger | null,
 ): WorkflowTrigger {
   const prevListId = prev?.type === 'list_membership_changed' ? prev.listId : undefined;
   const prevCampaignId =
@@ -183,17 +183,18 @@ export function triggerLabel(trigger: WorkflowTrigger): string {
 }
 
 /** Generic label per trigger *type* (list page, run history `triggerType`). */
-export const TRIGGER_TYPE_LABEL: Record<WorkflowTriggerType | 'manual' | 'bulk_reenroll', string> = {
-  lead_created: 'Lead créé',
-  lead_property_changed: 'Propriété modifiée',
-  list_membership_changed: 'Liste (ajout / retrait)',
-  consent_updated: 'Consentement mis à jour',
-  campaign_email_event: 'Événement e-mail',
-  campaign_sms_event: 'Événement SMS',
-  tracked_link_click: 'Clic sur un lien suivi',
-  manual: 'Inscription manuelle',
-  bulk_reenroll: 'Réinscription en masse',
-};
+export const TRIGGER_TYPE_LABEL: Record<WorkflowTriggerType | 'manual' | 'bulk_reenroll', string> =
+  {
+    lead_created: 'Lead créé',
+    lead_property_changed: 'Propriété modifiée',
+    list_membership_changed: 'Liste (ajout / retrait)',
+    consent_updated: 'Consentement mis à jour',
+    campaign_email_event: 'Événement e-mail',
+    campaign_sms_event: 'Événement SMS',
+    tracked_link_click: 'Clic sur un lien suivi',
+    manual: 'Inscription manuelle',
+    bulk_reenroll: 'Réinscription en masse',
+  };
 
 export const STEP_TYPES: {
   type: WorkflowNodeType;
@@ -218,10 +219,10 @@ export const WORKFLOW_STATUSES: { value: WorkflowStatus; label: string; tone: St
   { value: 'paused', label: 'En pause', tone: 'amber' },
 ];
 export const WORKFLOW_STATUS_LABEL = Object.fromEntries(
-  WORKFLOW_STATUSES.map((s) => [s.value, s.label])
+  WORKFLOW_STATUSES.map((s) => [s.value, s.label]),
 ) as Record<WorkflowStatus, string>;
 export const WORKFLOW_STATUS_TONE = Object.fromEntries(
-  WORKFLOW_STATUSES.map((s) => [s.value, s.tone])
+  WORKFLOW_STATUSES.map((s) => [s.value, s.tone]),
 ) as Record<WorkflowStatus, StatusTone>;
 
 export const RUN_STATUS_LABEL: Record<WorkflowRunStatus, string> = {
@@ -267,7 +268,7 @@ const STANDARD_FIELD_LABEL = new Map(STANDARD_FILTER_FIELDS.map((f) => [f.field,
 /** One-line card subtitle describing a node's configuration. */
 export function nodeSummary(
   node: WorkflowNode,
-  ctx: { listNameById: Map<string, string>; definitionLabelById: Map<string, string> }
+  ctx: { listNameById: Map<string, string>; definitionLabelById: Map<string, string> },
 ): string {
   switch (node.type) {
     case 'send_email':

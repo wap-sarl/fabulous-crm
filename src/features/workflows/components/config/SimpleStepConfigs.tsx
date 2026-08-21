@@ -56,7 +56,7 @@ export function PropertyStepConfig({ value, onChange, definitions }: PropertySte
       ...WRITABLE_STANDARD_FIELDS.map((f) => ({ value: `std:${f.field}`, label: f.label })),
       ...definitions.map((d) => ({ value: `cp:${d._id}`, label: d.label })),
     ],
-    [definitions]
+    [definitions],
   );
 
   const handleTargetChange = (key: string) => {
@@ -147,7 +147,10 @@ function PropertyValueInput({
     }
     if (target.field === 'isRedFlagged') return booleanSelect;
     return (
-      <Input value={typeof value === 'string' ? value : ''} onChange={(e) => onChange(e.target.value)} />
+      <Input
+        value={typeof value === 'string' ? value : ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
     );
   }
 

@@ -6,7 +6,11 @@ import {
   formatLeadPropertyParamValue,
   type LeadPropertyValue,
 } from '../../_lib/validators/leadProperties';
-import { LEAD_STATUS_LABELS, type TrackedLinkStandardField, type LeadStatus } from '../../_lib/validators/crm';
+import {
+  LEAD_STATUS_LABELS,
+  type TrackedLinkStandardField,
+  type LeadStatus,
+} from '../../_lib/validators/crm';
 
 /**
  * Lead-targeting helpers shared by campaign tracked links and workflow
@@ -36,7 +40,7 @@ export function formatAddressParam(address: Doc<'leads'>['address']): string {
 export function buildLeadParams(
   lead: Doc<'leads'>,
   defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
-  consentBase: string
+  consentBase: string,
 ): Record<string, string> {
   const params: Record<string, string> = {
     firstName: lead.firstName,
@@ -51,7 +55,7 @@ export function buildLeadParams(
   for (const def of defsById.values()) {
     params[customPropertyParamKey(def._id)] = formatLeadPropertyParamValue(
       def,
-      lead.customProperties?.[def._id]
+      lead.customProperties?.[def._id],
     );
   }
   return params;
@@ -65,7 +69,7 @@ export function buildLeadParams(
 export function validateLeadTargetValue(
   target: LeadTarget,
   value: LeadPropertyValue,
-  defsById: Map<string, Doc<'leadPropertyDefinitions'>>
+  defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
 ): string | null {
   if (target.kind === 'custom') {
     const def = defsById.get(target.propertyDefId as string);
@@ -98,7 +102,7 @@ export async function buildLeadTargetPatch(
   ctx: MutationCtx,
   lead: Doc<'leads'>,
   target: LeadTarget,
-  value: LeadPropertyValue
+  value: LeadPropertyValue,
 ): Promise<Partial<Doc<'leads'>> | null> {
   if (target.kind === 'custom') {
     const def = await ctx.db.get(target.propertyDefId);

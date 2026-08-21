@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 interface KeyValueRowProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -16,7 +16,7 @@ function KeyValueRow({ label, mono, className, children, ...props }: KeyValueRow
     <div
       className={cn(
         'flex items-baseline justify-between gap-4 border-b border-[#F3F4F6] py-2.5 last:border-b-0',
-        className
+        className,
       )}
       {...props}
     >
@@ -24,7 +24,7 @@ function KeyValueRow({ label, mono, className, children, ...props }: KeyValueRow
       <span
         className={cn(
           'min-w-0 text-right text-[13px] font-medium text-body',
-          mono && 'font-mono text-[12.5px]'
+          mono && 'font-mono text-[12.5px]',
         )}
       >
         {children}

@@ -65,7 +65,7 @@ export function withEmailCompliance(html: string, type: MessageType): string {
   return html
     .replace(
       /(?:<hr\s*\/?>)?\s*<p>(?:(?!<\/p>)[\s\S])*?\{\{\s*params\.consentUrl\s*\}\}(?:(?!<\/p>)[\s\S])*?<\/p>/g,
-      ''
+      '',
     )
     .replace(/\s+$/, '');
 }

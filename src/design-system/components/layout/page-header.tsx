@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '../../theme/utils';
 
@@ -42,7 +42,7 @@ function PageHeader({
       <div
         className={cn(
           'flex flex-wrap items-center gap-3 border-b border-[#EEF0F3] bg-card px-5 py-[18px] sm:px-7',
-          className
+          className,
         )}
         {...props}
       >
@@ -71,10 +71,7 @@ function PageHeader({
 
   return (
     <div
-      className={cn(
-        'flex flex-wrap items-end justify-between gap-3 pb-4 pt-6',
-        className
-      )}
+      className={cn('flex flex-wrap items-end justify-between gap-3 pb-4 pt-6', className)}
       {...props}
     >
       <div className="min-w-0">

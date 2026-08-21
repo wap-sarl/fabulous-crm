@@ -35,7 +35,10 @@ export const runWorkflowActionStep = internalAction({
       });
 
     try {
-      const step = await ctx.runQuery(internal.features.workflows.internal.getActionStepContext, args);
+      const step = await ctx.runQuery(
+        internal.features.workflows.internal.getActionStepContext,
+        args,
+      );
       if (!step) {
         await complete('skipped', 'contexte indisponible');
         return;

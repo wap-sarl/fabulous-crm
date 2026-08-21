@@ -40,7 +40,7 @@ export function InsertEdge(props: EdgeProps) {
             }}
             className={cn(
               'absolute z-10 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-wide',
-              branchLabel === 'Oui' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+              branchLabel === 'Oui' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600',
             )}
           >
             {branchLabel}

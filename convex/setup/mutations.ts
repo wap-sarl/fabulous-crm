@@ -1,9 +1,6 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import {
-  ssoProviderValidator,
-  socialProviderConfigValidator,
-} from '../_lib/validators/appConfig';
+import { ssoProviderValidator, socialProviderConfigValidator } from '../_lib/validators/appConfig';
 import { logAudit } from '../lib';
 import { isSetupComplete } from './helpers';
 

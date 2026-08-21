@@ -1,4 +1,4 @@
-import { Infer, v } from 'convex/values';
+import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
 
 /**
@@ -20,7 +20,7 @@ export const leadPropertyTypeValidator = v.union(
   v.literal('boolean'),
   // French health-professional identifier. Value is the 11-digit RPPS string; the
   // lead form renders it with an FHIR-connected verified input (Annuaire Santé).
-  v.literal('rpps')
+  v.literal('rpps'),
 );
 
 /** Types whose value is chosen from an admin-defined `options` list. */
@@ -45,7 +45,7 @@ export const leadPropertyValueValidator = v.union(
   v.string(),
   v.number(),
   v.boolean(),
-  v.array(v.string())
+  v.array(v.string()),
 );
 
 /**
@@ -103,12 +103,11 @@ export function customPropertyParamKey(defId: string): string {
  */
 export function formatLeadPropertyParamValue(
   def: Pick<LeadPropertyDefinition, 'type' | 'options'>,
-  value: LeadPropertyValue | undefined
+  value: LeadPropertyValue | undefined,
 ): string {
   if (value === undefined || value === null || value === '') return '';
 
-  const optionLabel = (raw: string) =>
-    def.options?.find((o) => o.value === raw)?.label ?? raw;
+  const optionLabel = (raw: string) => def.options?.find((o) => o.value === raw)?.label ?? raw;
 
   switch (def.type) {
     case 'boolean':
@@ -146,7 +145,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  */
 export function validateLeadPropertyValue(
   def: ValidatableDefinition,
-  value: LeadPropertyValue | undefined
+  value: LeadPropertyValue | undefined,
 ): string | null {
   const isEmpty =
     value === undefined ||

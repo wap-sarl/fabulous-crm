@@ -49,7 +49,13 @@ const escapeHtml = (s: string) =>
  * Controlled via `value` (HTML) / `onChange`. Output is TipTap's semantic HTML;
  * it is wrapped in an email shell and placeholder-substituted at send time.
  */
-export function EmailBodyEditor({ value, onChange, placeholders, onRequestTrackedLink, ref }: Props) {
+export function EmailBodyEditor({
+  value,
+  onChange,
+  placeholders,
+  onRequestTrackedLink,
+  ref,
+}: Props) {
   const editor = useEditor({
     extensions: [
       // StarterKit bundles its own Link; disable it so our configured Link wins.
@@ -63,7 +69,7 @@ export function EmailBodyEditor({ value, onChange, placeholders, onRequestTracke
       attributes: {
         class: cn(
           'prose prose-sm max-w-none min-h-[240px] px-4 py-3 focus:outline-none',
-          'prose-headings:font-semibold prose-a:text-primary'
+          'prose-headings:font-semibold prose-a:text-primary',
         ),
       },
     },
@@ -89,7 +95,7 @@ export function EmailBodyEditor({ value, onChange, placeholders, onRequestTracke
           .insertContent(`<a href="${escapeHtml(href)}">${escapeHtml(label)}</a> `)
           .run(),
     }),
-    [editor]
+    [editor],
   );
 
   if (!editor) return null;
@@ -139,11 +145,7 @@ export function EmailBodyEditor({ value, onChange, placeholders, onRequestTracke
           active={editor.isActive('link')}
           onClick={() => setLink(editor)}
         />
-        <ToolbarButton
-          icon={ImageIcon}
-          label="Image"
-          onClick={() => insertImage(editor)}
-        />
+        <ToolbarButton icon={ImageIcon} label="Image" onClick={() => insertImage(editor)} />
 
         <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
@@ -204,7 +206,7 @@ function ToolbarButton({ icon: Icon, label, active, onClick }: ToolbarButtonProp
       className={cn(
         'inline-flex size-8 items-center justify-center rounded-md transition',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft',
-        active ? 'bg-primary text-white' : 'text-faint hover:bg-muted hover:text-ink'
+        active ? 'bg-primary text-white' : 'text-faint hover:bg-muted hover:text-ink',
       )}
     >
       <Icon className="size-4" aria-hidden="true" />

@@ -21,7 +21,7 @@ export function useAuthAction<A extends AnyAction>(action: A) {
 }
 
 export function useGuestAction<A extends GuestedAction>(
-  action: A
+  action: A,
 ): (args: GuestActionArgs<A>) => Promise<FunctionReturnType<A>> {
   const guestToken = useGuestToken();
   const fn = useAction(action);
@@ -33,6 +33,6 @@ export function useGuestAction<A extends GuestedAction>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return fn({ ...args, guestToken } as any);
     },
-    [fn, guestToken]
+    [fn, guestToken],
   );
 }

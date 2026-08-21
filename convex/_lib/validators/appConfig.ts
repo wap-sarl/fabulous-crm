@@ -1,4 +1,4 @@
-import { Infer, v } from 'convex/values';
+import { type Infer, v } from 'convex/values';
 
 /**
  * A custom OIDC/SSO issuer handled by Better Auth's generic-oauth plugin — the

@@ -29,11 +29,11 @@ import {
   type PanelSelection,
 } from '../../features/workflows/components/StepConfigPanel';
 import type { TriggerFormValue } from '../../features/workflows/components/config/TriggerConfig';
-import { WORKFLOW_STATUS_LABEL, WORKFLOW_STATUS_TONE } from '../../features/workflows/lib/constants';
 import {
-  invalidNodeIds,
-  validateWorkflowDraft,
-} from '../../features/workflows/lib/validation';
+  WORKFLOW_STATUS_LABEL,
+  WORKFLOW_STATUS_TONE,
+} from '../../features/workflows/lib/constants';
+import { invalidNodeIds, validateWorkflowDraft } from '../../features/workflows/lib/validation';
 
 export function WorkflowEditorPage() {
   const { workflowId } = useParams<{ workflowId: string }>();
@@ -45,14 +45,14 @@ export function WorkflowEditorPage() {
   const lists = useLeadLists();
   const existing = useAuthQuery(
     api.features.workflows.queries.getWorkflow,
-    isEdit ? { workflowId: workflowId as Id<'workflows'> } : 'skip'
+    isEdit ? { workflowId: workflowId as Id<'workflows'> } : 'skip',
   );
 
   const createWorkflow = useAuthMutation(api.features.workflows.mutations.createWorkflow);
   const updateWorkflow = useAuthMutation(api.features.workflows.mutations.updateWorkflow);
   const setWorkflowStatus = useAuthMutation(api.features.workflows.mutations.setWorkflowStatus);
   const reenrollMatchingLeads = useAuthMutation(
-    api.features.workflows.mutations.reenrollMatchingLeads
+    api.features.workflows.mutations.reenrollMatchingLeads,
   );
 
   const [state, dispatch] = useWorkflowDraft();
@@ -67,7 +67,7 @@ export function WorkflowEditorPage() {
   // Matching-lead count for the save dialog (criteria evaluated live).
   const matching = useAuthQuery(
     api.features.crm.queries.listMatchingLeadIds,
-    saveChoiceOpen ? { advancedFilter: draft.enrollmentCriteria } : 'skip'
+    saveChoiceOpen ? { advancedFilter: draft.enrollmentCriteria } : 'skip',
   );
 
   // Seed the local draft once the edited workflow loads.
@@ -90,13 +90,13 @@ export function WorkflowEditorPage() {
   const errors = useMemo(() => validateWorkflowDraft(draft), [draft]);
   const invalidIds = useMemo(
     () => (showErrors ? invalidNodeIds(errors) : undefined),
-    [showErrors, errors]
+    [showErrors, errors],
   );
 
   const listNameById = useMemo(() => new Map(lists.map((l) => [l._id as string, l.name])), [lists]);
   const definitionLabelById = useMemo(
     () => new Map(definitions.map((d) => [d._id as string, d.label])),
-    [definitions]
+    [definitions],
   );
 
   const selection: PanelSelection = useMemo(() => {
@@ -177,7 +177,7 @@ export function WorkflowEditorPage() {
       const result = await reenrollMatchingLeads({ workflowId: id });
       toast.success(
         `${result.enrolled} lead(s) réinscrit(s)` +
-          (result.cancelled > 0 ? `, ${result.cancelled} parcours annulé(s).` : '.')
+          (result.cancelled > 0 ? `, ${result.cancelled} parcours annulé(s).` : '.'),
       );
       navigate(`/workflows/${id}`);
     } catch (e) {
@@ -238,7 +238,11 @@ export function WorkflowEditorPage() {
   return (
     <div className="flex h-[calc(100dvh-120px)] min-h-[560px] flex-col gap-3 px-5 py-4 sm:px-7">
       <div className="flex flex-wrap items-center gap-3">
-        <Button variant="ghost" size="sm" onClick={() => navigate(isEdit ? `/workflows/${workflowId}` : '/workflows')}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate(isEdit ? `/workflows/${workflowId}` : '/workflows')}
+        >
           <ArrowLeft className="size-4" />
           Retour
         </Button>
@@ -270,7 +274,11 @@ export function WorkflowEditorPage() {
                 <Save className="size-4" />
                 Enregistrer
               </Button>
-              <Button onClick={handleActivate} disabled={submitting} data-testid="activate-workflow">
+              <Button
+                onClick={handleActivate}
+                disabled={submitting}
+                data-testid="activate-workflow"
+              >
                 <Play className="size-4" />
                 Activer
               </Button>
@@ -305,7 +313,12 @@ export function WorkflowEditorPage() {
         onOpenChange={(open) => !open && setPickerSlot(null)}
         onPick={(type) => {
           if (!pickerSlot) return;
-          dispatch({ type: 'insertNode', slot: pickerSlot, nodeType: type, id: crypto.randomUUID() });
+          dispatch({
+            type: 'insertNode',
+            slot: pickerSlot,
+            nodeType: type,
+            id: crypto.randomUUID(),
+          });
           setPickerSlot(null);
         }}
       />
@@ -381,7 +394,10 @@ export function WorkflowEditorPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={confirmRemoveId !== null} onOpenChange={(open) => !open && setConfirmRemoveId(null)}>
+      <Dialog
+        open={confirmRemoveId !== null}
+        onOpenChange={(open) => !open && setConfirmRemoveId(null)}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Supprimer la condition ?</DialogTitle>

@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 interface HelperTextProps extends React.ComponentProps<'p'> {
@@ -11,7 +11,7 @@ function HelperText({ variant = 'default', className, ...props }: HelperTextProp
       className={cn(
         'text-xs font-normal',
         variant === 'error' ? 'text-destructive' : 'text-muted-foreground',
-        className
+        className,
       )}
       role={variant === 'error' ? 'alert' : undefined}
       {...props}

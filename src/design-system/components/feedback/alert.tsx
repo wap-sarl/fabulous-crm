@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../theme/utils';
 
@@ -8,8 +8,7 @@ const alertVariants = cva(
     variants: {
       variant: {
         default: 'bg-card text-foreground',
-        destructive:
-          'border-destructive/50 text-destructive [&>svg]:text-destructive',
+        destructive: 'border-destructive/50 text-destructive [&>svg]:text-destructive',
         success: 'border-primary/50 text-primary bg-primary/10 [&>svg]:text-primary',
         warning: 'border-warning/50 text-warning bg-warning/10 [&>svg]:text-warning',
         info: 'border-secondary/50 text-secondary bg-secondary/10 [&>svg]:text-secondary',
@@ -18,7 +17,7 @@ const alertVariants = cva(
     defaultVariants: {
       variant: 'default',
     },
-  }
+  },
 );
 
 function Alert({

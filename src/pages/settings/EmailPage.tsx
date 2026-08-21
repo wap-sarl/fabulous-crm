@@ -202,7 +202,7 @@ function EmailManager() {
       setError(
         e instanceof Error && e.message.includes('smtp_config_incomplete')
           ? 'Configuration SMTP incomplète (hôte et port requis).'
-          : "L'enregistrement a échoué. Veuillez réessayer."
+          : "L'enregistrement a échoué. Veuillez réessayer.",
       );
     } finally {
       setBusy(false);
@@ -283,8 +283,8 @@ function EmailManager() {
               onEnable={() => set('provider', 'brevo')}
             />
             <p className="text-xs text-muted-foreground">
-              Un seul fournisseur d'e-mail est actif à la fois. Les SMS passent toujours par
-              Brevo, quel que soit le fournisseur d'e-mail.
+              Un seul fournisseur d'e-mail est actif à la fois. Les SMS passent toujours par Brevo,
+              quel que soit le fournisseur d'e-mail.
             </p>
           </Card>
 
@@ -427,7 +427,12 @@ function EmailManager() {
               placeholder="vous@votredomaine.fr"
             />
           </div>
-          <Button variant="outline" onClick={handleTest} loading={testing} disabled={!testTo.trim()}>
+          <Button
+            variant="outline"
+            onClick={handleTest}
+            loading={testing}
+            disabled={!testTo.trim()}
+          >
             Envoyer le test
           </Button>
         </div>
@@ -477,10 +482,7 @@ export function EmailPage() {
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
-      <PageHeader
-        title="E-mail & SMS"
-        subtitle="Fournisseur d'envoi, clés Brevo et serveur SMTP"
-      />
+      <PageHeader title="E-mail & SMS" subtitle="Fournisseur d'envoi, clés Brevo et serveur SMTP" />
       <div className="mt-6">
         {user?.role === 'admin' ? (
           <EmailManager />

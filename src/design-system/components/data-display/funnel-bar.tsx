@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 interface FunnelBarProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -15,7 +15,14 @@ const numberFormat = new Intl.NumberFormat('fr-FR');
 /**
  * One conversion-funnel stage: label, mono "count · pct", 10px progress bar.
  */
-function FunnelBar({ label, count, percent, color = 'var(--chart-1)', className, ...props }: FunnelBarProps) {
+function FunnelBar({
+  label,
+  count,
+  percent,
+  color = 'var(--chart-1)',
+  className,
+  ...props
+}: FunnelBarProps) {
   const pct = Math.max(0, Math.min(100, percent));
   return (
     <div className={cn('flex flex-col gap-1.5', className)} {...props}>

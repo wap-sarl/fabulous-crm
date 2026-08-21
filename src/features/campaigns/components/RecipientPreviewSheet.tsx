@@ -38,7 +38,7 @@ export function RecipientPreviewSheet({
 }) {
   const preview = useAuthQuery(
     api.features.crm.queries.getCampaignSendPreview,
-    sendId ? { sendId } : 'skip'
+    sendId ? { sendId } : 'skip',
   );
 
   return (
@@ -64,9 +64,7 @@ export function RecipientPreviewSheet({
                 <StatusBadge tone={SEND_STATUS_TONE[preview.status]}>
                   {SEND_STATUS_LABEL[preview.status]}
                 </StatusBadge>
-                {preview.sentAt && (
-                  <span>Envoyé le {dateTimeFormat.format(preview.sentAt)}</span>
-                )}
+                {preview.sentAt && <span>Envoyé le {dateTimeFormat.format(preview.sentAt)}</span>}
                 {preview.openedAt && (
                   <span>Ouvert le {dateTimeFormat.format(preview.openedAt)}</span>
                 )}

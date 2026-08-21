@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 function Table({
@@ -59,7 +59,7 @@ function TableRow({
       ref={ref}
       className={cn(
         'border-b border-[#F3F4F6] transition-colors hover:bg-[#FAFAFB] data-[state=selected]:bg-primary-soft/40',
-        className
+        className,
       )}
       {...props}
     />
@@ -76,7 +76,7 @@ function TableHead({
       ref={ref}
       className={cn(
         'h-11 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-faint [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        className
+        className,
       )}
       {...props}
     />
@@ -93,7 +93,7 @@ function TableCell({
       ref={ref}
       className={cn(
         'px-4 py-3.5 align-middle [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]',
-        className
+        className,
       )}
       {...props}
     />

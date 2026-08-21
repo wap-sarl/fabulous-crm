@@ -66,7 +66,7 @@ export function WorkflowDetailPage() {
 
   const runsArgs = useMemo(
     () => ({ workflowId: id, status: runFilter === 'all' ? undefined : runFilter }),
-    [id, runFilter]
+    [id, runFilter],
   );
   const {
     results: runs,
@@ -110,7 +110,7 @@ export function WorkflowDetailPage() {
 
   const failedCount = Math.max(
     0,
-    workflow.enrolledCount - workflow.activeCount - workflow.completedCount
+    workflow.enrolledCount - workflow.activeCount - workflow.completedCount,
   );
 
   return (

@@ -18,7 +18,7 @@ export const PROPERTY_TYPES: { value: LeadPropertyType; label: string }[] = [
 ];
 
 export const PROPERTY_TYPE_LABEL: Record<LeadPropertyType, string> = Object.fromEntries(
-  PROPERTY_TYPES.map((t) => [t.value, t.label])
+  PROPERTY_TYPES.map((t) => [t.value, t.label]),
 ) as Record<LeadPropertyType, string>;
 
 /** Types whose value is chosen from an option list (settings shows an options editor). */
@@ -57,14 +57,14 @@ function optionLabel(def: LeadPropertyDefinitionRow, value: string): string {
 function formatRpps(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
   return digits.replace(/^(\d)(\d{0,3})(\d{0,3})(\d{0,4}).*$/, (_m, a, b, c, d) =>
-    [a, b, c, d].filter(Boolean).join(' ')
+    [a, b, c, d].filter(Boolean).join(' '),
   );
 }
 
 /** Render a stored value for display in the table cell / detail row. */
 export function formatPropertyValue(
   def: LeadPropertyDefinitionRow,
-  value: LeadPropertyValue | undefined
+  value: LeadPropertyValue | undefined,
 ): string {
   if (!hasPropertyValue(value)) return '—';
   switch (def.type) {

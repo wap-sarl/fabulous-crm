@@ -1,9 +1,4 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@crm/design-system';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@crm/design-system';
 import type { WorkflowNodeType } from '@crm/lib/backend';
 import { STEP_TYPES } from '../lib/constants';
 

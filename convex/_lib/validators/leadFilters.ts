@@ -1,4 +1,4 @@
-import { Infer, v } from 'convex/values';
+import { type Infer, v } from 'convex/values';
 
 /**
  * The advanced-filter model for the leads list. A two-level boolean tree:
@@ -19,13 +19,13 @@ export const standardFieldValidator = v.union(
   v.literal('status'),
   v.literal('assignedTo'),
   v.literal('isRedFlagged'),
-  v.literal('marketingConsent')
+  v.literal('marketingConsent'),
 );
 
 /** A rule's target: either a standard column or a custom-property definition. */
 export const filterFieldValidator = v.union(
   v.object({ kind: v.literal('standard'), field: standardFieldValidator }),
-  v.object({ kind: v.literal('custom'), definitionId: v.string() })
+  v.object({ kind: v.literal('custom'), definitionId: v.string() }),
 );
 
 /**
@@ -40,7 +40,7 @@ export const filterOperatorValidator = v.union(
   v.literal('isNotEmpty'),
   v.literal('gt'),
   v.literal('lt'),
-  v.literal('between')
+  v.literal('between'),
 );
 
 /** Inclusive bounds for the `between` operator (numbers or ISO date strings). */
@@ -59,7 +59,7 @@ export const filterRuleValueValidator = v.union(
   v.number(),
   v.boolean(),
   v.array(v.string()),
-  filterRangeValidator
+  filterRangeValidator,
 );
 
 export const filterRuleValidator = v.object({

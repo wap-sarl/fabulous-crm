@@ -78,7 +78,7 @@ async function loadPropertyDefsById(ctx: MutationCtx): Promise<Map<string, LeadP
  */
 function sanitizeCustomPropertiesWith(
   byId: Map<string, LeadPropertyDef>,
-  raw: Record<string, LeadPropertyValue> | undefined
+  raw: Record<string, LeadPropertyValue> | undefined,
 ): Record<string, LeadPropertyValue> | undefined {
   if (!raw) return undefined;
 
@@ -124,7 +124,7 @@ function sanitizeCustomPropertiesWith(
 /** Load definitions and sanitize a single lead's custom-property values. */
 async function sanitizeCustomProperties(
   ctx: MutationCtx,
-  raw: Record<string, LeadPropertyValue> | undefined
+  raw: Record<string, LeadPropertyValue> | undefined,
 ): Promise<Record<string, LeadPropertyValue> | undefined> {
   if (!raw) return undefined;
   return sanitizeCustomPropertiesWith(await loadPropertyDefsById(ctx), raw);
@@ -139,7 +139,7 @@ async function addLeadToList(
   listId: Id<'leadLists'>,
   leadId: Id<'leads'>,
   userId: Id<'users'>,
-  workflows?: Doc<'workflows'>[]
+  workflows?: Doc<'workflows'>[],
 ): Promise<void> {
   const existing = await ctx.db
     .query('leadListMembers')
@@ -151,7 +151,7 @@ async function addLeadToList(
     ctx,
     leadId,
     { type: 'list_membership_changed', change: 'added', listId },
-    { workflows }
+    { workflows },
   );
 }
 
@@ -243,11 +243,11 @@ export const updateLead = employeeMutation({
 
     const updates: Record<string, unknown> = { ...rest };
     if (email !== undefined) {
-      updates['email'] = normalizeEmail(email);
+      updates.email = normalizeEmail(email);
     }
     if (customProperties !== undefined) {
       // Whole-record replace; computeChanges JSON-compares so the audit diff works.
-      updates['customProperties'] = await sanitizeCustomProperties(ctx, customProperties);
+      updates.customProperties = await sanitizeCustomProperties(ctx, customProperties);
     }
 
     const filtered = filterUndefined(updates);
@@ -341,7 +341,7 @@ export const importLeads = employeeMutation({
       v.object({
         ...leadRowArgs,
         customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
-      })
+      }),
     ),
     // Optional list every imported (created OR updated) lead is added to.
     listId: v.optional(v.id('leadLists')),
@@ -391,7 +391,7 @@ export const importLeads = employeeMutation({
 
         // Merge custom properties: provided keys overwrite, the rest are kept.
         if (customProperties && Object.keys(customProperties).length) {
-          updates['customProperties'] = { ...existing.customProperties, ...customProperties };
+          updates.customProperties = { ...existing.customProperties, ...customProperties };
         }
 
         const changes = computeChanges(existing, updates);
@@ -400,7 +400,7 @@ export const importLeads = employeeMutation({
           ...updateAuditFields(ctx.userId),
         };
         // Revive a soft-deleted lead (patching undefined removes the field).
-        if (existing.deletedAt != null) patchData['deletedAt'] = undefined;
+        if (existing.deletedAt != null) patchData.deletedAt = undefined;
         await ctx.db.patch(existing._id, patchData);
 
         if (changes) {
@@ -418,7 +418,7 @@ export const importLeads = employeeMutation({
               ctx,
               existing._id,
               { type: 'lead_property_changed', changedFields },
-              { workflows: activeWorkflows }
+              { workflows: activeWorkflows },
             );
           }
         }
@@ -449,7 +449,7 @@ export const importLeads = employeeMutation({
         ctx,
         leadId,
         { type: 'lead_created' },
-        { workflows: activeWorkflows }
+        { workflows: activeWorkflows },
       );
       if (args.listId) {
         await addLeadToList(ctx, args.listId, leadId, ctx.userId, activeWorkflows);
@@ -691,7 +691,7 @@ function buildSendParams(
     defsById: Map<string, LeadPropertyDef>;
     consentBase: string;
     linkBase: string | undefined;
-  }
+  },
 ): { params: Record<string, string>; tokens: { linkKey: string; token: string }[] } {
   const params = buildLeadParams(lead, opts.defsById, opts.consentBase);
   // One fresh token per (recipient × tracked link); the URL is injected into params.
@@ -750,7 +750,11 @@ export const createCampaign = employeeMutation({
     const trackedLinks = args.trackedLinks ?? [];
     const linkKeys = new Set<string>();
     for (const link of trackedLinks) {
-      if (!/^\w+$/.test(link.key) || RESERVED_PARAM_KEYS.has(link.key) || link.key.startsWith('custom_')) {
+      if (
+        !/^\w+$/.test(link.key) ||
+        RESERVED_PARAM_KEYS.has(link.key) ||
+        link.key.startsWith('custom_')
+      ) {
         throw new Error(`Clé de lien de suivi invalide : ${link.key}`);
       }
       if (linkKeys.has(link.key)) throw new Error(`Clé de lien de suivi en double : ${link.key}`);
@@ -760,7 +764,9 @@ export const createCampaign = employeeMutation({
       if (valueError) throw new Error(`Lien « ${link.label} » : ${valueError}`);
 
       if (link.redirectUrl !== undefined && !/^https?:\/\//.test(link.redirectUrl)) {
-        throw new Error(`Lien « ${link.label} » : l'URL de redirection doit commencer par http(s)://`);
+        throw new Error(
+          `Lien « ${link.label} » : l'URL de redirection doit commencer par http(s)://`,
+        );
       }
     }
     const linkBase = process.env.CONVEX_SITE_URL;
@@ -786,7 +792,7 @@ export const createCampaign = employeeMutation({
       // otherwise the campaign would silently never send.
       if (!isEmailProviderConfigured(provider)) {
         throw new Error(
-          "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail."
+          "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.",
         );
       }
       const customHtml = args.htmlBody?.trim();
@@ -800,7 +806,7 @@ export const createCampaign = employeeMutation({
         // under SMTP.
         if (emailProvider === 'smtp') {
           throw new Error(
-            'Les modèles Brevo ne sont pas disponibles en mode SMTP. Utilisez un e-mail personnalisé.'
+            'Les modèles Brevo ne sont pas disponibles en mode SMTP. Utilisez un e-mail personnalisé.',
           );
         }
         // Template email: a positive integer Brevo template id is required.
@@ -912,7 +918,7 @@ function assertChannelDeliverable(cfg: Doc<'appConfig'> | null, channel: 'email'
     }
   } else if (!isEmailProviderConfigured(resolveEmailProvider(cfg))) {
     throw new Error(
-      "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail."
+      "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.",
     );
   }
 }
@@ -947,7 +953,7 @@ async function requeueSend(
     defsById: Map<string, LeadPropertyDef>;
     consentBase: string;
     linkBase: string | undefined;
-  }
+  },
 ): Promise<boolean> {
   // Clear the previous send's outcome + engagement so stats reflect the new send.
   const reset = {
@@ -960,7 +966,8 @@ async function requeueSend(
   };
   if (send.status === 'skipped_no_email' || send.status === 'skipped_no_phone') {
     const lead = await ctx.db.get(send.leadId);
-    const contact = lead && lead.deletedAt == null ? (remat.isSms ? lead.phone : lead.email) : undefined;
+    const contact =
+      lead && lead.deletedAt == null ? (remat.isSms ? lead.phone : lead.email) : undefined;
     if (!lead || !contact) return false;
     const { params, tokens } = buildSendParams(lead, remat);
     await ctx.db.patch(send._id, {

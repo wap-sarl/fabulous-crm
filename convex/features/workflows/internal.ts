@@ -25,7 +25,7 @@ async function logStep(
   run: Doc<'workflowRuns'>,
   node: WorkflowNode,
   status: WorkflowStepOutcome,
-  extra?: { detail?: string; branchResult?: boolean }
+  extra?: { detail?: string; branchResult?: boolean },
 ): Promise<Id<'workflowRunSteps'>> {
   const now = Date.now();
   return await ctx.db.insert('workflowRunSteps', {
@@ -52,7 +52,7 @@ async function advanceRun(
   run: Doc<'workflowRuns'>,
   workflow: Doc<'workflows'>,
   nextId: string | undefined,
-  scheduleNext = true
+  scheduleNext = true,
 ): Promise<void> {
   if (nextId === undefined) {
     await ctx.db.patch(run._id, {
@@ -68,7 +68,11 @@ async function advanceRun(
     });
     return;
   }
-  await ctx.db.patch(run._id, { currentNodeId: nextId, wakeAt: undefined, scheduledFnId: undefined });
+  await ctx.db.patch(run._id, {
+    currentNodeId: nextId,
+    wakeAt: undefined,
+    scheduledFnId: undefined,
+  });
   if (scheduleNext) {
     await ctx.scheduler.runAfter(0, internal.features.workflows.internal.executeStep, {
       runId: run._id,
@@ -82,7 +86,7 @@ async function failRun(
   ctx: MutationCtx,
   run: Doc<'workflowRuns'>,
   workflow: Doc<'workflows'> | null,
-  error: string
+  error: string,
 ): Promise<void> {
   await ctx.db.patch(run._id, {
     status: 'failed',
@@ -98,7 +102,9 @@ async function failRun(
 }
 
 /** The `changedFields` payload for an engine-made property write. */
-function targetAsFilterField(target: Extract<WorkflowNode, { type: 'update_property' }>['target']): FilterField {
+function targetAsFilterField(
+  target: Extract<WorkflowNode, { type: 'update_property' }>['target'],
+): FilterField {
   return target.kind === 'custom'
     ? { kind: 'custom', definitionId: target.propertyDefId }
     : { kind: 'standard', field: target.field };
@@ -113,13 +119,18 @@ export const executeStep = internalMutation({
   args: { runId: v.id('workflowRuns'), nodeId: v.string() },
   handler: async (ctx, args): Promise<void> => {
     const run = await ctx.db.get(args.runId);
-    if (!run || run.status !== 'active') return;
+    if (run?.status !== 'active') return;
     // Stale schedule (the run already advanced past this node) — no-op.
     if (run.currentNodeId !== args.nodeId) return;
 
     const workflow = await ctx.db.get(run.workflowId);
     if (!workflow || workflow.deletedAt !== undefined) {
-      await failRun(ctx, run, workflow?.deletedAt !== undefined ? workflow : null, 'workflow_deleted');
+      await failRun(
+        ctx,
+        run,
+        workflow?.deletedAt !== undefined ? workflow : null,
+        'workflow_deleted',
+      );
       return;
     }
     // Paused: leave the run parked; setWorkflowStatus re-kicks it on resume.
@@ -182,7 +193,7 @@ export const executeStep = internalMutation({
         const scheduledFnId = await ctx.scheduler.runAt(
           wakeAt,
           internal.features.workflows.internal.executeStep,
-          { runId: run._id, nodeId: node.next }
+          { runId: run._id, nodeId: node.next },
         );
         await ctx.db.patch(run._id, { currentNodeId: node.next, wakeAt, scheduledFnId });
         return;
@@ -203,7 +214,7 @@ export const executeStep = internalMutation({
               ctx,
               lead._id,
               { type: 'lead_property_changed', changedFields },
-              { source }
+              { source },
             );
           }
         }
@@ -235,7 +246,7 @@ export const executeStep = internalMutation({
                 ctx,
                 lead._id,
                 { type: 'list_membership_changed', change: 'added', listId },
-                { source }
+                { source },
               );
             }
           }
@@ -264,7 +275,7 @@ export const executeStep = internalMutation({
             ctx,
             lead._id,
             { type: 'list_membership_changed', change: 'removed', listId },
-            { source }
+            { source },
           );
         }
         await advanceRun(ctx, run, workflow, node.next);
@@ -342,7 +353,7 @@ export const getActionStepContext = internalQuery({
   args: { runId: v.id('workflowRuns'), stepId: v.id('workflowRunSteps'), nodeId: v.string() },
   handler: async (ctx, args): Promise<ActionStepContext> => {
     const run = await ctx.db.get(args.runId);
-    if (!run || run.status !== 'active' || run.currentNodeId !== args.nodeId) return null;
+    if (run?.status !== 'active' || run.currentNodeId !== args.nodeId) return null;
     const workflow = await ctx.db.get(run.workflowId);
     if (!workflow || workflow.deletedAt !== undefined) return null;
     const node = workflow.nodes.find((n) => n.id === args.nodeId);
@@ -356,7 +367,13 @@ export const getActionStepContext = internalQuery({
       const params = buildLeadParams(lead, defsById, appOrigin() || 'http://localhost:4202');
       if (node.type === 'send_email') {
         if (!lead.email) return null;
-        return { kind: 'email', to: lead.email, subject: node.subject, htmlBody: node.htmlBody, params };
+        return {
+          kind: 'email',
+          to: lead.email,
+          subject: node.subject,
+          htmlBody: node.htmlBody,
+          params,
+        };
       }
       if (!lead.phone) return null;
       return { kind: 'sms', phone: lead.phone, smsBody: node.smsBody, params };
@@ -416,7 +433,7 @@ export const completeActionStep = internalMutation({
     }
 
     const run = await ctx.db.get(args.runId);
-    if (!run || run.status !== 'active' || run.currentNodeId !== args.nodeId) return;
+    if (run?.status !== 'active' || run.currentNodeId !== args.nodeId) return;
     const workflow = await ctx.db.get(run.workflowId);
     if (!workflow || workflow.deletedAt !== undefined) {
       await failRun(ctx, run, workflow ?? null, 'workflow_deleted');

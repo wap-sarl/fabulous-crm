@@ -50,7 +50,7 @@ export function LeadCustomPropertyFields({
   const verifyRpps = useCallback(
     (digits: string): Promise<RppsVerificationResult> =>
       verifyRppsAction({ value: digits }) as Promise<RppsVerificationResult>,
-    [verifyRppsAction]
+    [verifyRppsAction],
   );
 
   if (definitions.length === 0) return null;

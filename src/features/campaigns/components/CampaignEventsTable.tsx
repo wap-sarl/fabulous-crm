@@ -39,7 +39,7 @@ export function CampaignEventsTable({
   const { results, status, loadMore } = useAuthPaginatedQuery(
     api.features.crm.queries.listCampaignEvents,
     { campaignId },
-    { initialNumItems: PAGE_SIZE }
+    { initialNumItems: PAGE_SIZE },
   );
 
   return (

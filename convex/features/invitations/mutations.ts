@@ -45,7 +45,7 @@ export const createInvitation = adminMutation({
     const existing = await ctx.db
       .query('users')
       .withIndex('by_email_type', (q) =>
-        q.eq('email', email).eq('type', 'employee').eq('deletedAt', undefined)
+        q.eq('email', email).eq('type', 'employee').eq('deletedAt', undefined),
       )
       .first();
     if (existing) throw new Error('already_member');

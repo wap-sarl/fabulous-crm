@@ -52,7 +52,7 @@ export const listRuns = employeeQuery({
       ? ctx.db
           .query('workflowRuns')
           .withIndex('by_workflow_status', (q) =>
-            q.eq('workflowId', args.workflowId).eq('status', args.status!)
+            q.eq('workflowId', args.workflowId).eq('status', args.status!),
           )
       : ctx.db
           .query('workflowRuns')
@@ -67,10 +67,15 @@ export const listRuns = employeeQuery({
         return {
           ...run,
           lead: lead
-            ? { _id: lead._id, firstName: lead.firstName, lastName: lead.lastName, email: lead.email }
+            ? {
+                _id: lead._id,
+                firstName: lead.firstName,
+                lastName: lead.lastName,
+                email: lead.email,
+              }
             : null,
         };
-      })
+      }),
     );
     return { ...page, page: runs };
   },
@@ -113,7 +118,7 @@ export const listRunsForLead = employeeQuery({
       runs.map(async (run) => {
         const workflow = await ctx.db.get(run.workflowId);
         return { ...run, workflowName: workflow?.name ?? 'Workflow supprimé' };
-      })
+      }),
     );
     return withWorkflow.sort((a, b) => b.enrolledAt - a.enrolledAt);
   },

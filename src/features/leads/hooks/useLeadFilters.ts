@@ -47,7 +47,7 @@ export function useLeadFilters() {
 
   const filters = useMemo<LeadFilters>(() => {
     const rawStatuses = csv(searchParams.get('status')).filter((s): s is LeadStatus =>
-      VALID_STATUSES.includes(s as LeadStatus)
+      VALID_STATUSES.includes(s as LeadStatus),
     );
     const sortParam = searchParams.get('sort');
     const sortField = VALID_SORT.includes(sortParam as LeadSortField)
@@ -92,10 +92,10 @@ export function useLeadFilters() {
           }
           return next;
         },
-        { replace: true }
+        { replace: true },
       );
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   const setAdvancedFilter = useCallback(
@@ -108,10 +108,10 @@ export function useLeadFilters() {
           else p.set('af', serialized);
           return p;
         },
-        { replace: true }
+        { replace: true },
       );
     },
-    [setSearchParams]
+    [setSearchParams],
   );
 
   const toggleSort = useCallback(
@@ -125,10 +125,10 @@ export function useLeadFilters() {
           next.set('dir', nextDir);
           return next;
         },
-        { replace: true }
+        { replace: true },
       );
     },
-    [filters.sortField, filters.sortDirection, setSearchParams]
+    [filters.sortField, filters.sortDirection, setSearchParams],
   );
 
   return { filters, setParam, setAdvancedFilter, toggleSort };

@@ -14,7 +14,7 @@ export const isAllowed = internalQuery({
     const employee = await ctx.db
       .query('users')
       .withIndex('by_email_type', (q) =>
-        q.eq('email', normalized).eq('type', 'employee').eq('deletedAt', undefined)
+        q.eq('email', normalized).eq('type', 'employee').eq('deletedAt', undefined),
       )
       .first();
     if (employee) return true;

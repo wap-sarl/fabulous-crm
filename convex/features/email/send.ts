@@ -51,7 +51,7 @@ export function createEmailDispatcher(provider: ResolvedEmailProvider): EmailDis
 /** One-shot send (single transactional email, e.g. auth sign-in). */
 export async function sendEmail(
   provider: ResolvedEmailProvider,
-  msg: EmailMessage
+  msg: EmailMessage,
 ): Promise<EmailSendResult> {
   const dispatcher = createEmailDispatcher(provider);
   try {
