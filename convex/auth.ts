@@ -8,6 +8,7 @@ import { makeFunctionReference } from 'convex/server';
 import { v } from 'convex/values';
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
+import type { MutationCtx } from './_generated/server';
 import authConfig from './auth.config';
 import { SOCIAL_PROVIDERS } from './_lib/socialProviders';
 import type { SsoProvider } from './_lib/validators/appConfig';
@@ -47,7 +48,7 @@ const OTP_MAX_AGE_SECONDS = 20 * 60;
  * the email is either an existing employee or a pending invitation.
  */
 async function linkOrProvisionEmployee(
-  ctx: { db: any },
+  ctx: MutationCtx,
   authUser: { _id: string; email?: string; name?: string },
 ): Promise<void> {
   const email = (authUser.email ?? '').trim().toLowerCase();
@@ -57,7 +58,7 @@ async function linkOrProvisionEmployee(
   // already signed in via another provider) → just link the auth id.
   const existing = await ctx.db
     .query('users')
-    .withIndex('by_email_type', (q: any) =>
+    .withIndex('by_email_type', (q) =>
       q.eq('email', email).eq('type', 'employee').eq('deletedAt', undefined),
     )
     .first();
@@ -71,7 +72,7 @@ async function linkOrProvisionEmployee(
   // Otherwise provision from the pending invitation.
   const invite = await ctx.db
     .query('invitations')
-    .withIndex('by_email_status', (q: any) => q.eq('email', email).eq('status', 'pending'))
+    .withIndex('by_email_status', (q) => q.eq('email', email).eq('status', 'pending'))
     .first();
   if (!invite) return; // Gate should have prevented this; stay defensive.
 

@@ -1,4 +1,8 @@
-export function createAuditFields<T>(userId: T) {
+import type { Id } from '../_generated/dataModel';
+import type { MutationCtx } from '../_generated/server';
+import type { AuditLogAction, AuditLogEntityType } from '../_lib/validators/auditLogs';
+
+export function createAuditFields(userId: Id<'users'>) {
   return {
     updatedAt: Date.now(),
     createdBy: userId,
@@ -6,7 +10,7 @@ export function createAuditFields<T>(userId: T) {
   };
 }
 
-export function updateAuditFields<T>(userId: T) {
+export function updateAuditFields(userId: Id<'users'>) {
   return {
     updatedAt: Date.now(),
     updatedBy: userId,
@@ -14,11 +18,11 @@ export function updateAuditFields<T>(userId: T) {
 }
 
 export async function logAudit(params: {
-  ctx: { db: { insert: (...args: any[]) => Promise<any> } };
-  userId: unknown;
-  entityType: string;
+  ctx: MutationCtx;
+  userId: Id<'users'>;
+  entityType: AuditLogEntityType;
   entityId: string;
-  action: string;
+  action: AuditLogAction;
   metadata?: unknown;
 }) {
   await params.ctx.db.insert('auditLogs', {
