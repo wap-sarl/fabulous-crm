@@ -45,7 +45,7 @@ export async function sendSmtpEmail(
     subject: string;
     htmlContent: string;
     attachment?: { name: string; content: string }; // content = base64
-  }
+  },
 ): Promise<{ ok: boolean; status: number; error?: string; messageId?: string }> {
   try {
     const info = await transport.sendMail({
@@ -54,7 +54,11 @@ export async function sendSmtpEmail(
       subject,
       html: htmlContent,
       ...(attachment
-        ? { attachments: [{ filename: attachment.name, content: attachment.content, encoding: 'base64' }] }
+        ? {
+            attachments: [
+              { filename: attachment.name, content: attachment.content, encoding: 'base64' },
+            ],
+          }
         : {}),
     });
     return { ok: true, status: 200, messageId: info.messageId };

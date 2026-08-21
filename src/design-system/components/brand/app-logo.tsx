@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 import { LogoIcon } from './logo-icon';
 

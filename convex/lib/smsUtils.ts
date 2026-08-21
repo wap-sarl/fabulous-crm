@@ -23,7 +23,7 @@ export const SMS_SENDER = process.env.BREVO_SMS_SENDER || 'CRM';
 export function toBrevoRecipient(phone: string | undefined): string | null {
   if (!phone) return null;
   const parsed = parsePhoneNumberFromString(phone, 'FR');
-  if (!parsed || !parsed.isValid()) return null;
+  if (!parsed?.isValid()) return null;
   return parsed.number.replace(/^\+/, '');
 }
 
@@ -48,7 +48,7 @@ export async function sendBrevoSms(
     sender?: string;
     /** Webhook Brevo calls for each event on this message (delivered, unsubscribed…). */
     webUrl?: string;
-  }
+  },
 ): Promise<{ ok: boolean; status: number; error?: string; messageId?: string }> {
   const response = await fetch('https://api.brevo.com/v3/transactionalSMS/sms', {
     method: 'POST',

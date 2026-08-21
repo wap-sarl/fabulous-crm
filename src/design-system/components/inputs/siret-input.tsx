@@ -3,10 +3,8 @@ import { Input, type InputProps } from './input';
 
 type SIRETMode = 'siren' | 'siret' | 'both';
 
-interface SIRETInputProps extends Omit<
-  InputProps,
-  'value' | 'onChange' | 'type' | 'maxLength' | 'inputMode' | 'ref'
-> {
+interface SIRETInputProps
+  extends Omit<InputProps, 'value' | 'onChange' | 'type' | 'maxLength' | 'inputMode' | 'ref'> {
   value?: string;
   onChange?: (digits: string) => void;
   mode?: SIRETMode;
@@ -67,7 +65,7 @@ function SIRETInput({
       if (typeof ref === 'function') ref(node);
       else if (ref) (ref as React.RefObject<HTMLInputElement | null>).current = node;
     },
-    [ref]
+    [ref],
   );
 
   const digits = React.useMemo(() => {

@@ -68,7 +68,7 @@ function TeamManager() {
     try {
       await revokeInvitation({ invitationId });
     } catch {
-      setError("La révocation a échoué. Veuillez réessayer.");
+      setError('La révocation a échoué. Veuillez réessayer.');
     }
   };
 
@@ -83,7 +83,7 @@ function TeamManager() {
       setError(
         message.includes('email_not_configured')
           ? "Aucun fournisseur d'e-mail n'est configuré. Configurez-le dans Paramètres → E-mail."
-          : 'Le renvoi a échoué. Veuillez réessayer.'
+          : 'Le renvoi a échoué. Veuillez réessayer.',
       );
     }
   };
@@ -96,7 +96,11 @@ function TeamManager() {
           <UserPlus className="size-4" aria-hidden="true" />
           Inviter un membre
         </h2>
-        <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleInvite} noValidate>
+        <form
+          className="flex flex-col gap-4 sm:flex-row sm:items-end"
+          onSubmit={handleInvite}
+          noValidate
+        >
           <div className="flex-1 space-y-2">
             <Label htmlFor="invite-email" className="text-[12.5px] font-semibold text-soft">
               Adresse e-mail

@@ -71,7 +71,7 @@ type FhirBundle = { resourceType: 'Bundle'; total?: number; entry?: FhirBundleEn
 
 function findCoding(
   qualifications: FhirQualification[] | undefined,
-  systemSuffix: string
+  systemSuffix: string,
 ): RppsQualification | null {
   if (!qualifications) return null;
   for (const q of qualifications) {
@@ -162,7 +162,7 @@ export const verifyRpps = employeeAction({
     }
 
     const body = (await response.json().catch(() => null)) as FhirBundle | null;
-    if (!body || body.resourceType !== 'Bundle') {
+    if (body?.resourceType !== 'Bundle') {
       return { status: 'error', message: 'Réponse FHIR inattendue' };
     }
 

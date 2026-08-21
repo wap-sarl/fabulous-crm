@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { cn } from '../../theme/utils';
@@ -44,7 +44,7 @@ function DialogContent({
           isMobile
             ? 'fixed inset-x-0 bottom-0 z-50 grid grid-cols-1 w-full gap-4 border-t bg-card p-6 shadow-lg rounded-t-xl max-h-[85vh] overflow-y-auto overflow-x-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom data-[state=open]:duration-300 data-[state=closed]:duration-200'
             : 'fixed left-[50%] top-[50%] z-50 grid grid-cols-1 w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-card p-6 shadow-lg sm:rounded-xl max-h-[85vh] overflow-y-auto overflow-x-hidden',
-          className
+          className,
         )}
         {...props}
       >

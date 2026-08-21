@@ -30,7 +30,7 @@ function OtpInput({
   const filterPattern = numeric ? /[^0-9]/g : /[^A-Z0-9]/g;
 
   const [internalValue, setInternalValue] = React.useState<string[]>(
-    normalize(value).split('').slice(0, length)
+    normalize(value).split('').slice(0, length),
   );
 
   React.useEffect(() => {
@@ -154,7 +154,7 @@ function OtpInput({
             'transition-colors',
             error
               ? 'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15'
-              : 'border-input'
+              : 'border-input',
           )}
         />
       ))}

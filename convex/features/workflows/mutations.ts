@@ -26,7 +26,7 @@ const PAUSE_FIRST = 'Mettez le workflow en pause avant de le modifier.';
 
 async function getExistingWorkflow(
   ctx: MutationCtx,
-  workflowId: Id<'workflows'>
+  workflowId: Id<'workflows'>,
 ): Promise<Doc<'workflows'>> {
   const workflow = await ctx.db.get(workflowId);
   if (!workflow || !isNotDeleted(workflow)) throw new Error('workflow_not_found');
@@ -109,7 +109,7 @@ export const updateWorkflow = employeeMutation({
     const structurallyChanged =
       changes &&
       ['trigger', 'enrollmentCriteria', 'allowReEnrollment', 'nodes', 'startNodeId'].some(
-        (key) => key in changes
+        (key) => key in changes,
       );
     if (structurallyChanged && workflow.status === 'active') {
       throw new Error(PAUSE_FIRST);
@@ -163,7 +163,7 @@ export const setWorkflowStatus = employeeMutation({
       const parked = await ctx.db
         .query('workflowRuns')
         .withIndex('by_workflow_status', (q) =>
-          q.eq('workflowId', args.workflowId).eq('status', 'active')
+          q.eq('workflowId', args.workflowId).eq('status', 'active'),
         )
         .collect();
       const now = Date.now();
@@ -203,7 +203,7 @@ export const deleteWorkflow = employeeMutation({
     const activeRuns = await ctx.db
       .query('workflowRuns')
       .withIndex('by_workflow_status', (q) =>
-        q.eq('workflowId', args.workflowId).eq('status', 'active')
+        q.eq('workflowId', args.workflowId).eq('status', 'active'),
       )
       .collect();
     for (const run of activeRuns) {
@@ -291,7 +291,7 @@ export const reenrollMatchingLeads = employeeMutation({
       const runs = await ctx.db
         .query('workflowRuns')
         .withIndex('by_workflow_lead', (q) =>
-          q.eq('workflowId', args.workflowId).eq('leadId', lead._id)
+          q.eq('workflowId', args.workflowId).eq('leadId', lead._id),
         )
         .collect();
       for (const run of runs) {
@@ -351,7 +351,7 @@ export const enrollLeadManually = employeeMutation({
     const runs = await ctx.db
       .query('workflowRuns')
       .withIndex('by_workflow_lead', (q) =>
-        q.eq('workflowId', args.workflowId).eq('leadId', args.leadId)
+        q.eq('workflowId', args.workflowId).eq('leadId', args.leadId),
       )
       .collect();
     if (runs.some((r) => r.status === 'active')) {

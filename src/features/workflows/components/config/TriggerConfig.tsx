@@ -60,7 +60,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
   // The criteria editor always needs a filter object to edit; whether the
   // stored criteria exist is decided by the active-rule count on apply (parent).
   const [criteriaDraft, setCriteriaDraft] = useState<AdvancedFilter>(
-    () => value.enrollmentCriteria ?? emptyAdvancedFilter()
+    () => value.enrollmentCriteria ?? emptyAdvancedFilter(),
   );
 
   const setTrigger = (next: WorkflowTrigger) => onChange({ ...value, trigger: next });
@@ -82,7 +82,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
       ...STANDARD_FILTER_FIELDS.map((f) => ({ value: `std:${f.field}`, label: f.label })),
       ...definitions.map((d) => ({ value: `cp:${d._id}`, label: d.label })),
     ],
-    [definitions]
+    [definitions],
   );
 
   return (
@@ -109,9 +109,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
             ))}
           </SelectContent>
         </Select>
-        <HelperText>
-          Les leads sont inscrits au moment où cet événement se produit.
-        </HelperText>
+        <HelperText>Les leads sont inscrits au moment où cet événement se produit.</HelperText>
       </div>
 
       {trigger?.type === 'lead_property_changed' && (

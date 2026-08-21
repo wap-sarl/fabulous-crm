@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { X } from 'lucide-react';
@@ -21,7 +21,7 @@ function SheetOverlay({
     <SheetPrimitive.Overlay
       className={cn(
         'fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
-        className
+        className,
       )}
       {...props}
       ref={ref}
@@ -54,12 +54,11 @@ const sheetVariants = cva(
       side: 'right',
       background: 'default',
     },
-  }
+  },
 );
 
 interface SheetContentProps
-  extends
-    React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
+  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
     VariantProps<typeof sheetVariants> {}
 
 function SheetContent({

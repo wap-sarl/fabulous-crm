@@ -31,7 +31,7 @@ export function PlaceholderChips({ placeholders, onInsert, className }: Props) {
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft',
               item.kind === 'link'
                 ? 'border-primary/40 bg-primary-soft/40 text-primary hover:bg-primary-soft'
-                : 'border-border bg-muted/40 text-faint hover:bg-muted hover:text-ink'
+                : 'border-border bg-muted/40 text-faint hover:bg-muted hover:text-ink',
             )}
           >
             <Icon className="size-3" aria-hidden="true" />

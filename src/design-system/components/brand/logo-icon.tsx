@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 export interface LogoIconProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -31,7 +31,7 @@ function LogoIcon({
         ref={ref}
         className={cn(
           'flex size-[33px] shrink-0 items-center justify-center overflow-hidden rounded-[10px]',
-          className
+          className,
         )}
         {...props}
       >
@@ -46,7 +46,7 @@ function LogoIcon({
       className={cn(
         'flex size-[33px] shrink-0 items-center justify-center rounded-[10px] bg-linear-140 from-primary to-primary-strong text-base font-bold text-white shadow-[0_4px_12px_var(--primary-soft)]',
         variant === 'light' && 'shadow-none',
-        className
+        className,
       )}
       {...props}
     >

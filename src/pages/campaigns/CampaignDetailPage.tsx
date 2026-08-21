@@ -118,7 +118,7 @@ export function CampaignDetailPage() {
   const [retrying, setRetrying] = useState(false);
   const data = useAuthQuery(
     api.features.crm.queries.getCampaign,
-    campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip'
+    campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
   );
   const retrySend = useAuthMutation(api.features.crm.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.crm.mutations.resendAllCampaignSends);
@@ -126,7 +126,7 @@ export function CampaignDetailPage() {
   const sends = useMemo(() => data?.sends ?? [], [data]);
   const series = useMemo(
     () => buildSendSeries(sends.map((s) => s.sentAt).filter((t): t is number => !!t)),
-    [sends]
+    [sends],
   );
   const recipientBySendId = useMemo(
     () =>
@@ -134,9 +134,9 @@ export function CampaignDetailPage() {
         sends.map((s) => [
           s._id,
           { name: sendLeadName(s.params), contact: s.email ?? s.phone ?? '' },
-        ])
+        ]),
       ),
-    [sends]
+    [sends],
   );
 
   if (data === undefined) {
@@ -172,7 +172,7 @@ export function CampaignDetailPage() {
     if (
       !window.confirm(
         `Renvoyer la campagne à ses ${numberFormat.format(campaign.totalCount)} destinataire(s) ? ` +
-          'Les personnes déjà livrées la recevront à nouveau.'
+          'Les personnes déjà livrées la recevront à nouveau.',
       )
     )
       return;
@@ -321,7 +321,11 @@ export function CampaignDetailPage() {
             <StatCard
               label="Ouvertures"
               value={isSmtp ? '—' : numberFormat.format(openedCount)}
-              sub={isSmtp ? 'Suivi indisponible (SMTP)' : `${pctOfSent(openedCount).toFixed(1)}% des envoyés`}
+              sub={
+                isSmtp
+                  ? 'Suivi indisponible (SMTP)'
+                  : `${pctOfSent(openedCount).toFixed(1)}% des envoyés`
+              }
               icon={<MailOpen />}
               iconBg="#EFEAFE"
               iconColor="#6A4BF0"
@@ -482,11 +486,7 @@ export function CampaignDetailPage() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-faint">
-                      {s.error ? (
-                        <span title={s.error}>{formatSendError(s.error)}</span>
-                      ) : (
-                        ''
-                      )}
+                      {s.error ? <span title={s.error}>{formatSendError(s.error)}</span> : ''}
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <span className="inline-flex items-center justify-end gap-2">

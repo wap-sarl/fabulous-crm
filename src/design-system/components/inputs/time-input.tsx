@@ -1,10 +1,8 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
-interface TimeInputProps extends Omit<
-  React.ComponentProps<'input'>,
-  'onChange' | 'value' | 'type'
-> {
+interface TimeInputProps
+  extends Omit<React.ComponentProps<'input'>, 'onChange' | 'value' | 'type'> {
   value?: string;
   onValueChange?: (value: string) => void;
   invalid?: boolean;
@@ -39,7 +37,7 @@ function TimeInput({
     const m = Math.min(parseInt(minutes, 10), 59);
 
     onValueChange?.(
-      `${String(h).padStart(2, '0')}:${minutes.length === 1 ? minutes : String(m).padStart(2, '0')}`
+      `${String(h).padStart(2, '0')}:${minutes.length === 1 ? minutes : String(m).padStart(2, '0')}`,
     );
   };
 
@@ -55,7 +53,7 @@ function TimeInput({
         'flex h-9.5 w-full rounded-lg border border-input bg-card px-3 py-2 text-base placeholder:text-placeholder focus-visible:outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary-soft disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
         invalid &&
           'border-destructive focus-visible:border-destructive focus-visible:ring-destructive/15',
-        className
+        className,
       )}
       ref={ref}
       {...props}

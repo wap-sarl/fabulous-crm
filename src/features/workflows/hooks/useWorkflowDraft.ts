@@ -61,7 +61,11 @@ function slotTarget(draft: WorkflowDraft, slot: InsertSlot): string | undefined 
 }
 
 /** Re-point an insert slot (trigger start or a parent's next/branch slot). */
-function setSlot(draft: WorkflowDraft, slot: InsertSlot, target: string | undefined): WorkflowDraft {
+function setSlot(
+  draft: WorkflowDraft,
+  slot: InsertSlot,
+  target: string | undefined,
+): WorkflowDraft {
   if (slot.parentId === 'trigger') {
     return { ...draft, startNodeId: target ?? null };
   }

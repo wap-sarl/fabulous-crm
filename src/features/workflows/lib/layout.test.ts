@@ -81,27 +81,33 @@ describe('draftReducer', () => {
       id: 'new',
     });
     expect(state.draft.startNodeId).toBe('new');
-    expect(state.draft.nodes['new']).toMatchObject({ type: 'send_sms', next: 'a' });
+    expect(state.draft.nodes.new).toMatchObject({ type: 'send_sms', next: 'a' });
     expect(state.lastInsertedId).toBe('new');
   });
 
   it('inserting a branch mid-chain keeps the chain on the Oui side', () => {
-    let state = { draft: draftWith([wait('a', 'b'), wait('b')], 'a'), lastInsertedId: null as string | null };
+    let state = {
+      draft: draftWith([wait('a', 'b'), wait('b')], 'a'),
+      lastInsertedId: null as string | null,
+    };
     state = draftReducer(state, {
       type: 'insertNode',
       slot: { parentId: 'a', slot: 'next' },
       nodeType: 'branch',
       id: 'br',
     });
-    expect(state.draft.nodes['a']).toMatchObject({ next: 'br' });
-    expect(state.draft.nodes['br']).toMatchObject({ nextTrue: 'b' });
+    expect(state.draft.nodes.a).toMatchObject({ next: 'br' });
+    expect(state.draft.nodes.br).toMatchObject({ nextTrue: 'b' });
   });
 
   it('removing a linear node splices its child up', () => {
-    let state = { draft: draftWith([wait('a', 'b'), wait('b', 'c'), wait('c')], 'a'), lastInsertedId: null as string | null };
+    let state = {
+      draft: draftWith([wait('a', 'b'), wait('b', 'c'), wait('c')], 'a'),
+      lastInsertedId: null as string | null,
+    };
     state = draftReducer(state, { type: 'removeNode', id: 'b' });
-    expect(state.draft.nodes['a']).toMatchObject({ next: 'c' });
-    expect(state.draft.nodes['b']).toBeUndefined();
+    expect(state.draft.nodes.a).toMatchObject({ next: 'c' });
+    expect(state.draft.nodes.b).toBeUndefined();
   });
 
   it('removing a branch removes its whole subtree', () => {
@@ -112,7 +118,7 @@ describe('draftReducer', () => {
     expect(subtreeIds(state.draft.nodes, 'br').sort()).toEqual(['br', 'f', 't']);
     state = draftReducer(state, { type: 'removeNode', id: 'br' });
     expect(Object.keys(state.draft.nodes)).toEqual(['a']);
-    expect(state.draft.nodes['a']).toMatchObject({ next: undefined });
+    expect(state.draft.nodes.a).toMatchObject({ next: undefined });
   });
 
   it('removing the start node clears startNodeId', () => {

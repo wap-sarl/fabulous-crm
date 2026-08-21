@@ -4,10 +4,8 @@ import { Input, type InputProps } from './input';
 const RPPS_LENGTH = 11;
 const SPACE_AFTER = [1, 4, 7] as const;
 
-interface RPPSInputProps extends Omit<
-  InputProps,
-  'value' | 'onChange' | 'type' | 'maxLength' | 'inputMode' | 'ref'
-> {
+interface RPPSInputProps
+  extends Omit<InputProps, 'value' | 'onChange' | 'type' | 'maxLength' | 'inputMode' | 'ref'> {
   value?: string;
   onChange?: (digits: string) => void;
   invalid?: boolean;
@@ -59,7 +57,7 @@ function RPPSInput({
       if (typeof ref === 'function') ref(node);
       else if (ref) (ref as React.RefObject<HTMLInputElement | null>).current = node;
     },
-    [ref]
+    [ref],
   );
 
   const digits = React.useMemo(() => {

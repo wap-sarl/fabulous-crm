@@ -70,14 +70,15 @@ export function SetupWizardPage() {
         }
         const ok = await runVerifyToken(data.setupToken);
         if (!ok) {
-          setError("Jeton invalide.");
+          setError('Jeton invalide.');
           return false;
         }
         return true;
       }
       case 1: {
         if (!data.organizationName.trim()) return fail("Le nom de l'organisation est requis.");
-        if (!/^https?:\/\//.test(data.appUrl.trim())) return fail('URL invalide (http/https requis).');
+        if (!/^https?:\/\//.test(data.appUrl.trim()))
+          return fail('URL invalide (http/https requis).');
         if (!zEmailSchema.safeParse(data.senderEmail).success)
           return fail("E-mail de l'expéditeur invalide.");
         if (!data.senderName.trim()) return fail("Le nom de l'expéditeur est requis.");
@@ -104,7 +105,8 @@ export function SetupWizardPage() {
       case 3: {
         if (!data.admin.firstName.trim()) return fail('Prénom requis.');
         if (!data.admin.lastName.trim()) return fail('Nom requis.');
-        if (!zEmailSchema.safeParse(data.admin.email).success) return fail('E-mail administrateur invalide.');
+        if (!zEmailSchema.safeParse(data.admin.email).success)
+          return fail('E-mail administrateur invalide.');
         return true;
       }
       default:
@@ -162,7 +164,7 @@ export function SetupWizardPage() {
       setError(
         e instanceof Error && e.message.includes('invalid_setup_token')
           ? 'Jeton invalide.'
-          : "L'installation a échoué. Veuillez réessayer."
+          : "L'installation a échoué. Veuillez réessayer.",
       );
     } finally {
       setBusy(false);

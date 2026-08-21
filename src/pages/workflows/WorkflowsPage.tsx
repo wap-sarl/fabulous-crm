@@ -44,7 +44,7 @@ export function WorkflowsPage() {
     return workflows.filter(
       (w) =>
         (statusFilter === 'all' || w.status === statusFilter) &&
-        (q === '' || w.name.toLowerCase().includes(q))
+        (q === '' || w.name.toLowerCase().includes(q)),
     );
   }, [workflows, search, statusFilter]);
 

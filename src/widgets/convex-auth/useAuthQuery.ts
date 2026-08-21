@@ -23,7 +23,7 @@ type GuestQueryArgs<Q extends GuestedQuery> = Omit<Q['_args'], 'guestToken'>;
  */
 export function useAuthQuery<Q extends AnyQuery>(
   query: Q,
-  args: Q['_args'] | 'skip'
+  args: Q['_args'] | 'skip',
 ): FunctionReturnType<Q> | undefined {
   const { isAuthenticated } = useConvexAuth();
   const finalArgs = args === 'skip' || !isAuthenticated ? 'skip' : args;
@@ -38,7 +38,7 @@ export function useAuthQuery<Q extends AnyQuery>(
 export function useAuthPaginatedQuery<Q extends PaginatedQueryReference>(
   query: Q,
   args: PaginatedQueryArgs<Q> | 'skip',
-  options: { initialNumItems: number }
+  options: { initialNumItems: number },
 ): UsePaginatedQueryReturnType<Q> {
   const { isAuthenticated } = useConvexAuth();
   const finalArgs = args === 'skip' || !isAuthenticated ? 'skip' : args;
@@ -52,7 +52,7 @@ export function useAuthPaginatedQuery<Q extends PaginatedQueryReference>(
  */
 export function useGuestQuery<Q extends GuestedQuery>(
   query: Q,
-  args: GuestQueryArgs<Q> | 'skip'
+  args: GuestQueryArgs<Q> | 'skip',
 ): FunctionReturnType<Q> | undefined {
   const guestToken = useGuestToken();
   const finalArgs = args === 'skip' || !guestToken ? 'skip' : { ...args, guestToken };

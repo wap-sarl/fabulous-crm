@@ -61,7 +61,14 @@ export function DashboardShell() {
   // Lists are for everyone; team + branding + custom-property management are admin-only.
   const navItems =
     user?.role === 'admin'
-      ? [...NAV_ITEMS, LISTS_NAV_ITEM, TEAM_NAV_ITEM, BRANDING_NAV_ITEM, EMAIL_NAV_ITEM, PROPERTIES_NAV_ITEM]
+      ? [
+          ...NAV_ITEMS,
+          LISTS_NAV_ITEM,
+          TEAM_NAV_ITEM,
+          BRANDING_NAV_ITEM,
+          EMAIL_NAV_ITEM,
+          PROPERTIES_NAV_ITEM,
+        ]
       : [...NAV_ITEMS, LISTS_NAV_ITEM];
 
   return (

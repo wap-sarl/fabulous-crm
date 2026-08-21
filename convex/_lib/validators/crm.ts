@@ -1,4 +1,4 @@
-import { Infer, v } from 'convex/values';
+import { type Infer, v } from 'convex/values';
 import {
   addressValidator,
   firstAndLastNameValidator,
@@ -16,7 +16,7 @@ export const leadStatusValidator = v.union(
   v.literal('contacte'),
   v.literal('interesse'),
   v.literal('converti'),
-  v.literal('perdu')
+  v.literal('perdu'),
 );
 
 /** Marketing consent channels a lead can opt into. */
@@ -24,7 +24,7 @@ export const marketingConsentChannelValidator = v.union(
   v.literal('email'),
   v.literal('sms'),
   v.literal('telephone_canvassing'),
-  v.literal('postal')
+  v.literal('postal'),
 );
 
 /** Where a consent change came from. */
@@ -33,7 +33,7 @@ export const consentSourceValidator = v.union(
   v.literal('public_link'),
   v.literal('import'),
   // Brevo SMS webhook: the lead replied STOP to a marketing SMS.
-  v.literal('sms_stop')
+  v.literal('sms_stop'),
 );
 
 export const leadValidator = v.object({
@@ -83,7 +83,7 @@ export const campaignStatusValidator = v.union(
   v.literal('draft'),
   v.literal('sending'),
   v.literal('sent'),
-  v.literal('failed')
+  v.literal('failed'),
 );
 
 /** Channel a campaign targets. Absent on legacy rows = email. */
@@ -109,7 +109,7 @@ export const trackedLinkStandardFieldValidator = v.union(
   v.literal('phone'),
   v.literal('comment'),
   v.literal('status'),
-  v.literal('isRedFlagged')
+  v.literal('isRedFlagged'),
 );
 
 export type TrackedLinkStandardField = Infer<typeof trackedLinkStandardFieldValidator>;
@@ -128,7 +128,7 @@ export const campaignTrackedLinkValidator = v.object({
   label: v.string(),
   target: v.union(
     v.object({ kind: v.literal('standard'), field: trackedLinkStandardFieldValidator }),
-    v.object({ kind: v.literal('custom'), propertyDefId: v.id('leadPropertyDefinitions') })
+    v.object({ kind: v.literal('custom'), propertyDefId: v.id('leadPropertyDefinitions') }),
   ),
   value: leadPropertyValueValidator,
   redirectUrl: v.optional(v.string()),
@@ -178,7 +178,7 @@ export const campaignSendStatusValidator = v.union(
   v.literal('sent'),
   v.literal('failed'),
   v.literal('skipped_no_email'),
-  v.literal('skipped_no_phone')
+  v.literal('skipped_no_phone'),
 );
 
 export const campaignSendValidator = v.object({
@@ -236,7 +236,7 @@ export const campaignEventTypeValidator = v.union(
   v.literal('invalid'),
   v.literal('error'),
   // SMS 'replied' webhook status.
-  v.literal('sms_reply')
+  v.literal('sms_reply'),
 );
 
 /**

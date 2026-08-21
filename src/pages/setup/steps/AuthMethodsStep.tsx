@@ -67,7 +67,9 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
       <div className="flex items-center justify-between rounded-lg border border-border p-4">
         <div>
           <p className="font-medium text-ink">Lien magique par e-mail</p>
-          <p className="text-sm text-soft">Connexion sans mot de passe via un lien envoyé par e-mail.</p>
+          <p className="text-sm text-soft">
+            Connexion sans mot de passe via un lien envoyé par e-mail.
+          </p>
         </div>
         <Switch
           checked={data.magicLinkEnabled}
@@ -101,9 +103,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                 <span className="font-medium text-ink">{provider.label}</span>
                 <Switch
                   checked={draft.enabled}
-                  onCheckedChange={(v) =>
-                    setSocial(provider.id, provider.label, { enabled: v })
-                  }
+                  onCheckedChange={(v) => setSocial(provider.id, provider.label, { enabled: v })}
                   aria-label={`Activer ${provider.label}`}
                 />
               </div>
@@ -230,8 +230,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                         // Keep the slug in sync with the label until the user
                         // overrides the slug directly (the callback path depends on it).
                         providerId:
-                          provider.providerId &&
-                          provider.providerId !== slugify(provider.label)
+                          provider.providerId && provider.providerId !== slugify(provider.label)
                             ? provider.providerId
                             : slugify(e.target.value),
                       })

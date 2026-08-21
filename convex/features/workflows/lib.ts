@@ -89,7 +89,7 @@ export function validateWorkflowGraph(
   nodes: WorkflowNode[],
   startNodeId: string | undefined,
   defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
-  listIds: Set<string>
+  listIds: Set<string>,
 ): string | null {
   const lightError = lightValidateGraph(nodes, startNodeId);
   if (lightError) return lightError;
@@ -234,7 +234,7 @@ const FILTERABLE_STANDARD_FIELDS = [
  */
 export function diffLeadFilterFields(
   lead: Doc<'leads'>,
-  updates: Record<string, unknown>
+  updates: Record<string, unknown>,
 ): FilterField[] {
   const changed: FilterField[] = [];
   const differs = (a: unknown, b: unknown) => JSON.stringify(a) !== JSON.stringify(b);
@@ -247,7 +247,7 @@ export function diffLeadFilterFields(
 
   if ('customProperties' in updates) {
     const before = lead.customProperties ?? {};
-    const after = (updates['customProperties'] ?? {}) as Record<string, unknown>;
+    const after = (updates.customProperties ?? {}) as Record<string, unknown>;
     for (const key of new Set([...Object.keys(before), ...Object.keys(after)])) {
       if (differs(before[key], after[key])) changed.push({ kind: 'custom', definitionId: key });
     }

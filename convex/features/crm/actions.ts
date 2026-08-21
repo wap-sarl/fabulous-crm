@@ -104,7 +104,9 @@ export const registerBrevoEmailWebhook = internalAction({
         })
       : await fetch('https://api.brevo.com/v3/webhooks', { method: 'POST', headers, body });
     if (!response.ok) {
-      throw new Error(`Brevo ${existing ? 'PUT' : 'POST'} /webhooks a échoué : ${await response.text()}`);
+      throw new Error(
+        `Brevo ${existing ? 'PUT' : 'POST'} /webhooks a échoué : ${await response.text()}`,
+      );
     }
 
     const id = existing?.id ?? ((await response.json()) as { id: number }).id;
@@ -163,7 +165,7 @@ export const registerBrevoSmsWebhook = internalAction({
     // Re-runs update our webhook (matched by endpoint) instead of stacking dupes.
     const listResponse = await fetch(
       'https://api.brevo.com/v3/webhooks?type=transactional&channel=sms',
-      { headers }
+      { headers },
     );
     const listBody = (await listResponse.json().catch(() => ({}))) as {
       webhooks?: { id: number; url: string }[];
@@ -182,7 +184,9 @@ export const registerBrevoSmsWebhook = internalAction({
         })
       : await fetch('https://api.brevo.com/v3/webhooks', { method: 'POST', headers, body });
     if (!response.ok) {
-      throw new Error(`Brevo ${existing ? 'PUT' : 'POST'} /webhooks a échoué : ${await response.text()}`);
+      throw new Error(
+        `Brevo ${existing ? 'PUT' : 'POST'} /webhooks a échoué : ${await response.text()}`,
+      );
     }
 
     const id = existing?.id ?? ((await response.json()) as { id: number }).id;
@@ -219,13 +223,12 @@ export const sendCampaignBatch = internalAction({
     // Brevo key; Brevo email needs an API key; SMTP email needs a host. Same
     // shape as the legacy missing-key guard — mark complete and stop.
     const cannotSend =
-      (isSms && !brevo.smsAvailable) ||
-      (!isSms && !isEmailProviderConfigured(provider));
+      (isSms && !brevo.smsAvailable) || (!isSms && !isEmailProviderConfigured(provider));
     if (cannotSend) {
       console.error(
         isSms
           ? 'SMS campaign but no Brevo API key configured — cannot send'
-          : 'Email provider not configured — cannot send campaign'
+          : 'Email provider not configured — cannot send campaign',
       );
       // Surface the failure on every pending send (instead of orphaning them in
       // `pending`) so it's visible and retry-able once the provider is fixed.
@@ -260,25 +263,57 @@ export const sendCampaignBatch = internalAction({
     const dispatcher = !isSms && batch.htmlBody ? createEmailDispatcher(provider) : null;
 
     try {
-    for (const send of batch.sends) {
-      if (isSms) {
-        if (!send.phone) {
-          results.push({ sendId: send.sendId, status: 'skipped_no_phone' });
-          continue;
-        }
+      for (const send of batch.sends) {
+        if (isSms) {
+          if (!send.phone) {
+            results.push({ sendId: send.sendId, status: 'skipped_no_phone' });
+            continue;
+          }
 
-        const recipient = toBrevoRecipient(send.phone);
-        if (!recipient) {
+          const recipient = toBrevoRecipient(send.phone);
+          if (!recipient) {
+            results.push({
+              sendId: send.sendId,
+              status: 'failed',
+              error: `Numéro de téléphone invalide : ${send.phone}`,
+            });
+            continue;
+          }
+
+          // In dev, only whitelisted numbers are actually contacted.
+          if (!isPhoneWhitelisted(send.phone, process.env.DEV_WHITELIST_PHONES)) {
+            results.push({
+              sendId: send.sendId,
+              status: 'sent',
+              brevoMessageId: 'dev_whitelist_skip',
+            });
+            continue;
+          }
+
+          const content = renderPlaceholders(batch.smsBody ?? '', send.params, false);
+          const result = await sendBrevoSms(brevo.apiKey, {
+            recipient,
+            content,
+            type: batch.messageType ?? 'marketing',
+            sender: brevo.smsSender,
+            webUrl: smsWebhookUrl,
+          });
           results.push({
             sendId: send.sendId,
-            status: 'failed',
-            error: `Numéro de téléphone invalide : ${send.phone}`,
+            status: result.ok ? 'sent' : 'failed',
+            brevoMessageId: result.messageId,
+            error: result.ok ? undefined : result.error,
           });
           continue;
         }
 
-        // In dev, only whitelisted numbers are actually contacted.
-        if (!isPhoneWhitelisted(send.phone, process.env.DEV_WHITELIST_PHONES)) {
+        if (!send.email) {
+          results.push({ sendId: send.sendId, status: 'skipped_no_email' });
+          continue;
+        }
+
+        // In dev, only whitelisted addresses are actually contacted.
+        if (!isEmailWhitelisted(send.email, process.env.DEV_WHITELIST_EMAILS)) {
           results.push({
             sendId: send.sendId,
             status: 'sent',
@@ -287,92 +322,60 @@ export const sendCampaignBatch = internalAction({
           continue;
         }
 
-        const content = renderPlaceholders(batch.smsBody ?? '', send.params, false);
-        const result = await sendBrevoSms(brevo.apiKey, {
-          recipient,
-          content,
-          type: batch.messageType ?? 'marketing',
-          sender: brevo.smsSender,
-          webUrl: smsWebhookUrl,
-        });
-        results.push({
-          sendId: send.sendId,
-          status: result.ok ? 'sent' : 'failed',
-          brevoMessageId: result.messageId,
-          error: result.ok ? undefined : result.error,
-        });
-        continue;
-      }
+        // Custom (WYSIWYG) email: send the authored HTML with placeholders
+        // substituted per recipient, via the active provider (Brevo API or SMTP).
+        // Otherwise use the Brevo template path.
+        if (batch.htmlBody) {
+          const subject = renderPlaceholders(batch.subject ?? '', send.params, false);
+          const htmlContent = wrapEmailHtml(renderPlaceholders(batch.htmlBody, send.params));
+          const result = await dispatcher!.send({
+            to: [{ email: send.email }],
+            subject,
+            htmlContent,
+          });
+          results.push({
+            sendId: send.sendId,
+            status: result.ok ? 'sent' : 'failed',
+            brevoMessageId: result.messageId,
+            error: result.ok ? undefined : result.error,
+          });
+          continue;
+        }
 
-      if (!send.email) {
-        results.push({ sendId: send.sendId, status: 'skipped_no_email' });
-        continue;
-      }
+        if (batch.brevoTemplateId === undefined) {
+          results.push({
+            sendId: send.sendId,
+            status: 'failed',
+            error: 'Campaign has neither a Brevo template id nor a custom HTML body',
+          });
+          continue;
+        }
 
-      // In dev, only whitelisted addresses are actually contacted.
-      if (!isEmailWhitelisted(send.email, process.env.DEV_WHITELIST_EMAILS)) {
-        results.push({
-          sendId: send.sendId,
-          status: 'sent',
-          brevoMessageId: 'dev_whitelist_skip',
-        });
-        continue;
-      }
+        // Brevo template merge happens server-side at Brevo — unavailable over
+        // SMTP. Only reachable if the provider was switched to SMTP mid-send
+        // (createCampaign blocks template campaigns when the provider is SMTP).
+        if (provider.kind !== 'brevo') {
+          results.push({
+            sendId: send.sendId,
+            status: 'failed',
+            error: 'Les modèles Brevo ne sont pas disponibles en mode SMTP.',
+          });
+          continue;
+        }
 
-      // Custom (WYSIWYG) email: send the authored HTML with placeholders
-      // substituted per recipient, via the active provider (Brevo API or SMTP).
-      // Otherwise use the Brevo template path.
-      if (batch.htmlBody) {
-        const subject = renderPlaceholders(batch.subject ?? '', send.params, false);
-        const htmlContent = wrapEmailHtml(renderPlaceholders(batch.htmlBody, send.params));
-        const result = await dispatcher!.send({
+        const result = await sendBrevoTemplateEmail(provider.apiKey, {
           to: [{ email: send.email }],
-          subject,
-          htmlContent,
+          templateId: batch.brevoTemplateId,
+          params: send.params,
         });
+
         results.push({
           sendId: send.sendId,
           status: result.ok ? 'sent' : 'failed',
           brevoMessageId: result.messageId,
           error: result.ok ? undefined : result.error,
         });
-        continue;
       }
-
-      if (batch.brevoTemplateId === undefined) {
-        results.push({
-          sendId: send.sendId,
-          status: 'failed',
-          error: 'Campaign has neither a Brevo template id nor a custom HTML body',
-        });
-        continue;
-      }
-
-      // Brevo template merge happens server-side at Brevo — unavailable over
-      // SMTP. Only reachable if the provider was switched to SMTP mid-send
-      // (createCampaign blocks template campaigns when the provider is SMTP).
-      if (provider.kind !== 'brevo') {
-        results.push({
-          sendId: send.sendId,
-          status: 'failed',
-          error: 'Les modèles Brevo ne sont pas disponibles en mode SMTP.',
-        });
-        continue;
-      }
-
-      const result = await sendBrevoTemplateEmail(provider.apiKey, {
-        to: [{ email: send.email }],
-        templateId: batch.brevoTemplateId,
-        params: send.params,
-      });
-
-      results.push({
-        sendId: send.sendId,
-        status: result.ok ? 'sent' : 'failed',
-        brevoMessageId: result.messageId,
-        error: result.ok ? undefined : result.error,
-      });
-    }
     } catch (err) {
       // A fatal error mid-drain would otherwise leave the campaign stuck in
       // `sending` forever. Persist what we have, fail the rest so it surfaces and

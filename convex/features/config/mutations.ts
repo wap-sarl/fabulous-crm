@@ -1,7 +1,11 @@
 import { v } from 'convex/values';
 import { adminMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
-import { SsoProvider, SocialProviderConfig, EmailConfig } from '../../_lib/validators/appConfig';
+import type {
+  SsoProvider,
+  SocialProviderConfig,
+  EmailConfig,
+} from '../../_lib/validators/appConfig';
 
 /** `#rrggbb` — the only accepted form for the brand accent color. */
 const hexColorRe = /^#[0-9a-fA-F]{6}$/;
@@ -190,7 +194,7 @@ export const updateConfig = adminMutation({
             k !== 'ssoProviders' &&
             k !== 'socialProviders' &&
             k !== 'email' &&
-            (args as Record<string, unknown>)[k] !== undefined
+            (args as Record<string, unknown>)[k] !== undefined,
         ),
         ssoProviderIds: mergedSso?.map((p) => p.providerId),
         socialProviderIds: mergedSocial?.map((p) => p.id),

@@ -36,7 +36,7 @@ export function LeadsPage() {
 
   const employeeName = useMemo(
     () => new Map(employees.map((e) => [e._id, `${e.firstName} ${e.lastName}`])),
-    [employees]
+    [employees],
   );
 
   const leads = results ?? [];

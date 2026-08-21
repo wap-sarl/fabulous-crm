@@ -21,7 +21,7 @@ export function useAuthMutation<M extends AnyMutation>(mutation: M) {
 }
 
 export function useGuestMutation<M extends GuestedMutation>(
-  mutation: M
+  mutation: M,
 ): (args: GuestMutationArgs<M>) => Promise<FunctionReturnType<M>> {
   const guestToken = useGuestToken();
   const fn = useMutation(mutation);
@@ -33,6 +33,6 @@ export function useGuestMutation<M extends GuestedMutation>(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return fn({ ...args, guestToken } as any);
     },
-    [fn, guestToken]
+    [fn, guestToken],
   );
 }

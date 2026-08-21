@@ -87,7 +87,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
   // Parse the CSV once per change; the header row drives the mapping table.
   const parsed = useMemo(
     () => parseCsv(raw).filter((cells) => cells.some((c) => c.trim() !== '')),
-    [raw]
+    [raw],
   );
   const header = parsed[0] ?? [];
   const sampleRow = parsed[1] ?? [];
@@ -99,10 +99,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
   }, [open]);
 
   const targetGroups = useMemo(() => buildImportTargetGroups(customDefs), [customDefs]);
-  const defById = useMemo(
-    () => new Map(customDefs.map((d) => [d._id as string, d])),
-    [customDefs]
-  );
+  const defById = useMemo(() => new Map(customDefs.map((d) => [d._id as string, d])), [customDefs]);
 
   // Column → target id (null = ignore). Auto-detected from headers, user-editable.
   const [mapping, setMapping] = useState<(string | null)[]>([]);
@@ -176,14 +173,14 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
     const missingRequired = REQUIRED_TARGETS.filter((t) => !mapping.includes(t.id));
     if (missingRequired.length) {
       toast.error(
-        `Colonnes requises non mappées : ${missingRequired.map((t) => t.label).join(', ')}`
+        `Colonnes requises non mappées : ${missingRequired.map((t) => t.label).join(', ')}`,
       );
       return;
     }
 
     const ctx: ImportContext = {
       userByEmail: new Map(
-        employees.filter((e) => Boolean(e.email)).map((e) => [e.email!.toLowerCase(), e._id])
+        employees.filter((e) => Boolean(e.email)).map((e) => [e.email!.toLowerCase(), e._id]),
       ),
     };
 
@@ -214,7 +211,8 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
             rowErrors.push(`${def.label} : ${res.error}`);
             continue;
           }
-          (row.customProperties ??= {})[def._id] = res.value;
+          row.customProperties ??= {};
+          row.customProperties[def._id] = res.value;
           continue;
         }
 
@@ -303,7 +301,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
       setSummary(
         `${created} lead(s) créé(s), ${updated} mis à jour.` +
           (allErrors.length ? `\n${allErrors.length} ignoré(s) :\n${allErrors.join('\n')}` : '') +
-          (ignored.length ? `\nColonnes ignorées : ${ignored.join(', ')}` : '')
+          (ignored.length ? `\nColonnes ignorées : ${ignored.join(', ')}` : ''),
       );
       if (created > 0 || updated > 0) {
         toast.success(`${created} créé(s), ${updated} mis à jour.`);
@@ -335,7 +333,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
             onDrop={handleDrop}
             className={cn(
               'flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-4 text-center transition-colors',
-              isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25'
+              isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
             )}
           >
             <Upload className="h-6 w-6 text-muted-foreground" />
@@ -363,10 +361,10 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
           </div>
           <p className="text-xs text-muted-foreground">
             Associez chaque colonne à une propriété ci-dessous. Requis :{' '}
-            <span className="font-mono">{REQUIRED_TARGETS.map((t) => t.label).join(', ')}</span>. Les
-            lignes avec un <span className="font-mono">e-mail</span> déjà connu mettent à jour le lead
-            existant. Séparez par <span className="font-mono">;</span> les valeurs multiples (choix
-            multiple).
+            <span className="font-mono">{REQUIRED_TARGETS.map((t) => t.label).join(', ')}</span>.
+            Les lignes avec un <span className="font-mono">e-mail</span> déjà connu mettent à jour
+            le lead existant. Séparez par <span className="font-mono">;</span> les valeurs multiples
+            (choix multiple).
           </p>
           <Textarea
             id="csv"

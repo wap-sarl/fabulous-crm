@@ -53,7 +53,7 @@ type LeadFilters = {
  */
 async function loadListMemberIds(
   ctx: QueryCtx,
-  listIds: Id<'leadLists'>[] | undefined
+  listIds: Id<'leadLists'>[] | undefined,
 ): Promise<Set<string> | undefined> {
   if (!listIds || listIds.length === 0) return undefined;
   const ids = new Set<string>();
@@ -137,14 +137,12 @@ export const listLeadsPaginated = employeeQuery({
     const direction = args.sortDirection ?? 'desc';
     const sortField = args.sortField ?? 'recent';
 
-    let cursor;
-    if (sortField === 'lastName') {
-      cursor = ctx.db.query('leads').withIndex('by_lastName').order(direction);
-    } else if (sortField === 'status') {
-      cursor = ctx.db.query('leads').withIndex('by_status').order(direction);
-    } else {
-      cursor = ctx.db.query('leads').order(direction);
-    }
+    const cursor =
+      sortField === 'lastName'
+        ? ctx.db.query('leads').withIndex('by_lastName').order(direction)
+        : sortField === 'status'
+          ? ctx.db.query('leads').withIndex('by_status').order(direction)
+          : ctx.db.query('leads').order(direction);
 
     const listMemberIds = await loadListMemberIds(ctx, args.listIds);
     const all = await cursor.collect();
@@ -192,7 +190,7 @@ export const getLeadDetail = employeeQuery({
             sendStatus: send.status,
             sentAt: send.sentAt,
           };
-        })
+        }),
       )
     )
       .filter((c) => c !== null)
@@ -225,10 +223,7 @@ export const listLeadNotes = employeeQuery({
     for (const note of notes) {
       if (note.createdBy && !authorNames.has(note.createdBy)) {
         const author = await ctx.db.get(note.createdBy);
-        authorNames.set(
-          note.createdBy,
-          author ? `${author.firstName} ${author.lastName}` : null
-        );
+        authorNames.set(note.createdBy, author ? `${author.firstName} ${author.lastName}` : null);
       }
     }
 
@@ -311,7 +306,7 @@ export const listLeadLists = employeeQuery({
         const creator = await ctx.db.get(list.createdBy);
         creatorNames.set(
           list.createdBy,
-          creator ? `${creator.firstName} ${creator.lastName}` : null
+          creator ? `${creator.firstName} ${creator.lastName}` : null,
         );
       }
     }
@@ -357,7 +352,9 @@ function buildMessagePreview(campaign: Doc<'campaigns'>, params: Record<string, 
   return {
     channel,
     subject: campaign.subject ? renderPlaceholders(campaign.subject, params, false) : undefined,
-    html: campaign.htmlBody ? wrapEmailHtml(renderPlaceholders(campaign.htmlBody, params)) : undefined,
+    html: campaign.htmlBody
+      ? wrapEmailHtml(renderPlaceholders(campaign.htmlBody, params))
+      : undefined,
   };
 }
 
@@ -450,7 +447,7 @@ export const getConsentByToken = query({
 
 export async function getLeadByConsentToken(
   ctx: QueryCtx,
-  token: string
+  token: string,
 ): Promise<Doc<'leads'> | null> {
   if (!token) return null;
   const lead = await ctx.db

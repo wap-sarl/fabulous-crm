@@ -48,7 +48,7 @@ const OTP_MAX_AGE_SECONDS = 20 * 60;
  */
 async function linkOrProvisionEmployee(
   ctx: { db: any },
-  authUser: { _id: string; email?: string; name?: string }
+  authUser: { _id: string; email?: string; name?: string },
 ): Promise<void> {
   const email = (authUser.email ?? '').trim().toLowerCase();
   if (!email) return;
@@ -58,7 +58,7 @@ async function linkOrProvisionEmployee(
   const existing = await ctx.db
     .query('users')
     .withIndex('by_email_type', (q: any) =>
-      q.eq('email', email).eq('type', 'employee').eq('deletedAt', undefined)
+      q.eq('email', email).eq('type', 'employee').eq('deletedAt', undefined),
     )
     .first();
   if (existing) {
@@ -127,7 +127,10 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
           where: [{ field: '_id', value: session.userId }],
         });
         if (authUser) {
-          await linkOrProvisionEmployee(ctx, authUser as { _id: string; email?: string; name?: string });
+          await linkOrProvisionEmployee(
+            ctx,
+            authUser as { _id: string; email?: string; name?: string },
+          );
         }
       },
     },
@@ -179,7 +182,7 @@ function buildSocialProviders(ctx: GenericCtx<DataModel>): BetterAuthOptions['so
  */
 async function sendSignInOtp(
   ctx: GenericCtx<DataModel>,
-  { email, otp }: { email: string; otp: string }
+  { email, otp }: { email: string; otp: string },
 ): Promise<void> {
   // Sending needs an action ctx: to read the config and to run the node email
   // action (SMTP uses nodemailer, which can't be imported here). Non-action ctx
@@ -285,10 +288,9 @@ function authOptions(ctx: GenericCtx<DataModel>, ssoProviders: SsoProvider[]) {
             if (!isActionCtx(ctx)) return;
             const email = (user.email ?? '').trim().toLowerCase();
             if (!email) throw new APIError('BAD_REQUEST', { message: 'email_required' });
-            const allowed = await ctx.runQuery(
-              internal.features.invitations.internal.isAllowed,
-              { email }
-            );
+            const allowed = await ctx.runQuery(internal.features.invitations.internal.isAllowed, {
+              email,
+            });
             if (!allowed) throw new APIError('FORBIDDEN', { message: 'not_invited' });
           },
         },
@@ -324,7 +326,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       return async (request: Request): Promise<Response> => {
         const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
         const sso = (cfg?.auth.ssoProviders ?? []).filter(
-          (p) => p.enabled && p.clientId && p.clientSecret
+          (p) => p.enabled && p.clientId && p.clientSecret,
         );
         if (sso.length === 0) return target.handler(request);
         return betterAuth(authOptions(ctx, sso)).handler(request);

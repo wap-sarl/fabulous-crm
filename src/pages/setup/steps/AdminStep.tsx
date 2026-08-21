@@ -2,7 +2,8 @@ import { Input, Label } from '@crm/design-system';
 import type { StepProps } from './types';
 
 export function AdminStep({ data, update, error }: StepProps) {
-  const setAdmin = (patch: Partial<typeof data.admin>) => update({ admin: { ...data.admin, ...patch } });
+  const setAdmin = (patch: Partial<typeof data.admin>) =>
+    update({ admin: { ...data.admin, ...patch } });
 
   return (
     <div className="space-y-4">

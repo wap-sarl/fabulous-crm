@@ -35,7 +35,7 @@ export function CampaignMessagePreview({
       <div
         className={cn(
           'flex items-start gap-3 rounded-xl border border-dashed bg-muted/40 p-4',
-          className
+          className,
         )}
       >
         <FileWarning className="mt-0.5 size-4 shrink-0 text-soft" />

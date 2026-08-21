@@ -38,7 +38,7 @@ function toComparable(value: unknown): string | number | null {
 /** Resolve the stored value of a rule's field (standard column or custom prop). */
 export function getFieldValue(
   lead: Doc<'leads'>,
-  field: FilterField
+  field: FilterField,
 ): LeadPropertyValue | undefined {
   if (field.kind === 'custom') return lead.customProperties?.[field.definitionId];
   switch (field.field) {

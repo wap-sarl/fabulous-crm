@@ -1,7 +1,10 @@
 import { useMemo, useRef } from 'react';
 import { Input, Label, Textarea } from '@crm/design-system';
 import type { WorkflowNode } from '@crm/lib/backend';
-import { EmailBodyEditor, type EmailBodyEditorHandle } from '../../../campaigns/components/EmailBodyEditor';
+import {
+  EmailBodyEditor,
+  type EmailBodyEditorHandle,
+} from '../../../campaigns/components/EmailBodyEditor';
 import { PlaceholderChips } from '../../../campaigns/components/PlaceholderChips';
 import { buildPlaceholders, insertAtCaret } from '../../../campaigns/lib/placeholders';
 import type { LeadPropertyDefinitionRow } from '../../../leads/types';
@@ -36,7 +39,7 @@ export function EmailStepConfig({ value, onChange, definitions }: EmailStepConfi
           placeholders={placeholders}
           onInsert={(item) =>
             insertAtCaret(subjectRef.current, value.subject, item.token, (subject) =>
-              onChange({ ...value, subject })
+              onChange({ ...value, subject }),
             )
           }
         />
@@ -79,7 +82,7 @@ export function SmsStepConfig({ value, onChange, definitions }: SmsStepConfigPro
         placeholders={placeholders}
         onInsert={(item) =>
           insertAtCaret(smsRef.current, value.smsBody, item.token, (smsBody) =>
-            onChange({ ...value, smsBody })
+            onChange({ ...value, smsBody }),
           )
         }
       />

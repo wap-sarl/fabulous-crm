@@ -47,7 +47,7 @@ interface RunDetailSheetProps {
 export function RunDetailSheet({ runId, onClose, onCancelRun }: RunDetailSheetProps) {
   const run = useAuthQuery(api.features.workflows.queries.getRun, runId ? { runId } : 'skip');
   const nodeById = new Map<string, WorkflowNode>(
-    (run?.workflow?.nodes ?? []).map((n) => [n.id, n])
+    (run?.workflow?.nodes ?? []).map((n) => [n.id, n]),
   );
 
   return (
@@ -101,7 +101,7 @@ export function RunDetailSheet({ runId, onClose, onCancelRun }: RunDetailSheetPr
                 {run.steps.map((step) => {
                   const node = nodeById.get(step.nodeId);
                   const meta = STEP_TYPE_META.get(
-                    (node?.type ?? step.nodeType) as Parameters<typeof STEP_TYPE_META.get>[0]
+                    (node?.type ?? step.nodeType) as Parameters<typeof STEP_TYPE_META.get>[0],
                   );
                   const Icon = meta?.icon;
                   return (
@@ -109,7 +109,7 @@ export function RunDetailSheet({ runId, onClose, onCancelRun }: RunDetailSheetPr
                       <span
                         className={cn(
                           'absolute -left-[26.5px] top-1 size-3 rounded-full ring-4 ring-canvas',
-                          DOT_CLASS[STEP_OUTCOME_TONE[step.status]] ?? 'bg-gray-400'
+                          DOT_CLASS[STEP_OUTCOME_TONE[step.status]] ?? 'bg-gray-400',
                         )}
                       />
                       <div className="flex items-center gap-2">
@@ -123,7 +123,7 @@ export function RunDetailSheet({ runId, onClose, onCancelRun }: RunDetailSheetPr
                               'rounded-full px-1.5 py-0.5 text-[10.5px] font-bold uppercase',
                               step.branchResult
                                 ? 'bg-green-100 text-green-700'
-                                : 'bg-red-100 text-red-600'
+                                : 'bg-red-100 text-red-600',
                             )}
                           >
                             {step.branchResult ? 'Oui' : 'Non'}

@@ -1,4 +1,4 @@
-import { Infer, v } from 'convex/values';
+import { type Infer, v } from 'convex/values';
 
 /**
  * Invitation-based membership allowlist. The first admin is bootstrapped by the

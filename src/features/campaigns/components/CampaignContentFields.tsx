@@ -70,7 +70,7 @@ function SegmentedToggle<T extends string>({
             className={cn(
               'rounded-md px-3 py-1.5 text-sm font-medium transition',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft',
-              selected ? 'bg-card text-ink shadow-sm' : 'text-faint hover:text-ink'
+              selected ? 'bg-card text-ink shadow-sm' : 'text-faint hover:text-ink',
             )}
           >
             {option.label}
@@ -89,7 +89,7 @@ function AddTrackedLinkButton({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       className={cn(
         'inline-flex items-center gap-1 rounded-full border border-dashed border-primary/50 px-2 py-0.5 text-xs font-medium text-primary transition',
-        'hover:bg-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft'
+        'hover:bg-primary-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft',
       )}
     >
       <MousePointerClick className="size-3" aria-hidden="true" />
@@ -154,7 +154,7 @@ export function CampaignContentFields({
     if (
       body.includes(`params.${link.key}`) &&
       !window.confirm(
-        `Le message contient encore « {{ params.${link.key} }} » ; ce champ ne sera plus remplacé. Supprimer le lien « ${link.label} » ?`
+        `Le message contient encore « {{ params.${link.key} }} » ; ce champ ne sera plus remplacé. Supprimer le lien « ${link.label} » ?`,
       )
     ) {
       return;
@@ -202,10 +202,10 @@ export function CampaignContentFields({
       <SegmentedToggle options={MESSAGE_TYPES} value={messageType} onChange={onMessageTypeChange} />
       <p className="text-xs text-muted-foreground">
         « Marketing » ne cible que les leads ayant consenti à ce canal (filtre ajouté
-        automatiquement, modifiable){channel === 'sms' ? ' et applique les règles d’opt-out Brevo' : ''} et
-        ajoute par défaut {channel === 'sms' ? 'une ligne STOP' : 'un bloc de désinscription'} avec
-        le lien de consentement (modifiable) ; « Transactionnel » n’applique pas de filtre de
-        consentement.
+        automatiquement, modifiable)
+        {channel === 'sms' ? ' et applique les règles d’opt-out Brevo' : ''} et ajoute par défaut{' '}
+        {channel === 'sms' ? 'une ligne STOP' : 'un bloc de désinscription'} avec le lien de
+        consentement (modifiable) ; « Transactionnel » n’applique pas de filtre de consentement.
       </p>
     </div>
   );
@@ -242,7 +242,9 @@ export function CampaignContentFields({
       <div className="space-y-1.5">
         <span className="mr-2 text-sm font-medium text-ink">Contenu de l’e-mail</span>
         <SegmentedToggle
-          options={templateAvailable ? EMAIL_MODES : EMAIL_MODES.filter((m) => m.value !== 'template')}
+          options={
+            templateAvailable ? EMAIL_MODES : EMAIL_MODES.filter((m) => m.value !== 'template')
+          }
           value={emailMode}
           onChange={onEmailModeChange}
         />
@@ -264,8 +266,7 @@ export function CampaignContentFields({
             placeholder="ex. 12"
           />
           <p className="text-xs text-muted-foreground">
-            Champs disponibles dans le template :{' '}
-            {placeholders.map((p) => p.token).join(', ')}.
+            Champs disponibles dans le template : {placeholders.map((p) => p.token).join(', ')}.
           </p>
           <AddTrackedLinkButton onClick={() => setLinkModalOpen(true)} />
           {trackedLinkChips}

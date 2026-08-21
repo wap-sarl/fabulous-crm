@@ -56,7 +56,7 @@ export function LeadDetailPage() {
   const { leadId } = useParams<{ leadId: string }>();
   const data = useAuthQuery(
     api.features.crm.queries.getLeadDetail,
-    leadId ? { leadId: leadId as Id<'leads'> } : 'skip'
+    leadId ? { leadId: leadId as Id<'leads'> } : 'skip',
   );
 
   const [editOpen, setEditOpen] = useState(false);

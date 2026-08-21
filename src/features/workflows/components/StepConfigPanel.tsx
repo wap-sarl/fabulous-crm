@@ -67,9 +67,7 @@ function TriggerPanelBody({
     <>
       <SheetHeader>
         <SheetTitle>Déclencheur</SheetTitle>
-        <SheetDescription>
-          Quand un lead doit-il entrer dans ce workflow ?
-        </SheetDescription>
+        <SheetDescription>Quand un lead doit-il entrer dans ce workflow ?</SheetDescription>
       </SheetHeader>
       <div className="flex-1 py-4">
         <TriggerConfig value={value} onChange={setValue} definitions={definitions} />

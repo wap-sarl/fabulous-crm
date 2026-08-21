@@ -82,7 +82,10 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const brevo = resolveBrevo(cfg);
-    if (!brevo.webhookSecret || new URL(request.url).searchParams.get('secret') !== brevo.webhookSecret) {
+    if (
+      !brevo.webhookSecret ||
+      new URL(request.url).searchParams.get('secret') !== brevo.webhookSecret
+    ) {
       return new Response('Unauthorized', { status: 401 });
     }
     // Email tracking is disabled when email isn't going through Brevo: ACK and

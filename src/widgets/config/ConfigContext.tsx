@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@crm/lib/backend';
 

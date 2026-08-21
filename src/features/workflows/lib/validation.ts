@@ -26,12 +26,14 @@ export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
 
   for (const node of Object.values(draft.nodes)) {
     const label = `Étape « ${STEP_TYPE_META.get(node.type)?.label ?? node.type} »`;
-    const push = (detail: string) => errors.push({ message: `${label} : ${detail}`, nodeId: node.id });
+    const push = (detail: string) =>
+      errors.push({ message: `${label} : ${detail}`, nodeId: node.id });
 
     switch (node.type) {
       case 'send_email':
         if (!node.subject.trim()) push('l’objet est requis.');
-        else if (!node.htmlBody.trim() || node.htmlBody === '<p></p>') push('le contenu est requis.');
+        else if (!node.htmlBody.trim() || node.htmlBody === '<p></p>')
+          push('le contenu est requis.');
         break;
       case 'send_sms':
         if (!node.smsBody.trim()) push('le message est requis.');
@@ -55,7 +57,7 @@ export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
       case 'branch': {
         const active = node.condition.groups.reduce(
           (n, g) => n + g.rules.filter(isActiveRule).length,
-          0
+          0,
         );
         if (active === 0) push('au moins une condition est requise.');
         break;

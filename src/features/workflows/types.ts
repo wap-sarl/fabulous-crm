@@ -29,8 +29,14 @@ export type WorkflowPayload = Pick<
 export function draftFromWorkflow(
   workflow: Pick<
     Workflow,
-    'name' | 'description' | 'trigger' | 'enrollmentCriteria' | 'allowReEnrollment' | 'nodes' | 'startNodeId'
-  >
+    | 'name'
+    | 'description'
+    | 'trigger'
+    | 'enrollmentCriteria'
+    | 'allowReEnrollment'
+    | 'nodes'
+    | 'startNodeId'
+  >,
 ): WorkflowDraft {
   return {
     name: workflow.name,

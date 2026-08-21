@@ -1,4 +1,4 @@
-import * as React from 'react';
+import type * as React from 'react';
 import { Alert, AlertDescription, AlertTitle } from './alert';
 import { formatDate, formatDateTime } from './format-date';
 import { Collapse } from '../surfaces/collapse';

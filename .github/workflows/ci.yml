@@ -32,7 +32,8 @@ jobs:
       - name: Typecheck
         run: bun run typecheck
 
-      # Slot reserved for `bun run lint` once Biome is installed (issue #3).
+      - name: Lint
+        run: bun run lint
 
       - name: Test
         run: bun test

@@ -117,11 +117,7 @@ export function ConsentPage() {
               >
                 Tout accepter
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleSave([])}
-                disabled={submitting}
-              >
+              <Button variant="outline" onClick={() => handleSave([])} disabled={submitting}>
                 Tout refuser
               </Button>
             </div>

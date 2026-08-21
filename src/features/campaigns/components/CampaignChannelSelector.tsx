@@ -39,11 +39,7 @@ interface Props {
  */
 export function CampaignChannelSelector({ value, onChange, smsAvailable = true }: Props) {
   return (
-    <div
-      role="radiogroup"
-      aria-label="Canal de la campagne"
-      className="grid gap-3 sm:grid-cols-2"
-    >
+    <div role="radiogroup" aria-label="Canal de la campagne" className="grid gap-3 sm:grid-cols-2">
       {OPTIONS.map((option) => {
         const selected = option.value === value;
         const disabled = option.value === 'sms' && !smsAvailable;
@@ -60,19 +56,17 @@ export function CampaignChannelSelector({ value, onChange, smsAvailable = true }
             className={cn(
               'flex items-center gap-3 rounded-xl border bg-card p-4 text-left transition',
               'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft',
-              disabled
-                ? 'cursor-not-allowed border-border opacity-60'
-                : 'cursor-pointer',
+              disabled ? 'cursor-not-allowed border-border opacity-60' : 'cursor-pointer',
               !disabled &&
                 (selected
                   ? 'border-primary ring-2 ring-primary'
-                  : 'border-border hover:border-primary/40')
+                  : 'border-border hover:border-primary/40'),
             )}
           >
             <span
               className={cn(
                 'flex size-10 shrink-0 items-center justify-center rounded-lg transition',
-                selected && !disabled ? 'bg-primary text-white' : 'bg-muted text-faint'
+                selected && !disabled ? 'bg-primary text-white' : 'bg-muted text-faint',
               )}
             >
               <Icon className="size-5" aria-hidden="true" />

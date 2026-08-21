@@ -38,15 +38,11 @@ function BrandingManager() {
       if (persistedRef.current) applyPrimaryColor(persistedRef.current);
       else resetPrimaryColor();
     },
-    []
+    [],
   );
 
   const getUploadUrl = () => generateUploadUrl({});
-  const hasPending = !!(
-    pending.logoStorageId ||
-    pending.faviconStorageId ||
-    pending.primaryColor
-  );
+  const hasPending = !!(pending.logoStorageId || pending.faviconStorageId || pending.primaryColor);
 
   const handleSave = async () => {
     setBusy(true);

@@ -31,7 +31,11 @@ function TimeSeriesChart({
   className,
 }: TimeSeriesChartProps) {
   if (series.length === 0) {
-    return <div className={cn('py-8 text-center text-sm text-faint', className)}>Pas encore de données</div>;
+    return (
+      <div className={cn('py-8 text-center text-sm text-faint', className)}>
+        Pas encore de données
+      </div>
+    );
   }
 
   const max = Math.max(...series.map((p) => p.value), 1);
@@ -52,13 +56,17 @@ function TimeSeriesChart({
   const labelStep = Math.max(1, Math.ceil(series.length / 8));
 
   return (
-    <svg
-      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
-      className={cn('h-auto w-full', className)}
-      role="img"
-    >
+    <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className={cn('h-auto w-full', className)} role="img">
       {gridYs.map((y) => (
-        <line key={y} x1={PAD_X} x2={VIEW_W - PAD_X} y1={y} y2={y} stroke="#EEF0F3" strokeWidth={1} />
+        <line
+          key={y}
+          x1={PAD_X}
+          x2={VIEW_W - PAD_X}
+          y1={y}
+          y2={y}
+          stroke="#EEF0F3"
+          strokeWidth={1}
+        />
       ))}
       <polygon points={area} fill={areaColor} />
       <polyline

@@ -33,7 +33,7 @@ export async function logAudit(params: {
 
 export function computeChanges(
   current: Record<string, unknown>,
-  updates: Record<string, unknown>
+  updates: Record<string, unknown>,
 ): Record<string, { old: unknown; new: unknown }> | undefined {
   const changes: Record<string, { old: unknown; new: unknown }> = {};
   for (const [key, newValue] of Object.entries(updates)) {

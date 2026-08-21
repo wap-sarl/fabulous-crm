@@ -28,11 +28,11 @@ export const STANDARD_FILTER_FIELDS: {
 ];
 
 const STANDARD_FIELD_TYPE = new Map<StandardField, FilterFieldType>(
-  STANDARD_FILTER_FIELDS.map((f) => [f.field, f.type])
+  STANDARD_FILTER_FIELDS.map((f) => [f.field, f.type]),
 );
 
 const STANDARD_FIELD_LABEL = new Map<StandardField, string>(
-  STANDARD_FILTER_FIELDS.map((f) => [f.field, f.label])
+  STANDARD_FILTER_FIELDS.map((f) => [f.field, f.label]),
 );
 
 /** French labels for each operator (shown in the operator dropdown). */
@@ -68,7 +68,7 @@ function customPropertyType(type: LeadPropertyDefinitionRow['type']): FilterFiel
 /** Resolve a rule field to its unified filter type; defaults to text for orphans. */
 export function fieldTypeOf(
   field: FilterField,
-  defsById: Map<string, LeadPropertyDefinitionRow>
+  defsById: Map<string, LeadPropertyDefinitionRow>,
 ): FilterFieldType {
   if (field.kind === 'standard') return STANDARD_FIELD_TYPE.get(field.field) ?? 'text';
   const def = defsById.get(field.definitionId);
@@ -78,7 +78,7 @@ export function fieldTypeOf(
 /** Human label for a rule field (standard label or the custom definition label). */
 export function fieldLabelOf(
   field: FilterField,
-  defsById: Map<string, LeadPropertyDefinitionRow>
+  defsById: Map<string, LeadPropertyDefinitionRow>,
 ): string {
   if (field.kind === 'standard') return STANDARD_FIELD_LABEL.get(field.field) ?? field.field;
   return defsById.get(field.definitionId)?.label ?? 'Propriété supprimée';
@@ -86,7 +86,11 @@ export function fieldLabelOf(
 
 /** A fresh rule seeded on the first standard field (Prénom, contains). */
 export function emptyRule(): FilterRule {
-  return { field: { kind: 'standard', field: 'firstName' }, operator: 'contains', value: undefined };
+  return {
+    field: { kind: 'standard', field: 'firstName' },
+    operator: 'contains',
+    value: undefined,
+  };
 }
 
 export function emptyGroup(): FilterGroup {
@@ -113,7 +117,7 @@ const CHANNEL_CONSENT: Record<'email' | 'sms', string> = { email: 'email', sms: 
 export function applyRecipientFilter(
   filter: AdvancedFilter | undefined,
   channel: 'email' | 'sms',
-  messageType: 'marketing' | 'transactional'
+  messageType: 'marketing' | 'transactional',
 ): AdvancedFilter {
   const channelField: StandardField = channel === 'email' ? 'email' : 'phone';
   const isChannelRule = (r: FilterRule) =>
@@ -150,7 +154,10 @@ export function applyRecipientFilter(
   const base = filter ?? { combinator: 'and' as const, groups: [] };
   // Strip existing auto-managed rules, dropping groups left empty…
   let groups = base.groups
-    .map((g) => ({ ...g, rules: g.rules.filter((r) => !isChannelRule(r) && !isAutoConsentRule(r)) }))
+    .map((g) => ({
+      ...g,
+      rules: g.rules.filter((r) => !isChannelRule(r) && !isAutoConsentRule(r)),
+    }))
     .filter((g) => g.rules.length > 0);
   if (groups.length === 0) groups = [{ combinator: 'and', rules: [] }];
   // …then prepend the seeded rules to the first group.

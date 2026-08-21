@@ -24,7 +24,7 @@ export const LEAD_STATUSES: {
 export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = LEAD_STATUS_LABELS;
 
 export const LEAD_STATUS_TONE: Record<LeadStatus, StatusTone> = Object.fromEntries(
-  LEAD_STATUSES.map((s) => [s.value, s.tone])
+  LEAD_STATUSES.map((s) => [s.value, s.tone]),
 ) as Record<LeadStatus, StatusTone>;
 
 /** Campaign statuses with French labels and badge tones. */
@@ -40,11 +40,11 @@ export const CAMPAIGN_STATUSES: {
 ];
 
 export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = Object.fromEntries(
-  CAMPAIGN_STATUSES.map((s) => [s.value, s.label])
+  CAMPAIGN_STATUSES.map((s) => [s.value, s.label]),
 ) as Record<CampaignStatus, string>;
 
 export const CAMPAIGN_STATUS_TONE: Record<CampaignStatus, StatusTone> = Object.fromEntries(
-  CAMPAIGN_STATUSES.map((s) => [s.value, s.tone])
+  CAMPAIGN_STATUSES.map((s) => [s.value, s.tone]),
 ) as Record<CampaignStatus, StatusTone>;
 
 /** Per-recipient campaign send statuses with French labels and badge tones. */
@@ -61,11 +61,11 @@ export const SEND_STATUSES: {
 ];
 
 export const SEND_STATUS_LABEL: Record<CampaignSendStatus, string> = Object.fromEntries(
-  SEND_STATUSES.map((s) => [s.value, s.label])
+  SEND_STATUSES.map((s) => [s.value, s.label]),
 ) as Record<CampaignSendStatus, string>;
 
 export const SEND_STATUS_TONE: Record<CampaignSendStatus, StatusTone> = Object.fromEntries(
-  SEND_STATUSES.map((s) => [s.value, s.tone])
+  SEND_STATUSES.map((s) => [s.value, s.tone]),
 ) as Record<CampaignSendStatus, StatusTone>;
 
 /**
@@ -98,13 +98,18 @@ export function formatSendError(raw: string | undefined | null): string {
   }
   if (
     haystack.includes('sender') &&
-    (haystack.includes('not valid') || haystack.includes('not authorized') || haystack.includes('unknown'))
+    (haystack.includes('not valid') ||
+      haystack.includes('not authorized') ||
+      haystack.includes('unknown'))
   ) {
     return 'Expéditeur non validé par Brevo.';
   }
   if (
     haystack.includes('invalid') &&
-    (haystack.includes('recipient') || haystack.includes('phone') || haystack.includes('number') || haystack.includes('email'))
+    (haystack.includes('recipient') ||
+      haystack.includes('phone') ||
+      haystack.includes('number') ||
+      haystack.includes('email'))
   ) {
     return 'Coordonnée du destinataire invalide.';
   }
@@ -133,11 +138,11 @@ export const EVENT_TYPES: {
 ];
 
 export const EVENT_TYPE_LABEL: Record<CampaignEventType, string> = Object.fromEntries(
-  EVENT_TYPES.map((e) => [e.value, e.label])
+  EVENT_TYPES.map((e) => [e.value, e.label]),
 ) as Record<CampaignEventType, string>;
 
 export const EVENT_TYPE_TONE: Record<CampaignEventType, StatusTone> = Object.fromEntries(
-  EVENT_TYPES.map((e) => [e.value, e.tone])
+  EVENT_TYPES.map((e) => [e.value, e.tone]),
 ) as Record<CampaignEventType, StatusTone>;
 
 /** Marketing consent channels with French labels. */
@@ -149,5 +154,5 @@ export const CONSENT_CHANNELS: { value: MarketingConsentChannel; label: string }
 ];
 
 export const CONSENT_CHANNEL_LABEL: Record<MarketingConsentChannel, string> = Object.fromEntries(
-  CONSENT_CHANNELS.map((c) => [c.value, c.label])
+  CONSENT_CHANNELS.map((c) => [c.value, c.label]),
 ) as Record<MarketingConsentChannel, string>;

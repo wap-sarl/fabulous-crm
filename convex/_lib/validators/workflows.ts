@@ -1,4 +1,4 @@
-import { Infer, v } from 'convex/values';
+import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
 import { advancedFilterValidator, filterFieldValidator } from './leadFilters';
 import { trackedLinkStandardFieldValidator } from './crm';
@@ -18,14 +18,14 @@ export const workflowEmailEventValidator = v.union(
   v.literal('clicked'),
   v.literal('hard_bounce'),
   v.literal('soft_bounce'),
-  v.literal('unsubscribed')
+  v.literal('unsubscribed'),
 );
 
 /** SMS engagement events that can enroll a lead. `stop` = STOP reply opt-out. */
 export const workflowSmsEventValidator = v.union(
   v.literal('delivered'),
   v.literal('sms_reply'),
-  v.literal('stop')
+  v.literal('stop'),
 );
 
 /**
@@ -60,7 +60,7 @@ export const workflowTriggerValidator = v.union(
     type: v.literal('tracked_link_click'),
     campaignId: v.optional(v.id('campaigns')),
     linkKey: v.optional(v.string()),
-  })
+  }),
 );
 
 /**
@@ -70,13 +70,13 @@ export const workflowTriggerValidator = v.union(
  */
 export const workflowLeadTargetValidator = v.union(
   v.object({ kind: v.literal('standard'), field: trackedLinkStandardFieldValidator }),
-  v.object({ kind: v.literal('custom'), propertyDefId: v.id('leadPropertyDefinitions') })
+  v.object({ kind: v.literal('custom'), propertyDefId: v.id('leadPropertyDefinitions') }),
 );
 
 export const workflowWaitUnitValidator = v.union(
   v.literal('minutes'),
   v.literal('hours'),
-  v.literal('days')
+  v.literal('days'),
 );
 
 const nodeBase = {
@@ -150,13 +150,13 @@ export const workflowNodeValidator = v.union(
     condition: advancedFilterValidator,
     nextTrue: v.optional(v.string()),
     nextFalse: v.optional(v.string()),
-  })
+  }),
 );
 
 export const workflowStatusValidator = v.union(
   v.literal('draft'),
   v.literal('active'),
-  v.literal('paused')
+  v.literal('paused'),
 );
 
 export const workflowValidator = v.object({
@@ -188,7 +188,7 @@ export const workflowRunStatusValidator = v.union(
   v.literal('active'),
   v.literal('completed'),
   v.literal('cancelled'),
-  v.literal('failed')
+  v.literal('failed'),
 );
 
 /** One enrollment of a lead in a workflow. */
@@ -228,7 +228,7 @@ export const workflowStepOutcomeValidator = v.union(
   v.literal('skipped_no_consent'),
   v.literal('skipped_no_email'),
   v.literal('skipped_no_phone'),
-  v.literal('skipped')
+  v.literal('skipped'),
 );
 
 /** Append-only log: one row per step a run executed. */

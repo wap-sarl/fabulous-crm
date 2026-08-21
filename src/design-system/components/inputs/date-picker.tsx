@@ -49,7 +49,7 @@ function DatePicker({
 
   // Text input mirrors the value in DD/MM/YYYY format
   const [inputValue, setInputValue] = React.useState(() =>
-    selectedDate ? format(selectedDate, 'dd/MM/yyyy') : ''
+    selectedDate ? format(selectedDate, 'dd/MM/yyyy') : '',
   );
 
   // Sync input when value changes externally (e.g. calendar pick)
@@ -64,7 +64,7 @@ function DatePicker({
       }
       setOpen(false);
     },
-    [onValueChange]
+    [onValueChange],
   );
 
   const handleInputChange = React.useCallback(
@@ -80,7 +80,7 @@ function DatePicker({
         }
       }
     },
-    [onValueChange]
+    [onValueChange],
   );
 
   const handleInputBlur = React.useCallback(() => {

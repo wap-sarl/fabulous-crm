@@ -5,7 +5,7 @@ import {
   customQuery,
 } from 'convex-helpers/server/customFunctions';
 import { action, mutation, query, type MutationCtx, type QueryCtx } from '../_generated/server';
-import { Doc, Id } from '../_generated/dataModel';
+import type { Doc, Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import { authComponent } from '../auth';
 
@@ -23,7 +23,7 @@ type DbCtx = QueryCtx | MutationCtx;
 
 /** Resolve the app employee for the current session, or `null` when signed out. */
 async function loadEmployee(
-  ctx: DbCtx
+  ctx: DbCtx,
 ): Promise<{ userId: Id<'users'>; user: Doc<'users'> } | null> {
   const authUser = await authComponent.safeGetAuthUser(ctx);
   if (!authUser) return null;
@@ -39,7 +39,7 @@ async function loadEmployee(
 async function requireRole(
   ctx: DbCtx,
   predicate: (u: Doc<'users'>) => boolean,
-  label: string
+  label: string,
 ): Promise<{ userId: Id<'users'>; user: Doc<'users'> }> {
   const session = await loadEmployee(ctx);
   if (!session) throw new Error('Unauthenticated');
@@ -52,22 +52,22 @@ const isAdmin = (u: Doc<'users'>) => u.type === 'employee' && u.role === 'admin'
 
 export const employeeQuery = customQuery(
   query,
-  customCtx((ctx) => requireRole(ctx, isEmployee, 'employees only'))
+  customCtx((ctx) => requireRole(ctx, isEmployee, 'employees only')),
 );
 
 export const adminQuery = customQuery(
   query,
-  customCtx((ctx) => requireRole(ctx, isAdmin, 'admins only'))
+  customCtx((ctx) => requireRole(ctx, isAdmin, 'admins only')),
 );
 
 export const employeeMutation = customMutation(
   mutation,
-  customCtx((ctx) => requireRole(ctx, isEmployee, 'employees only'))
+  customCtx((ctx) => requireRole(ctx, isEmployee, 'employees only')),
 );
 
 export const adminMutation = customMutation(
   mutation,
-  customCtx((ctx) => requireRole(ctx, isAdmin, 'admins only'))
+  customCtx((ctx) => requireRole(ctx, isAdmin, 'admins only')),
 );
 
 /**
@@ -89,17 +89,17 @@ export const employeeAction = customAction(
     const employee = await ctx.runQuery(internal.auth.getEmployeeByAuthId, {
       authId: authUser._id,
     });
-    if (!employee || employee.type !== 'employee') {
+    if (employee?.type !== 'employee') {
       throw new Error('Unauthorized: employees only');
     }
     return {};
-  })
+  }),
 );
 
 export function assertSelfOrEmployee(
   ctx: { userId: Id<'users'>; user: Doc<'users'> },
   targetId: Id<'users'>,
-  message = 'Unauthorized: can only access your own profile'
+  message = 'Unauthorized: can only access your own profile',
 ) {
   if (targetId !== ctx.userId && ctx.user.type !== 'employee') {
     throw new Error(message);

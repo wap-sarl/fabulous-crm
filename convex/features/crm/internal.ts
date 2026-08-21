@@ -25,7 +25,7 @@ export const getPendingSends = internalQuery({
     const pending = await ctx.db
       .query('campaignSends')
       .withIndex('by_campaign_status', (q) =>
-        q.eq('campaignId', args.campaignId).eq('status', 'pending')
+        q.eq('campaignId', args.campaignId).eq('status', 'pending'),
       )
       .take(BATCH_SIZE);
 
@@ -56,7 +56,7 @@ export const recordSendResults = internalMutation({
         status: campaignSendStatusValidator,
         brevoMessageId: v.optional(v.string()),
         error: v.optional(v.string()),
-      })
+      }),
     ),
   },
   handler: async (ctx, args) => {
@@ -196,7 +196,10 @@ const SMS_EVENT_TYPE: Record<string, CampaignEventType> = {
 };
 
 /** Brevo SMS `msg_status` → the first-only lifecycle marker it stamps on the send. */
-const SMS_STATUS_MARKER: Record<string, 'deliveredAt' | 'repliedAt' | 'unsubscribedAt' | 'bouncedAt'> = {
+const SMS_STATUS_MARKER: Record<
+  string,
+  'deliveredAt' | 'repliedAt' | 'unsubscribedAt' | 'bouncedAt'
+> = {
   delivered: 'deliveredAt',
   replied: 'repliedAt',
   unsubscribed: 'unsubscribedAt',
@@ -246,7 +249,7 @@ export const handleSmsEvent = internalMutation({
     if (!send) {
       console.warn(
         'SMS webhook: no campaignSend for',
-        args.recipient ? `recipient ${args.recipient}` : `messageId ${args.brevoMessageId}`
+        args.recipient ? `recipient ${args.recipient}` : `messageId ${args.brevoMessageId}`,
       );
       return;
     }
@@ -420,7 +423,7 @@ export const failPendingSends = internalMutation({
     const pending = await ctx.db
       .query('campaignSends')
       .withIndex('by_campaign_status', (q) =>
-        q.eq('campaignId', args.campaignId).eq('status', 'pending')
+        q.eq('campaignId', args.campaignId).eq('status', 'pending'),
       )
       .collect();
     if (pending.length === 0) return { failed: 0 };
