@@ -10,7 +10,9 @@
     "build": "tsc --noEmit -p tsconfig.json && vite build",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p convex/tsconfig.json",
     "preview": "vite preview",
-    "codegen": "bunx convex codegen"
+    "codegen": "bunx convex codegen",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
   },
   "dependencies": {
     "@convex-dev/better-auth": "~0.12.5",
