@@ -73,6 +73,8 @@ bun run dev
 | `bun run build` | `tsc --noEmit` + `vite build` → `dist/` |
 | `bun run typecheck` | tsconfig app + tsconfig convex |
 | `bun run codegen` | régénère `convex/_generated` (commité) |
+| `bun run test` | lance les suites `bun:test` |
+| `bun run test:watch` | idem, en mode watch |
 
 ### Bootstrap & connexion locale
 
