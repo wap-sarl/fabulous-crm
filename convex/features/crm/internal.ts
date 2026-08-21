@@ -1,6 +1,5 @@
 import { v } from 'convex/values';
 import { internalQuery, internalMutation, type MutationCtx } from '../../_generated/server';
-import type { Doc } from '../../_generated/dataModel';
 import { toBrevoRecipient } from '../../lib';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
