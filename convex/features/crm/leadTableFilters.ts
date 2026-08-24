@@ -6,6 +6,7 @@ import { advancedFilterValidator } from '../../_lib/validators/leadFilters';
 import type { AdvancedFilter } from '../../_lib/validators/leadFilters';
 import type { LeadPropertyValue } from '../../_lib/validators/leadProperties';
 import { leadPropertyValueValidator, leadStatusValidator } from '../../schema';
+import { normalizeSearchText } from '../../lib/leadSearch';
 import { evalAdvancedFilter } from './leadMatching';
 
 /** Filter arguments shared by the paginated table, the campaign-resolver query
@@ -107,10 +108,10 @@ export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): bo
     if (!filters.listMemberIds?.has(lead._id)) return false;
   }
 
-  const search = filters.search?.toLowerCase().trim();
+  const search = filters.search ? normalizeSearchText(filters.search) : '';
   if (search) {
     const haystacks = [lead.firstName, lead.lastName, lead.email, lead.phone];
-    const matched = haystacks.some((value) => value?.toLowerCase().includes(search));
+    const matched = haystacks.some((value) => value && normalizeSearchText(value).includes(search));
     if (!matched) return false;
   }
 

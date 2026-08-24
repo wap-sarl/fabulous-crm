@@ -22,6 +22,7 @@ type PageArgs = Partial<{
   assignedToIds: Id<'users'>[];
   listIds: Id<'leadLists'>[];
   search: string;
+  isRedFlagged: boolean;
 }>;
 
 /** Walk the cursor to exhaustion, returning all pages' rows plus page sizes. */
@@ -98,13 +99,14 @@ describe('listLeadsPaginated', () => {
   test('residual filters yield sparse pages but the cursor still finds every match', async () => {
     const { t, as } = await setup();
     // 6 leads; the 2 matches are far apart so they land on different raw pages.
-    await seedLead(t, { firstName: 'Cible', email: 'far-1@example.com' });
+    // (isRedFlagged is a residual predicate — search now rides its own index.)
+    await seedLead(t, { isRedFlagged: true, email: 'far-1@example.com' });
     for (let i = 0; i < 4; i++) await seedLead(t, { email: `noise-${i}@example.com` });
-    await seedLead(t, { firstName: 'Cible', email: 'far-2@example.com' });
+    await seedLead(t, { isRedFlagged: true, email: 'far-2@example.com' });
 
-    const { rows, pageSizes } = await collectAllPages(as, { search: 'cible' }, 2);
+    const { rows, pageSizes } = await collectAllPages(as, { isRedFlagged: true }, 2);
     expect(rows).toHaveLength(2);
-    expect(rows.every((r) => r.firstName === 'Cible')).toBe(true);
+    expect(rows.every((r) => r.isRedFlagged)).toBe(true);
     // Sparse pages are expected: raw pages of 2 minus non-matching rows.
     expect(pageSizes.some((n) => n < 2)).toBe(true);
   });

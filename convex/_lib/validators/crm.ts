@@ -57,6 +57,12 @@ export const leadValidator = v.object({
   isRedFlagged: v.boolean(),
   status: leadStatusValidator,
 
+  // Denormalized, normalized identity text (first/last name, email, phone)
+  // serving the by_searchText search index. Maintained automatically by the
+  // Triggers wrapper (_lib/functions.ts) — never write it by hand. Optional
+  // for rows predating the field, until backfillLeadSearchText has run.
+  searchText: v.optional(v.string()),
+
   // Admin-defined custom property values, keyed by leadPropertyDefinitions._id.
   // Optional so leads written before any property existed stay valid.
   customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),

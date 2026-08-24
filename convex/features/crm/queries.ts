@@ -7,6 +7,7 @@ import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
 import { countLiveLeadsByStatus } from '../../lib/leadAggregates';
+import { normalizeSearchText } from '../../lib/leadSearch';
 import { leadListMemberCounts } from '../../lib/leadListMembers';
 import {
   leadFilterArgs,
@@ -28,6 +29,25 @@ export const listLeadsPaginated = employeeQuery({
   handler: async (ctx, args) => {
     const direction = args.sortDirection ?? 'desc';
     const sortField = args.sortField ?? 'recent';
+
+    const searchTerm = args.search ? normalizeSearchText(args.search) : '';
+    if (searchTerm) {
+      const result = await ctx.db
+        .query('leads')
+        .withSearchIndex('by_searchText', (q) => q.search('searchText', searchTerm))
+        .paginate(args.paginationOpts);
+      const listMemberIds = await loadListMemberIdsForLeads(
+        ctx,
+        args.listIds,
+        result.page.map((lead) => lead._id),
+      );
+      return {
+        ...result,
+        page: result.page.filter((lead) =>
+          matchesLeadFilters(lead, { ...args, search: undefined, listMemberIds }),
+        ),
+      };
+    }
 
     // Indexable prefix: only single-value selections can ride an index range
     // (a multi-select would need a union of ranges, which one cursor can't do).
