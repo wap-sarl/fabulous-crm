@@ -9,7 +9,7 @@ import type { CampaignEventType } from './schema';
 const http = httpRouter();
 
 /**
- * Webhook authentication (#18). Two delivery paths, two mechanisms:
+ * Webhook authentication. Two delivery paths, two mechanisms:
  * - Account-level webhooks (email, and the inbound-SMS registration) carry the
  *   secret in the `x-webhook-secret` header, set at registration — it never
  *   appears in URLs, proxy logs, or Brevo's webhook listing.
