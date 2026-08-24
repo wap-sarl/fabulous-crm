@@ -22,6 +22,7 @@ import aggregateSchema from '../../node_modules/@convex-dev/aggregate/dist/compo
 import betterAuthSchema from '../../node_modules/@convex-dev/better-auth/dist/component/schema.js';
 import { components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
+import { leadSearchText } from '../../convex/lib/leadSearch';
 import schema from '../../convex/schema';
 
 function globModules(
@@ -146,13 +147,18 @@ export function asIdentity(t: T, identity: SeededEmployee['identity']) {
   return t.withIdentity(identity as Parameters<T['withIdentity']>[0]);
 }
 
-/** Direct-db lead factory with schema-required defaults. */
+/**
+ * Direct-db lead factory with schema-required defaults. Raw inserts bypass the
+ * Triggers wrapper, so `searchText` is stamped here explicitly (mirroring the
+ * post-backfill state); aggregate counters are NOT registered — count tests
+ * must create leads through the mutations.
+ */
 export async function seedLead(
   t: T,
   fields: Partial<Doc<'leads'>> & { email?: string },
 ): Promise<Id<'leads'>> {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert('leads', {
+    const doc = {
       firstName: fields.firstName ?? 'Jean',
       lastName: fields.lastName ?? 'Dupont',
       email: fields.email ?? `lead-${Math.random().toString(36).slice(2)}@example.com`,
@@ -163,6 +169,7 @@ export async function seedLead(
       isRedFlagged: fields.isRedFlagged ?? false,
       updatedAt: Date.now(),
       ...fields,
-    } as Doc<'leads'>);
+    } as Doc<'leads'>;
+    return await ctx.db.insert('leads', { ...doc, searchText: leadSearchText(doc) });
   });
 }

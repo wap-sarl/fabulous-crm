@@ -150,7 +150,8 @@ export default defineSchema({
     .index('by_assignedTo_status', ['assignedTo', 'status'])
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
-    .index('by_email', ['email']),
+    .index('by_email', ['email'])
+    .searchIndex('by_searchText', { searchField: 'searchText' }),
 
   // Admin-defined custom property definitions for leads. Small, soft-deletable,
   // ordered table read in full (collect + isNotDeleted + sortByOrder) — no index.

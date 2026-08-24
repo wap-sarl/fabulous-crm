@@ -4,6 +4,7 @@ import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { leadListMemberCounts, toBrevoRecipient } from '../../lib';
 import { leadsByOwner, leadsByStatus } from '../../lib/leadAggregates';
+import { leadSearchText } from '../../lib/leadSearch';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
   CampaignEvent,
@@ -462,6 +463,24 @@ export const backfillSmsRecipient = internalMutation({
           await ctx.db.patch(send._id, { smsRecipient: recipient });
           patched++;
         }
+      }
+    }
+    return { patched, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});
+
+export const backfillLeadSearchText = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('leads')
+      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    let patched = 0;
+    for (const lead of page.page) {
+      const expected = leadSearchText(lead);
+      if (lead.searchText !== expected) {
+        await ctx.db.patch(lead._id, { searchText: expected });
+        patched++;
       }
     }
     return { patched, isDone: page.isDone, continueCursor: page.continueCursor };
