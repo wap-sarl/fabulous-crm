@@ -1,12 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
-import type { FunctionReturnType } from 'convex/server';
-import { useAuthQuery } from '@crm/widgets';
+import { useEffect, useRef } from 'react';
+import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { LeadFilters } from './useLeadFilters';
 
 const PAGE_SIZE = 30;
 
-type LeadsResult = FunctionReturnType<typeof api.features.crm.queries.listLeadsPaginated>;
+// Residual filters (search, multi-selects, advanced filter…) are applied per
+// page server-side, so a page can come back sparse — or empty — while more
+// matches exist further in the table. The hook auto-fetches to fill the first
+// screen, but caps the number of automatic fetches so a filter matching almost
+// nothing on a huge table doesn't silently walk the whole table; past the cap,
+// the user keeps going with the explicit "Charger plus".
+const AUTO_FETCH_LIMIT = 10;
 
 /**
  * Filter-only query args (no sort). Also the exact `filter` shape createCampaign
@@ -34,38 +39,48 @@ function toQueryArgs(filters: LeadFilters) {
 }
 
 /**
- * Leads list driven by the URL filter/sort state. The server filters the whole
- * table in one pass and returns the first `limit` matches plus the total count;
- * "Charger plus" grows the window client-side.
+ * Leads list driven by the URL filter/sort state, on real cursor pagination
+ * (#11): the server reads one index-ordered page per request and applies the
+ * residual filters to it — the table is never read whole. There is no exact
+ * filtered total anymore (that needs the aggregates issue); callers gate
+ * "Charger plus" on `hasMore`.
  */
 export function useLeadsPaginated(filters: LeadFilters) {
   const args = toQueryArgs(filters);
-  // Identifies the filter/sort selection independent of the paging window, so we
-  // can reset the window (and know when cached rows belong to the current view).
+  // usePaginatedQuery resets its cursor when args change; the key just scopes
+  // our auto-fetch budget to the current filter/sort selection.
   const filterKey = JSON.stringify(args);
 
-  const [limit, setLimit] = useState(PAGE_SIZE);
-  useEffect(() => setLimit(PAGE_SIZE), [filterKey]);
+  const { results, status, loadMore } = useAuthPaginatedQuery(
+    api.features.crm.queries.listLeadsPaginated,
+    args,
+    { initialNumItems: PAGE_SIZE },
+  );
 
-  const data = useAuthQuery(api.features.crm.queries.listLeadsPaginated, { ...args, limit });
-
-  // Retain the last results for the *current* filter so growing the window
-  // doesn't flash the table back to its loading state on every "Charger plus".
-  const cache = useRef<{ key: string; data: LeadsResult } | null>(null);
-  if (data !== undefined) cache.current = { key: filterKey, data };
-  const fresh = cache.current?.key === filterKey ? cache.current.data : null;
-
-  const results = data?.page ?? fresh?.page ?? [];
-  const total = data?.total ?? fresh?.total;
+  const autoFetches = useRef({ key: filterKey, count: 0 });
+  if (autoFetches.current.key !== filterKey) {
+    autoFetches.current = { key: filterKey, count: 0 };
+  }
+  useEffect(() => {
+    if (
+      status === 'CanLoadMore' &&
+      results.length < PAGE_SIZE &&
+      autoFetches.current.count < AUTO_FETCH_LIMIT
+    ) {
+      autoFetches.current.count++;
+      loadMore(PAGE_SIZE);
+    }
+  }, [status, results.length, loadMore]);
 
   return {
     results,
-    total,
-    // Loading only when there is nothing to show for the current filter (initial
-    // load or a filter change) — not while paging in more rows we already have.
-    isLoading: data === undefined && !fresh,
-    hasMore: total !== undefined && results.length < total,
-    loadMore: () => setLimit((l) => l + PAGE_SIZE),
+    isLoading: status === 'LoadingFirstPage',
+    hasMore: status === 'CanLoadMore',
+    loadMore: () => {
+      // A manual click re-opens the auto-fetch budget for the next screenful.
+      autoFetches.current.count = 0;
+      loadMore(PAGE_SIZE);
+    },
   };
 }
 
