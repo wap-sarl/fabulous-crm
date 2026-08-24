@@ -1,5 +1,7 @@
 import { v } from 'convex/values';
-import { mutation, type MutationCtx } from '../../_generated/server';
+import type { MutationCtx } from '../../_generated/server';
+// Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
+import { mutation } from '../../_lib/functions';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';

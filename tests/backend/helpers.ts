@@ -64,6 +64,8 @@ export function createTestConvex(): T {
   const t = convexTest(schema, appModules);
   t.registerComponent('betterAuth', betterAuthSchema, betterAuthModules);
   t.registerComponent('leadListMemberCounts', aggregateSchema, aggregateModules);
+  t.registerComponent('leadsByStatus', aggregateSchema, aggregateModules);
+  t.registerComponent('leadsByOwner', aggregateSchema, aggregateModules);
   return t;
 }
 

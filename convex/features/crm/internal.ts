@@ -1,6 +1,9 @@
 import { v } from 'convex/values';
-import { internalQuery, internalMutation, type MutationCtx } from '../../_generated/server';
+import { internalQuery, type MutationCtx } from '../../_generated/server';
+// Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
+import { internalMutation } from '../../_lib/functions';
 import { leadListMemberCounts, toBrevoRecipient } from '../../lib';
+import { leadsByOwner, leadsByStatus } from '../../lib/leadAggregates';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
   CampaignEvent,
@@ -462,6 +465,26 @@ export const backfillSmsRecipient = internalMutation({
       }
     }
     return { patched, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});
+
+/**
+ * One-off backfill: register pre-existing leads in the `leadsByStatus` and
+ * `leadsByOwner` aggregates (#13). Idempotent (`insertIfDoesNotExist`).
+ * Paginated — call repeatedly, feeding back `continueCursor`, until `isDone`:
+ *   bunx convex run features/crm/internal:backfillLeadAggregates '{}' --prod
+ */
+export const backfillLeadAggregates = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('leads')
+      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    for (const lead of page.page) {
+      await leadsByStatus.insertIfDoesNotExist(ctx, lead);
+      await leadsByOwner.insertIfDoesNotExist(ctx, lead);
+    }
+    return { seen: page.page.length, isDone: page.isDone, continueCursor: page.continueCursor };
   },
 });
 
