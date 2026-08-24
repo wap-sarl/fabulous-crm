@@ -7,27 +7,19 @@ import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
 import { leadListMemberCounts } from '../../lib/leadListMembers';
-import { leadFilterArgs, loadListMemberIds, matchesLeadFilters } from './leadTableFilters';
+import {
+  leadFilterArgs,
+  loadListMemberIds,
+  loadListMemberIdsForLeads,
+  matchesLeadFilters,
+} from './leadTableFilters';
 
 const sortFieldValidator = v.union(v.literal('recent'), v.literal('lastName'), v.literal('status'));
 const sortDirectionValidator = v.union(v.literal('asc'), v.literal('desc'));
 
-const DEFAULT_PAGE_SIZE = 30;
-
-/**
- * Filterable, sortable leads list for the CRM table.
- *
- * Convex cursor pagination paginates the raw table *before* our in-memory
- * filter runs, so a matching lead outside the first page would be hidden until
- * the client paged all the way to it (slow, and disagreed with the status-chip
- * counts). Instead we do a single bounded scan — collect in the sort order, then
- * filter — matching `listMatchingLeadIds`/`countLeadsByStatus` (fine for a few
- * thousand leads). The client grows `limit` to reveal more rows; `total` is the
- * full filtered count so the caller knows whether more remain.
- */
 export const listLeadsPaginated = employeeQuery({
   args: {
-    limit: v.optional(v.number()),
+    paginationOpts: paginationOptsValidator,
     sortField: v.optional(sortFieldValidator),
     sortDirection: v.optional(sortDirectionValidator),
     ...leadFilterArgs,
@@ -36,19 +28,47 @@ export const listLeadsPaginated = employeeQuery({
     const direction = args.sortDirection ?? 'desc';
     const sortField = args.sortField ?? 'recent';
 
+    // Indexable prefix: only single-value selections can ride an index range
+    // (a multi-select would need a union of ranges, which one cursor can't do).
+    const singleStatus = args.statuses?.length === 1 ? args.statuses[0] : undefined;
+    const singleAssignee = args.assignedToIds?.length === 1 ? args.assignedToIds[0] : undefined;
+
     const cursor =
       sortField === 'lastName'
         ? ctx.db.query('leads').withIndex('by_lastName').order(direction)
         : sortField === 'status'
           ? ctx.db.query('leads').withIndex('by_status').order(direction)
-          : ctx.db.query('leads').order(direction);
+          : singleAssignee !== undefined
+            ? ctx.db
+                .query('leads')
+                .withIndex('by_assignedTo_status', (q) =>
+                  singleStatus !== undefined
+                    ? q.eq('assignedTo', singleAssignee).eq('status', singleStatus)
+                    : q.eq('assignedTo', singleAssignee),
+                )
+                .order(direction)
+            : singleStatus !== undefined
+              ? ctx.db
+                  .query('leads')
+                  .withIndex('by_status', (q) => q.eq('status', singleStatus))
+                  .order(direction)
+              : ctx.db.query('leads').order(direction);
 
-    const listMemberIds = await loadListMemberIds(ctx, args.listIds);
-    const all = await cursor.collect();
-    const matching = all.filter((lead) => matchesLeadFilters(lead, { ...args, listMemberIds }));
+    const result = await cursor.paginate(args.paginationOpts);
 
-    const limit = args.limit ?? DEFAULT_PAGE_SIZE;
-    return { page: matching.slice(0, limit), total: matching.length };
+    // Residual predicates, applied per page. List membership is resolved for
+    // the page's leads only (indexed point reads — a full member-set load is
+    // unbounded on large lists). Re-checking the indexed predicates is
+    // harmless: the index range only narrowed what was read.
+    const listMemberIds = await loadListMemberIdsForLeads(
+      ctx,
+      args.listIds,
+      result.page.map((lead) => lead._id),
+    );
+    return {
+      ...result,
+      page: result.page.filter((lead) => matchesLeadFilters(lead, { ...args, listMemberIds })),
+    };
   },
 });
 

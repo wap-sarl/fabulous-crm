@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthQuery } from '@crm/widgets';
+import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
 import {
@@ -31,16 +31,13 @@ const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 /** Modal listing the leads that belong to a list. */
 function ListMembersDialog({ list, onClose }: { list: LeadListRow; onClose: () => void }) {
-  const [limit, setLimit] = useState(50);
-  const data = useAuthQuery(api.features.crm.queries.listLeadsPaginated, {
-    listIds: [list._id],
-    sortField: 'recent',
-    sortDirection: 'desc',
-    limit,
-  });
-  const results = data?.page ?? [];
-  const isLoading = data === undefined;
-  const hasMore = data !== undefined && data.page.length < data.total;
+  const { results, status, loadMore } = useAuthPaginatedQuery(
+    api.features.crm.queries.listLeadsPaginated,
+    { listIds: [list._id], sortField: 'recent', sortDirection: 'desc' },
+    { initialNumItems: 50 },
+  );
+  const isLoading = status === 'LoadingFirstPage';
+  const hasMore = status === 'CanLoadMore';
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -73,12 +70,7 @@ function ListMembersDialog({ list, onClose }: { list: LeadListRow; onClose: () =
             </ul>
           )}
           {hasMore && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="mt-2"
-              onClick={() => setLimit((l) => l + 50)}
-            >
+            <Button variant="ghost" size="sm" className="mt-2" onClick={() => loadMore(50)}>
               Charger plus
             </Button>
           )}

@@ -142,8 +142,12 @@ export default defineSchema({
     .index('by_timestamp', ['timestamp']),
 
   leads: defineTable(leadValidator)
+    // [status, _creationTime]: single-status filter under the default sort.
     .index('by_status', ['status'])
-    .index('by_assignedTo', ['assignedTo'])
+    // [assignedTo, status, _creationTime]: single-assignee filter (optionally
+    // + single status) under the default sort. The assignedTo prefix subsumes
+    // the former by_assignedTo index.
+    .index('by_assignedTo_status', ['assignedTo', 'status'])
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
     .index('by_email', ['email']),
