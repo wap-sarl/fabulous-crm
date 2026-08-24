@@ -62,6 +62,7 @@ import type * as lib_index from "../lib/index.js";
 import type * as lib_leadAggregates from "../lib/leadAggregates.js";
 import type * as lib_leadListMembers from "../lib/leadListMembers.js";
 import type * as lib_leadSearch from "../lib/leadSearch.js";
+import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_smsUtils from "../lib/smsUtils.js";
 import type * as lib_smtpUtils from "../lib/smtpUtils.js";
 import type * as lib_timeConstants from "../lib/timeConstants.js";
@@ -134,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   "lib/leadAggregates": typeof lib_leadAggregates;
   "lib/leadListMembers": typeof lib_leadListMembers;
   "lib/leadSearch": typeof lib_leadSearch;
+  "lib/rateLimits": typeof lib_rateLimits;
   "lib/smsUtils": typeof lib_smsUtils;
   "lib/smtpUtils": typeof lib_smtpUtils;
   "lib/timeConstants": typeof lib_timeConstants;
@@ -177,4 +179,5 @@ export declare const components: {
   leadListMemberCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadListMemberCounts">;
   leadsByStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByStatus">;
   leadsByOwner: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByOwner">;
+  rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

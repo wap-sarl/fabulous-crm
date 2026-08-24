@@ -39,6 +39,7 @@ import {
 } from '../../_lib/validators/crm';
 import { buildLeadParams, validateLeadTargetValue } from './leadTargets';
 import { leadFilterArgs } from './leadTableFilters';
+import { enforceRateLimit } from '../../lib/rateLimits';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 
@@ -1063,7 +1064,15 @@ export const updateConsentByToken = mutation({
       .withIndex('by_consentToken', (q) => q.eq('consentToken', args.token))
       .first();
     if (!lead || lead.deletedAt != null) {
-      return { success: false as const, error: 'invalid_token' };
+      // Global enumeration guard: invalid tokens share one small bucket.
+      const ok = await enforceRateLimit(ctx, 'consentInvalid');
+      return {
+        success: false as const,
+        error: ok ? ('invalid_token' as const) : ('rate_limited' as const),
+      };
+    }
+    if (!(await enforceRateLimit(ctx, 'consentUpdate', args.token))) {
+      return { success: false as const, error: 'rate_limited' };
     }
 
     const channels = [...new Set(args.channels)];

@@ -3,6 +3,7 @@ import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { authComponent, createAuth } from './auth';
 import { resolveBrevo } from './lib';
+import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
 const http = httpRouter();
@@ -136,6 +137,9 @@ http.route({
   pathPrefix: '/l/',
   method: 'GET',
   handler: httpAction(async (ctx, request) => {
+    if (!(await enforceRateLimit(ctx, 'trackedLink', clientIpOf(request)))) {
+      return htmlResponse('Trop de requêtes, réessayez dans un instant.', 429);
+    }
     const token = new URL(request.url).pathname.slice('/l/'.length);
     const result = token
       ? await ctx.runMutation(internal.features.crm.internal.handleTrackedLinkClick, { token })

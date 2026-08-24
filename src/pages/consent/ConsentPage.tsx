@@ -37,6 +37,8 @@ export function ConsentPage() {
       if (result.success) {
         setChannels(toSave);
         setSaved(true);
+      } else if (result.error === 'rate_limited') {
+        toast.error('Trop de requêtes, réessayez dans un instant.');
       } else {
         toast.error('Ce lien n’est plus valide.');
       }
