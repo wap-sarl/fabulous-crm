@@ -10,6 +10,7 @@ import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import authConfig from './auth.config';
+import { enforceRateLimit } from './lib/rateLimits';
 import { SOCIAL_PROVIDERS } from './_lib/socialProviders';
 import type { SsoProvider } from './_lib/validators/appConfig';
 import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } from './lib';
@@ -190,6 +191,10 @@ async function sendSignInOtp(
   // (schema gen etc.) never actually sends a sign-in email.
   if (!isActionCtx(ctx)) return;
 
+  if (!(await enforceRateLimit(ctx, 'otpEmail', email))) {
+    throw new Error('Trop de demandes de code. Réessayez dans quelques minutes.');
+  }
+
   const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
   if (cfg && cfg.auth.magicLinkEnabled === false) return; // method disabled by admin
 
@@ -272,6 +277,16 @@ function authOptions(ctx: GenericCtx<DataModel>, ssoProviders: SsoProvider[]) {
     // ctx when building the CORS layer. `SITE_URL` (comma-separated) with a
     // `CRM_APP_URL` fallback — see appOrigins().
     trustedOrigins: appOrigins(),
+    rateLimit: {
+      enabled: true,
+      storage: 'database' as const,
+      window: 60,
+      max: 30,
+      customRules: {
+        '/email-otp/send-verification-otp': { window: 60, max: 5 },
+        '/sign-in/email-otp': { window: 60, max: 10 },
+      },
+    },
     socialProviders: buildSocialProviders(ctx),
     account: {
       accountLinking: {

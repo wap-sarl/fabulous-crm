@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { employeeAction } from '../../_lib/auth';
+import { enforceRateLimit } from '../../lib/rateLimits';
 
 /**
  * RPPS verification against the FHIR Annuaire Santé API. The API key is a server
@@ -127,7 +128,15 @@ function mapPractitioner(rpps: string, resource: FhirPractitioner): RppsPractiti
 
 export const verifyRpps = employeeAction({
   args: { value: v.string() },
-  handler: async (_ctx, { value }): Promise<RppsVerificationResult> => {
+  handler: async (ctx, { value }): Promise<RppsVerificationResult> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(await enforceRateLimit(ctx, 'rppsVerify', identity?.subject ?? 'anonymous'))) {
+      return {
+        status: 'error',
+        message: 'Trop de vérifications RPPS. Réessayez dans quelques minutes.',
+      };
+    }
+
     const apiKey = process.env.FHIR_API_KEY;
     if (!apiKey) {
       console.error('FHIR_API_KEY not configured');
