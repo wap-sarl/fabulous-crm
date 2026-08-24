@@ -2,25 +2,49 @@ import { httpRouter } from 'convex/server';
 import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { authComponent, createAuth } from './auth';
-import { resolveBrevo } from './lib';
+import { resolveBrevo, timingSafeEqual } from './lib';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
 const http = httpRouter();
 
-// Brevo SMS event webhook, registered per message via the `webUrl` send
-// parameter (see sendCampaignBatch). Every event with a messageId is forwarded
-// to handleSmsEvent (event log + STOP opt-out handling); unknown statuses are
-// dropped there. Always 200 so Brevo does not retry. Authenticated by the
-// BREVO_WEBHOOK_SECRET shared secret in the query string — Brevo's per-message
-// webhooks cannot send custom headers.
+/**
+ * Webhook authentication. Two delivery paths, two mechanisms:
+ * - Account-level webhooks (email, and the inbound-SMS registration) carry the
+ *   secret in the `x-webhook-secret` header, set at registration — it never
+ *   appears in URLs, proxy logs, or Brevo's webhook listing.
+ * - Brevo's per-message SMS `webUrl` cannot send headers, so that one path
+ *   keeps a query-string secret — a DEDICATED one (BREVO_SMS_WEBHOOK_SECRET,
+ *   falling back to the shared secret), so its exposure in URLs never burns
+ *   the account-level secret and it rotates independently.
+ * All comparisons are constant-time (timingSafeEqual). The query-string
+ * fallback on the email route only eases the migration of a registration
+ * predating the header — re-run registerBrevoEmailWebhook to move off it.
+ */
+function authorizeWebhook(request: Request, secrets: { header?: string; query?: string }): boolean {
+  const headerValue = request.headers.get('x-webhook-secret');
+  if (secrets.header && headerValue && timingSafeEqual(headerValue, secrets.header)) {
+    return true;
+  }
+  const queryValue = new URL(request.url).searchParams.get('secret');
+  return !!(secrets.query && queryValue && timingSafeEqual(queryValue, secrets.query));
+}
+
+// Brevo SMS event webhook: hit by the per-message `webUrl` (outbound lifecycle,
+// query-string secret) and by the account-level inbound registration (STOP,
+// replies — header secret). Every event with a messageId is forwarded to
+// handleSmsEvent; unknown statuses are dropped there. Always 200 so Brevo does
+// not retry.
 http.route({
   path: '/webhooks/brevo/sms',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const secret = resolveBrevo(cfg).webhookSecret;
-    if (!secret || new URL(request.url).searchParams.get('secret') !== secret) {
+    const brevo = resolveBrevo(cfg);
+    if (
+      !brevo.webhookSecret ||
+      !authorizeWebhook(request, { header: brevo.webhookSecret, query: brevo.smsWebhookSecret })
+    ) {
       return new Response('Unauthorized', { status: 401 });
     }
 
@@ -85,7 +109,7 @@ http.route({
     const brevo = resolveBrevo(cfg);
     if (
       !brevo.webhookSecret ||
-      new URL(request.url).searchParams.get('secret') !== brevo.webhookSecret
+      !authorizeWebhook(request, { header: brevo.webhookSecret, query: brevo.webhookSecret })
     ) {
       return new Response('Unauthorized', { status: 401 });
     }

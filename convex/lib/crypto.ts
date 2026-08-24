@@ -17,3 +17,15 @@ export function generateNumericOtp(length = 6): string {
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => (b % 10).toString()).join('');
 }
+
+export function timingSafeEqual(a: string, b: string): boolean {
+  const encoder = new TextEncoder();
+  const ab = encoder.encode(a);
+  const bb = encoder.encode(b);
+  let diff = ab.length ^ bb.length;
+  const len = Math.max(ab.length, bb.length);
+  for (let i = 0; i < len; i++) {
+    diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+  }
+  return diff === 0;
+}

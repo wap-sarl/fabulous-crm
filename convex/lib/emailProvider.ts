@@ -80,6 +80,7 @@ export function isEmailProviderConfigured(p: ResolvedEmailProvider): boolean {
 export type ResolvedBrevo = {
   apiKey: string;
   webhookSecret: string;
+  smsWebhookSecret: string;
   smsSender: string;
   /** SMS can be sent iff a Brevo API key is configured (decoupled from email). */
   smsAvailable: boolean;
@@ -91,9 +92,11 @@ export type ResolvedBrevo = {
 export function resolveBrevo(cfg: ConfigLike): ResolvedBrevo {
   const email = cfg?.email;
   const apiKey = email?.brevoApiKey || process.env.BREVO_API_KEY || '';
+  const webhookSecret = email?.brevoWebhookSecret || process.env.BREVO_WEBHOOK_SECRET || '';
   return {
     apiKey,
-    webhookSecret: email?.brevoWebhookSecret || process.env.BREVO_WEBHOOK_SECRET || '',
+    webhookSecret,
+    smsWebhookSecret: process.env.BREVO_SMS_WEBHOOK_SECRET || webhookSecret,
     smsSender: email?.brevoSmsSender || process.env.BREVO_SMS_SENDER || 'CRM',
     smsAvailable: apiKey.length > 0,
     emailIsBrevo: (email?.provider ?? 'brevo') === 'brevo',
