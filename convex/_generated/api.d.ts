@@ -57,6 +57,7 @@ import type * as lib_devWhitelist from "../lib/devWhitelist.js";
 import type * as lib_emailProvider from "../lib/emailProvider.js";
 import type * as lib_emailUtils from "../lib/emailUtils.js";
 import type * as lib_index from "../lib/index.js";
+import type * as lib_leadListMembers from "../lib/leadListMembers.js";
 import type * as lib_smsUtils from "../lib/smsUtils.js";
 import type * as lib_smtpUtils from "../lib/smtpUtils.js";
 import type * as lib_timeConstants from "../lib/timeConstants.js";
@@ -124,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   "lib/emailProvider": typeof lib_emailProvider;
   "lib/emailUtils": typeof lib_emailUtils;
   "lib/index": typeof lib_index;
+  "lib/leadListMembers": typeof lib_leadListMembers;
   "lib/smsUtils": typeof lib_smsUtils;
   "lib/smtpUtils": typeof lib_smtpUtils;
   "lib/timeConstants": typeof lib_timeConstants;
@@ -164,4 +166,5 @@ export declare const internal: FilterApi<
 
 export declare const components: {
   betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
+  leadListMemberCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadListMemberCounts">;
 };

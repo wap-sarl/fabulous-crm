@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internalMutation, internalQuery, type MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
-import { appOrigin, isNotDeleted } from '../../lib';
+import { appOrigin, deleteListMember, insertListMember, isNotDeleted } from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { buildLeadParams, buildLeadTargetPatch } from '../crm/leadTargets';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
@@ -240,7 +240,7 @@ export const executeStep = internalMutation({
             if (!addedBy) {
               await logStep(ctx, run, node, 'skipped', { detail: 'workflow sans auteur' });
             } else {
-              await ctx.db.insert('leadListMembers', { listId, leadId: lead._id, addedBy });
+              await insertListMember(ctx, { listId, leadId: lead._id, addedBy });
               await logStep(ctx, run, node, 'success');
               await dispatchWorkflowTrigger(
                 ctx,
@@ -269,7 +269,7 @@ export const executeStep = internalMutation({
         if (!member) {
           await logStep(ctx, run, node, 'success', { detail: 'déjà hors de la liste' });
         } else {
-          await ctx.db.delete(member._id);
+          await deleteListMember(ctx, member);
           await logStep(ctx, run, node, 'success');
           await dispatchWorkflowTrigger(
             ctx,
