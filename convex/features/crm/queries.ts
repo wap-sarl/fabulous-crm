@@ -6,6 +6,7 @@ import type { QueryCtx } from '../../_generated/server';
 import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
+import { countLiveLeadsByStatus } from '../../lib/leadAggregates';
 import { leadListMemberCounts } from '../../lib/leadListMembers';
 import {
   leadFilterArgs,
@@ -163,14 +164,15 @@ export const listLeadNotes = employeeQuery({
 });
 
 /**
- * Global lead counts per status for the list filter chips. Bounded collect,
- * same trade-off as listMatchingLeadIds.
+ * Global lead counts per status for the list filter chips, served by the
+ * `leadsByStatus` aggregate (#13) — O(log n) per status, no table scan. The
+ * total is the sum of the five statuses, which also gives the paginated list
+ * its exact overall count.
  */
 export const countLeadsByStatus = employeeQuery({
   args: {},
   handler: async (ctx) => {
-    const all = await ctx.db.query('leads').collect();
-    const leads = all.filter(isNotDeleted);
+    const statuses = ['nouveau', 'contacte', 'interesse', 'converti', 'perdu'] as const;
     const byStatus: Record<Doc<'leads'>['status'], number> = {
       nouveau: 0,
       contacte: 0,
@@ -178,8 +180,13 @@ export const countLeadsByStatus = employeeQuery({
       converti: 0,
       perdu: 0,
     };
-    for (const lead of leads) byStatus[lead.status] += 1;
-    return { total: leads.length, byStatus };
+    let total = 0;
+    for (const status of statuses) {
+      const n = await countLiveLeadsByStatus(ctx, status);
+      byStatus[status] = n;
+      total += n;
+    }
+    return { total, byStatus };
   },
 });
 

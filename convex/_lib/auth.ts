@@ -4,10 +4,13 @@ import {
   customMutation,
   customQuery,
 } from 'convex-helpers/server/customFunctions';
-import { action, mutation, query, type MutationCtx, type QueryCtx } from '../_generated/server';
+import { action, query, type MutationCtx, type QueryCtx } from '../_generated/server';
 import type { Doc, Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import { authComponent } from '../auth';
+// Trigger-wrapped base so employee/admin mutations keep the lead aggregates in
+// sync on every `leads` write (see _lib/functions.ts).
+import { mutation } from './functions';
 
 /**
  * Authentication seam. Better Auth owns the session (see convex/auth.ts); these
