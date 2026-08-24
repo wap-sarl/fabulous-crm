@@ -8,7 +8,11 @@ const PAGE_SIZE = 30;
 
 type LeadsResult = FunctionReturnType<typeof api.features.crm.queries.listLeadsPaginated>;
 
-function toQueryArgs(filters: LeadFilters) {
+/**
+ * Filter-only query args (no sort). Also the exact `filter` shape createCampaign
+ * expects — campaign recipients are resolved server-side from this filter.
+ */
+export function toFilterArgs(filters: LeadFilters) {
   const hasCustom = Object.keys(filters.customProperties).length > 0;
   return {
     search: filters.search || undefined,
@@ -18,6 +22,12 @@ function toQueryArgs(filters: LeadFilters) {
     isRedFlagged: filters.flagged,
     customProperties: hasCustom ? filters.customProperties : undefined,
     advancedFilter: filters.advancedFilter,
+  };
+}
+
+function toQueryArgs(filters: LeadFilters) {
+  return {
+    ...toFilterArgs(filters),
     sortField: filters.sortField,
     sortDirection: filters.sortDirection,
   };

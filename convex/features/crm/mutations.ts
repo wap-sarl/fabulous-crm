@@ -36,6 +36,7 @@ import {
   type CampaignTrackedLink,
 } from '../../_lib/validators/crm';
 import { buildLeadParams, validateLeadTargetValue } from './leadTargets';
+import { leadFilterArgs } from './leadTableFilters';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 
@@ -68,7 +69,9 @@ const RESERVED_PARAM_KEYS = new Set([
 type LeadPropertyDef = Doc<'leadPropertyDefinitions'>;
 
 /** Load the active custom-property definitions once, keyed by id. */
-async function loadPropertyDefsById(ctx: MutationCtx): Promise<Map<string, LeadPropertyDef>> {
+export async function loadPropertyDefsById(
+  ctx: MutationCtx,
+): Promise<Map<string, LeadPropertyDef>> {
   const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
   return new Map(defs.map((d) => [d._id as string, d]));
 }
@@ -687,7 +690,7 @@ export const deleteNote = employeeMutation({
  * {@link createCampaign} and the resend mutations so a re-materialized send is
  * byte-for-byte the same shape as a freshly created one.
  */
-function buildSendParams(
+export function buildSendParams(
   lead: Doc<'leads'>,
   opts: {
     trackedLinks: CampaignTrackedLink[];
@@ -715,7 +718,11 @@ export const createCampaign = employeeMutation({
   args: {
     name: v.string(),
     channel: campaignChannelValidator,
-    leadIds: v.array(v.id('leads')),
+    // Recipients are defined by a filter (the composer's current filter state),
+    // resolved server-side in scheduled batches (prepareCampaignBatch). An
+    // explicit id array would cap recipients at Convex's 8,192-element array
+    // limit — a filter has no such ceiling.
+    filter: v.object(leadFilterArgs),
     // Email content — exactly one mode is provided by the caller:
     //  • template mode → brevoTemplateId
     //  • custom (WYSIWYG) mode → subject + htmlBody
@@ -730,9 +737,6 @@ export const createCampaign = employeeMutation({
     trackedLinks: v.optional(v.array(campaignTrackedLinkValidator)),
   },
   handler: async (ctx, args) => {
-    const uniqueIds = [...new Set(args.leadIds)];
-    const consentBase = appOrigin() || 'http://localhost:4202';
-
     const name = args.name.trim();
     if (!name) throw new Error('Le nom de la campagne est requis.');
 
@@ -836,74 +840,22 @@ export const createCampaign = employeeMutation({
       // admin later switches providers. Irrelevant for SMS campaigns.
       emailProvider: args.channel === 'email' ? emailProvider : undefined,
       trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
-      status: 'sending',
-      recipientLeadIds: uniqueIds,
+      status: 'preparing',
       totalCount: 0,
       sentCount: 0,
       failedCount: 0,
       ...createAuditFields(ctx.userId),
     });
 
-    const isSms = args.channel === 'sms';
-    let total = 0;
-    let skipped = 0;
-    let hasPending = false;
-
-    // One campaignSends row per recipient. For SMS the contact field is `phone`
-    // (recipients without one are skipped); for email it is `email`.
-    for (const leadId of uniqueIds) {
-      const lead = await ctx.db.get(leadId);
-      if (!lead || lead.deletedAt != null) continue;
-      total++;
-
-      // Rows are inserted only for sends that actually go out (skipped recipients
-      // get dead URLs), but params/tokens are built the same way as on resend.
-      const { params, tokens: leadTokens } = buildSendParams(lead, {
-        trackedLinks,
-        defsById,
-        consentBase,
-        linkBase,
-      });
-
-      const contact = isSms ? lead.phone : lead.email;
-      if (!contact) {
-        await ctx.db.insert('campaignSends', {
-          campaignId,
-          leadId,
-          params,
-          status: isSms ? 'skipped_no_phone' : 'skipped_no_email',
-        });
-        skipped++;
-        continue;
-      }
-
-      const sendId = await ctx.db.insert('campaignSends', {
-        campaignId,
-        leadId,
-        email: isSms ? undefined : lead.email,
-        phone: isSms ? lead.phone : undefined,
-        // Normalized recipient so an inbound STOP webhook can be matched by phone.
-        smsRecipient: isSms ? (toBrevoRecipient(lead.phone) ?? undefined) : undefined,
-        params,
-        status: 'pending',
-      });
-      for (const { linkKey, token } of leadTokens) {
-        await ctx.db.insert('campaignLinkTokens', { token, campaignId, sendId, leadId, linkKey });
-      }
-      hasPending = true;
-    }
-
-    await ctx.db.patch(campaignId, {
-      totalCount: total,
-      failedCount: skipped,
-      status: hasPending ? 'sending' : 'sent',
+    // Recipient resolution and campaignSends/campaignLinkTokens creation happen
+    // in scheduled batches: a single transaction caps at 8,192 writes, which a
+    // marketing send exceeds around ~2,000 recipients with 3 tracked links. The
+    // filter travels in the scheduler args; the batch chain flips the campaign
+    // to 'sending' (and kicks sendCampaignBatch) when the last page is done.
+    await ctx.scheduler.runAfter(0, internal.features.crm.internal.prepareCampaignBatch, {
+      campaignId,
+      filter: args.filter,
     });
-
-    if (hasPending) {
-      await ctx.scheduler.runAfter(0, internal.features.crm.actions.sendCampaignBatch, {
-        campaignId,
-      });
-    }
 
     return campaignId;
   },

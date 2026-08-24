@@ -153,8 +153,8 @@ export function CampaignDetailPage() {
 
   const { campaign } = data;
   const isSms = campaign.channel === 'sms';
-  // Resend can only run when the campaign is settled (not mid-drain).
-  const canRetry = campaign.status !== 'sending';
+  // Resend can only run when the campaign is settled (not mid-preparation/drain).
+  const canRetry = campaign.status !== 'sending' && campaign.status !== 'preparing';
 
   const handleRetrySend = async (sendId: Id<'campaignSends'>) => {
     setRetrying(true);
@@ -231,6 +231,12 @@ export function CampaignDetailPage() {
       />
 
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 px-5 py-5 sm:px-7">
+        {campaign.status === 'preparing' && (
+          <p className="rounded-lg border border-info/40 bg-info/10 px-4 py-2 text-xs text-info">
+            Préparation des destinataires en cours — {numberFormat.format(campaign.totalCount)}{' '}
+            destinataire(s) traité(s). L'envoi démarrera automatiquement à la fin de la préparation.
+          </p>
+        )}
         {isSmtp && (
           <p className="rounded-lg border border-warning/40 bg-warning/10 px-4 py-2 text-xs text-warning">
             Campagne envoyée en mode SMTP : le suivi des ouvertures, des remises et des rebonds

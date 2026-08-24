@@ -30,6 +30,7 @@ import type * as features_config_queries from "../features/config/queries.js";
 import type * as features_crm_actions from "../features/crm/actions.js";
 import type * as features_crm_internal from "../features/crm/internal.js";
 import type * as features_crm_leadMatching from "../features/crm/leadMatching.js";
+import type * as features_crm_leadTableFilters from "../features/crm/leadTableFilters.js";
 import type * as features_crm_leadTargets from "../features/crm/leadTargets.js";
 import type * as features_crm_mutations from "../features/crm/mutations.js";
 import type * as features_crm_queries from "../features/crm/queries.js";
@@ -98,6 +99,7 @@ declare const fullApi: ApiFromModules<{
   "features/crm/actions": typeof features_crm_actions;
   "features/crm/internal": typeof features_crm_internal;
   "features/crm/leadMatching": typeof features_crm_leadMatching;
+  "features/crm/leadTableFilters": typeof features_crm_leadTableFilters;
   "features/crm/leadTargets": typeof features_crm_leadTargets;
   "features/crm/mutations": typeof features_crm_mutations;
   "features/crm/queries": typeof features_crm_queries;

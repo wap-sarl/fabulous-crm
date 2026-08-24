@@ -1,7 +1,15 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
-import { api } from '../../convex/_generated/api';
+import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { asIdentity, createTestConvex, seedEmployee, type SeededEmployee, type T } from './helpers';
+
+/** Materialize the sends of a freshly created campaign (single prep batch). */
+async function prepareCampaign(t: T, campaignId: Id<'campaigns'>) {
+  await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+    campaignId,
+    filter: {},
+  });
+}
 
 const SECRET = 'test-webhook-secret';
 
@@ -30,13 +38,14 @@ async function seedEmailSend(
     lastName: 'Lead',
     email: 'mail@example.com',
   });
-  await as.mutation(api.features.crm.mutations.createCampaign, {
+  const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
     name: 'Webhook email',
     channel: 'email',
-    leadIds: [leadId],
+    filter: {},
     subject: 'Test',
     htmlBody: '<p>x</p>',
   });
+  await prepareCampaign(t, campaignId);
   const sendId = await t.run(async (ctx) => {
     const send = (await ctx.db.query('campaignSends').collect())[0];
     await ctx.db.patch(send._id, { brevoMessageId });
@@ -60,12 +69,13 @@ async function seedSmsSend(t: T, emp: SeededEmployee): Promise<{ leadId: Id<'lea
     token,
     channels: ['email', 'sms'],
   });
-  await as.mutation(api.features.crm.mutations.createCampaign, {
+  const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
     name: 'Webhook sms',
     channel: 'sms',
-    leadIds: [leadId],
+    filter: {},
     smsBody: 'Bonjour',
   });
+  await prepareCampaign(t, campaignId);
   return { leadId };
 }
 
