@@ -17,7 +17,7 @@ import {
 import { AlertTriangle, ArrowLeft, Send, Users } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useLeadFilters } from '../../features/leads/hooks/useLeadFilters';
-import { useMatchingLeads } from '../../features/leads/hooks/useLeadsPaginated';
+import { toFilterArgs, useMatchingLeads } from '../../features/leads/hooks/useLeadsPaginated';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
 import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
 import { AdvancedFilterBuilder } from '../../features/leads/components/AdvancedFilterBuilder';
@@ -159,11 +159,13 @@ export function CampaignCreatePage() {
         name,
         channel,
         messageType,
-        leadIds: matching.leadIds,
+        // Recipients are resolved server-side from the filter (no id array —
+        // it would cap the campaign at Convex's 8,192-element array limit).
+        filter: toFilterArgs(filters),
         trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
         ...content,
       });
-      toast.success('Campagne créée, envoi en cours.');
+      toast.success('Campagne créée, préparation des destinataires en cours.');
       navigate(`/campaigns/${campaignId}`);
     } catch {
       toast.error('Échec de la création de la campagne.');

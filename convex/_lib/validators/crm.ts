@@ -81,6 +81,9 @@ export type ConsentSource = Infer<typeof consentSourceValidator>;
 
 export const campaignStatusValidator = v.union(
   v.literal('draft'),
+  // Recipients are being resolved and campaignSends materialized in scheduled
+  // batches (prepareCampaignBatch). Flips to 'sending' when preparation ends.
+  v.literal('preparing'),
   v.literal('sending'),
   v.literal('sent'),
   v.literal('failed'),
@@ -162,7 +165,11 @@ export const campaignValidator = v.object({
   // legacy rows and on SMS campaigns = Brevo (the only provider that existed).
   emailProvider: v.optional(v.union(v.literal('brevo'), v.literal('smtp'))),
   status: campaignStatusValidator,
-  recipientLeadIds: v.array(v.id('leads')),
+  // DEPRECATED: recipients live in campaignSends only. Convex arrays cap at
+  // 8,192 elements, so storing ids here put a hard ceiling on campaign size.
+  // Kept optional so legacy rows validate until the strip migration
+  // (stripCampaignRecipientLeadIds) has run; never written anymore.
+  recipientLeadIds: v.optional(v.array(v.id('leads'))),
   totalCount: v.number(),
   sentCount: v.number(),
   failedCount: v.number(),

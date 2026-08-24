@@ -11,6 +11,10 @@ import type {
 import { buildLeadTargetPatch } from './leadTargets';
 import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
+import { internal } from '../../_generated/api';
+import { appOrigin } from '../../lib';
+import { buildSendParams, loadPropertyDefsById } from './mutations';
+import { leadFilterArgs, loadListMemberIdsForLeads, matchesLeadFilters } from './leadTableFilters';
 
 const BATCH_SIZE = 50;
 
@@ -289,6 +293,147 @@ export const handleSmsEvent = internalMutation({
     });
 
     await dispatchWorkflowTrigger(ctx, lead._id, { type: 'consent_updated' });
+  },
+});
+
+// Leads examined per prepareCampaignBatch transaction. Each matched recipient
+// writes 1 campaignSends row plus one campaignLinkTokens row per tracked link,
+// so a 200-lead page stays far below Convex's 8,192-writes-per-transaction cap
+// even with several tracked links.
+const PREP_BATCH = 200;
+
+export const prepareCampaignBatch = internalMutation({
+  args: {
+    campaignId: v.id('campaigns'),
+    filter: v.object(leadFilterArgs),
+    cursor: v.optional(v.string()),
+  },
+  // Returns the paging state so tests can drive the chain deterministically
+  // without the scheduler; production runs on the self-scheduled chain below.
+  handler: async (ctx, args): Promise<{ isDone: boolean; continueCursor: string | null }> => {
+    const campaign = await ctx.db.get(args.campaignId);
+    // Deleted mid-preparation (or unexpected state): stop the chain quietly.
+    if (!campaign || campaign.deletedAt != null || campaign.status !== 'preparing') {
+      return { isDone: true, continueCursor: null };
+    }
+
+    const isSms = campaign.channel === 'sms';
+    const trackedLinks = campaign.trackedLinks ?? [];
+    const defsById = await loadPropertyDefsById(ctx);
+    const consentBase = appOrigin() || 'http://localhost:4202';
+    const linkBase = process.env.CONVEX_SITE_URL;
+
+    const page = await ctx.db
+      .query('leads')
+      .paginate({ cursor: args.cursor ?? null, numItems: PREP_BATCH });
+
+    // List membership is resolved per page with indexed point reads — a full
+    // member-set load (loadListMemberIds) is unbounded on large lists.
+    const listMemberIds = await loadListMemberIdsForLeads(
+      ctx,
+      args.filter.listIds,
+      page.page.map((lead) => lead._id),
+    );
+
+    let total = 0;
+    let skipped = 0;
+    for (const lead of page.page) {
+      if (!matchesLeadFilters(lead, { ...args.filter, listMemberIds })) continue;
+      total++;
+
+      // Rows are inserted only for sends that actually go out (skipped recipients
+      // get dead URLs), but params/tokens are built the same way as on resend.
+      const { params, tokens: leadTokens } = buildSendParams(lead, {
+        trackedLinks,
+        defsById,
+        consentBase,
+        linkBase,
+      });
+
+      const contact = isSms ? lead.phone : lead.email;
+      if (!contact) {
+        await ctx.db.insert('campaignSends', {
+          campaignId: args.campaignId,
+          leadId: lead._id,
+          params,
+          status: isSms ? 'skipped_no_phone' : 'skipped_no_email',
+        });
+        skipped++;
+        continue;
+      }
+
+      const sendId = await ctx.db.insert('campaignSends', {
+        campaignId: args.campaignId,
+        leadId: lead._id,
+        email: isSms ? undefined : lead.email,
+        phone: isSms ? lead.phone : undefined,
+        // Normalized recipient so an inbound STOP webhook can be matched by phone.
+        smsRecipient: isSms ? (toBrevoRecipient(lead.phone) ?? undefined) : undefined,
+        params,
+        status: 'pending',
+      });
+      for (const { linkKey, token } of leadTokens) {
+        await ctx.db.insert('campaignLinkTokens', {
+          token,
+          campaignId: args.campaignId,
+          sendId,
+          leadId: lead._id,
+          linkKey,
+        });
+      }
+    }
+
+    const totalCount = campaign.totalCount + total;
+    const failedCount = campaign.failedCount + skipped;
+
+    if (!page.isDone) {
+      await ctx.db.patch(args.campaignId, { totalCount, failedCount });
+      await ctx.scheduler.runAfter(0, internal.features.crm.internal.prepareCampaignBatch, {
+        campaignId: args.campaignId,
+        filter: args.filter,
+        cursor: page.continueCursor,
+      });
+      return { isDone: false, continueCursor: page.continueCursor };
+    }
+
+    // Last page: finalize. Any pending send (this batch or an earlier one)
+    // means there is something to deliver.
+    const hasPending = totalCount - failedCount > 0;
+    await ctx.db.patch(args.campaignId, {
+      totalCount,
+      failedCount,
+      status: hasPending ? 'sending' : 'sent',
+    });
+    if (hasPending) {
+      await ctx.scheduler.runAfter(0, internal.features.crm.actions.sendCampaignBatch, {
+        campaignId: args.campaignId,
+      });
+    }
+    return { isDone: true, continueCursor: page.continueCursor };
+  },
+});
+
+/**
+ * One-off migration: drop the deprecated `recipientLeadIds` array from
+ * existing campaign documents (#15) — the information lives in campaignSends.
+ * Idempotent. Paginated — call repeatedly, feeding back `continueCursor`,
+ * until `isDone`:
+ *   bunx convex run features/crm/internal:stripCampaignRecipientLeadIds '{}' --prod
+ */
+export const stripCampaignRecipientLeadIds = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('campaigns')
+      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    let stripped = 0;
+    for (const campaign of page.page) {
+      if (campaign.recipientLeadIds !== undefined) {
+        await ctx.db.patch(campaign._id, { recipientLeadIds: undefined });
+        stripped++;
+      }
+    }
+    return { stripped, isDone: page.isDone, continueCursor: page.continueCursor };
   },
 });
 
