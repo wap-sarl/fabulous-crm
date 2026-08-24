@@ -16,6 +16,8 @@ import {
   resolveBrevo,
   isEmailProviderConfigured,
   toBrevoRecipient,
+  insertListMember,
+  deleteListMember,
 } from '../../lib';
 import {
   addressValidator,
@@ -146,7 +148,7 @@ async function addLeadToList(
     .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
     .first();
   if (existing) return;
-  await ctx.db.insert('leadListMembers', { listId, leadId, addedBy: userId });
+  await insertListMember(ctx, { listId, leadId, addedBy: userId });
   await dispatchWorkflowTrigger(
     ctx,
     leadId,
@@ -489,8 +491,9 @@ export const createLeadList = employeeMutation({
 });
 
 // Members processed per deleteLeadList call. Each cascade-deleted lead writes up
-// to 3 docs (lead patch + audit + membership delete), well under Convex's
-// per-transaction write cap. The client loops until `done`.
+// to 3 docs (lead patch + audit + membership delete) plus a few aggregate tree
+// nodes for the member-count bookkeeping, well under Convex's per-transaction
+// write cap. The client loops until `done`.
 const LIST_DELETE_BATCH = 200;
 
 /**
@@ -530,7 +533,7 @@ export const deleteLeadList = employeeMutation({
           deletedLeads++;
         }
       }
-      await ctx.db.delete(member._id);
+      await deleteListMember(ctx, member);
     }
 
     // More members remain — signal the client to call again.

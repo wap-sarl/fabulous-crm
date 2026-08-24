@@ -18,6 +18,7 @@
 import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { convexTest, type TestConvex } from 'convex-test';
+import aggregateSchema from '../../node_modules/@convex-dev/aggregate/dist/component/schema.js';
 import betterAuthSchema from '../../node_modules/@convex-dev/better-auth/dist/component/schema.js';
 import { components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
@@ -52,13 +53,17 @@ const betterAuthDir = join(
 );
 // testProfiles are the component's own test fixtures — not part of the runtime.
 const betterAuthModules = globModules(betterAuthDir, ['testProfiles']);
+const aggregateModules = globModules(
+  join(import.meta.dir, '../../node_modules/@convex-dev/aggregate/dist/component'),
+);
 
 export type T = TestConvex<typeof schema>;
 
-/** Fresh test backend with the Better Auth component registered. */
+/** Fresh test backend with the Better Auth and aggregate components registered. */
 export function createTestConvex(): T {
   const t = convexTest(schema, appModules);
   t.registerComponent('betterAuth', betterAuthSchema, betterAuthModules);
+  t.registerComponent('leadListMemberCounts', aggregateSchema, aggregateModules);
   return t;
 }
 
@@ -151,6 +156,9 @@ export async function seedLead(
       email: fields.email ?? `lead-${Math.random().toString(36).slice(2)}@example.com`,
       phone: fields.phone ?? '',
       status: fields.status ?? 'nouveau',
+      marketingConsent: fields.marketingConsent ?? [],
+      consentToken: fields.consentToken ?? `test-consent-${Math.random().toString(36).slice(2)}`,
+      isRedFlagged: fields.isRedFlagged ?? false,
       updatedAt: Date.now(),
       ...fields,
     } as Doc<'leads'>);

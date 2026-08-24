@@ -11,6 +11,7 @@ import type { AdvancedFilter } from '../../_lib/validators/leadFilters';
 import { evalAdvancedFilter } from './leadMatching';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
+import { leadListMemberCounts } from '../../lib/leadListMembers';
 
 /** Filter arguments shared by the paginated table and the campaign-resolver query. */
 const leadFilterArgs = {
@@ -287,17 +288,21 @@ export const listMatchingLeadIds = employeeQuery({
 /**
  * All lead lists (most recent first) with their member count and importer name.
  * Feeds both the lists settings page and the list-filter dropdowns. Member
- * counts are tallied in a single pass over the junction table.
+ * counts come from the `leadListMemberCounts` aggregate — the junction table
+ * grows as leads × lists, so scanning it here would hit Convex's read limit
+ * long before the leads table itself does (#14).
  */
 export const listLeadLists = employeeQuery({
   args: {},
   handler: async (ctx) => {
     const lists = await ctx.db.query('leadLists').order('desc').collect();
 
-    const members = await ctx.db.query('leadListMembers').collect();
     const counts = new Map<string, number>();
-    for (const member of members) {
-      counts.set(member.listId, (counts.get(member.listId) ?? 0) + 1);
+    for (const list of lists) {
+      counts.set(
+        list._id,
+        await leadListMemberCounts.count(ctx, { namespace: list._id, bounds: {} }),
+      );
     }
 
     const creatorNames = new Map<string, string | null>();

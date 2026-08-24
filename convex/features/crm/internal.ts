@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { internalQuery, internalMutation, type MutationCtx } from '../../_generated/server';
-import { toBrevoRecipient } from '../../lib';
+import { leadListMemberCounts, toBrevoRecipient } from '../../lib';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
   CampaignEvent,
@@ -317,6 +317,19 @@ export const backfillSmsRecipient = internalMutation({
       }
     }
     return { patched, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});
+
+export const backfillLeadListMemberCounts = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('leadListMembers')
+      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    for (const member of page.page) {
+      await leadListMemberCounts.insertIfDoesNotExist(ctx, member);
+    }
+    return { seen: page.page.length, isDone: page.isDone, continueCursor: page.continueCursor };
   },
 });
 
