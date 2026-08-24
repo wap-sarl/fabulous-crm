@@ -182,6 +182,19 @@ export const workflowValidator = v.object({
   enrolledCount: v.number(),
   activeCount: v.number(),
   completedCount: v.number(),
+  bulkReenroll: v.optional(
+    v.object({
+      status: v.union(v.literal('running'), v.literal('done')),
+      startedBy: v.id('users'),
+      matched: v.number(),
+      enrolled: v.number(),
+      cancelled: v.number(),
+      // Leads skipped because they hit MAX_ENROLLMENTS_PER_LEAD_PER_DAY.
+      skipped: v.number(),
+      startedAt: v.number(),
+      finishedAt: v.optional(v.number()),
+    }),
+  ),
 });
 
 export const workflowRunStatusValidator = v.union(

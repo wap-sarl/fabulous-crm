@@ -2,7 +2,14 @@ import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { MAX_STEPS_PER_RUN } from '../../convex/features/workflows/lib';
-import { asIdentity, createTestConvex, seedEmployee, type SeededEmployee, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  seedLead,
+  type SeededEmployee,
+  type T,
+} from './helpers';
 
 async function setup(): Promise<{ t: T; emp: SeededEmployee }> {
   const t = createTestConvex();
@@ -222,5 +229,190 @@ describe('run execution guards', () => {
     const run = await t.run((ctx) => ctx.db.get(runId));
     expect(run?.status).toBe('failed');
     expect(run?.error).toBe('step_limit');
+  });
+});
+
+describe('bulk re-enroll (batched)', () => {
+  const REENROLL_BATCH = 100;
+
+  async function createActiveWorkflow(t: T, emp: SeededEmployee): Promise<Id<'workflows'>> {
+    const as = asIdentity(t, emp.identity);
+    const workflowId = await as.mutation(api.features.workflows.mutations.createWorkflow, {
+      name: 'Bulk',
+      trigger: { type: 'consent_updated' },
+      allowReEnrollment: true,
+      nodes: [{ id: 'n1', type: 'wait' as const, amount: 1, unit: 'hours' as const }],
+      startNodeId: 'n1',
+    });
+    await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+      workflowId,
+      status: 'active',
+    });
+    return workflowId;
+  }
+
+  /** Drive the reenroll chain to completion, batch by batch (deterministic). */
+  async function runReenroll(t: T, workflowId: Id<'workflows'>): Promise<void> {
+    let cursor: string | undefined;
+    for (;;) {
+      const res = await t.mutation(internal.features.workflows.internal.reenrollBatch, {
+        workflowId,
+        ...(cursor !== undefined ? { cursor } : {}),
+      });
+      if (res.isDone) return;
+      cursor = res.continueCursor ?? undefined;
+    }
+  }
+
+  test('starts in running state, enrolls across batches, finishes with final counts', async () => {
+    const { t, emp } = await setup();
+    const as = asIdentity(t, emp.identity);
+    const workflowId = await createActiveWorkflow(t, emp);
+    // One more lead than a batch, to force a second page.
+    for (let i = 0; i < REENROLL_BATCH + 1; i++) {
+      await seedLead(t, { email: `bulk-${i}@example.com` });
+    }
+
+    await as.mutation(api.features.workflows.mutations.reenrollMatchingLeads, { workflowId });
+    let workflow = await t.run((ctx) => ctx.db.get(workflowId));
+    expect(workflow?.bulkReenroll?.status).toBe('running');
+    // A second start while running is refused.
+    await expect(
+      as.mutation(api.features.workflows.mutations.reenrollMatchingLeads, { workflowId }),
+    ).rejects.toThrow('déjà en cours');
+
+    await runReenroll(t, workflowId);
+
+    workflow = await t.run((ctx) => ctx.db.get(workflowId));
+    expect(workflow?.bulkReenroll?.status).toBe('done');
+    expect(workflow?.bulkReenroll?.matched).toBe(REENROLL_BATCH + 1);
+    expect(workflow?.bulkReenroll?.enrolled).toBe(REENROLL_BATCH + 1);
+    expect(workflow?.bulkReenroll?.cancelled).toBe(0);
+    expect(workflow?.activeCount).toBe(REENROLL_BATCH + 1);
+    const runs = await t.run((ctx) =>
+      ctx.db
+        .query('workflowRuns')
+        .withIndex('by_workflow', (q) => q.eq('workflowId', workflowId))
+        .collect(),
+    );
+    expect(runs).toHaveLength(REENROLL_BATCH + 1);
+    expect(runs.every((r) => r.status === 'active' && r.triggerType === 'bulk_reenroll')).toBe(
+      true,
+    );
+  });
+
+  test('cancels in-flight runs before re-enrolling, and fixes activeCount', async () => {
+    const { t, emp } = await setup();
+    const as = asIdentity(t, emp.identity);
+    const workflowId = await createActiveWorkflow(t, emp);
+    const leadId = await seedLead(t, { email: 'inflight@example.com' });
+    await as.mutation(api.features.workflows.mutations.enrollLeadManually, { workflowId, leadId });
+
+    await as.mutation(api.features.workflows.mutations.reenrollMatchingLeads, { workflowId });
+    await runReenroll(t, workflowId);
+
+    const workflow = await t.run((ctx) => ctx.db.get(workflowId));
+    expect(workflow?.bulkReenroll?.cancelled).toBe(1);
+    expect(workflow?.bulkReenroll?.enrolled).toBe(1);
+    expect(workflow?.activeCount).toBe(1);
+    const runs = await t.run((ctx) =>
+      ctx.db
+        .query('workflowRuns')
+        .withIndex('by_workflow_lead', (q) => q.eq('workflowId', workflowId).eq('leadId', leadId))
+        .collect(),
+    );
+    expect(runs.map((r) => r.status).sort()).toEqual(['active', 'cancelled']);
+  });
+
+  test('a lead at the daily cap is skipped and keeps its in-flight run', async () => {
+    const { t, emp } = await setup();
+    const as = asIdentity(t, emp.identity);
+    const workflowId = await createActiveWorkflow(t, emp);
+    const capped = await seedLead(t, { email: 'capped@example.com' });
+    const free = await seedLead(t, { email: 'free@example.com' });
+    // 5 enrollments today: 4 finished + 1 still active.
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 5; i++) {
+        await ctx.db.insert('workflowRuns', {
+          workflowId,
+          leadId: capped,
+          status: i === 0 ? 'active' : 'completed',
+          triggerType: 'consent_updated',
+          enrolledAt: Date.now(),
+          currentNodeId: i === 0 ? 'n1' : undefined,
+          stepCount: 0,
+        });
+      }
+    });
+
+    await as.mutation(api.features.workflows.mutations.reenrollMatchingLeads, { workflowId });
+    await runReenroll(t, workflowId);
+
+    const workflow = await t.run((ctx) => ctx.db.get(workflowId));
+    expect(workflow?.bulkReenroll?.skipped).toBe(1);
+    expect(workflow?.bulkReenroll?.enrolled).toBe(1); // only the free lead
+    const cappedRuns = await t.run((ctx) =>
+      ctx.db
+        .query('workflowRuns')
+        .withIndex('by_workflow_lead', (q) => q.eq('workflowId', workflowId).eq('leadId', capped))
+        .collect(),
+    );
+    // Untouched: the active run survived, nothing new was added.
+    expect(cappedRuns).toHaveLength(5);
+    expect(cappedRuns.filter((r) => r.status === 'active')).toHaveLength(1);
+    const freeRuns = await t.run((ctx) =>
+      ctx.db
+        .query('workflowRuns')
+        .withIndex('by_workflow_lead', (q) => q.eq('workflowId', workflowId).eq('leadId', free))
+        .collect(),
+    );
+    expect(freeRuns).toHaveLength(1);
+  });
+
+  test('enrollment criteria restrict who is re-enrolled', async () => {
+    const { t, emp } = await setup();
+    const as = asIdentity(t, emp.identity);
+    const workflowId = await as.mutation(api.features.workflows.mutations.createWorkflow, {
+      name: 'Criteres',
+      trigger: { type: 'consent_updated' },
+      allowReEnrollment: true,
+      enrollmentCriteria: {
+        combinator: 'and' as const,
+        groups: [
+          {
+            combinator: 'and' as const,
+            rules: [
+              {
+                field: { kind: 'standard' as const, field: 'status' as const },
+                operator: 'equals' as const,
+                value: 'converti',
+              },
+            ],
+          },
+        ],
+      },
+      nodes: [{ id: 'n1', type: 'wait' as const, amount: 1, unit: 'hours' as const }],
+      startNodeId: 'n1',
+    });
+    await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+      workflowId,
+      status: 'active',
+    });
+    const converted = await seedLead(t, { email: 'oui@example.com', status: 'converti' });
+    await seedLead(t, { email: 'non@example.com', status: 'nouveau' });
+
+    await as.mutation(api.features.workflows.mutations.reenrollMatchingLeads, { workflowId });
+    await runReenroll(t, workflowId);
+
+    const workflow = await t.run((ctx) => ctx.db.get(workflowId));
+    expect(workflow?.bulkReenroll?.matched).toBe(1);
+    const runs = await t.run((ctx) =>
+      ctx.db
+        .query('workflowRuns')
+        .withIndex('by_workflow', (q) => q.eq('workflowId', workflowId))
+        .collect(),
+    );
+    expect(runs).toHaveLength(1);
+    expect(runs[0]?.leadId).toBe(converted);
   });
 });

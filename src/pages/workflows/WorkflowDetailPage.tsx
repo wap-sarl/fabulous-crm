@@ -159,6 +159,17 @@ export function WorkflowDetailPage() {
       />
 
       <div className="flex flex-col gap-5 px-5 pb-8 sm:px-7">
+        {workflow.bulkReenroll?.status === 'running' && (
+          <p className="rounded-lg border border-info/40 bg-info/10 px-4 py-2 text-xs text-info">
+            Réinscription en masse en cours — {numberFormat.format(workflow.bulkReenroll.enrolled)}{' '}
+            lead(s) réinscrit(s), {numberFormat.format(workflow.bulkReenroll.cancelled)} parcours
+            annulé(s)
+            {workflow.bulkReenroll.skipped > 0
+              ? `, ${numberFormat.format(workflow.bulkReenroll.skipped)} ignoré(s) (plafond quotidien)`
+              : ''}
+            .
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
             label="Inscriptions"

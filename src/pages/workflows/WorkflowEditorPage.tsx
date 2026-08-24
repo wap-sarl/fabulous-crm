@@ -174,11 +174,10 @@ export function WorkflowEditorPage() {
       if (status !== 'active') {
         await setWorkflowStatus({ workflowId: id, status: 'active' });
       }
-      const result = await reenrollMatchingLeads({ workflowId: id });
-      toast.success(
-        `${result.enrolled} lead(s) réinscrit(s)` +
-          (result.cancelled > 0 ? `, ${result.cancelled} parcours annulé(s).` : '.'),
-      );
+      // The re-enroll runs as a scheduled batch chain server-side; progress is
+      // shown live on the workflow detail page we navigate to.
+      await reenrollMatchingLeads({ workflowId: id });
+      toast.success('Réinscription lancée — suivez la progression sur la page du workflow.');
       navigate(`/workflows/${id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Échec de la réinscription.');
