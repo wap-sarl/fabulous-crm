@@ -73,11 +73,13 @@ export const registerBrevoEmailWebhook = internalAction({
       'api-key': apiKey!,
     };
     const endpoint = `${siteUrl}/webhooks/brevo/email`;
-    const url = `${endpoint}?secret=${secret}`;
     const body = JSON.stringify({
       type: 'transactional',
       description: 'WAP CRM — événements e-mail campagnes',
-      url,
+      // Secret in a registration-time header, never in the URL where it
+      // would sit in proxy logs and Brevo's webhook listing.
+      url: endpoint,
+      headers: [{ key: 'x-webhook-secret', value: secret }],
       events: BREVO_EMAIL_WEBHOOK_EVENTS,
     });
 
@@ -147,12 +149,14 @@ export const registerBrevoSmsWebhook = internalAction({
       'api-key': apiKey!,
     };
     const endpoint = `${siteUrl}/webhooks/brevo/sms`;
-    const url = `${endpoint}?secret=${secret}`;
     const body = JSON.stringify({
       type: 'transactional',
       channel: 'sms',
       description: 'WAP CRM — événements SMS entrants (STOP, réponses)',
-      url,
+      // Account-level registration can carry a header — only the
+      // per-message webUrl (sendCampaignBatch) is stuck with a query secret.
+      url: endpoint,
+      headers: [{ key: 'x-webhook-secret', value: secret }],
       // Inbound-only events. The per-message webUrl already delivers the OUTBOUND
       // lifecycle (delivered, bounces), so subscribing to those here would
       // double-record them. NB: Brevo's SMS *registration* strings differ from the
@@ -252,10 +256,13 @@ export const sendCampaignBatch = internalAction({
     }[] = [];
 
     // Per-message webhook so Brevo notifies us of SMS events (STOP opt-outs).
-    // Without a Brevo webhook secret the feature is off and no webUrl is sent.
+    // Brevo's per-message webhooks cannot send headers, so this is the one
+    // path where a secret travels in the URL — the DEDICATED SMS secret,
+    // so its exposure never burns the account-level one. Without a secret the
+    // feature is off and no webUrl is sent.
     const smsWebhookUrl =
-      isSms && brevo.webhookSecret && process.env.CONVEX_SITE_URL
-        ? `${process.env.CONVEX_SITE_URL}/webhooks/brevo/sms?secret=${brevo.webhookSecret}`
+      isSms && brevo.smsWebhookSecret && process.env.CONVEX_SITE_URL
+        ? `${process.env.CONVEX_SITE_URL}/webhooks/brevo/sms?secret=${brevo.smsWebhookSecret}`
         : undefined;
 
     // Pooled email dispatcher (Brevo API or SMTP) — only for custom-HTML email

@@ -80,13 +80,59 @@ async function seedSmsSend(t: T, emp: SeededEmployee): Promise<{ leadId: Id<'lea
 }
 
 describe('webhook authentication', () => {
-  test('both routes reject a missing or wrong secret', async () => {
+  test('both routes reject a missing or wrong secret, in header and query alike', async () => {
     const { t } = await setup();
     for (const path of ['/webhooks/brevo/sms', '/webhooks/brevo/email']) {
       const noSecret = await t.fetch(path, { method: 'POST', body: '{}' });
       expect(noSecret.status).toBe(401);
       const wrongSecret = await t.fetch(`${path}?secret=wrong`, { method: 'POST', body: '{}' });
       expect(wrongSecret.status).toBe(401);
+      const wrongHeader = await t.fetch(path, {
+        method: 'POST',
+        body: '{}',
+        headers: { 'x-webhook-secret': 'wrong' },
+      });
+      expect(wrongHeader.status).toBe(401);
+    }
+  });
+
+  test('both routes accept the account secret in the x-webhook-secret header', async () => {
+    const { t } = await setup();
+    for (const path of ['/webhooks/brevo/sms', '/webhooks/brevo/email']) {
+      const res = await t.fetch(path, {
+        method: 'POST',
+        body: '{}',
+        headers: { 'x-webhook-secret': SECRET },
+      });
+      expect(res.status).toBe(200);
+    }
+  });
+
+  test('the SMS query path uses the dedicated per-message secret when set', async () => {
+    process.env.BREVO_SMS_WEBHOOK_SECRET = 'dedicated-sms-secret';
+    try {
+      const { t } = await setup();
+      // Dedicated secret works in the query string…
+      const dedicated = await t.fetch('/webhooks/brevo/sms?secret=dedicated-sms-secret', {
+        method: 'POST',
+        body: '{}',
+      });
+      expect(dedicated.status).toBe(200);
+      // …the account secret no longer does (blast radius contained)…
+      const shared = await t.fetch(`/webhooks/brevo/sms?secret=${SECRET}`, {
+        method: 'POST',
+        body: '{}',
+      });
+      expect(shared.status).toBe(401);
+      // …while the account secret still authenticates via the header.
+      const header = await t.fetch('/webhooks/brevo/sms', {
+        method: 'POST',
+        body: '{}',
+        headers: { 'x-webhook-secret': SECRET },
+      });
+      expect(header.status).toBe(200);
+    } finally {
+      delete process.env.BREVO_SMS_WEBHOOK_SECRET;
     }
   });
 });

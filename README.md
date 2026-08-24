@@ -123,7 +123,8 @@ d'environnement du conteneur — pas de rebuild par environnement.
 | `EMAIL_SENDER_NAME` | prod | Nom d'expéditeur des emails (défaut `CRM`) — secours si non défini dans la config runtime |
 | `EMAIL_SENDER_EMAIL` | prod | Adresse d'expéditeur des emails (défaut `noreply@example.com`) — le domaine doit être un expéditeur Brevo vérifié ; secours si non défini dans la config runtime |
 | `BREVO_SMS_SENDER` | **oui** pour les SMS | Nom d'expéditeur affiché sur les SMS (ID alphanumérique Brevo, ≤ 11 caractères ; défaut `CRM`) |
-| `BREVO_WEBHOOK_SECRET` | non (requis pour le STOP SMS) | Secret partagé du webhook Brevo SMS (`/webhooks/brevo/sms` sur `CONVEX_SITE_URL`) : chaque SMS envoyé enregistre ce webhook (`webUrl`) et une réponse STOP retire le consentement `sms` du lead. Générer avec `bunx convex env set BREVO_WEBHOOK_SECRET $(openssl rand -hex 32)`. Absent = pas de webhook (comportement antérieur). |
+| `BREVO_WEBHOOK_SECRET` | non (requis pour les webhooks) | Secret des webhooks Brevo au niveau compte (`/webhooks/brevo/email` et `/webhooks/brevo/sms`). Envoyé dans l'en-tête `x-webhook-secret` fixé à l'enregistrement (`registerBrevoEmailWebhook` / `registerBrevoSmsWebhook`) — jamais dans l'URL. Générer avec `bunx convex env set BREVO_WEBHOOK_SECRET $(openssl rand -hex 32)`. Absent = webhooks désactivés. |
+| `BREVO_SMS_WEBHOOK_SECRET` | non (recommandé pour le STOP SMS) | Secret **dédié** du webhook SMS par message (`webUrl` posé sur chaque envoi) : les webhooks par message de Brevo ne peuvent pas envoyer d'en-tête, ce secret voyage donc dans l'URL — d'où une valeur distincte, révocable sans toucher au secret de compte. Repli sur `BREVO_WEBHOOK_SECRET` si absente. Générer avec `bunx convex env set BREVO_SMS_WEBHOOK_SECRET $(openssl rand -hex 32)`. |
 
 > La plupart des réglages ci-dessus (URL, expéditeur) et les identifiants des
 > fournisseurs sociaux (Google…) sont stockés dans la table Convex singleton
@@ -132,6 +133,30 @@ d'environnement du conteneur — pas de rebuild par environnement.
 > ou de secret/config déploiement (`SETUP_TOKEN`, `BREVO_API_KEY`, `SITE_URL`,
 > `BETTER_AUTH_SECRET`). `CONVEX_SITE_URL` est injectée automatiquement par Convex
 > et sert d'origine aux routes/callbacks Better Auth — rien à définir.
+
+### Rotation des secrets webhook Brevo
+
+Les deux secrets se tournent indépendamment, sans interruption de service :
+
+1. **Secret de compte (`BREVO_WEBHOOK_SECRET`)** — en-têtes des webhooks
+   e-mail et SMS entrants :
+   ```bash
+   bunx convex env set BREVO_WEBHOOK_SECRET $(openssl rand -hex 32) --prod
+   bunx convex run features/crm/actions:registerBrevoEmailWebhook --prod
+   bunx convex run features/crm/actions:registerBrevoSmsWebhook --prod
+   ```
+   L'enregistrement met à jour l'en-tête `x-webhook-secret` chez Brevo ; les
+   routes comparent en temps constant et acceptent immédiatement la nouvelle
+   valeur.
+2. **Secret SMS par message (`BREVO_SMS_WEBHOOK_SECRET`)** — présent dans le
+   `webUrl` de chaque SMS envoyé :
+   ```bash
+   bunx convex env set BREVO_SMS_WEBHOOK_SECRET $(openssl rand -hex 32) --prod
+   ```
+   Prend effet pour les envois suivants. Attention : les événements des SMS déjà
+   partis porteront encore l'ancien `webUrl` — tourner ce secret hors d'une
+   campagne en cours, ou accepter la perte des événements tardifs (STOP compris)
+   des messages déjà envoyés.
 
 ## Configuration initiale
 
