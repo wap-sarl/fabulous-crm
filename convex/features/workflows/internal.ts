@@ -4,14 +4,19 @@ import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
-import { appOrigin, deleteListMember, insertListMember, isNotDeleted } from '../../lib';
+import { appOrigin, deleteListMember, insertListMember, isNotDeleted, logAudit } from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { buildLeadParams, buildLeadTargetPatch } from '../crm/leadTargets';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
 import type { FilterField } from '../../_lib/validators/leadFilters';
-import { delayMs, diffLeadFilterFields, MAX_STEPS_PER_RUN } from './lib';
-import { dispatchWorkflowTrigger } from './triggerDispatch';
+import {
+  delayMs,
+  diffLeadFilterFields,
+  MAX_ENROLLMENTS_PER_LEAD_PER_DAY,
+  MAX_STEPS_PER_RUN,
+} from './lib';
+import { dispatchWorkflowTrigger, enrollLead } from './triggerDispatch';
 
 /**
  * The workflow execution engine. One node per `executeStep` invocation, each
@@ -448,5 +453,121 @@ export const completeActionStep = internalMutation({
     }
     const next = node.type === 'branch' ? undefined : node.next;
     await advanceRun(ctx, run, workflow, next, workflow.status === 'active');
+  },
+});
+
+// Leads examined per reenrollBatch transaction. Each matching lead reads its
+// runs and writes a run cancellation + a fresh run + workflow counter patches,
+// so 100 leads per page stays far below the per-transaction limits.
+const REENROLL_BATCH = 100;
+
+export const reenrollBatch = internalMutation({
+  args: { workflowId: v.id('workflows'), cursor: v.optional(v.string()) },
+  handler: async (ctx, args): Promise<{ isDone: boolean; continueCursor: string | null }> => {
+    const workflow = await ctx.db.get(args.workflowId);
+    if (
+      !workflow ||
+      workflow.deletedAt != null ||
+      workflow.status !== 'active' ||
+      workflow.bulkReenroll?.status !== 'running'
+    ) {
+      return { isDone: true, continueCursor: null };
+    }
+
+    const page = await ctx.db
+      .query('leads')
+      .paginate({ cursor: args.cursor ?? null, numItems: REENROLL_BATCH });
+
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    let matched = 0;
+    let enrolled = 0;
+    let cancelled = 0;
+    let skipped = 0;
+    for (const lead of page.page) {
+      if (!isNotDeleted(lead)) continue;
+      if (workflow.enrollmentCriteria && !evalAdvancedFilter(lead, workflow.enrollmentCriteria)) {
+        continue;
+      }
+      matched++;
+
+      const runs = await ctx.db
+        .query('workflowRuns')
+        .withIndex('by_workflow_lead', (q) =>
+          q.eq('workflowId', args.workflowId).eq('leadId', lead._id),
+        )
+        .collect();
+
+      // Daily cap, checked before cancelling anything: a capped lead keeps its
+      // in-flight run instead of losing it and getting nothing back.
+      if (runs.filter((r) => r.enrolledAt > dayAgo).length >= MAX_ENROLLMENTS_PER_LEAD_PER_DAY) {
+        skipped++;
+        continue;
+      }
+
+      for (const run of runs) {
+        if (run.status !== 'active') continue;
+        if (run.scheduledFnId) await ctx.scheduler.cancel(run.scheduledFnId);
+        await ctx.db.patch(run._id, {
+          status: 'cancelled',
+          finishedAt: Date.now(),
+          currentNodeId: undefined,
+          wakeAt: undefined,
+          scheduledFnId: undefined,
+        });
+        cancelled++;
+      }
+
+      const runId = await enrollLead(ctx, workflow, lead._id, 'bulk_reenroll');
+      if (runId) enrolled++;
+    }
+
+    // Fold this batch into the progress state. Re-read the workflow first:
+    // enrollLead patched its counters for every enrolled lead above, and the
+    // cancellations bypassed advanceRun, so activeCount must shrink by
+    // `cancelled` here.
+    const fresh = await ctx.db.get(args.workflowId);
+    if (!fresh || fresh.bulkReenroll?.status !== 'running') {
+      return { isDone: true, continueCursor: null };
+    }
+    const progress = {
+      status: 'running' as const,
+      startedBy: fresh.bulkReenroll.startedBy,
+      matched: fresh.bulkReenroll.matched + matched,
+      enrolled: fresh.bulkReenroll.enrolled + enrolled,
+      cancelled: fresh.bulkReenroll.cancelled + cancelled,
+      skipped: fresh.bulkReenroll.skipped + skipped,
+      startedAt: fresh.bulkReenroll.startedAt,
+    };
+    if (!page.isDone) {
+      await ctx.db.patch(args.workflowId, {
+        activeCount: Math.max(0, fresh.activeCount - cancelled),
+        bulkReenroll: progress,
+      });
+      await ctx.scheduler.runAfter(0, internal.features.workflows.internal.reenrollBatch, {
+        workflowId: args.workflowId,
+        cursor: page.continueCursor,
+      });
+      return { isDone: false, continueCursor: page.continueCursor };
+    }
+
+    await ctx.db.patch(args.workflowId, {
+      activeCount: Math.max(0, fresh.activeCount - cancelled),
+      bulkReenroll: { ...progress, status: 'done', finishedAt: Date.now() },
+    });
+    await logAudit({
+      ctx,
+      userId: progress.startedBy,
+      entityType: 'workflow',
+      entityId: args.workflowId,
+      action: 'update',
+      metadata: {
+        event: 'bulk_reenroll',
+        matched: progress.matched,
+        enrolled: progress.enrolled,
+        cancelled: progress.cancelled,
+        skipped: progress.skipped,
+      },
+    });
+    return { isDone: true, continueCursor: page.continueCursor };
   },
 });

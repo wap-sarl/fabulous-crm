@@ -269,8 +269,7 @@ export const cancelRun = employeeMutation({
  * workflow's enrollment criteria (no criteria = every lead) into the current
  * graph. An explicit user action, so it deliberately bypasses the
  * allowReEnrollment setting and cancels in-flight runs (they were following
- * the old version) before re-enrolling. One transaction — fine at this CRM's
- * few-thousand-leads scale, same stance as listMatchingLeadIds' full scan.
+ * the old version) before re-enrolling.
  */
 export const reenrollMatchingLeads = employeeMutation({
   args: { workflowId: v.id('workflows') },
@@ -279,47 +278,25 @@ export const reenrollMatchingLeads = employeeMutation({
     if (workflow.status !== 'active' || !workflow.startNodeId) {
       throw new Error('Activez le workflow avant de réinscrire des leads.');
     }
-
-    const leads = (await ctx.db.query('leads').collect()).filter(isNotDeleted);
-    const matching = workflow.enrollmentCriteria
-      ? leads.filter((lead) => evalAdvancedFilter(lead, workflow.enrollmentCriteria!))
-      : leads;
-
-    let cancelled = 0;
-    let enrolled = 0;
-    for (const lead of matching) {
-      const runs = await ctx.db
-        .query('workflowRuns')
-        .withIndex('by_workflow_lead', (q) =>
-          q.eq('workflowId', args.workflowId).eq('leadId', lead._id),
-        )
-        .collect();
-      for (const run of runs) {
-        if (run.status !== 'active') continue;
-        if (run.scheduledFnId) await ctx.scheduler.cancel(run.scheduledFnId);
-        await ctx.db.patch(run._id, {
-          status: 'cancelled',
-          finishedAt: Date.now(),
-          currentNodeId: undefined,
-          wakeAt: undefined,
-          scheduledFnId: undefined,
-        });
-        cancelled++;
-      }
-
-      const runId = await enrollLead(ctx, workflow, lead._id, 'bulk_reenroll');
-      if (runId) enrolled++;
+    if (workflow.bulkReenroll?.status === 'running') {
+      throw new Error('Une réinscription est déjà en cours pour ce workflow.');
     }
 
-    // Cancellations bypassed advanceRun, so fix activeCount once at the end:
-    // it grew by `enrolled` (per-enroll bumps) but must shrink by `cancelled`.
-    const fresh = await ctx.db.get(args.workflowId);
-    if (fresh) {
-      await ctx.db.patch(args.workflowId, {
-        activeCount: Math.max(0, fresh.activeCount - cancelled),
-        ...updateAuditFields(ctx.userId),
-      });
-    }
+    await ctx.db.patch(args.workflowId, {
+      bulkReenroll: {
+        status: 'running',
+        startedBy: ctx.userId,
+        matched: 0,
+        enrolled: 0,
+        cancelled: 0,
+        skipped: 0,
+        startedAt: Date.now(),
+      },
+      ...updateAuditFields(ctx.userId),
+    });
+    await ctx.scheduler.runAfter(0, internal.features.workflows.internal.reenrollBatch, {
+      workflowId: args.workflowId,
+    });
 
     await logAudit({
       ctx,
@@ -327,10 +304,8 @@ export const reenrollMatchingLeads = employeeMutation({
       entityType: 'workflow',
       entityId: args.workflowId,
       action: 'update',
-      metadata: { event: 'bulk_reenroll', matched: matching.length, enrolled, cancelled },
+      metadata: { event: 'bulk_reenroll_started' },
     });
-
-    return { matched: matching.length, enrolled, cancelled };
   },
 });
 
