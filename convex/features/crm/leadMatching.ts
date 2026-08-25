@@ -54,6 +54,8 @@ export function getFieldValue(
       return lead.comment;
     case 'status':
       return lead.status;
+    case 'lifecycleStage':
+      return lead.lifecycleStage;
     case 'assignedTo':
       return lead.assignedTo;
     case 'isRedFlagged':

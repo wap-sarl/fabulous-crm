@@ -29,6 +29,7 @@ import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { LEAD_STATUSES } from '../../../lib/constants';
 import { useLeadActions } from '../hooks/useLeadActions';
 import { useLeadPropertyDefinitions } from '../hooks/useLeadPropertyDefinitions';
+import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { validateLeadPropertyValue } from '../lib/customProperties';
 import { LeadCustomPropertyFields } from './LeadCustomPropertyFields';
 import type { LeadRow } from '../types';
@@ -45,6 +46,8 @@ interface FormState {
   email: string;
   phone: string;
   status: LeadStatus;
+  /** '' = the configured default stage (create only). */
+  lifecycleStage: string;
   assignedTo: string;
   isRedFlagged: boolean;
   comment: string;
@@ -67,6 +70,7 @@ function emptyForm(): FormState {
     email: '',
     phone: '',
     status: 'nouveau',
+    lifecycleStage: '',
     assignedTo: '',
     isRedFlagged: false,
     comment: '',
@@ -82,6 +86,7 @@ function fromLead(lead: LeadRow): FormState {
     email: lead.email ?? '',
     phone: lead.phone ?? '',
     status: lead.status,
+    lifecycleStage: lead.lifecycleStage ?? '',
     assignedTo: lead.assignedTo ?? '',
     isRedFlagged: lead.isRedFlagged,
     comment: lead.comment ?? '',
@@ -101,6 +106,8 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   const { employees } = useEmployees();
   const { createLead, updateLead } = useLeadActions();
   const propertyDefinitions = useLeadPropertyDefinitions();
+  const lifecycle = useLifecycleConfig();
+  const currentStageIndex = isEdit ? lifecycle.indexOf(lead?.lifecycleStage) : -1;
 
   // French BAN address autocomplete — keyless government API, no env var needed.
   const addressProvider = useMemo(() => createBanAddressProvider(), []);
@@ -157,6 +164,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       phone: form.phone || undefined,
       address,
       status: form.status,
+      lifecycleStage: form.lifecycleStage || undefined,
       assignedTo: form.assignedTo ? (form.assignedTo as Id<'users'>) : undefined,
       isRedFlagged: form.isRedFlagged,
       comment: form.comment || undefined,
@@ -173,8 +181,13 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
         toast.success('Lead créé.');
       }
       onOpenChange(false);
-    } catch {
-      toast.error('Une erreur est survenue.');
+    } catch (e) {
+      const message = e instanceof Error ? e.message : '';
+      toast.error(
+        message.includes('lifecycle_regression_blocked')
+          ? 'Le retour à une étape antérieure du cycle de vie est désactivé (Paramètres → Cycle de vie).'
+          : 'Une erreur est survenue.',
+      );
     } finally {
       setSubmitting(false);
     }
@@ -235,6 +248,28 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
               <SelectContent>
                 {LEAD_STATUSES.map((s) => (
                   <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>Cycle de vie</Label>
+            <Select
+              value={form.lifecycleStage || lifecycle.defaultStage}
+              onValueChange={(v) => setField('lifecycleStage', v)}
+            >
+              <SelectTrigger data-testid="lead-lifecycle-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {lifecycle.stages.map((s, index) => (
+                  <SelectItem
+                    key={s.key}
+                    value={s.key}
+                    disabled={!lifecycle.allowRegression && index < currentStageIndex}
+                  >
                     {s.label}
                   </SelectItem>
                 ))}

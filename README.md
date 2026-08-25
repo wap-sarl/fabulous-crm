@@ -9,6 +9,12 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
 - **Leads** : création, édition, suppression (unitaire et en masse), filtres,
   pagination, import CSV avec upsert (clé de matching : email), assignation à
   un employé.
+- **Cycle de vie** : étape d'entonnoir par lead (`lifecycleStage`, abonné → lead → MQL → SQL → opportunité → client → ambassadeur),
+  configurable dans *Paramètres → Cycle de vie* (étapes, étape par défaut,
+  interdiction du retour en arrière). Chaque changement est journalisé dans
+  `lifecycleStageHistory` ; les workflows disposent d'une étape « Changer
+  l'étape du cycle de vie ». `leads.status` (nouveau, contacté, …) reste un
+  champ commercial secondaire.
 - **Campagnes** : création de campagnes email Brevo (template + destinataires
   filtrés), suivi des envois (`campaignSends`), statuts.
 - **Consentement RGPD** : page publique `/consent/:token` permettant à un lead
@@ -201,6 +207,21 @@ bloqué par l'assistant : la présence d'utilisateurs vaut « installation
 terminée ». Pour créer une config propre et promouvoir les employés existants en
 `admin`, lancer une fois :
 `bunx convex run seed/bootstrapConfig:bootstrapExistingDeployment`.
+
+#### Migration du cycle de vie (leads antérieurs)
+
+Les leads créés avant l'arrivée du cycle de vie n'ont pas de `lifecycleStage`
+(ils apparaissent « sans étape » dans *Paramètres → Cycle de vie*). Après le
+déploiement, lancer une fois, en rappelant la commande avec le `continueCursor`
+renvoyé jusqu'à `isDone: true` :
+
+```bash
+bunx convex run features/crm/internal:backfillLeadLifecycleStage '{}' --prod
+```
+
+L'étape initiale est dérivée du `status` (`converti` → client, `interesse` →
+SQL, le reste → lead), journalisée avec la source `migration`, et le compteur
+`leadsByLifecycle` est alimenté. La migration est idempotente.
 
 ## Production
 

@@ -71,6 +71,7 @@ export function createTestConvex(): T {
   t.registerComponent('leadListMemberCounts', aggregateSchema, aggregateModules);
   t.registerComponent('leadsByStatus', aggregateSchema, aggregateModules);
   t.registerComponent('leadsByOwner', aggregateSchema, aggregateModules);
+  t.registerComponent('leadsByLifecycle', aggregateSchema, aggregateModules);
   t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
   return t;
 }

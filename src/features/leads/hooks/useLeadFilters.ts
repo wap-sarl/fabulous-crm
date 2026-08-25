@@ -9,6 +9,8 @@ export type SortDirection = 'asc' | 'desc';
 export interface LeadFilters {
   search: string;
   statuses: LeadStatus[];
+  /** Lifecycle stage keys (appConfig.lifecycle); a lead matches any (OR). */
+  lifecycleStages: string[];
   assignedToIds: Id<'users'>[];
   /** Lead lists to filter by; a lead matches if it belongs to any (OR). */
   listIds: Id<'leadLists'>[];
@@ -69,6 +71,7 @@ export function useLeadFilters() {
     return {
       search: searchParams.get('q') ?? '',
       statuses: rawStatuses,
+      lifecycleStages: csv(searchParams.get('lifecycle')),
       assignedToIds: csv(searchParams.get('assigned')) as Id<'users'>[],
       listIds: csv(searchParams.get('lists')) as Id<'leadLists'>[],
       flagged: flaggedParam === 'true' ? true : flaggedParam === 'false' ? false : undefined,

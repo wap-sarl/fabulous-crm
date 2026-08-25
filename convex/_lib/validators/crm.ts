@@ -57,6 +57,8 @@ export const leadValidator = v.object({
   isRedFlagged: v.boolean(),
   status: leadStatusValidator,
 
+  lifecycleStage: v.optional(v.string()),
+
   // Denormalized, normalized identity text (first/last name, email, phone)
   // serving the by_searchText search index. Maintained automatically by the
   // Triggers wrapper (_lib/functions.ts) — never write it by hand. Optional

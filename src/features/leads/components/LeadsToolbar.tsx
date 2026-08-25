@@ -1,19 +1,38 @@
 import { useState, useEffect } from 'react';
-import { Input, SegmentedControl } from '@crm/design-system';
+import {
+  Input,
+  SegmentedControl,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@crm/design-system';
 import { Search } from 'lucide-react';
 import type { LeadStatus } from '@crm/lib/backend';
 import { LEAD_STATUSES } from '../../../lib/constants';
 import type { LeadFilters } from '../hooks/useLeadFilters';
+import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
+
+const ALL_STAGES = '__all__';
 
 interface LeadsToolbarProps {
   filters: LeadFilters;
   setParam: (key: string, value: string | string[] | boolean | undefined) => void;
   /** Global lead counts per status, for the segmented chips. */
   statusCounts?: Partial<Record<LeadStatus | 'all', number>>;
+  /** Global live lead counts per lifecycle stage key, for the stage dropdown. */
+  lifecycleCounts?: Record<string, number>;
 }
 
-export function LeadsToolbar({ filters, setParam, statusCounts }: LeadsToolbarProps) {
+export function LeadsToolbar({
+  filters,
+  setParam,
+  statusCounts,
+  lifecycleCounts,
+}: LeadsToolbarProps) {
   const [searchInput, setSearchInput] = useState(filters.search);
+  const lifecycle = useLifecycleConfig();
 
   // Keep local input in sync when the URL changes externally (e.g. back button)
   useEffect(() => {
@@ -59,6 +78,24 @@ export function LeadsToolbar({ filters, setParam, statusCounts }: LeadsToolbarPr
         value={segmentedValue}
         onChange={(v) => setParam('status', v === 'all' ? undefined : v)}
       />
+
+      <Select
+        value={filters.lifecycleStages.length === 1 ? filters.lifecycleStages[0] : ALL_STAGES}
+        onValueChange={(v) => setParam('lifecycle', v === ALL_STAGES ? undefined : v)}
+      >
+        <SelectTrigger className="w-56" aria-label="Filtrer par étape du cycle de vie">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL_STAGES}>Cycle de vie : toutes les étapes</SelectItem>
+          {lifecycle.stages.map((s) => (
+            <SelectItem key={s.key} value={s.key}>
+              {s.label}
+              {lifecycleCounts ? ` (${lifecycleCounts[s.key] ?? 0})` : ''}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }

@@ -40,6 +40,13 @@ import {
 import { buildLeadParams, validateLeadTargetValue } from './leadTargets';
 import { leadFilterArgs } from './leadTableFilters';
 import { enforceRateLimit } from '../../lib/rateLimits';
+import {
+  insertLifecycleHistory,
+  loadLifecycleConfig,
+  planLifecycleTransition,
+  type LifecycleTransition,
+} from '../../lib/lifecycle';
+import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators/lifecycle';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 
@@ -185,7 +192,21 @@ const leadRowArgs = {
   assignedTo: v.optional(v.id('users')),
   isRedFlagged: v.optional(v.boolean()),
   status: v.optional(leadStatusValidator),
+  // A stage key from appConfig.lifecycle; defaults to the configured stage.
+  lifecycleStage: v.optional(v.string()),
 } as const;
+
+function initialLifecycleStage(config: LifecycleConfig, requested: string | undefined): string {
+  if (requested === undefined) return config.defaultStage;
+  if (lifecycleStageIndex(config, requested) === -1) throw new Error('unknown_lifecycle_stage');
+  return requested;
+}
+
+/** Turn a planned transition into a thrown error for the interactive paths. */
+function assertLifecycleTransition(plan: LifecycleTransition): void {
+  if (plan.kind === 'unknown_stage') throw new Error('unknown_lifecycle_stage');
+  if (plan.kind === 'regression_blocked') throw new Error('lifecycle_regression_blocked');
+}
 
 export const createLead = employeeMutation({
   args: {
@@ -194,6 +215,8 @@ export const createLead = employeeMutation({
   },
   handler: async (ctx, args) => {
     const customProperties = await sanitizeCustomProperties(ctx, args.customProperties);
+    const lifecycle = await loadLifecycleConfig(ctx);
+    const lifecycleStage = initialLifecycleStage(lifecycle, args.lifecycleStage);
 
     const leadId = await ctx.db.insert('leads', {
       firstName: args.firstName.trim(),
@@ -208,9 +231,16 @@ export const createLead = employeeMutation({
       assignedTo: args.assignedTo,
       isRedFlagged: args.isRedFlagged ?? false,
       status: args.status ?? 'nouveau',
+      lifecycleStage,
       customProperties,
       ...createAuditFields(ctx.userId),
     });
+    await insertLifecycleHistory(
+      ctx,
+      leadId,
+      { from: undefined, to: lifecycleStage },
+      { source: 'manual', changedBy: ctx.userId },
+    );
 
     await logAudit({
       ctx,
@@ -238,12 +268,15 @@ export const updateLead = employeeMutation({
     assignedTo: v.optional(v.id('users')),
     isRedFlagged: v.optional(v.boolean()),
     status: v.optional(leadStatusValidator),
+    // Checked against the configured stages and the regression rule; a blocked
+    // regression fails the whole update with `lifecycle_regression_blocked`.
+    lifecycleStage: v.optional(v.string()),
     customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
   },
   handler: async (ctx, args) => {
     // Marketing consent is deliberately not an accepted field — it is RGPD data
     // the lead controls, changeable only via the public consent link.
-    const { leadId, email, customProperties, ...rest } = args;
+    const { leadId, email, customProperties, lifecycleStage, ...rest } = args;
     const lead = await ctx.db.get(leadId);
     if (!lead || lead.deletedAt != null) {
       throw new Error('lead_not_found');
@@ -257,10 +290,25 @@ export const updateLead = employeeMutation({
       // Whole-record replace; computeChanges JSON-compares so the audit diff works.
       updates.customProperties = await sanitizeCustomProperties(ctx, customProperties);
     }
+    let lifecycleChange: { from: string | undefined; to: string } | undefined;
+    if (lifecycleStage !== undefined) {
+      const plan = planLifecycleTransition(await loadLifecycleConfig(ctx), lead, lifecycleStage);
+      assertLifecycleTransition(plan);
+      if (plan.kind === 'change') {
+        lifecycleChange = plan;
+        updates.lifecycleStage = plan.to;
+      }
+    }
 
     const filtered = filterUndefined(updates);
     const changes = computeChanges(lead, filtered);
     await ctx.db.patch(leadId, { ...filtered, ...updateAuditFields(ctx.userId) });
+    if (lifecycleChange) {
+      await insertLifecycleHistory(ctx, leadId, lifecycleChange, {
+        source: 'manual',
+        changedBy: ctx.userId,
+      });
+    }
 
     if (changes) {
       await logAudit({
@@ -363,6 +411,7 @@ export const importLeads = employeeMutation({
     const propertyDefsById = await loadPropertyDefsById(ctx);
     // Active workflows, loaded once for every trigger dispatch in the loop.
     const activeWorkflows = await loadActiveWorkflows(ctx);
+    const lifecycle = await loadLifecycleConfig(ctx);
 
     for (let index = 0; index < args.rows.length; index++) {
       const row = args.rows[index];
@@ -402,6 +451,15 @@ export const importLeads = employeeMutation({
           updates.customProperties = { ...existing.customProperties, ...customProperties };
         }
 
+        let lifecycleChange: { from: string | undefined; to: string } | undefined;
+        if (row.lifecycleStage !== undefined) {
+          const plan = planLifecycleTransition(lifecycle, existing, row.lifecycleStage);
+          if (plan.kind === 'change') {
+            lifecycleChange = plan;
+            updates.lifecycleStage = plan.to;
+          }
+        }
+
         const changes = computeChanges(existing, updates);
         const patchData: Record<string, unknown> = {
           ...updates,
@@ -410,6 +468,12 @@ export const importLeads = employeeMutation({
         // Revive a soft-deleted lead (patching undefined removes the field).
         if (existing.deletedAt != null) patchData.deletedAt = undefined;
         await ctx.db.patch(existing._id, patchData);
+        if (lifecycleChange) {
+          await insertLifecycleHistory(ctx, existing._id, lifecycleChange, {
+            source: 'import',
+            changedBy: ctx.userId,
+          });
+        }
 
         if (changes) {
           await logAudit({
@@ -437,6 +501,13 @@ export const importLeads = employeeMutation({
         continue;
       }
 
+      let lifecycleStage: string;
+      try {
+        lifecycleStage = initialLifecycleStage(lifecycle, row.lifecycleStage);
+      } catch (e) {
+        errors.push({ index, error: e instanceof Error ? e.message : 'unknown_lifecycle_stage' });
+        continue;
+      }
       const leadId = await ctx.db.insert('leads', {
         firstName: row.firstName.trim(),
         lastName: row.lastName.trim(),
@@ -450,9 +521,16 @@ export const importLeads = employeeMutation({
         assignedTo: row.assignedTo ?? ctx.userId,
         isRedFlagged: row.isRedFlagged ?? false,
         status: row.status ?? 'nouveau',
+        lifecycleStage,
         customProperties,
         ...createAuditFields(ctx.userId),
       });
+      await insertLifecycleHistory(
+        ctx,
+        leadId,
+        { from: undefined, to: lifecycleStage },
+        { source: 'import', changedBy: ctx.userId },
+      );
       await dispatchWorkflowTrigger(
         ctx,
         leadId,

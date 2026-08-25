@@ -14,6 +14,8 @@ import { evalAdvancedFilter } from './leadMatching';
 export const leadFilterArgs = {
   search: v.optional(v.string()),
   statuses: v.optional(v.array(leadStatusValidator)),
+  // Lifecycle stage keys (appConfig.lifecycle); OR within the filter.
+  lifecycleStages: v.optional(v.array(v.string())),
   assignedToIds: v.optional(v.array(v.id('users'))),
   isRedFlagged: v.optional(v.boolean()),
   // Custom-property filters: definitionId -> allowed values. A lead matches a
@@ -32,6 +34,7 @@ export const leadFilterArgs = {
 export type LeadFilters = {
   search?: string;
   statuses?: Doc<'leads'>['status'][];
+  lifecycleStages?: string[];
   assignedToIds?: Doc<'leads'>['assignedTo'][];
   isRedFlagged?: boolean;
   customProperties?: Record<string, LeadPropertyValue[]>;
@@ -94,6 +97,12 @@ export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): bo
 
   if (filters.statuses && filters.statuses.length > 0) {
     if (!filters.statuses.includes(lead.status)) return false;
+  }
+
+  if (filters.lifecycleStages && filters.lifecycleStages.length > 0) {
+    if (!lead.lifecycleStage || !filters.lifecycleStages.includes(lead.lifecycleStage)) {
+      return false;
+    }
   }
 
   if (filters.assignedToIds && filters.assignedToIds.length > 0) {

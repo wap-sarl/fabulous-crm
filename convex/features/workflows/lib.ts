@@ -72,6 +72,7 @@ const NODE_TYPE_LABELS: Record<WorkflowNode['type'], string> = {
   send_email: 'Envoyer un e-mail',
   send_sms: 'Envoyer un SMS',
   update_property: 'Modifier une propriété',
+  set_lifecycle_stage: 'Changer l’étape du cycle de vie',
   add_to_list: 'Ajouter à une liste',
   remove_from_list: 'Retirer d’une liste',
   wait: 'Attendre',
@@ -90,6 +91,7 @@ export function validateWorkflowGraph(
   startNodeId: string | undefined,
   defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
   listIds: Set<string>,
+  lifecycleStageKeys: Set<string>,
 ): string | null {
   const lightError = lightValidateGraph(nodes, startNodeId);
   if (lightError) return lightError;
@@ -128,6 +130,10 @@ export function validateWorkflowGraph(
         if (error) return `${label} : ${error}`;
         break;
       }
+      case 'set_lifecycle_stage':
+        if (!node.stage) return `${label} : choisissez une étape.`;
+        if (!lifecycleStageKeys.has(node.stage)) return `${label} : étape introuvable.`;
+        break;
       case 'add_to_list':
       case 'remove_from_list':
         if (!node.listId) return `${label} : choisissez une liste.`;
@@ -222,6 +228,7 @@ const FILTERABLE_STANDARD_FIELDS = [
   'phone',
   'comment',
   'status',
+  'lifecycleStage',
   'assignedTo',
   'isRedFlagged',
   'marketingConsent',

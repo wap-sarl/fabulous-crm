@@ -23,6 +23,19 @@ export type {
 // Pure, dependency-free — safe to bundle into the browser.
 export { LEAD_STATUS_LABELS } from '../../convex/_lib/validators/crm';
 export type {
+  LifecycleStage,
+  LifecycleConfig,
+  LifecycleChangeSource,
+} from '../../convex/_lib/validators/lifecycle';
+export {
+  DEFAULT_LIFECYCLE_CONFIG,
+  LIFECYCLE_STAGE_KEY_RE,
+  MAX_LIFECYCLE_STAGES,
+  isLifecycleRegression,
+  lifecycleStageIndex,
+  lifecycleStageLabel,
+} from '../../convex/_lib/validators/lifecycle';
+export type {
   LeadPropertyType,
   LeadPropertyOption,
   LeadPropertyValue,

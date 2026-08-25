@@ -11,6 +11,7 @@ import { useLeadFilters } from '../../features/leads/hooks/useLeadFilters';
 import { useLeadsPaginated } from '../../features/leads/hooks/useLeadsPaginated';
 import { useLeadActions } from '../../features/leads/hooks/useLeadActions';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
+import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
 import { AdvancedFilterBuilder } from '../../features/leads/components/AdvancedFilterBuilder';
 import { LeadsTable } from '../../features/leads/components/LeadsTable';
@@ -25,6 +26,8 @@ export function LeadsPage() {
   const { filters, setParam, setAdvancedFilter, toggleSort } = useLeadFilters();
   const { results, isLoading, hasMore, loadMore } = useLeadsPaginated(filters);
   const counts = useAuthQuery(api.features.crm.queries.countLeadsByStatus, {});
+  const lifecycleCounts = useAuthQuery(api.features.crm.queries.countLeadsByLifecycleStage, {});
+  const lifecycle = useLifecycleConfig();
   const { employees } = useEmployees();
   const { deleteLead, deleteLeads } = useLeadActions();
   const propertyDefinitions = useLeadPropertyDefinitions();
@@ -132,6 +135,7 @@ export function LeadsPage() {
             filters={filters}
             setParam={setParam}
             statusCounts={counts ? { all: counts.total, ...counts.byStatus } : undefined}
+            lifecycleCounts={lifecycleCounts?.byStage}
           />
           <AdvancedFilterBuilder
             filter={filters.advancedFilter}
@@ -145,6 +149,7 @@ export function LeadsPage() {
           isLoading={isLoading}
           definitions={propertyDefinitions}
           employeeName={employeeName}
+          lifecycleLabel={lifecycle.labelOf}
           selectedIds={selectedIds}
           onToggleSelect={toggleSelect}
           onToggleSelectAll={toggleSelectAll}

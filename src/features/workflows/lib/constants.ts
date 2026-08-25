@@ -5,6 +5,7 @@ import {
   ListPlus,
   Mail,
   MessageSquare,
+  Milestone,
   PenLine,
   Split,
   Webhook,
@@ -204,6 +205,7 @@ export const STEP_TYPES: {
   { type: 'send_email', label: 'Envoyer un e-mail', icon: Mail },
   { type: 'send_sms', label: 'Envoyer un SMS', icon: MessageSquare },
   { type: 'update_property', label: 'Modifier une propriété', icon: PenLine },
+  { type: 'set_lifecycle_stage', label: 'Changer l’étape du cycle de vie', icon: Milestone },
   { type: 'add_to_list', label: 'Ajouter à une liste', icon: ListPlus },
   { type: 'remove_from_list', label: 'Retirer d’une liste', icon: ListMinus },
   { type: 'wait', label: 'Attendre', icon: Clock },
@@ -268,7 +270,11 @@ const STANDARD_FIELD_LABEL = new Map(STANDARD_FILTER_FIELDS.map((f) => [f.field,
 /** One-line card subtitle describing a node's configuration. */
 export function nodeSummary(
   node: WorkflowNode,
-  ctx: { listNameById: Map<string, string>; definitionLabelById: Map<string, string> },
+  ctx: {
+    listNameById: Map<string, string>;
+    definitionLabelById: Map<string, string>;
+    lifecycleStageLabelByKey: Map<string, string>;
+  },
 ): string {
   switch (node.type) {
     case 'send_email':
@@ -282,6 +288,10 @@ export function nodeSummary(
           : (ctx.definitionLabelById.get(node.target.propertyDefId) ?? 'Propriété supprimée');
       return `${label} → ${formatValue(node.value)}`;
     }
+    case 'set_lifecycle_stage':
+      return node.stage
+        ? `Étape : ${ctx.lifecycleStageLabelByKey.get(node.stage) ?? node.stage}`
+        : 'Étape à choisir';
     case 'add_to_list':
     case 'remove_from_list':
       return node.listId

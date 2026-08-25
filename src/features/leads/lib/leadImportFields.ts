@@ -14,6 +14,7 @@ export interface LeadImportRow {
   email?: string;
   phone?: string;
   status?: LeadStatus;
+  lifecycleStage?: string;
   comment?: string;
   isRedFlagged?: boolean;
   assignedTo?: Id<'users'>;
@@ -31,6 +32,8 @@ export interface LeadImportRow {
 /** Lookup maps resolving human-readable cell values to document ids. */
 export interface ImportContext {
   userByEmail: Map<string, Id<'users'>>;
+  /** Lowercased stage key AND label → stage key (appConfig.lifecycle). */
+  lifecycleStageByName: Map<string, string>;
 }
 
 type AddressKey = 'streetNumber' | 'street' | 'postalCode' | 'city';
@@ -140,6 +143,17 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
     },
     apply: (row, value) => {
       row.status = value as LeadStatus;
+    },
+  },
+  {
+    header: 'lifecyclestage',
+    label: 'Cycle de vie',
+    parse: (raw, ctx) => {
+      const key = ctx.lifecycleStageByName.get(raw.trim().toLowerCase());
+      return key ? { value: key } : { error: `étape du cycle de vie inconnue « ${raw} »` };
+    },
+    apply: (row, value) => {
+      row.lifecycleStage = value as string;
     },
   },
   {

@@ -35,6 +35,7 @@ import type {
 import { operatorsForType } from '@crm/lib/backend';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { CONSENT_CHANNELS, LEAD_STATUSES } from '../../../lib/constants';
+import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import type { LeadPropertyDefinitionRow } from '../types';
 import {
   countActiveRules,
@@ -372,6 +373,7 @@ interface RuleValueInputProps {
 /** The value control for a rule, chosen by field type + operator. */
 function RuleValueInput({ rule, type, def, employees, onChange }: RuleValueInputProps) {
   const { operator, value } = rule;
+  const lifecycle = useLifecycleConfig();
 
   // Presence operators take no value.
   if (operator === 'isEmpty' || operator === 'isNotEmpty') {
@@ -466,6 +468,18 @@ function RuleValueInput({ rule, type, def, employees, onChange }: RuleValueInput
       return (
         <MultiSelect
           items={LEAD_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
+          value={asArray}
+          onValueChange={(v) => setValue(v.length > 0 ? v : undefined)}
+          placeholder="Sélectionner…"
+          modal
+          className="w-full"
+        />
+      );
+
+    case 'lifecycle':
+      return (
+        <MultiSelect
+          items={lifecycle.stages.map((s) => ({ value: s.key, label: s.label }))}
           value={asArray}
           onValueChange={(v) => setValue(v.length > 0 ? v : undefined)}
           placeholder="Sélectionner…"

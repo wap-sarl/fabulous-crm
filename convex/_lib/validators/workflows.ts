@@ -4,13 +4,6 @@ import { advancedFilterValidator, filterFieldValidator } from './leadFilters';
 import { trackedLinkStandardFieldValidator } from './crm';
 import { leadPropertyValueValidator } from './leadProperties';
 
-/**
- * HubSpot-style workflow automation on leads. A workflow is an enrollment
- * trigger (an event, optionally refined by the shared advanced filter) plus a
- * tree of step nodes (actions, waits, if/else branches). Enrollments are
- * tracked as workflowRuns; each executed step is one workflowRunSteps row.
- */
-
 /** Email engagement events (campaignEvents) that can enroll a lead. */
 export const workflowEmailEventValidator = v.union(
   v.literal('delivered'),
@@ -113,6 +106,12 @@ export const workflowNodeValidator = v.union(
     type: v.literal('update_property'),
     target: workflowLeadTargetValidator,
     value: leadPropertyValueValidator,
+    next: v.optional(v.string()),
+  }),
+  v.object({
+    ...nodeBase,
+    type: v.literal('set_lifecycle_stage'),
+    stage: v.optional(v.string()),
     next: v.optional(v.string()),
   }),
   v.object({

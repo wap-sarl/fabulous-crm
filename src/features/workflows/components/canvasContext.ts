@@ -12,6 +12,7 @@ export interface CanvasHandlers {
   onRemove: (id: string) => void;
   listNameById: Map<string, string>;
   definitionLabelById: Map<string, string>;
+  lifecycleStageLabelByKey: Map<string, string>;
   readOnly?: boolean;
 }
 

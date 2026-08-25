@@ -28,6 +28,7 @@ import { BrandingPage } from './pages/settings/BrandingPage';
 import { EmailPage } from './pages/settings/EmailPage';
 import { LeadPropertiesPage } from './pages/settings/LeadPropertiesPage';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
+import { LifecyclePage } from './pages/settings/LifecyclePage';
 
 function NotFoundPage() {
   const navigate = useNavigate();
@@ -77,6 +78,7 @@ function AppRoutes() {
             <Route path="/settings/email" element={<EmailPage />} />
             <Route path="/settings/lead-properties" element={<LeadPropertiesPage />} />
             <Route path="/settings/lists" element={<LeadListsPage />} />
+            <Route path="/settings/lifecycle" element={<LifecyclePage />} />
             <Route path="/design-system" element={<DesignSystemPage />} />
           </Route>
         </Route>

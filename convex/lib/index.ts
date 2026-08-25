@@ -10,6 +10,7 @@ export * from './devWhitelist';
 export * from './emailProvider';
 export * from './emailUtils';
 export * from './leadListMembers';
+export * from './lifecycle';
 export * from './smsUtils';
 export * from './timeConstants';
 export * from './userUtils';

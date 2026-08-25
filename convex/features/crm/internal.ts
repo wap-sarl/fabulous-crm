@@ -3,7 +3,9 @@ import { internalQuery, type MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
 import { internalMutation } from '../../_lib/functions';
 import { leadListMemberCounts, toBrevoRecipient } from '../../lib';
-import { leadsByOwner, leadsByStatus } from '../../lib/leadAggregates';
+import { leadsByLifecycle, leadsByOwner, leadsByStatus } from '../../lib/leadAggregates';
+import { applyLifecycleTransition } from '../../lib/lifecycle';
+import { LIFECYCLE_FROM_STATUS } from '../../_lib/validators/lifecycle';
 import { leadSearchText } from '../../lib/leadSearch';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
@@ -417,13 +419,6 @@ export const prepareCampaignBatch = internalMutation({
   },
 });
 
-/**
- * One-off migration: drop the deprecated `recipientLeadIds` array from
- * existing campaign documents (#15) — the information lives in campaignSends.
- * Idempotent. Paginated — call repeatedly, feeding back `continueCursor`,
- * until `isDone`:
- *   bunx convex run features/crm/internal:stripCampaignRecipientLeadIds '{}' --prod
- */
 export const stripCampaignRecipientLeadIds = internalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -441,14 +436,6 @@ export const stripCampaignRecipientLeadIds = internalMutation({
   },
 });
 
-/**
- * One-off backfill: stamp `smsRecipient` on SMS sends created before that field
- * existed, so an inbound STOP (which arrives with a fresh messageId + the phone)
- * can be correlated by phone. Paginated — call repeatedly, feeding back
- * `continueCursor`, until `isDone`:
- *   bunx convex run features/crm/internal:backfillSmsRecipient '{}' --prod
- *   bunx convex run features/crm/internal:backfillSmsRecipient '{"cursor":"..."}' --prod
- */
 export const backfillSmsRecipient = internalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -487,12 +474,6 @@ export const backfillLeadSearchText = internalMutation({
   },
 });
 
-/**
- * One-off backfill: register pre-existing leads in the `leadsByStatus` and
- * `leadsByOwner` aggregates (#13). Idempotent (`insertIfDoesNotExist`).
- * Paginated — call repeatedly, feeding back `continueCursor`, until `isDone`:
- *   bunx convex run features/crm/internal:backfillLeadAggregates '{}' --prod
- */
 export const backfillLeadAggregates = internalMutation({
   args: { cursor: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -504,6 +485,37 @@ export const backfillLeadAggregates = internalMutation({
       await leadsByOwner.insertIfDoesNotExist(ctx, lead);
     }
     return { seen: page.page.length, isDone: page.isDone, continueCursor: page.continueCursor };
+  },
+});
+
+export const backfillLeadLifecycleStage = internalMutation({
+  args: { cursor: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const page = await ctx.db
+      .query('leads')
+      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
+    let derived = 0;
+    for (const lead of page.page) {
+      if (lead.lifecycleStage === undefined) {
+        // The patch goes through the trigger wrapper, which registers the lead
+        // under its new stage in the aggregate.
+        await applyLifecycleTransition(
+          ctx,
+          lead._id,
+          { from: undefined, to: LIFECYCLE_FROM_STATUS[lead.status] },
+          { source: 'migration' },
+        );
+        derived++;
+      } else {
+        await leadsByLifecycle.insertIfDoesNotExist(ctx, lead);
+      }
+    }
+    return {
+      seen: page.page.length,
+      derived,
+      isDone: page.isDone,
+      continueCursor: page.continueCursor,
+    };
   },
 });
 

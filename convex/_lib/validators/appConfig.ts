@@ -1,4 +1,5 @@
 import { type Infer, v } from 'convex/values';
+import { lifecycleConfigValidator } from './lifecycle';
 
 /**
  * A custom OIDC/SSO issuer handled by Better Auth's generic-oauth plugin — the
@@ -104,6 +105,7 @@ export const appConfigValidator = v.object({
   // Email/SMS delivery config. Optional so pre-existing config docs stay valid;
   // readers fall back to env vars when absent (see emailConfigValidator).
   email: v.optional(emailConfigValidator),
+  lifecycle: v.optional(lifecycleConfigValidator),
   updatedAt: v.number(),
   updatedBy: v.optional(v.id('users')),
 });

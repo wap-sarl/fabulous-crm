@@ -14,6 +14,7 @@ import { advancedFilterValidator } from '../../_lib/validators/leadFilters';
 import { workflowNodeValidator, workflowTriggerValidator } from '../../_lib/validators/workflows';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { lightValidateGraph, validateWorkflowGraph } from './lib';
+import { loadLifecycleConfig } from '../../lib/lifecycle';
 import { enrollLead } from './triggerDispatch';
 
 /**
@@ -153,7 +154,15 @@ export const setWorkflowStatus = employeeMutation({
       const defsById = new Map(defs.map((d) => [d._id as string, d]));
       const lists = await ctx.db.query('leadLists').collect();
       const listIds = new Set<string>(lists.map((l) => l._id as string));
-      const error = validateWorkflowGraph(workflow.nodes, workflow.startNodeId, defsById, listIds);
+      const lifecycle = await loadLifecycleConfig(ctx);
+      const stageKeys = new Set(lifecycle.stages.map((s) => s.key));
+      const error = validateWorkflowGraph(
+        workflow.nodes,
+        workflow.startNodeId,
+        defsById,
+        listIds,
+        stageKeys,
+      );
       if (error) throw new Error(error);
     }
 

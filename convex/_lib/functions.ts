@@ -5,7 +5,7 @@ import {
   internalMutation as rawInternalMutation,
   mutation as rawMutation,
 } from '../_generated/server';
-import { leadsByOwner, leadsByStatus } from '../lib/leadAggregates';
+import { leadsByLifecycle, leadsByOwner, leadsByStatus } from '../lib/leadAggregates';
 import { leadSearchText } from '../lib/leadSearch';
 
 const triggers = new Triggers<DataModel>();
@@ -14,6 +14,7 @@ const triggers = new Triggers<DataModel>();
 // between a deploy and its backfill run.
 triggers.register('leads', leadsByStatus.idempotentTrigger());
 triggers.register('leads', leadsByOwner.idempotentTrigger());
+triggers.register('leads', leadsByLifecycle.idempotentTrigger());
 // Keep the denormalized searchText in step with the identity fields (#12).
 // The corrective patch re-fires the triggers once; the values then match and
 // the recursion stops.

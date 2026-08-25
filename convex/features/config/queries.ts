@@ -3,6 +3,7 @@ import { adminQuery, employeeQuery } from '../../_lib/auth';
 import { isSetupComplete } from '../../setup/helpers';
 import { SOCIAL_PROVIDERS } from '../../_lib/socialProviders';
 import { resolveBrevo, resolveEmailProvider, isEmailProviderConfigured } from '../../lib';
+import { loadLifecycleConfig } from '../../lib/lifecycle';
 
 /**
  * Public, pre-auth config the login page and setup gate rely on. Returns an
@@ -122,6 +123,11 @@ export const getAdminConfig = adminQuery({
       })(),
     };
   },
+});
+
+export const getLifecycleConfig = employeeQuery({
+  args: {},
+  handler: async (ctx) => await loadLifecycleConfig(ctx),
 });
 
 /**

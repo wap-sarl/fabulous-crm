@@ -2,13 +2,6 @@ import type { Edge, Node } from '@xyflow/react';
 import type { WorkflowNode, WorkflowTrigger } from '@crm/lib/backend';
 import type { InsertSlot, WorkflowDraft } from '../types';
 
-/**
- * Deterministic HubSpot-style vertical tree layout. Pure: draft in, React Flow
- * nodes/edges out. No dagre — the graph is a strict tree, so a two-pass
- * measure/place walk positions everything. Every empty slot renders a synthetic
- * « + » node so each path always ends with an insert affordance.
- */
-
 export const NODE_W = 280;
 export const NODE_H = 84;
 export const ADD_SIZE = 36;
