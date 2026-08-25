@@ -290,8 +290,8 @@ export function LifecyclePage() {
             <span className="flex flex-col gap-0.5">
               <span className="font-medium text-ink">Autoriser le retour en arrière</span>
               <span className="text-faint">
-                Désactivé: un lead ne peut pas revenir à une étape antérieure, ni
-                manuellement ni par workflow.
+                Désactivé: un lead ne peut pas revenir à une étape antérieure, ni manuellement ni
+                par workflow.
               </span>
             </span>
           </label>
