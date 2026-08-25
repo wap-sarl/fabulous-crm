@@ -13,6 +13,7 @@ export const companyValidator = v.object({
   // National business identifier, normalized by the country's scheme (digits
   // only for a SIRET). Unique per country among live companies.
   registrationNumber: v.optional(v.string()),
+  vatNumber: v.optional(v.string()),
   // Web domain, lowercase, no protocol/www ("acme.fr"). The automatic
   // lead-matching key: a lead `x@acme.fr` attaches to this company. Unique
   // among live companies.

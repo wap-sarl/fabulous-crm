@@ -16,6 +16,8 @@ import {
 } from '@crm/design-system';
 import { ChevronRight, Link2, Mail, Milestone, Pencil } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
+import { formatAddressOneLine } from '@crm/lib/backend';
+import { countryName } from '../../lib/countries';
 import {
   CONSENT_CHANNEL_LABEL,
   LEAD_STATUS_LABEL,
@@ -42,14 +44,8 @@ const CONSENT_SOURCE_LABEL: Record<string, string> = {
   sms_stop: 'Réponse STOP (SMS)',
 };
 
-function formatAddress(address: {
-  streetNumber: string;
-  street: string;
-  postalCode: string;
-  city: string;
-  country: string;
-}): string {
-  return `${address.streetNumber} ${address.street}, ${address.postalCode} ${address.city}, ${address.country}`;
+function formatAddress(address: Parameters<typeof formatAddressOneLine>[0]): string {
+  return formatAddressOneLine(address, countryName);
 }
 
 export function LeadDetailPage() {

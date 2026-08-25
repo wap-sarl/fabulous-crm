@@ -177,6 +177,7 @@ export default defineSchema({
   companies: defineTable(companyValidator)
     .index('by_domain', ['domain'])
     .index('by_country_registrationNumber', ['country', 'registrationNumber'])
+    .index('by_vatNumber', ['vatNumber'])
     .index('by_name', ['name'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
 

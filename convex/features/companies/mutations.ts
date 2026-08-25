@@ -13,8 +13,11 @@ import {
 import {
   findCompanyByDomain,
   findCompanyByRegistration,
+  findCompanyByVat,
   normalizeRegistrationNumber,
+  normalizeVatNumber,
 } from '../../lib/companies';
+import { validateAddress } from '../../_lib/validators/addressFormats';
 import { normalizeDomain } from '../../lib/companyDomains';
 import { loadLifecycleConfig, planLifecycleTransition } from '../../lib/lifecycle';
 
@@ -22,6 +25,7 @@ const companyFieldArgs = {
   name: v.string(),
   country: v.optional(v.string()),
   registrationNumber: v.optional(v.string()),
+  vatNumber: v.optional(v.string()),
   domain: v.optional(v.string()),
   website: v.optional(v.string()),
   sector: v.optional(v.string()),
@@ -39,12 +43,13 @@ const blank = (s: string | undefined) => (s?.trim() ? s.trim() : undefined);
  */
 async function normalizeIdentifiers(
   ctx: Parameters<typeof findCompanyByDomain>[0],
-  args: { country?: string; registrationNumber?: string; domain?: string },
+  args: { country?: string; registrationNumber?: string; vatNumber?: string; domain?: string },
   selfId?: string,
 ) {
   const country = normalizeCountryCode(args.country);
   if (!COUNTRY_CODE_RE.test(country)) throw new Error('invalid_country');
   const registrationNumber = normalizeRegistrationNumber(country, args.registrationNumber);
+  const vatNumber = normalizeVatNumber(country, args.vatNumber);
   const domain = args.domain === undefined ? undefined : normalizeDomain(args.domain);
   if (args.domain?.trim() && !domain) throw new Error('invalid_domain');
 
@@ -52,11 +57,26 @@ async function normalizeIdentifiers(
     const other = await findCompanyByRegistration(ctx, country, registrationNumber);
     if (other && other._id !== selfId) throw new Error('company_registration_exists');
   }
+  if (vatNumber) {
+    const other = await findCompanyByVat(ctx, vatNumber);
+    if (other && other._id !== selfId) throw new Error('company_vat_exists');
+  }
   if (domain) {
     const other = await findCompanyByDomain(ctx, domain);
     if (other && other._id !== selfId) throw new Error('company_domain_exists');
   }
-  return { country, registrationNumber, domain };
+  return { country, registrationNumber, vatNumber, domain };
+}
+
+/** Country-format check of a provided address; throws `invalid_address: <reason>`. */
+function requireValidAddress<T extends Parameters<typeof validateAddress>[0] | undefined>(
+  address: T,
+): T {
+  if (address) {
+    const error = validateAddress(address);
+    if (error) throw new Error(`invalid_address: ${error}`);
+  }
+  return address;
 }
 
 export const createCompany = employeeMutation({
@@ -77,7 +97,7 @@ export const createCompany = employeeMutation({
       website: blank(args.website),
       sector: blank(args.sector),
       headcount: args.headcount,
-      address: args.address,
+      address: requireValidAddress(args.address),
       lifecycleStage: args.lifecycleStage,
       ...createAuditFields(ctx.userId),
     });
@@ -114,6 +134,7 @@ export const updateCompany = employeeMutation({
     if (
       rest.country !== undefined ||
       rest.registrationNumber !== undefined ||
+      rest.vatNumber !== undefined ||
       rest.domain !== undefined
     ) {
       const ids = await normalizeIdentifiers(
@@ -121,6 +142,7 @@ export const updateCompany = employeeMutation({
         {
           country: rest.country ?? company.country,
           registrationNumber: rest.registrationNumber ?? company.registrationNumber,
+          vatNumber: rest.vatNumber ?? company.vatNumber,
           domain: rest.domain ?? company.domain,
         },
         companyId,
@@ -128,12 +150,13 @@ export const updateCompany = employeeMutation({
       updates.country = ids.country;
       // An explicitly blank value clears the field (patching undefined removes it).
       updates.registrationNumber = ids.registrationNumber;
+      updates.vatNumber = ids.vatNumber;
       updates.domain = ids.domain;
     }
     if (rest.website !== undefined) updates.website = blank(rest.website);
     if (rest.sector !== undefined) updates.sector = blank(rest.sector);
     if (rest.headcount !== undefined) updates.headcount = rest.headcount;
-    if (rest.address !== undefined) updates.address = rest.address;
+    if (rest.address !== undefined) updates.address = requireValidAddress(rest.address);
     if (rest.lifecycleStage !== undefined) {
       const plan = planLifecycleTransition(
         await loadLifecycleConfig(ctx),

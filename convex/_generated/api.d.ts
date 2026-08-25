@@ -12,6 +12,7 @@ import type * as _lib_auth from "../_lib/auth.js";
 import type * as _lib_functions from "../_lib/functions.js";
 import type * as _lib_socialProviders from "../_lib/socialProviders.js";
 import type * as _lib_softDelete from "../_lib/softDelete.js";
+import type * as _lib_validators_addressFormats from "../_lib/validators/addressFormats.js";
 import type * as _lib_validators_appConfig from "../_lib/validators/appConfig.js";
 import type * as _lib_validators_auditLogs from "../_lib/validators/auditLogs.js";
 import type * as _lib_validators_companies from "../_lib/validators/companies.js";
@@ -97,6 +98,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/functions": typeof _lib_functions;
   "_lib/socialProviders": typeof _lib_socialProviders;
   "_lib/softDelete": typeof _lib_softDelete;
+  "_lib/validators/addressFormats": typeof _lib_validators_addressFormats;
   "_lib/validators/appConfig": typeof _lib_validators_appConfig;
   "_lib/validators/auditLogs": typeof _lib_validators_auditLogs;
   "_lib/validators/companies": typeof _lib_validators_companies;

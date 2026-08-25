@@ -327,3 +327,66 @@ describe('company lifecycle side effects', () => {
     expect((await as.query(api.features.companies.queries.countCompanies, {})).total).toBe(1);
   });
 });
+
+describe('VAT numbers', () => {
+  test('the scheme validates format + checksum for the company country', async () => {
+    const { vatSchemeFor } = await import('../../convex/_lib/validators/companyRegistry');
+    const fr = vatSchemeFor('FR');
+    expect(fr.label).toBe('N° de TVA intracommunautaire');
+    expect(fr.normalize('fr 40 303 265 045')).toBe('FR40303265045');
+    expect(fr.validate('FR40303265045', 'FR')).toBeNull();
+    expect(fr.validate('FR40303265046', 'FR')).toMatch(/clé de contrôle/);
+    // A Belgian number on a French company is refused.
+    expect(fr.validate('BE0411905847', 'FR')).toMatch(/pour ce pays/);
+    expect(fr.lookup).toBe(true);
+    // Switzerland: jsvat checksum, no VIES.
+    const ch = vatSchemeFor('CH');
+    expect(ch.validate(ch.normalize('CHE-123.456.788 MWST'), 'CH')).toBeNull();
+    expect(ch.lookup).toBe(false);
+    // Unknown country: free text.
+    expect(vatSchemeFor('MA').validate('123456', 'MA')).toBeNull();
+  });
+
+  test('companies store the normalized number, enforce uniqueness, and match on it', async () => {
+    const { t, as } = await setup();
+    const acme = await as.mutation(api.features.companies.mutations.createCompany, {
+      name: 'Acme',
+      country: 'FR',
+      vatNumber: 'fr 40 303 265 045',
+    });
+    expect((await t.run((ctx) => ctx.db.get(acme)))?.vatNumber).toBe('FR40303265045');
+    await expect(
+      as.mutation(api.features.companies.mutations.createCompany, {
+        name: 'Copy',
+        country: 'FR',
+        vatNumber: 'FR40303265045',
+      }),
+    ).rejects.toThrow('company_vat_exists');
+    await expect(
+      as.mutation(api.features.companies.mutations.createCompany, {
+        name: 'Bad',
+        country: 'FR',
+        vatNumber: 'FR12',
+      }),
+    ).rejects.toThrow('invalid_vat_number');
+
+    const res = await as.mutation(api.features.crm.mutations.importLeads, {
+      rows: [
+        {
+          firstName: 'A',
+          lastName: 'A',
+          email: 'a@gmail.com',
+          company: { vatNumber: 'FR40303265045' },
+        },
+      ],
+    });
+    expect(res.created).toBe(1);
+    const lead = await t.run((ctx) =>
+      ctx.db
+        .query('leads')
+        .withIndex('by_email', (q) => q.eq('email', 'a@gmail.com'))
+        .first(),
+    );
+    expect(lead?.companyId).toBe(acme);
+  });
+});

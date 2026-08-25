@@ -48,6 +48,7 @@ import {
 } from '../../lib/lifecycle';
 import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators/lifecycle';
 import { resolveCompanyForLead } from '../../lib/companies';
+import { validateAddress } from '../../_lib/validators/addressFormats';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 
@@ -201,10 +202,22 @@ const leadRowArgs = {
       name: v.optional(v.string()),
       country: v.optional(v.string()),
       registrationNumber: v.optional(v.string()),
+      vatNumber: v.optional(v.string()),
       domain: v.optional(v.string()),
     }),
   ),
 } as const;
+
+/** Country-format check of a provided address; throws `invalid_address: <reason>`. */
+function requireValidAddress<T extends Parameters<typeof validateAddress>[0] | undefined>(
+  address: T,
+): T {
+  if (address) {
+    const error = validateAddress(address);
+    if (error) throw new Error(`invalid_address: ${error}`);
+  }
+  return address;
+}
 
 /** A live company id, or throw — an explicit pick that no longer exists is a form bug. */
 async function requireCompany(ctx: MutationCtx, companyId: Id<'companies'>): Promise<void> {
@@ -245,7 +258,7 @@ export const createLead = employeeMutation({
       lastName: args.lastName.trim(),
       email,
       phone: args.phone?.trim() || undefined,
-      address: args.address,
+      address: requireValidAddress(args.address),
       // Consent starts empty; only the lead can grant it via the public link.
       marketingConsent: [],
       consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
@@ -307,6 +320,7 @@ export const updateLead = employeeMutation({
     }
 
     const updates: Record<string, unknown> = { ...rest };
+    requireValidAddress(rest.address);
     if (email !== undefined) {
       updates.email = normalizeEmail(email);
     }
@@ -464,6 +478,7 @@ export const importLeads = employeeMutation({
 
       let customProperties: Record<string, LeadPropertyValue> | undefined;
       try {
+        requireValidAddress(row.address);
         customProperties = sanitizeCustomPropertiesWith(propertyDefsById, row.customProperties);
       } catch (e) {
         errors.push({ index, error: e instanceof Error ? e.message : 'invalid_property_value' });

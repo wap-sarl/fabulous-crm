@@ -1,6 +1,11 @@
 import { v } from 'convex/values';
 import { employeeAction } from '../../_lib/auth';
-import { registrationSchemeFor } from '../../_lib/validators/companyRegistry';
+import {
+  normalizeCountryCode,
+  registrationSchemeFor,
+  vatSchemeFor,
+  viesCountryCode,
+} from '../../_lib/validators/companyRegistry';
 import { enforceRateLimit } from '../../lib/rateLimits';
 
 // Local mirror of the design-system SiretCompanyData shape (convex can't
@@ -148,5 +153,74 @@ export const lookupRegistration = employeeAction({
       default:
         return { status: 'unsupported', message: 'Aucun registre consultable pour ce pays.' };
     }
+  },
+});
+
+const VIES_URL = 'https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number';
+
+export type VatLookupResult =
+  | { status: 'found'; data: { vatNumber: string; name: string | null; address: string | null } }
+  | { status: 'not_found'; message: string }
+  | { status: 'unsupported'; message: string }
+  | { status: 'error'; message: string };
+
+export const lookupVat = employeeAction({
+  args: { country: v.string(), value: v.string() },
+  handler: async (ctx, { country, value }): Promise<VatLookupResult> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!(await enforceRateLimit(ctx, 'registryVerify', identity?.subject ?? 'anonymous'))) {
+      return {
+        status: 'error',
+        message: 'Trop de vérifications. Réessayez dans quelques minutes.',
+      };
+    }
+    const code = normalizeCountryCode(country);
+    const scheme = vatSchemeFor(code);
+    const normalized = scheme.normalize(value);
+    const error = scheme.validate(normalized, code);
+    if (error) return { status: 'error', message: error };
+    if (!scheme.lookup) {
+      return { status: 'unsupported', message: 'Aucun registre de TVA consultable pour ce pays.' };
+    }
+    const countryCode = viesCountryCode(code);
+    const vatNumber = normalized.startsWith(countryCode)
+      ? normalized.slice(countryCode.length)
+      : normalized.slice(2);
+
+    let response: Response;
+    try {
+      response = await fetch(VIES_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ countryCode, vatNumber }),
+      });
+    } catch (err) {
+      console.error('VIES fetch failed', err);
+      return { status: 'error', message: 'Erreur réseau lors de la vérification VIES' };
+    }
+    if (!response.ok) {
+      console.error('VIES API error', response.status);
+      return { status: 'error', message: `Erreur VIES (${response.status})` };
+    }
+    const body = (await response.json().catch(() => null)) as {
+      valid?: boolean;
+      name?: string | null;
+      address?: string | null;
+      userError?: string;
+    } | null;
+    if (!body) return { status: 'error', message: 'Réponse VIES inattendue' };
+    if (body.userError && body.userError !== 'VALID' && body.userError !== 'INVALID') {
+      // e.g. MS_UNAVAILABLE, SERVICE_UNAVAILABLE, MS_MAX_CONCURRENT_REQ…
+      return { status: 'error', message: `VIES indisponible (${body.userError})` };
+    }
+    if (!body.valid) return { status: 'not_found', message: 'Numéro de TVA inconnu de VIES' };
+    const clean = (s: string | null | undefined) => {
+      const t = (s ?? '').replace(/\s+/g, ' ').trim();
+      return t && t !== '---' ? t : null;
+    };
+    return {
+      status: 'found',
+      data: { vatNumber: normalized, name: clean(body.name), address: clean(body.address) },
+    };
   },
 });

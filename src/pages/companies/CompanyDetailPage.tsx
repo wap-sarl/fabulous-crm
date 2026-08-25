@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
-import { registrationSchemeFor } from '@crm/lib/backend';
+import { formatAddressOneLine, registrationSchemeFor, vatSchemeFor } from '@crm/lib/backend';
 import {
   Button,
   Card,
@@ -39,20 +39,8 @@ const ACTION_LABEL: Record<string, string> = {
   delete: 'Suppression',
 };
 
-function formatAddress(address: {
-  streetNumber: string;
-  street: string;
-  postalCode: string;
-  city: string;
-  country: string;
-}): string {
-  return [
-    [address.streetNumber, address.street].filter(Boolean).join(' '),
-    [address.postalCode, address.city].filter(Boolean).join(' '),
-    address.country,
-  ]
-    .filter(Boolean)
-    .join(', ');
+function formatAddress(address: Parameters<typeof formatAddressOneLine>[0]): string {
+  return formatAddressOneLine(address, countryName);
 }
 
 export function CompanyDetailPage() {
@@ -89,6 +77,7 @@ export function CompanyDetailPage() {
   }
 
   const scheme = registrationSchemeFor(company.country);
+  const vatScheme = vatSchemeFor(company.country);
 
   const handleDelete = async () => {
     if (
@@ -147,6 +136,9 @@ export function CompanyDetailPage() {
               <KeyValueRow label="Pays">{countryName(company.country)}</KeyValueRow>
               <KeyValueRow label={scheme.label} mono>
                 {company.registrationNumber ?? '—'}
+              </KeyValueRow>
+              <KeyValueRow label={vatScheme.label} mono>
+                {company.vatNumber ?? '—'}
               </KeyValueRow>
               <KeyValueRow label="Domaine" mono>
                 {company.domain ?? '—'}

@@ -34,6 +34,7 @@
         "convex-helpers": "^0.1.123",
         "date-fns": "4.4.0",
         "jose": "^6.2.3",
+        "jsvat": "^2.5.4",
         "libphonenumber-js": "1.13.4",
         "lucide-react": "1.17.0",
         "nodemailer": "^9.0.3",
@@ -538,6 +539,8 @@
     "jose": ["jose@6.2.3", "", {}, "sha512-YYVDInQKFJfR/xa3ojUTl8c2KoTwiL1R5Wg9YCydwH0x0B9grbzlg5HC7mMjCtUJjbQ/YnGEZIhI5tCgfTb4Hw=="],
 
     "js-tokens": ["js-tokens@4.0.0", "", {}, "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ=="],
+
+    "jsvat": ["jsvat@2.5.4", "", {}, "sha512-l5RHVBQpb738Bg/R4cEDHr4nXW/SDgVWckNjgay4S9xSRLuPjFanX9I4ZYjtb4G1PHusl70iWOqkRsn/fCYN5g=="],
 
     "kysely": ["kysely@0.29.2", "", {}, "sha512-s6WVJyEZrbm6jhBpiKHsGHyePMrVQKJ85wZCFCr9W4QHv6WTjWIrdvTmO9hDEA3bNK0xkrE2DqrHsXMLWuZpQg=="],
 

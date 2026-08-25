@@ -1,6 +1,10 @@
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
-import { normalizeCountryCode, registrationSchemeFor } from '../_lib/validators/companyRegistry';
+import {
+  normalizeCountryCode,
+  registrationSchemeFor,
+  vatSchemeFor,
+} from '../_lib/validators/companyRegistry';
 import { createAuditFields } from './audit';
 import { companyDomainOfEmail, normalizeDomain, websiteOfDomain } from './companyDomains';
 import { isNotDeleted } from './dbHelpers';
@@ -19,6 +23,32 @@ export async function findCompanyByRegistration(
     )
     .first();
   return company && isNotDeleted(company) ? company : null;
+}
+
+/** Live company by normalized VAT number, or null. */
+export async function findCompanyByVat(
+  ctx: QueryCtx | MutationCtx,
+  vatNumber: string,
+): Promise<Doc<'companies'> | null> {
+  const company = await ctx.db
+    .query('companies')
+    .withIndex('by_vatNumber', (q) => q.eq('vatNumber', vatNumber))
+    .first();
+  return company && isNotDeleted(company) ? company : null;
+}
+
+/**
+ * Normalize + validate a VAT number for `country`. Throws
+ * `invalid_vat_number: <reason>`.
+ */
+export function normalizeVatNumber(country: string, raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const scheme = vatSchemeFor(country);
+  const normalized = scheme.normalize(raw);
+  if (!normalized) return undefined;
+  const error = scheme.validate(normalized, country);
+  if (error) throw new Error(`invalid_vat_number: ${error}`);
+  return normalized;
 }
 
 /** Live company by normalized domain, or null. */
@@ -55,6 +85,7 @@ export type CompanyHint = {
   name?: string;
   country?: string;
   registrationNumber?: string;
+  vatNumber?: string;
   domain?: string;
 };
 
@@ -67,18 +98,22 @@ export async function resolveCompanyForLead(
 ): Promise<Id<'companies'> | null> {
   const country = normalizeCountryCode(hint.country);
   const registrationNumber = normalizeRegistrationNumber(country, hint.registrationNumber);
+  const vatNumber = normalizeVatNumber(country, hint.vatNumber);
   const domain = normalizeDomain(hint.domain) ?? companyDomainOfEmail(email);
   const name = hint.name?.trim();
 
   const cacheKey = registrationNumber
     ? `reg:${country}:${registrationNumber}`
-    : domain
-      ? `dom:${domain}`
-      : null;
+    : vatNumber
+      ? `vat:${vatNumber}`
+      : domain
+        ? `dom:${domain}`
+        : null;
   if (cacheKey && cache?.has(cacheKey)) return cache.get(cacheKey)!;
 
   let found: Doc<'companies'> | null = null;
   if (registrationNumber) found = await findCompanyByRegistration(ctx, country, registrationNumber);
+  if (!found && vatNumber) found = await findCompanyByVat(ctx, vatNumber);
   if (!found && domain) found = await findCompanyByDomain(ctx, domain);
   if (found) {
     if (cacheKey) cache?.set(cacheKey, found._id);
@@ -92,6 +127,7 @@ export async function resolveCompanyForLead(
     name: name ?? domain!,
     country,
     registrationNumber,
+    vatNumber,
     domain,
     website: domain ? websiteOfDomain(domain) : undefined,
     ...createAuditFields(userId),

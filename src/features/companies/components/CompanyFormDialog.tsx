@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Doc, Id } from '@crm/lib/backend';
-import { DEFAULT_COUNTRY, registrationSchemeFor } from '@crm/lib/backend';
 import {
-  AddressInput,
+  DEFAULT_COUNTRY,
+  registrationSchemeFor,
+  validateAddress,
+  vatSchemeFor,
+} from '@crm/lib/backend';
+import {
   Button,
   Combobox,
   Dialog,
@@ -18,7 +22,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  createBanAddressProvider,
   toast,
   type AddressValue,
   type SiretCompanyData,
@@ -26,9 +29,12 @@ import {
 import { COUNTRIES, countryName } from '../../../lib/countries';
 import {
   COMPANY_REGISTRATION_INPUT,
+  COMPANY_VAT_INPUT,
+  CountryAddressInput,
   CountryInput,
   resolveCountryInput,
   type CompanyRegistrationContext,
+  type CompanyVatContext,
 } from '../../../lib/countryInputs';
 import { useLifecycleConfig } from '../../leads/hooks/useLifecycleConfig';
 import { companyErrorMessage, useCompanyActions } from '../hooks/useCompanyActions';
@@ -45,6 +51,7 @@ interface FormState {
   name: string;
   country: string;
   registrationNumber: string;
+  vatNumber: string;
   domain: string;
   website: string;
   sector: string;
@@ -53,25 +60,26 @@ interface FormState {
   address: AddressValue;
 }
 
-const EMPTY_ADDRESS: AddressValue = {
+const emptyAddress = (country: string): AddressValue => ({
+  country,
   streetNumber: '',
   street: '',
   postalCode: '',
   city: '',
-  country: 'France',
-};
+});
 
 function emptyForm(): FormState {
   return {
     name: '',
     country: DEFAULT_COUNTRY,
     registrationNumber: '',
+    vatNumber: '',
     domain: '',
     website: '',
     sector: '',
     headcount: '',
     lifecycleStage: '',
-    address: EMPTY_ADDRESS,
+    address: emptyAddress(DEFAULT_COUNTRY),
   };
 }
 
@@ -80,22 +88,26 @@ function fromCompany(company: Doc<'companies'>): FormState {
     name: company.name,
     country: company.country,
     registrationNumber: company.registrationNumber ?? '',
+    vatNumber: company.vatNumber ?? '',
     domain: company.domain ?? '',
     website: company.website ?? '',
     sector: company.sector ?? '',
     headcount: company.headcount !== undefined ? String(company.headcount) : '',
     lifecycleStage: company.lifecycleStage ?? '',
     address: {
+      country: company.address?.country ?? company.country,
       streetNumber: company.address?.streetNumber ?? '',
       street: company.address?.street ?? '',
+      line2: company.address?.line2,
       postalCode: company.address?.postalCode ?? '',
       city: company.address?.city ?? '',
-      country: company.address?.country ?? countryName(company.country),
+      region: company.address?.region,
     },
   };
 }
 
-const hasAddress = (a: AddressValue) => !!(a.street && a.postalCode && a.city);
+/** An address block the user actually filled in (vs. the empty default). */
+const hasAddress = (a: AddressValue) => !!(a.street || a.postalCode || a.city || a.region);
 
 /**
  * Create / edit a company. The registration-number field is country-aware:
@@ -112,7 +124,6 @@ export function CompanyFormDialog({
   const isEdit = !!company;
   const { createCompany, updateCompany } = useCompanyActions();
   const lifecycle = useLifecycleConfig();
-  const addressProvider = useMemo(() => createBanAddressProvider(), []);
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -133,6 +144,19 @@ export function CompanyFormDialog({
   const registrationError = form.registrationNumber
     ? scheme.validate(scheme.normalize(form.registrationNumber))
     : null;
+  const vatScheme = vatSchemeFor(form.country);
+  const vatRegistration = resolveCountryInput(COMPANY_VAT_INPUT, form.country);
+  const vatError = form.vatNumber
+    ? vatScheme.validate(vatScheme.normalize(form.vatNumber), form.country)
+    : null;
+  const onVatData = useCallback((data: { name: string | null }) => {
+    // VIES only returns the registered name: fill it when the form has none.
+    if (data.name) setForm((prev) => (prev.name ? prev : { ...prev, name: data.name ?? '' }));
+  }, []);
+  const vatContext = useMemo<CompanyVatContext>(
+    () => ({ country: form.country, onVatData }),
+    [form.country, onVatData],
+  );
   const currentStageIndex = isEdit ? lifecycle.indexOf(company?.lifecycleStage) : -1;
 
   const onRegistryData = useCallback((data: SiretCompanyData) => setRegistryData(data), []);
@@ -158,12 +182,11 @@ export function CompanyFormDialog({
       name: prev.name || name,
       address: a
         ? {
+            country: 'FR',
             streetNumber: a.numeroVoie ?? '',
             street: [a.typeVoie, a.libelleVoie].filter(Boolean).join(' '),
             postalCode: a.codePostal ?? '',
             city: a.libelleCommune ?? '',
-            country: 'France',
-            countryCode: 'FR',
           }
         : prev.address,
     }));
@@ -178,31 +201,44 @@ export function CompanyFormDialog({
       toast.error(registrationError);
       return;
     }
+    if (vatError) {
+      toast.error(vatError);
+      return;
+    }
+    const address = hasAddress(form.address)
+      ? {
+          country: form.address.country,
+          streetNumber: form.address.streetNumber.trim(),
+          street: form.address.street.trim(),
+          line2: form.address.line2?.trim() || undefined,
+          postalCode: form.address.postalCode.trim(),
+          city: form.address.city.trim(),
+          region: form.address.region || undefined,
+        }
+      : undefined;
+    if (address) {
+      const addressError = validateAddress(address);
+      if (addressError) {
+        toast.error(`Adresse : ${addressError}`);
+        return;
+      }
+    }
     const headcount = form.headcount.trim() === '' ? undefined : Number(form.headcount);
     if (headcount !== undefined && (!Number.isInteger(headcount) || headcount < 0)) {
       toast.error('Effectif invalide.');
       return;
     }
-    const a = form.address;
     const payload = {
       name: form.name,
       country: form.country,
       // Empty strings reach the server as "clear this field".
       registrationNumber: form.registrationNumber,
+      vatNumber: form.vatNumber,
       domain: form.domain,
       website: form.website,
       sector: form.sector,
       headcount,
-      address: hasAddress(a)
-        ? {
-            streetNumber: a.streetNumber.trim(),
-            street: a.street.trim(),
-            postalCode: a.postalCode.trim(),
-            city: a.city.trim(),
-            country: a.country.trim() || countryName(form.country),
-            countryCode: a.countryCode,
-          }
-        : undefined,
+      address,
       lifecycleStage: form.lifecycleStage || undefined,
     };
 
@@ -250,7 +286,13 @@ export function CompanyFormDialog({
               onValueChange={(code) => {
                 // The registration scheme changes with the country: a number
                 // typed for another scheme would be meaningless, so it resets.
-                setForm((prev) => ({ ...prev, country: code, registrationNumber: '' }));
+                setForm((prev) => ({
+                  ...prev,
+                  country: code,
+                  registrationNumber: '',
+                  vatNumber: '',
+                  address: { ...prev.address, country: code, region: undefined },
+                }));
                 setRegistryData(null);
               }}
               placeholder="Pays"
@@ -288,6 +330,24 @@ export function CompanyFormDialog({
               >
                 Reprendre le nom et l’adresse du registre
               </Button>
+            ) : null}
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="company-vat">{vatRegistration.label ?? vatScheme.label}</Label>
+            <CountryInput
+              inputType={COMPANY_VAT_INPUT}
+              country={form.country}
+              id="company-vat"
+              value={form.vatNumber}
+              onChange={(v) => setField('vatNumber', v)}
+              invalid={!!vatError}
+              context={vatContext}
+            />
+            {vatError ? (
+              <HelperText variant="error">{vatError}</HelperText>
+            ) : vatRegistration.helperText ? (
+              <HelperText>{vatRegistration.helperText}</HelperText>
             ) : null}
           </div>
 
@@ -359,19 +419,12 @@ export function CompanyFormDialog({
         </div>
 
         <fieldset className="space-y-2 rounded-md border border-border p-3">
-          <AddressInput
+          <CountryAddressInput
             idPrefix="company"
             value={form.address}
             onChange={(v) => setField('address', v)}
-            fetchSuggestions={addressProvider.fetchSuggestions}
-            resolveDetails={addressProvider.resolveDetails}
-            labels={{
-              streetNumber: 'N°',
-              street: 'Rue',
-              postalCode: 'Code postal',
-              city: 'Ville',
-              country: 'Pays',
-            }}
+            country={form.country}
+            label={`Adresse (${countryName(form.country)})`}
           />
         </fieldset>
 

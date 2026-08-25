@@ -1,4 +1,5 @@
 import type { Id, LeadStatus, LeadPropertyValue } from '@crm/lib/backend';
+import { DEFAULT_COUNTRY } from '@crm/lib/backend';
 import { isValidEmail, isValidPhone } from '@crm/lib/shared';
 import { LEAD_STATUSES } from '../../../lib/constants';
 import type { LeadPropertyDefinitionRow } from '../types';
@@ -19,16 +20,24 @@ export interface LeadImportRow {
   isRedFlagged?: boolean;
   assignedTo?: Id<'users'>;
   address?: {
+    country: string;
     streetNumber: string;
     street: string;
+    line2?: string;
     postalCode: string;
     city: string;
-    country: string;
+    region?: string;
   };
   /** Custom-property values, keyed by definition id (see leadPropertyDefinitions). */
   customProperties?: Record<string, LeadPropertyValue>;
   /** Company columns: matched (registration number, domain) or created (name). */
-  company?: { name?: string; country?: string; registrationNumber?: string; domain?: string };
+  company?: {
+    name?: string;
+    country?: string;
+    registrationNumber?: string;
+    vatNumber?: string;
+    domain?: string;
+  };
 }
 
 /** Lookup maps resolving human-readable cell values to document ids. */
@@ -38,7 +47,14 @@ export interface ImportContext {
   lifecycleStageByName: Map<string, string>;
 }
 
-type AddressKey = 'streetNumber' | 'street' | 'postalCode' | 'city';
+type AddressKey =
+  | 'streetNumber'
+  | 'street'
+  | 'line2'
+  | 'postalCode'
+  | 'city'
+  | 'region'
+  | 'country';
 export type AddressParts = Partial<Record<AddressKey, string>>;
 
 type ParseResult = { value: unknown } | { error: string };
@@ -214,6 +230,15 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
     },
   },
   {
+    header: 'companyvatnumber',
+    label: 'Entreprise — n° de TVA',
+    group: COMPANY_GROUP,
+    parse: (raw) => ({ value: raw }),
+    apply: (row, value) => {
+      companyOf(row).vatNumber = value as string;
+    },
+  },
+  {
     header: 'companydomain',
     label: 'Entreprise — domaine',
     group: COMPANY_GROUP,
@@ -236,8 +261,22 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
   },
   addrField('streetnumber', 'N°', 'streetNumber'),
   addrField('street', 'Rue', 'street'),
+  addrField('addressline2', 'Complément d’adresse', 'line2'),
   addrField('postalcode', 'Code postal', 'postalCode'),
   addrField('city', 'Ville', 'city'),
+  addrField('region', 'Région / État / Province', 'region'),
+  {
+    header: 'country',
+    label: 'Pays (code ISO)',
+    group: ADDRESS_GROUP,
+    parse: (raw) =>
+      /^[a-z]{2}$/i.test(raw.trim())
+        ? { value: raw.trim().toUpperCase() }
+        : { error: `code pays invalide « ${raw} » (2 lettres, ex. FR)` },
+    apply: (_row, value, parts) => {
+      parts.country = value as string;
+    },
+  },
 ];
 
 /** All recognized CSV headers, in registry order. */
@@ -404,10 +443,12 @@ export function buildAddress(parts: AddressParts): LeadImportRow['address'] | un
     street = split.street;
   }
   return {
+    country: parts.country ?? DEFAULT_COUNTRY,
     streetNumber,
     street,
+    line2: parts.line2?.trim() || undefined,
     postalCode: parts.postalCode,
     city: parts.city,
-    country: 'France',
+    region: parts.region?.trim() || undefined,
   };
 }
