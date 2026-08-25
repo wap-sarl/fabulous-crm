@@ -1,15 +1,14 @@
 import { useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { AdvancedFilter, Id, LeadStatus } from '@crm/lib/backend';
+import type { AdvancedFilter, Id } from '@crm/lib/backend';
 import { parseAdvancedFilter, serializeAdvancedFilter } from '../lib/advancedFilter';
 
-export type LeadSortField = 'recent' | 'lastName' | 'status';
+export type LeadSortField = 'recent' | 'lastName' | 'lifecycleStage';
 export type SortDirection = 'asc' | 'desc';
 
 export interface LeadFilters {
   search: string;
-  statuses: LeadStatus[];
-  /** Lifecycle stage keys (appConfig.lifecycle); a lead matches any (OR). */
+  /** Status keys (appConfig.lifecycle); a lead matches any (OR). URL param `status`. */
   lifecycleStages: string[];
   /** Companies a lead must belong to one of (OR). URL param `company`. */
   companyIds: Id<'companies'>[];
@@ -35,8 +34,7 @@ export interface LeadFilters {
 export const CP_SELECT_PREFIX = 'cps_';
 export const CP_BOOLEAN_PREFIX = 'cpb_';
 
-const VALID_STATUSES: LeadStatus[] = ['nouveau', 'contacte', 'interesse', 'converti', 'perdu'];
-const VALID_SORT: LeadSortField[] = ['recent', 'lastName', 'status'];
+const VALID_SORT: LeadSortField[] = ['recent', 'lastName', 'lifecycleStage'];
 
 function csv(value: string | null): string[] {
   return value ? value.split(',').filter(Boolean) : [];
@@ -50,9 +48,6 @@ export function useLeadFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const filters = useMemo<LeadFilters>(() => {
-    const rawStatuses = csv(searchParams.get('status')).filter((s): s is LeadStatus =>
-      VALID_STATUSES.includes(s as LeadStatus),
-    );
     const sortParam = searchParams.get('sort');
     const sortField = VALID_SORT.includes(sortParam as LeadSortField)
       ? (sortParam as LeadSortField)
@@ -72,8 +67,7 @@ export function useLeadFilters() {
 
     return {
       search: searchParams.get('q') ?? '',
-      statuses: rawStatuses,
-      lifecycleStages: csv(searchParams.get('lifecycle')),
+      lifecycleStages: csv(searchParams.get('status')),
       companyIds: csv(searchParams.get('company')) as Id<'companies'>[],
       assignedToIds: csv(searchParams.get('assigned')) as Id<'users'>[],
       listIds: csv(searchParams.get('lists')) as Id<'leadLists'>[],

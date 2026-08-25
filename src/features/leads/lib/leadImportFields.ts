@@ -1,7 +1,6 @@
-import type { Id, LeadStatus, LeadPropertyValue } from '@crm/lib/backend';
+import type { Id, LeadPropertyValue } from '@crm/lib/backend';
 import { DEFAULT_COUNTRY } from '@crm/lib/backend';
 import { isValidEmail, isValidPhone } from '@crm/lib/shared';
-import { LEAD_STATUSES } from '../../../lib/constants';
 import type { LeadPropertyDefinitionRow } from '../types';
 
 /**
@@ -14,7 +13,6 @@ export interface LeadImportRow {
   lastName: string;
   email?: string;
   phone?: string;
-  status?: LeadStatus;
   lifecycleStage?: string;
   comment?: string;
   isRedFlagged?: boolean;
@@ -73,8 +71,6 @@ export interface ImportFieldDef {
   /** Write the coerced value into the row being built (or the address parts). */
   apply: (row: LeadImportRow, value: unknown, parts: AddressParts) => void;
 }
-
-const VALID_STATUSES = new Set<string>(LEAD_STATUSES.map((s) => s.value));
 
 /** Dropdown group labels for the mapping table. */
 export const LEAD_FIELDS_GROUP = 'Champs du lead';
@@ -162,20 +158,9 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
   {
     header: 'status',
     label: 'Statut',
-    parse: (raw) => {
-      const s = raw.toLowerCase();
-      return VALID_STATUSES.has(s) ? { value: s } : { error: `statut inconnu « ${raw} »` };
-    },
-    apply: (row, value) => {
-      row.status = value as LeadStatus;
-    },
-  },
-  {
-    header: 'lifecyclestage',
-    label: 'Statut du lead',
     parse: (raw, ctx) => {
       const key = ctx.lifecycleStageByName.get(raw.trim().toLowerCase());
-      return key ? { value: key } : { error: `statut du lead inconnu « ${raw} »` };
+      return key ? { value: key } : { error: `statut inconnu « ${raw} »` };
     },
     apply: (row, value) => {
       row.lifecycleStage = value as string;

@@ -7,18 +7,6 @@ import {
 } from './shared';
 import { leadPropertyValueValidator } from './leadProperties';
 
-/**
- * Lead pipeline status. Stored as accent-free slugs; the CRM frontend maps
- * them to French labels (nouveau, contacté, intéressé, converti, perdu).
- */
-export const leadStatusValidator = v.union(
-  v.literal('nouveau'),
-  v.literal('contacte'),
-  v.literal('interesse'),
-  v.literal('converti'),
-  v.literal('perdu'),
-);
-
 /** Marketing consent channels a lead can opt into. */
 export const marketingConsentChannelValidator = v.union(
   v.literal('email'),
@@ -56,7 +44,6 @@ export const leadValidator = v.object({
   companyId: v.optional(v.id('companies')),
 
   isRedFlagged: v.boolean(),
-  status: leadStatusValidator,
 
   lifecycleStage: v.optional(v.string()),
 
@@ -71,19 +58,6 @@ export const leadValidator = v.object({
 });
 
 export type Lead = Infer<typeof leadValidator>;
-export type LeadStatus = Infer<typeof leadStatusValidator>;
-
-/**
- * French labels for the accent-free status slugs. Single source shared by the
- * frontend (badges, pickers) and the backend (campaign {{ params.status }}).
- */
-export const LEAD_STATUS_LABELS: Record<LeadStatus, string> = {
-  nouveau: 'Nouveau',
-  contacte: 'Contacté',
-  interesse: 'Intéressé',
-  converti: 'Converti',
-  perdu: 'Perdu',
-};
 export type MarketingConsentChannel = Infer<typeof marketingConsentChannelValidator>;
 export type ConsentSource = Infer<typeof consentSourceValidator>;
 
@@ -119,7 +93,6 @@ export const trackedLinkStandardFieldValidator = v.union(
   v.literal('email'),
   v.literal('phone'),
   v.literal('comment'),
-  v.literal('status'),
   v.literal('isRedFlagged'),
 );
 

@@ -71,7 +71,6 @@ export {
 
 export type {
   Lead,
-  LeadStatus,
   MarketingConsentChannel,
   ConsentSource,
   Campaign,
@@ -89,8 +88,6 @@ export type {
 } from './_lib/validators/crm';
 export {
   leadValidator,
-  leadStatusValidator,
-  LEAD_STATUS_LABELS,
   trackedLinkStandardFieldValidator,
   marketingConsentChannelValidator,
   consentSourceValidator,
@@ -180,12 +177,8 @@ export default defineSchema({
     .index('by_timestamp', ['timestamp']),
 
   leads: defineTable(leadValidator)
-    // [status, _creationTime]: single-status filter under the default sort.
-    .index('by_status', ['status'])
-    // [assignedTo, status, _creationTime]: single-assignee filter (optionally
-    // + single status) under the default sort. The assignedTo prefix subsumes
-    // the former by_assignedTo index.
-    .index('by_assignedTo_status', ['assignedTo', 'status'])
+    // [assignedTo, _creationTime]: single-assignee filter under the default sort.
+    .index('by_assignedTo', ['assignedTo'])
     // [lifecycleStage, _creationTime]: single-stage filter under the default sort.
     .index('by_lifecycleStage', ['lifecycleStage'])
     .index('by_company', ['companyId'])

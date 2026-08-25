@@ -34,7 +34,7 @@ import type {
 } from '@crm/lib/backend';
 import { operatorsForType } from '@crm/lib/backend';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
-import { CONSENT_CHANNELS, LEAD_STATUSES } from '../../../lib/constants';
+import { CONSENT_CHANNELS } from '../../../lib/constants';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import type { LeadPropertyDefinitionRow } from '../types';
 import {
@@ -462,18 +462,6 @@ function RuleValueInput({ rule, type, def, employees, onChange }: RuleValueInput
             <SelectItem value="non">Non</SelectItem>
           </SelectContent>
         </Select>
-      );
-
-    case 'status':
-      return (
-        <MultiSelect
-          items={LEAD_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
-          value={asArray}
-          onValueChange={(v) => setValue(v.length > 0 ? v : undefined)}
-          placeholder="Sélectionner…"
-          modal
-          className="w-full"
-        />
       );
 
     case 'lifecycle':

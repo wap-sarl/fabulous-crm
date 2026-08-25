@@ -16,9 +16,9 @@ async function setup() {
 }
 
 type PageArgs = Partial<{
-  sortField: 'recent' | 'lastName' | 'status';
+  sortField: 'recent' | 'lastName' | 'lifecycleStage';
   sortDirection: 'asc' | 'desc';
-  statuses: Doc<'leads'>['status'][];
+  lifecycleStages: string[];
   assignedToIds: Id<'users'>[];
   listIds: Id<'leadLists'>[];
   search: string;
@@ -65,22 +65,22 @@ describe('listLeadsPaginated', () => {
 
   test('a single-status filter rides the index and returns dense pages', async () => {
     const { t, as } = await setup();
-    for (let i = 0; i < 4; i++) await seedLead(t, { status: 'nouveau' });
-    for (let i = 0; i < 3; i++) await seedLead(t, { status: 'converti' });
+    for (let i = 0; i < 4; i++) await seedLead(t, { lifecycleStage: 'lead' });
+    for (let i = 0; i < 3; i++) await seedLead(t, { lifecycleStage: 'customer' });
 
-    const { rows, pageSizes } = await collectAllPages(as, { statuses: ['nouveau'] }, 2);
+    const { rows, pageSizes } = await collectAllPages(as, { lifecycleStages: ['lead'] }, 2);
     expect(rows).toHaveLength(4);
-    expect(rows.every((r) => r.status === 'nouveau')).toBe(true);
+    expect(rows.every((r) => r.lifecycleStage === 'lead')).toBe(true);
     // Index-served predicate: pages are dense (no filtered-out rows consumed).
     expect(pageSizes).toEqual([2, 2]);
   });
 
-  test('a single assignee (with and without a status) uses the composite index', async () => {
+  test('a single assignee (with and without a status) rides the assignee index', async () => {
     const { t, emp, as } = await setup();
     const other = await seedEmployee(t, { email: 'other@example.com' });
-    await seedLead(t, { assignedTo: emp.userId, status: 'nouveau' });
-    await seedLead(t, { assignedTo: emp.userId, status: 'converti' });
-    await seedLead(t, { assignedTo: other.userId, status: 'nouveau' });
+    await seedLead(t, { assignedTo: emp.userId, lifecycleStage: 'lead' });
+    await seedLead(t, { assignedTo: emp.userId, lifecycleStage: 'customer' });
+    await seedLead(t, { assignedTo: other.userId, lifecycleStage: 'lead' });
     await seedLead(t, {});
 
     const mine = await collectAllPages(as, { assignedToIds: [emp.userId] }, 10);
@@ -89,11 +89,11 @@ describe('listLeadsPaginated', () => {
 
     const mineNew = await collectAllPages(
       as,
-      { assignedToIds: [emp.userId], statuses: ['nouveau'] },
+      { assignedToIds: [emp.userId], lifecycleStages: ['lead'] },
       10,
     );
     expect(mineNew.rows).toHaveLength(1);
-    expect(mineNew.rows[0]?.status).toBe('nouveau');
+    expect(mineNew.rows[0]?.lifecycleStage).toBe('lead');
   });
 
   test('residual filters yield sparse pages but the cursor still finds every match', async () => {

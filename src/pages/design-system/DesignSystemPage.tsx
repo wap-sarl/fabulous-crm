@@ -36,7 +36,7 @@ import {
 } from '@crm/design-system';
 import { Eye, Pencil, Send } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
-import { CAMPAIGN_STATUSES, LEAD_STATUSES, SEND_STATUSES } from '../../lib/constants';
+import { CAMPAIGN_STATUSES, DEAL_STATUSES, SEND_STATUSES } from '../../lib/constants';
 
 const ACCENT_SWATCHES: { varName: string; color: string }[] = [
   { varName: '--primary-soft', color: '#EEEDFE' },
@@ -157,7 +157,7 @@ export function DesignSystemPage() {
               ))}
             </div>
             <div className="flex flex-wrap gap-2">
-              {LEAD_STATUSES.map((s) => (
+              {CAMPAIGN_STATUSES.map((s) => (
                 <StatusBadge key={s.value} tone={s.tone}>
                   {s.label}
                 </StatusBadge>
@@ -297,7 +297,7 @@ export function DesignSystemPage() {
           <div className="flex flex-col gap-3">
             {(
               [
-                { caption: 'Leads', statuses: LEAD_STATUSES },
+                { caption: 'Transactions', statuses: DEAL_STATUSES },
                 { caption: 'Campagnes', statuses: CAMPAIGN_STATUSES },
                 { caption: 'Envois', statuses: SEND_STATUSES },
               ] as const

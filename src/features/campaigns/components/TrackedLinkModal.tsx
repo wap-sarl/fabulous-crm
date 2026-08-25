@@ -18,13 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@crm/design-system';
-import { validateLeadPropertyValue, LEAD_STATUS_LABELS } from '@crm/lib/backend';
+import { validateLeadPropertyValue } from '@crm/lib/backend';
 import type {
   CampaignTrackedLink,
   LeadPropertyValue,
   TrackedLinkStandardField,
 } from '@crm/lib/backend';
-import { LEAD_STATUSES } from '../../../lib/constants';
 import type { LeadPropertyDefinitionRow } from '../../leads/types';
 
 interface Props {
@@ -50,7 +49,6 @@ function nextLinkKey(existing: CampaignTrackedLink[]): string {
  * trackedLinkStandardFieldValidator.
  */
 const STANDARD_TARGETS: { field: TrackedLinkStandardField; label: string }[] = [
-  { field: 'status', label: 'Statut' },
   { field: 'isRedFlagged', label: 'Signalé' },
   { field: 'comment', label: 'Commentaire' },
   { field: 'firstName', label: 'Prénom' },
@@ -66,8 +64,6 @@ function standardValueError(
 ): string | null {
   if (value === undefined) return null; // "missing" is handled by canSubmit
   switch (field) {
-    case 'status':
-      return typeof value === 'string' && value in LEAD_STATUS_LABELS ? null : 'Statut invalide.';
     case 'isRedFlagged':
       return typeof value === 'boolean' ? null : 'Valeur oui/non requise.';
     case 'email':
@@ -254,25 +250,6 @@ function StandardValueInput({
   onChange: (value: LeadPropertyValue | undefined) => void;
 }) {
   switch (field) {
-    case 'status':
-      return (
-        <Select
-          value={typeof value === 'string' ? value : undefined}
-          onValueChange={(v) => onChange(v)}
-        >
-          <SelectTrigger id="tl-value">
-            <SelectValue placeholder="Choisir un statut" />
-          </SelectTrigger>
-          <SelectContent>
-            {LEAD_STATUSES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      );
-
     case 'isRedFlagged':
       return (
         <Select

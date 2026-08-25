@@ -23,7 +23,6 @@ import {
 } from '../../lib';
 import {
   addressValidator,
-  leadStatusValidator,
   leadPropertyValueValidator,
   marketingConsentChannelValidator,
 } from '../../schema';
@@ -193,7 +192,6 @@ const leadRowArgs = {
   comment: v.optional(v.string()),
   assignedTo: v.optional(v.id('users')),
   isRedFlagged: v.optional(v.boolean()),
-  status: v.optional(leadStatusValidator),
   // A stage key from appConfig.lifecycle; defaults to the configured stage.
   lifecycleStage: v.optional(v.string()),
   companyId: v.optional(v.id('companies')),
@@ -243,7 +241,6 @@ export const createLead = employeeMutation({
       assignedTo: args.assignedTo,
       companyId,
       isRedFlagged: args.isRedFlagged ?? false,
-      status: args.status ?? 'nouveau',
       lifecycleStage,
       customProperties,
       ...createAuditFields(ctx.userId),
@@ -280,7 +277,6 @@ export const updateLead = employeeMutation({
     comment: v.optional(v.string()),
     assignedTo: v.optional(v.id('users')),
     isRedFlagged: v.optional(v.boolean()),
-    status: v.optional(leadStatusValidator),
     // Checked against the configured stages and the regression rule; a blocked
     // regression fails the whole update with `lifecycle_regression_blocked`.
     lifecycleStage: v.optional(v.string()),
@@ -471,7 +467,7 @@ export const importLeads = employeeMutation({
 
       if (existing) {
         // Upsert: only patch columns the CSV provided (filterUndefined drops the
-        // rest, keeping existing values) and never reset status/assignee.
+        // rest, keeping existing values) and never reset the assignee.
         const updates: Record<string, unknown> = filterUndefined({
           firstName: row.firstName.trim(),
           lastName: row.lastName.trim(),
@@ -480,7 +476,6 @@ export const importLeads = employeeMutation({
           comment: row.comment,
           assignedTo: row.assignedTo,
           isRedFlagged: row.isRedFlagged,
-          status: row.status,
         });
 
         // Merge custom properties: provided keys overwrite, the rest are kept.
@@ -593,7 +588,6 @@ export const importLeads = employeeMutation({
         assignedTo: row.assignedTo ?? ctx.userId,
         companyId,
         isRedFlagged: row.isRedFlagged ?? false,
-        status: row.status ?? 'nouveau',
         lifecycleStage,
         customProperties,
         ...createAuditFields(ctx.userId),
@@ -851,9 +845,10 @@ export function buildSendParams(
     defsById: Map<string, LeadPropertyDef>;
     consentBase: string;
     linkBase: string | undefined;
+    lifecycle: LifecycleConfig;
   },
 ): { params: Record<string, string>; tokens: { linkKey: string; token: string }[] } {
-  const params = buildLeadParams(lead, opts.defsById, opts.consentBase);
+  const params = buildLeadParams(lead, opts.defsById, opts.consentBase, opts.lifecycle);
   // One fresh token per (recipient × tracked link); the URL is injected into params.
   const tokens = opts.trackedLinks.map((link) => {
     const token = generateHexToken(TRACKED_LINK_TOKEN_BYTES);
@@ -1043,6 +1038,7 @@ async function loadResendContext(ctx: MutationCtx, campaign: Doc<'campaigns'>) {
     defsById: await loadPropertyDefsById(ctx),
     consentBase: appOrigin() || 'http://localhost:4202',
     linkBase,
+    lifecycle: await loadLifecycleConfig(ctx),
   };
 }
 
@@ -1062,6 +1058,7 @@ async function requeueSend(
     defsById: Map<string, LeadPropertyDef>;
     consentBase: string;
     linkBase: string | undefined;
+    lifecycle: LifecycleConfig;
   },
 ): Promise<boolean> {
   // Clear the previous send's outcome + engagement so stats reflect the new send.

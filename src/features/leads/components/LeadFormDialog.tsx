@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Id, LeadStatus, LeadPropertyValue } from '@crm/lib/backend';
+import type { Id, LeadPropertyValue } from '@crm/lib/backend';
 import {
   Dialog,
   DialogContent,
@@ -24,7 +24,6 @@ import {
   type AddressValue,
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
-import { LEAD_STATUSES } from '../../../lib/constants';
 import { useLeadActions } from '../hooks/useLeadActions';
 import { useLeadPropertyDefinitions } from '../hooks/useLeadPropertyDefinitions';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
@@ -47,7 +46,6 @@ interface FormState {
   lastName: string;
   email: string;
   phone: string;
-  status: LeadStatus;
   /** '' = the configured default stage (create only). */
   lifecycleStage: string;
   /** '' = none; on create the server may still match one from the email domain. */
@@ -73,7 +71,6 @@ function emptyForm(): FormState {
     lastName: '',
     email: '',
     phone: '',
-    status: 'nouveau',
     lifecycleStage: '',
     companyId: '',
     assignedTo: '',
@@ -90,7 +87,6 @@ function fromLead(lead: LeadRow): FormState {
     lastName: lead.lastName,
     email: lead.email ?? '',
     phone: lead.phone ?? '',
-    status: lead.status,
     lifecycleStage: lead.lifecycleStage ?? '',
     companyId: lead.companyId ?? '',
     assignedTo: lead.assignedTo ?? '',
@@ -177,7 +173,6 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       email: form.email || undefined,
       phone: form.phone || undefined,
       address,
-      status: form.status,
       lifecycleStage: form.lifecycleStage || undefined,
       assignedTo: form.assignedTo ? (form.assignedTo as Id<'users'>) : undefined,
       isRedFlagged: form.isRedFlagged,
@@ -199,7 +194,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       const message = e instanceof Error ? e.message : '';
       toast.error(
         message.includes('lifecycle_regression_blocked')
-          ? 'Le retour à un statut antérieur est désactivé (Paramètres → Statut du lead).'
+          ? 'Le retour à un statut antérieur est désactivé (Paramètres → Statuts).'
           : 'Une erreur est survenue.',
       );
     } finally {
@@ -255,21 +250,6 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
 
           <div className="space-y-1">
             <Label>Statut</Label>
-            <Select value={form.status} onValueChange={(v) => setField('status', v as LeadStatus)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LEAD_STATUSES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Statut du lead</Label>
             <Select
               value={form.lifecycleStage || lifecycle.defaultStage}
               onValueChange={(v) => setField('lifecycleStage', v)}

@@ -21,7 +21,6 @@ export function toFilterArgs(filters: LeadFilters) {
   const hasCustom = Object.keys(filters.customProperties).length > 0;
   return {
     search: filters.search || undefined,
-    statuses: filters.statuses.length > 0 ? filters.statuses : undefined,
     lifecycleStages: filters.lifecycleStages.length > 0 ? filters.lifecycleStages : undefined,
     companyIds: filters.companyIds.length > 0 ? filters.companyIds : undefined,
     assignedToIds: filters.assignedToIds.length > 0 ? filters.assignedToIds : undefined,

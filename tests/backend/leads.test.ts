@@ -26,7 +26,6 @@ describe('createLead', () => {
     expect(lead?.email).toBe('marie.curie@example.com');
     expect(lead?.marketingConsent).toEqual([]);
     expect(lead?.consentToken).toMatch(/^[0-9a-f]{32,}$/);
-    expect(lead?.status).toBe('nouveau');
     expect(lead?.createdBy).toBe(emp.userId);
   });
 
@@ -62,19 +61,19 @@ describe('updateLead', () => {
     });
     await as.mutation(api.features.crm.mutations.updateLead, {
       leadId,
-      status: 'contacte',
+      comment: 'Rappelé',
       email: 'JEAN@example.com',
     });
     const lead = await t.run((ctx) => ctx.db.get(leadId));
-    expect(lead?.status).toBe('contacte');
+    expect(lead?.comment).toBe('Rappelé');
     expect(lead?.email).toBe('jean@example.com');
     const updateLogs = await t.run(async (ctx) =>
       (await ctx.db.query('auditLogs').collect()).filter((l) => l.action === 'update'),
     );
     expect(updateLogs).toHaveLength(1);
-    expect((updateLogs[0].metadata as { changes: Record<string, unknown> }).changes.status).toEqual(
-      { old: 'nouveau', new: 'contacte' },
-    );
+    expect(
+      (updateLogs[0].metadata as { changes: Record<string, unknown> }).changes.comment,
+    ).toEqual({ old: undefined, new: 'Rappelé' });
   });
 
   test('rejects a soft-deleted lead', async () => {
@@ -87,7 +86,7 @@ describe('updateLead', () => {
     });
     await as.mutation(api.features.crm.mutations.deleteLead, { leadId });
     await expect(
-      as.mutation(api.features.crm.mutations.updateLead, { leadId, status: 'contacte' }),
+      as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'x' }),
     ).rejects.toThrow('lead_not_found');
   });
 });
@@ -129,7 +128,7 @@ describe('deleteLead / deleteLeads', () => {
 });
 
 describe('importLeads (CSV upsert)', () => {
-  test('inserts new emails, updates existing ones without resetting status', async () => {
+  test('inserts new emails, updates existing ones without resetting the status', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
     const existingId = await as.mutation(api.features.crm.mutations.createLead, {
@@ -139,7 +138,7 @@ describe('importLeads (CSV upsert)', () => {
     });
     await as.mutation(api.features.crm.mutations.updateLead, {
       leadId: existingId,
-      status: 'interesse',
+      lifecycleStage: 'sql',
     });
 
     const result = await as.mutation(api.features.crm.mutations.importLeads, {
@@ -154,7 +153,7 @@ describe('importLeads (CSV upsert)', () => {
     const existing = await t.run((ctx) => ctx.db.get(existingId));
     expect(existing?.firstName).toBe('Updated');
     // The CSV provided no status column → the existing status is preserved.
-    expect(existing?.status).toBe('interesse');
+    expect(existing?.lifecycleStage).toBe('sql');
   });
 
   test('revives a soft-deleted lead matched by email', async () => {

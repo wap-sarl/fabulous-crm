@@ -39,9 +39,9 @@ export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardPro
 
   return (
     <Card className="p-5" data-testid="lead-lifecycle-card">
-      <h2 className="mb-3 text-[15px] font-bold text-ink">Statut du lead</h2>
+      <h2 className="mb-3 text-[15px] font-bold text-ink">Statut</h2>
 
-      <ol className="mb-4 flex flex-wrap gap-1" aria-label="Statuts du lead">
+      <ol className="mb-4 flex flex-wrap gap-1" aria-label="Statuts">
         {lifecycle.stages.map((stage, index) => {
           const reached = currentIndex >= 0 && index <= currentIndex;
           const current = index === currentIndex;

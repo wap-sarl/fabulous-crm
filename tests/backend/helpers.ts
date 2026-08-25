@@ -69,7 +69,6 @@ export function createTestConvex(): T {
   const t = convexTest(schema, appModules);
   t.registerComponent('betterAuth', betterAuthSchema, betterAuthModules);
   t.registerComponent('leadListMemberCounts', aggregateSchema, aggregateModules);
-  t.registerComponent('leadsByStatus', aggregateSchema, aggregateModules);
   t.registerComponent('leadsByOwner', aggregateSchema, aggregateModules);
   t.registerComponent('leadsByLifecycle', aggregateSchema, aggregateModules);
   t.registerComponent('companiesTotal', aggregateSchema, aggregateModules);
@@ -173,7 +172,6 @@ export async function seedLead(
       lastName: fields.lastName ?? 'Dupont',
       email: fields.email ?? `lead-${Math.random().toString(36).slice(2)}@example.com`,
       phone: fields.phone ?? '',
-      status: fields.status ?? 'nouveau',
       marketingConsent: fields.marketingConsent ?? [],
       consentToken: fields.consentToken ?? `test-consent-${Math.random().toString(36).slice(2)}`,
       isRedFlagged: fields.isRedFlagged ?? false,

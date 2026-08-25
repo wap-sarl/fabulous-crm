@@ -35,7 +35,7 @@ function emptyNode(type: WorkflowNodeType, id: string): WorkflowNode {
     case 'send_sms':
       return { id, type, smsBody: '' };
     case 'update_property':
-      return { id, type, target: { kind: 'standard', field: 'status' }, value: 'nouveau' };
+      return { id, type, target: { kind: 'standard', field: 'comment' }, value: '' };
     case 'set_lifecycle_stage':
       return { id, type, stage: undefined };
     case 'create_deal':

@@ -383,9 +383,9 @@ describe('bulk re-enroll (batched)', () => {
             combinator: 'and' as const,
             rules: [
               {
-                field: { kind: 'standard' as const, field: 'status' as const },
+                field: { kind: 'standard' as const, field: 'lifecycleStage' as const },
                 operator: 'equals' as const,
-                value: 'converti',
+                value: 'customer',
               },
             ],
           },
@@ -398,8 +398,8 @@ describe('bulk re-enroll (batched)', () => {
       workflowId,
       status: 'active',
     });
-    const converted = await seedLead(t, { email: 'oui@example.com', status: 'converti' });
-    await seedLead(t, { email: 'non@example.com', status: 'nouveau' });
+    const converted = await seedLead(t, { email: 'oui@example.com', lifecycleStage: 'customer' });
+    await seedLead(t, { email: 'non@example.com', lifecycleStage: 'lead' });
 
     await as.mutation(api.features.workflows.mutations.reenrollMatchingLeads, { workflowId });
     await runReenroll(t, workflowId);

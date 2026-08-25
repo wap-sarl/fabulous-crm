@@ -19,8 +19,8 @@ import {
 } from '@crm/design-system';
 import { Building2, ChevronRight, Pencil, Trash2, Users } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
+import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { countryName } from '../../lib/countries';
-import { LEAD_STATUS_LABEL, LEAD_STATUS_TONE } from '../../lib/constants';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
 import { useCompanyActions } from '../../features/companies/hooks/useCompanyActions';
 import { companyErrorMessage } from '../../features/companies/lib/errors';
@@ -57,6 +57,7 @@ export function CompanyDetailPage() {
     { initialNumItems: CONTACTS_PAGE },
   );
   const { deleteCompany } = useCompanyActions();
+  const lifecycle = useLifecycleConfig();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -197,8 +198,8 @@ export function CompanyDetailPage() {
                             {lead.email ?? lead.phone ?? '—'}
                           </span>
                         </span>
-                        <StatusBadge tone={LEAD_STATUS_TONE[lead.status]}>
-                          {LEAD_STATUS_LABEL[lead.status]}
+                        <StatusBadge tone="violet">
+                          {lifecycle.labelOf(lead.lifecycleStage)}
                         </StatusBadge>
                         <ChevronRight className="size-4 shrink-0 text-[#C8CCD4]" />
                       </button>

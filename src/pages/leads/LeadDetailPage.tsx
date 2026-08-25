@@ -17,12 +17,7 @@ import {
 import { ChevronRight, Link2, Mail, Milestone, Pencil } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { formatAddress } from '../../lib/addresses';
-import {
-  CONSENT_CHANNEL_LABEL,
-  LEAD_STATUS_LABEL,
-  LEAD_STATUS_TONE,
-  SEND_STATUS_LABEL,
-} from '../../lib/constants';
+import { CONSENT_CHANNEL_LABEL, SEND_STATUS_LABEL } from '../../lib/constants';
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
 import { LeadNotes } from '../../features/leads/components/LeadNotes';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
@@ -93,9 +88,6 @@ export function LeadDetailPage() {
             <StatusBadge tone="violet" withDot={false}>
               <Milestone className="size-3" aria-hidden />
               {lifecycle.labelOf(lead.lifecycleStage)}
-            </StatusBadge>
-            <StatusBadge tone={LEAD_STATUS_TONE[lead.status]}>
-              {LEAD_STATUS_LABEL[lead.status]}
             </StatusBadge>
           </span>
         }
