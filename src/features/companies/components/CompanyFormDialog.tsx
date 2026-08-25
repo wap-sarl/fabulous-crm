@@ -17,11 +17,6 @@ import {
   HelperText,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   toast,
   type AddressValue,
   type SiretCompanyData,
@@ -36,7 +31,6 @@ import {
   type CompanyRegistrationContext,
   type CompanyVatContext,
 } from '../../../lib/countryInputs';
-import { useLifecycleConfig } from '../../leads/hooks/useLifecycleConfig';
 import { useCompanyActions } from '../hooks/useCompanyActions';
 import { companyErrorMessage } from '../lib/errors';
 
@@ -57,7 +51,6 @@ interface FormState {
   website: string;
   sector: string;
   headcount: string;
-  lifecycleStage: string;
   address: AddressValue;
 }
 
@@ -79,7 +72,6 @@ function emptyForm(): FormState {
     website: '',
     sector: '',
     headcount: '',
-    lifecycleStage: '',
     address: emptyAddress(DEFAULT_COUNTRY),
   };
 }
@@ -94,7 +86,6 @@ function fromCompany(company: Doc<'companies'>): FormState {
     website: company.website ?? '',
     sector: company.sector ?? '',
     headcount: company.headcount !== undefined ? String(company.headcount) : '',
-    lifecycleStage: company.lifecycleStage ?? '',
     address: {
       country: company.address?.country ?? company.country,
       streetNumber: company.address?.streetNumber ?? '',
@@ -124,7 +115,6 @@ export function CompanyFormDialog({
 }: CompanyFormDialogProps) {
   const isEdit = !!company;
   const { createCompany, updateCompany } = useCompanyActions();
-  const lifecycle = useLifecycleConfig();
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -158,7 +148,6 @@ export function CompanyFormDialog({
     () => ({ country: form.country, onVatData }),
     [form.country, onVatData],
   );
-  const currentStageIndex = isEdit ? lifecycle.indexOf(company?.lifecycleStage) : -1;
 
   const onRegistryData = useCallback((data: SiretCompanyData) => setRegistryData(data), []);
   const registrationContext = useMemo<CompanyRegistrationContext>(
@@ -240,7 +229,6 @@ export function CompanyFormDialog({
       sector: form.sector,
       headcount,
       address,
-      lifecycleStage: form.lifecycleStage || undefined,
     };
 
     setSubmitting(true);
@@ -392,30 +380,6 @@ export function CompanyFormDialog({
               value={form.headcount}
               onChange={(e) => setField('headcount', e.target.value)}
             />
-          </div>
-
-          <div className="space-y-1 sm:col-span-2">
-            <Label>Cycle de vie</Label>
-            <Select
-              value={form.lifecycleStage || '__none__'}
-              onValueChange={(v) => setField('lifecycleStage', v === '__none__' ? '' : v)}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">—</SelectItem>
-                {lifecycle.stages.map((s, index) => (
-                  <SelectItem
-                    key={s.key}
-                    value={s.key}
-                    disabled={!lifecycle.allowRegression && index < currentStageIndex}
-                  >
-                    {s.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
         </div>
 

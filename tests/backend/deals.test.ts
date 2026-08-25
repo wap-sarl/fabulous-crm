@@ -92,12 +92,8 @@ describe('pipelines', () => {
 });
 
 describe('deals', () => {
-  test('creation lands in the default pipeline/stage, logs history, audits, links the lead company', async () => {
+  test('creation lands in the default pipeline/stage, logs history, audits, links the lead', async () => {
     const { t, as, emp, pipelineId } = await setup();
-    const companyId = await as.mutation(api.features.companies.mutations.createCompany, {
-      name: 'Acme',
-      domain: 'acme.fr',
-    });
     const leadId = await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
@@ -119,7 +115,6 @@ describe('deals', () => {
       status: 'open',
       ownerId: emp.userId,
       leadId,
-      companyId,
     });
     const history = await historyOf(t, dealId);
     expect(history).toMatchObject([{ to: 'new', source: 'create' }]);
@@ -369,12 +364,8 @@ describe('workflow deal steps', () => {
     return workflowId;
   }
 
-  test('create_deal renders the title from the lead and attaches lead, company and owner', async () => {
+  test('create_deal renders the title from the lead and attaches lead and owner', async () => {
     const { t, as, emp, pipelineId } = await setup();
-    const companyId = await as.mutation(api.features.companies.mutations.createCompany, {
-      name: 'Acme',
-      domain: 'acme.fr',
-    });
     const leadId = await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
@@ -396,7 +387,6 @@ describe('workflow deal steps', () => {
       amount: 500,
       pipelineId,
       stageKey: 'qualified',
-      companyId,
       ownerId: emp.userId,
     });
     expect((await historyOf(t, deals[0]._id))[0]).toMatchObject({ source: 'workflow', workflowId });

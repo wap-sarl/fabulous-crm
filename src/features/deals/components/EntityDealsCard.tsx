@@ -9,24 +9,14 @@ import { DEAL_STATUS_TONE, formatMoney } from '../../../lib/constants';
 import { DealFormDialog } from './DealFormDialog';
 
 interface EntityDealsCardProps {
-  leadId?: Id<'leads'>;
-  leadName?: string;
-  companyId?: Id<'companies'>;
-  companyName?: string;
+  leadId: Id<'leads'>;
+  leadName: string;
 }
 
 /** "Transactions" card of a lead or company page: its deals + a create shortcut. */
-export function EntityDealsCard({
-  leadId,
-  leadName,
-  companyId,
-  companyName,
-}: EntityDealsCardProps) {
+export function EntityDealsCard({ leadId, leadName }: EntityDealsCardProps) {
   const navigate = useNavigate();
-  const deals = useAuthQuery(
-    api.features.deals.queries.listDealsForEntity,
-    leadId ? { leadId } : { companyId },
-  );
+  const deals = useAuthQuery(api.features.deals.queries.listDealsForEntity, { leadId });
   const [formOpen, setFormOpen] = useState(false);
   return (
     <Card className="p-5" data-testid="entity-deals-card">
@@ -71,7 +61,7 @@ export function EntityDealsCard({
       <DealFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}
-        defaults={{ leadId, leadName, companyId, companyName }}
+        defaults={{ leadId, leadName }}
         onCreated={(id) => navigate(`/deals/${id}`)}
       />
     </Card>

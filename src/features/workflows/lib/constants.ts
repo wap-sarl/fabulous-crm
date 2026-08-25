@@ -246,7 +246,7 @@ export const STEP_TYPES: {
   { type: 'send_email', label: 'Envoyer un e-mail', icon: Mail },
   { type: 'send_sms', label: 'Envoyer un SMS', icon: MessageSquare },
   { type: 'update_property', label: 'Modifier une propriété', icon: PenLine },
-  { type: 'set_lifecycle_stage', label: 'Changer l’étape du cycle de vie', icon: Milestone },
+  { type: 'set_lifecycle_stage', label: 'Changer le statut du lead', icon: Milestone },
   { type: 'create_deal', label: 'Créer une transaction', icon: Handshake },
   { type: 'update_deal_stage', label: 'Changer le stade d’une transaction', icon: KanbanSquare },
   { type: 'add_to_list', label: 'Ajouter à une liste', icon: ListPlus },

@@ -8,6 +8,7 @@ import { formatAddress } from '../../lib/addresses';
 import {
   Button,
   Card,
+  ConfirmDialog,
   InitialsAvatar,
   KeyValueList,
   KeyValueRow,
@@ -16,15 +17,13 @@ import {
   StatusBadge,
   toast,
 } from '@crm/design-system';
-import { Building2, ChevronRight, Milestone, Pencil, Trash2, Users } from 'lucide-react';
+import { Building2, ChevronRight, Pencil, Trash2, Users } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { countryName } from '../../lib/countries';
 import { LEAD_STATUS_LABEL, LEAD_STATUS_TONE } from '../../lib/constants';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
-import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { useCompanyActions } from '../../features/companies/hooks/useCompanyActions';
 import { companyErrorMessage } from '../../features/companies/lib/errors';
-import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
@@ -57,9 +56,9 @@ export function CompanyDetailPage() {
     companyId ? { companyIds: [id], sortField: 'recent', sortDirection: 'desc' } : 'skip',
     { initialNumItems: CONTACTS_PAGE },
   );
-  const lifecycle = useLifecycleConfig();
   const { deleteCompany } = useCompanyActions();
   const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (company === undefined) {
     return (
@@ -76,19 +75,13 @@ export function CompanyDetailPage() {
   const vatScheme = vatSchemeFor(company.country);
 
   const handleDelete = async () => {
-    if (
-      !window.confirm(
-        `Supprimer l’entreprise ${company.name} ? Ses ${company.contactCount} contact(s) sont conservés et détachés.`,
-      )
-    ) {
-      return;
-    }
     try {
       await deleteCompany({ companyId: company._id });
       toast.success('Entreprise supprimée.');
       navigate('/companies');
     } catch (e) {
       toast.error(companyErrorMessage(e, 'Échec de la suppression.'));
+      setDeleteOpen(false);
     }
   };
 
@@ -102,14 +95,6 @@ export function CompanyDetailPage() {
           </span>
         }
         title={company.name}
-        titleExtra={
-          company.lifecycleStage ? (
-            <StatusBadge tone="violet" withDot={false}>
-              <Milestone className="size-3" aria-hidden />
-              {lifecycle.labelOf(company.lifecycleStage)}
-            </StatusBadge>
-          ) : undefined
-        }
         subtitle={[company.domain, countryName(company.country)].filter(Boolean).join(' · ')}
         actions={
           <>
@@ -117,7 +102,12 @@ export function CompanyDetailPage() {
               <Pencil className="h-4 w-4" />
               Modifier
             </Button>
-            <Button variant="ghost" onClick={handleDelete} aria-label="Supprimer l’entreprise">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteOpen(true)}
+              aria-label="Supprimer l’entreprise"
+              data-testid="delete-company"
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </>
@@ -182,9 +172,10 @@ export function CompanyDetailPage() {
               <Spinner size="sm" />
             ) : contacts.results.length === 0 ? (
               <p className="text-sm text-faint">
-                Aucun contact. Les leads dont l’e-mail porte le domaine
-                {company.domain ? ` ${company.domain}` : ' de l’entreprise'} y sont rattachés
-                automatiquement.
+                Aucun contact.
+                {company.domain
+                  ? ` Les leads dont l’e-mail porte le domaine ${company.domain} y sont rattachés automatiquement.`
+                  : ' Renseignez le domaine pour rattacher automatiquement les leads dont l’e-mail le porte.'}
               </p>
             ) : (
               <ul className="flex flex-col" data-testid="company-contacts">
@@ -230,8 +221,6 @@ export function CompanyDetailPage() {
         </div>
 
         <div className="flex flex-col gap-5">
-          <EntityDealsCard companyId={company._id} companyName={company.name} />
-
           <Card className="p-5">
             <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink">
               <Users className="size-4 text-faint" aria-hidden />
@@ -250,8 +239,8 @@ export function CompanyDetailPage() {
                       {entry.metadata &&
                       typeof entry.metadata === 'object' &&
                       'source' in entry.metadata &&
-                      entry.metadata.source === 'email_domain'
-                        ? ' automatique (domaine e-mail)'
+                      entry.metadata.source === 'import'
+                        ? ' (import CSV)'
                         : ''}
                     </span>
                     <span className="text-xs text-faint">
@@ -266,6 +255,19 @@ export function CompanyDetailPage() {
       </div>
 
       <CompanyFormDialog open={editOpen} onOpenChange={setEditOpen} company={company} />
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Supprimer « ${company.name} » ?`}
+        description={
+          company.contactCount > 0
+            ? `Ses ${company.contactCount} contact(s) sont conservés et détachés de l’entreprise. Cette action est irréversible.`
+            : 'Cette action est irréversible.'
+        }
+        confirmLabel="Supprimer l’entreprise"
+        destructive
+        onConfirm={handleDelete}
+      />
     </div>
   );
 }

@@ -231,13 +231,13 @@ export function LifecycleStepConfig({ value, onChange }: LifecycleStepConfigProp
   const lifecycle = useLifecycleConfig();
   return (
     <div className="space-y-1.5">
-      <Label>Étape du cycle de vie</Label>
+      <Label>Statut du lead</Label>
       <Select
         value={value.stage ?? undefined}
         onValueChange={(v) => onChange({ ...value, stage: v })}
       >
         <SelectTrigger className="w-full" data-testid="lifecycle-step-select">
-          <SelectValue placeholder="Choisir une étape…" />
+          <SelectValue placeholder="Choisir un statut…" />
         </SelectTrigger>
         <SelectContent>
           {lifecycle.stages.map((s) => (
@@ -249,8 +249,8 @@ export function LifecycleStepConfig({ value, onChange }: LifecycleStepConfigProp
       </Select>
       <HelperText>
         {lifecycle.allowRegression
-          ? 'Le lead passe à cette étape, même si elle précède l’étape actuelle.'
-          : 'Le lead passe à cette étape ; un retour en arrière est ignoré (Paramètres → Cycle de vie).'}
+          ? 'Le lead passe à ce statut, même s’il précède le statut actuel.'
+          : 'Le lead passe à ce statut ; un retour en arrière est ignoré (Paramètres → Statut du lead).'}
       </HelperText>
     </div>
   );

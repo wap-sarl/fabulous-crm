@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
-import { api, internal } from '../../convex/_generated/api';
+import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { leadsByOwner } from '../../convex/lib/leadAggregates';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -112,33 +112,5 @@ describe('leadsByOwner aggregate', () => {
     });
     expect(await countByOwner(t, null)).toBe(0);
     expect(await countByOwner(t, emp.userId)).toBe(1);
-  });
-});
-
-describe('backfillLeadAggregates', () => {
-  test('registers raw pre-aggregate rows, idempotently', async () => {
-    const { t, as } = await setup();
-    // Raw inserts bypass the trigger wrapper — exactly the legacy situation.
-    for (let i = 0; i < 3; i++) {
-      await seedLead(t, { email: `legacy-${i}@example.com` });
-    }
-    let counts = await as.query(api.features.crm.queries.countLeadsByStatus, {});
-    expect(counts.total).toBe(0);
-
-    let cursor: string | undefined;
-    for (;;) {
-      const page = await t.mutation(
-        internal.features.crm.internal.backfillLeadAggregates,
-        cursor ? { cursor } : {},
-      );
-      if (page.isDone) break;
-      cursor = page.continueCursor;
-    }
-    counts = await as.query(api.features.crm.queries.countLeadsByStatus, {});
-    expect(counts.total).toBe(3);
-
-    await t.mutation(internal.features.crm.internal.backfillLeadAggregates, {});
-    counts = await as.query(api.features.crm.queries.countLeadsByStatus, {});
-    expect(counts.total).toBe(3);
   });
 });

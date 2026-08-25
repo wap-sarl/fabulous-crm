@@ -2,11 +2,7 @@ import { v } from 'convex/values';
 import { internalQuery, type MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
 import { internalMutation } from '../../_lib/functions';
-import { leadListMemberCounts, toBrevoRecipient } from '../../lib';
-import { leadsByLifecycle, leadsByOwner, leadsByStatus } from '../../lib/leadAggregates';
-import { applyLifecycleTransition } from '../../lib/lifecycle';
-import { LIFECYCLE_FROM_STATUS } from '../../_lib/validators/lifecycle';
-import { leadSearchText } from '../../lib/leadSearch';
+import { toBrevoRecipient } from '../../lib';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
   CampaignEvent,
@@ -418,121 +414,6 @@ export const prepareCampaignBatch = internalMutation({
     return { isDone: true, continueCursor: page.continueCursor };
   },
 });
-
-export const stripCampaignRecipientLeadIds = internalMutation({
-  args: { cursor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('campaigns')
-      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
-    let stripped = 0;
-    for (const campaign of page.page) {
-      if (campaign.recipientLeadIds !== undefined) {
-        await ctx.db.patch(campaign._id, { recipientLeadIds: undefined });
-        stripped++;
-      }
-    }
-    return { stripped, isDone: page.isDone, continueCursor: page.continueCursor };
-  },
-});
-
-export const backfillSmsRecipient = internalMutation({
-  args: { cursor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('campaignSends')
-      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
-    let patched = 0;
-    for (const send of page.page) {
-      if (send.phone && send.smsRecipient === undefined) {
-        const recipient = toBrevoRecipient(send.phone);
-        if (recipient) {
-          await ctx.db.patch(send._id, { smsRecipient: recipient });
-          patched++;
-        }
-      }
-    }
-    return { patched, isDone: page.isDone, continueCursor: page.continueCursor };
-  },
-});
-
-export const backfillLeadSearchText = internalMutation({
-  args: { cursor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('leads')
-      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
-    let patched = 0;
-    for (const lead of page.page) {
-      const company = lead.companyId ? await ctx.db.get(lead.companyId) : null;
-      const expected = leadSearchText(lead, company?.name);
-      if (lead.searchText !== expected) {
-        await ctx.db.patch(lead._id, { searchText: expected });
-        patched++;
-      }
-    }
-    return { patched, isDone: page.isDone, continueCursor: page.continueCursor };
-  },
-});
-
-export const backfillLeadAggregates = internalMutation({
-  args: { cursor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('leads')
-      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
-    for (const lead of page.page) {
-      await leadsByStatus.insertIfDoesNotExist(ctx, lead);
-      await leadsByOwner.insertIfDoesNotExist(ctx, lead);
-    }
-    return { seen: page.page.length, isDone: page.isDone, continueCursor: page.continueCursor };
-  },
-});
-
-export const backfillLeadLifecycleStage = internalMutation({
-  args: { cursor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('leads')
-      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
-    let derived = 0;
-    for (const lead of page.page) {
-      if (lead.lifecycleStage === undefined) {
-        // The patch goes through the trigger wrapper, which registers the lead
-        // under its new stage in the aggregate.
-        await applyLifecycleTransition(
-          ctx,
-          lead._id,
-          { from: undefined, to: LIFECYCLE_FROM_STATUS[lead.status] },
-          { source: 'migration' },
-        );
-        derived++;
-      } else {
-        await leadsByLifecycle.insertIfDoesNotExist(ctx, lead);
-      }
-    }
-    return {
-      seen: page.page.length,
-      derived,
-      isDone: page.isDone,
-      continueCursor: page.continueCursor,
-    };
-  },
-});
-
-export const backfillLeadListMemberCounts = internalMutation({
-  args: { cursor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('leadListMembers')
-      .paginate({ cursor: args.cursor ?? null, numItems: 200 });
-    for (const member of page.page) {
-      await leadListMemberCounts.insertIfDoesNotExist(ctx, member);
-    }
-    return { seen: page.page.length, isDone: page.isDone, continueCursor: page.continueCursor };
-  },
-});
-
 /**
  * Handle a click on a per-recipient tracked link (public GET /l/<token> HTTP
  * route). Sets the link's configured value on the lead property targeted by

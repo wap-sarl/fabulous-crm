@@ -10,8 +10,6 @@ export const COMPANY_ERROR_MESSAGES: Record<string, string> = {
   invalid_domain: 'Domaine invalide (ex. acme.fr).',
   invalid_country: 'Pays invalide.',
   company_not_found: 'Entreprise introuvable.',
-  lifecycle_regression_blocked:
-    'Le retour à une étape antérieure du cycle de vie est désactivé (Paramètres → Cycle de vie).',
 };
 
 export function companyErrorMessage(e: unknown, fallback: string): string {

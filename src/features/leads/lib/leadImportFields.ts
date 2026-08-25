@@ -172,10 +172,10 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
   },
   {
     header: 'lifecyclestage',
-    label: 'Cycle de vie',
+    label: 'Statut du lead',
     parse: (raw, ctx) => {
       const key = ctx.lifecycleStageByName.get(raw.trim().toLowerCase());
-      return key ? { value: key } : { error: `étape du cycle de vie inconnue « ${raw} »` };
+      return key ? { value: key } : { error: `statut du lead inconnu « ${raw} »` };
     },
     apply: (row, value) => {
       row.lifecycleStage = value as string;

@@ -131,7 +131,7 @@ export function LeadsTable({
               />
             </TableHead>
             <TableHead>Entreprise</TableHead>
-            <TableHead>Cycle de vie</TableHead>
+            <TableHead>Statut du lead</TableHead>
             <TableHead>Assigné</TableHead>
             <TableHead>Consentements</TableHead>
             <TableHead>

@@ -11,7 +11,6 @@ type QueryCtx = GenericQueryCtx<DataModel>;
  *
  * The second clause guarantees existing deployments (which predate this feature
  * and have users but no config doc) are never locked behind the setup wizard,
- * even if the backfill migration hasn't been run.
  */
 export async function isSetupComplete(
   ctx: QueryCtx,

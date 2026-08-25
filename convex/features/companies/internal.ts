@@ -2,8 +2,6 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 // Trigger-wrapped constructor: keeps aggregates and searchText in sync.
 import { internalMutation } from '../../_lib/functions';
-import { isNotDeleted } from '../../lib';
-import { resolveCompanyForLead } from '../../lib/companies';
 import { leadSearchText } from '../../lib/leadSearch';
 
 const LEADS_BATCH = 200;
@@ -56,29 +54,5 @@ export const detachCompanyLeads = internalMutation({
       });
     }
     return { isDone, detached: page.length };
-  },
-});
-
-export const backfillLeadCompanies = internalMutation({
-  args: { userId: v.id('users'), cursor: v.optional(v.string()) },
-  handler: async (ctx, args) => {
-    const page = await ctx.db
-      .query('leads')
-      .paginate({ cursor: args.cursor ?? null, numItems: LEADS_BATCH });
-    const cache = new Map();
-    let attached = 0;
-    for (const lead of page.page) {
-      if (!isNotDeleted(lead) || lead.companyId || !lead.email) continue;
-      const companyId = await resolveCompanyForLead(ctx, {}, lead.email, args.userId, cache);
-      if (!companyId) continue;
-      await ctx.db.patch(lead._id, { companyId });
-      attached++;
-    }
-    return {
-      seen: page.page.length,
-      attached,
-      isDone: page.isDone,
-      continueCursor: page.continueCursor,
-    };
   },
 });

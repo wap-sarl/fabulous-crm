@@ -163,12 +163,7 @@ export function LeadDetailPage() {
         <div className="flex flex-col gap-5">
           <LeadLifecycleCard leadId={lead._id} currentStage={lead.lifecycleStage} />
 
-          <EntityDealsCard
-            leadId={lead._id}
-            leadName={fullName}
-            companyId={company?._id}
-            companyName={company?.name}
-          />
+          <EntityDealsCard leadId={lead._id} leadName={fullName} />
 
           <LeadNotes leadId={lead._id} />
 

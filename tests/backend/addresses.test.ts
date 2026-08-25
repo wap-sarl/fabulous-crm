@@ -1,13 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { api, internal } from '../../convex/_generated/api';
-import type { Id } from '../../convex/_generated/dataModel';
+import { api } from '../../convex/_generated/api';
 import {
   addressFormatFor,
   formatAddressLines,
   formatAddressOneLine,
   validateAddress,
 } from '../../convex/_lib/validators/addressFormats';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -145,48 +144,5 @@ describe('address validation in mutations', () => {
     const { formatAddressParam } = await import('../../convex/features/crm/leadTargets');
     expect(formatAddressParam(FR)).toBe('8 Boulevard du Port, 80000 AMIENS');
     expect(formatAddressParam(US)).toBe('1600 Amphitheatre Pkwy, MOUNTAIN VIEW, CA 94043, US');
-  });
-});
-
-describe('backfillAddressCountries', () => {
-  async function addressOf(t: T, id: Id<'leads'>) {
-    return await t.run(async (ctx) => (await ctx.db.get(id))?.address);
-  }
-
-  test('turns display names into ISO codes, drops countryCode, counts unknown names', async () => {
-    const { t } = await setup();
-    const legacy = { streetNumber: '1', street: 'Rue A', postalCode: '75001', city: 'Paris' };
-    const byName = await seedLead(t, {
-      email: 'a@acme.fr',
-      address: { ...legacy, country: 'France' },
-    });
-    const byCode = await seedLead(t, {
-      email: 'b@acme.fr',
-      address: { ...legacy, country: 'Belgique', countryCode: 'BE' },
-    });
-    const already = await seedLead(t, {
-      email: 'c@acme.fr',
-      address: { ...legacy, country: 'FR' },
-    });
-    const unknown = await seedLead(t, {
-      email: 'd@acme.fr',
-      address: { ...legacy, country: 'Atlantide' },
-    });
-
-    const res = await t.mutation(internal.seed.migrateAddressCountries.backfillAddressCountries, {
-      table: 'leads',
-    });
-    expect(res).toMatchObject({ seen: 4, patched: 2, unmapped: 1, isDone: true });
-    expect((await addressOf(t, byName))?.country).toBe('FR');
-    expect(await addressOf(t, byCode)).toMatchObject({ country: 'BE' });
-    expect((await addressOf(t, byCode))?.countryCode).toBeUndefined();
-    expect((await addressOf(t, already))?.country).toBe('FR');
-    expect((await addressOf(t, unknown))?.country).toBe('Atlantide');
-
-    // Idempotent.
-    const again = await t.mutation(internal.seed.migrateAddressCountries.backfillAddressCountries, {
-      table: 'leads',
-    });
-    expect(again.patched).toBe(0);
   });
 });

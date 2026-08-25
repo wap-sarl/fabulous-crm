@@ -6,7 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
 
 async function setup() {
   const t = createTestConvex();

@@ -140,7 +140,7 @@ function DealsList({
               <TableHead>Transaction</TableHead>
               <TableHead>Stade</TableHead>
               <TableHead>Montant</TableHead>
-              <TableHead>Entreprise / lead</TableHead>
+              <TableHead>Lead</TableHead>
               <TableHead>Propriétaire</TableHead>
               <TableHead>Clôture</TableHead>
               <TableHead className="w-10" aria-label="Ouvrir" />
@@ -178,9 +178,7 @@ function DealsList({
                   <TableCell className="font-mono text-[12.5px] text-soft">
                     {formatMoney(deal.amount, deal.currency)}
                   </TableCell>
-                  <TableCell className="text-[13px] text-soft">
-                    {[deal.companyName, deal.leadName].filter(Boolean).join(' · ') || '—'}
-                  </TableCell>
+                  <TableCell className="text-[13px] text-soft">{deal.leadName ?? '—'}</TableCell>
                   <TableCell className="text-[13px] text-soft">{deal.ownerName ?? '—'}</TableCell>
                   <TableCell className="whitespace-nowrap font-mono text-[12.5px] text-soft">
                     {deal.expectedCloseDate

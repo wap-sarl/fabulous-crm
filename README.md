@@ -11,9 +11,10 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   un employé.
 - **Entreprises** : organisations rattachées aux leads (`companies`,
   `leads.companyId`). Rattachement automatique: par numéro
-  d'immatriculation, puis par domaine de l'e-mail (`x@acme.fr` → entreprise de
-  domaine `acme.fr`, créée au besoin ; les messageries grand public sont
-  exclues). Le numéro d'immatriculation dépend du pays de l'entreprise
+  d'immatriculation, par numéro de TVA, puis par domaine de l'e-mail
+  (`x@acme.fr` → entreprise **existante** de domaine `acme.fr` ; un lead n'a
+  pas forcément d'entreprise, aucune n'est créée à partir d'un e-mail ; les
+  messageries grand public sont exclues). Le numéro d'immatriculation dépend du pays de l'entreprise
   (SIRET vérifié dans la base Sirene pour la France, texte libre ailleurs) via
   un registre d'inputs par pays extensible (`src/lib/countryInputs`).
 - **Adresses par pays** : l'adresse (objet imbriqué partagé par leads,
@@ -28,20 +29,20 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   validé par pays (format + clé via `jsvat`) et vérifié en direct dans VIES
   pour l'UE.
 - **Transactions et pipelines** : transactions (montant, devise, date de
-  clôture, propriétaire, lead, entreprise, campagne d'origine) dans des
+  clôture, propriétaire, lead, campagne d'origine) dans des
   pipelines configurables (*Paramètres → Pipelines* : stades ordonnés,
   stades gagné/perdu, plusieurs pipelines). Vue Kanban
   (glisser-déposer) et vue liste ; historique des stades (`dealStageHistory`) ;
   compteurs et montants par stade via agrégats. Déclencheurs de workflow
   `deal_created` / `deal_stage_changed` / `deal_won` / `deal_lost` et étapes
   « Créer une transaction » / « Changer le stade d'une transaction ». Une transaction
-  gagnée fait passer son lead à l'étape de cycle de vie « Client ».
-- **Cycle de vie** : étape d'entonnoir par lead (`lifecycleStage`, abonné → lead → MQL → SQL → opportunité → client → ambassadeur),
-  configurable dans *Paramètres → Cycle de vie* (étapes, étape par défaut,
-  interdiction du retour en arrière). Chaque changement est journalisé dans
-  `lifecycleStageHistory` ; les workflows disposent d'une étape « Changer
-  l'étape du cycle de vie ». `leads.status` (nouveau, contacté, …) reste un
-  champ commercial secondaire.
+  gagnée fait passer son lead au statut « Client ».
+- **Statut du lead** : position du lead dans le parcours marketing → commercial
+  (`lifecycleStage` : abonné → lead → MQL → SQL → opportunité → client →
+  ambassadeur), configurable dans *Paramètres → Statut du lead* (statuts,
+  statut par défaut, interdiction du retour en arrière). Chaque changement est
+  journalisé dans `lifecycleStageHistory` ; les workflows disposent d'une
+  étape « Changer le statut du lead ».
 - **Campagnes** : création de campagnes email Brevo (template + destinataires
   filtrés), suivi des envois (`campaignSends`), statuts.
 - **Consentement RGPD** : page publique `/consent/:token` permettant à un lead
@@ -226,56 +227,6 @@ L'accès reste régi par le modèle sur invitation : à la première connexion, 
 e-mail invité provisionne l'employé ; un e-mail non invité est refusé
 (`not_invited`) — le même filtre que pour les fournisseurs sociaux et le lien
 magique. Il n'y a donc ni `allowedDomains` ni `autoProvision` propres au SSO.
-
-### Déploiements existants
-
-Un déploiement antérieur (utilisateurs présents, pas de config) n'est **jamais**
-bloqué par l'assistant : la présence d'utilisateurs vaut « installation
-terminée ». Pour créer une config propre et promouvoir les employés existants en
-`admin`, lancer une fois :
-`bunx convex run seed/bootstrapConfig:bootstrapExistingDeployment`.
-
-#### Rattachement des leads existants à leurs entreprises (optionnel)
-
-Les leads antérieurs à l'objet *Entreprise* n'ont pas de `companyId`. Pour les
-rattacher (et créer les entreprises manquantes) d'après le domaine de leur
-e-mail, comme le fait aujourd'hui la création d'un lead, lancer en boucle sur
-`continueCursor` jusqu'à `isDone: true` (l'`userId` est l'admin stampé comme
-créateur des entreprises) :
-
-```bash
-bunx convex run features/companies/internal:backfillLeadCompanies '{"userId": "<id users>"}' --prod
-```
-
-#### Migration des adresses (pays en code ISO)
-
-`address.country` contenait un nom affiché (« France ») ; il devient un code
-ISO à 2 lettres et l'ancien `countryCode` disparaît. Lancer pour chacune des
-trois tables, en boucle sur `continueCursor` jusqu'à `isDone: true` :
-
-```bash
-bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "leads"}' --prod
-bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "companies"}' --prod
-bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "users"}' --prod
-```
-
-Les noms de pays non reconnus sont laissés tels quels et comptés dans
-`unmapped` — à corriger à la main depuis la fiche. Idempotent.
-
-#### Migration du cycle de vie (leads antérieurs)
-
-Les leads créés avant l'arrivée du cycle de vie n'ont pas de `lifecycleStage`
-(ils apparaissent « sans étape » dans *Paramètres → Cycle de vie*). Après le
-déploiement, lancer une fois, en rappelant la commande avec le `continueCursor`
-renvoyé jusqu'à `isDone: true` :
-
-```bash
-bunx convex run features/crm/internal:backfillLeadLifecycleStage '{}' --prod
-```
-
-L'étape initiale est dérivée du `status` (`converti` → client, `interesse` →
-SQL, le reste → lead), journalisée avec la source `migration`, et le compteur
-`leadsByLifecycle` est alimenté. La migration est idempotente.
 
 ## Production
 

@@ -129,11 +129,10 @@ export async function resolveCompanyForLead(
     return found._id;
   }
 
-  // Nothing to create from: no name and no business domain.
-  if (!name && !domain) return null;
+  if (!name) return null;
 
   const companyId = await ctx.db.insert('companies', {
-    name: name ?? domain!,
+    name,
     country,
     registrationNumber,
     vatNumber,
@@ -147,7 +146,7 @@ export async function resolveCompanyForLead(
     entityType: 'company',
     entityId: companyId,
     action: 'create',
-    metadata: { source: name ? 'lead' : 'email_domain' },
+    metadata: { source: 'import' },
   });
   if (cacheKey) cache?.set(cacheKey, companyId);
   return companyId;

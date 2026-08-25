@@ -12,9 +12,9 @@ import { leadsByLifecycle, leadsByOwner, leadsByStatus } from '../lib/leadAggreg
 import { leadSearchText } from '../lib/leadSearch';
 
 const triggers = new Triggers<DataModel>();
-// idempotentTrigger (not trigger): tolerates documents not yet registered in
-// the aggregate, so patches to pre-backfill rows don't throw during the window
-// between a deploy and its backfill run.
+// idempotentTrigger (not trigger): tolerates documents not registered in the
+// aggregate (rows inserted outside the wrapper, e.g. test seeds), so a patch
+// never throws on them.
 triggers.register('leads', leadsByStatus.idempotentTrigger());
 triggers.register('leads', leadsByOwner.idempotentTrigger());
 triggers.register('leads', leadsByLifecycle.idempotentTrigger());

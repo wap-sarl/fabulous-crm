@@ -23,8 +23,6 @@ export interface AddressValue {
   region?: string;
   /** ISO-3166-1 alpha-2, e.g. "FR" — drives the country-specific layout. */
   country: string;
-  /** @deprecated `country` now holds the ISO code. */
-  countryCode?: string;
   /** Provider place id when chosen from autocomplete; cleared on manual edit. */
   placeId?: string;
   coordinates?: { lat: number; lng: number };

@@ -243,13 +243,13 @@ export const executeStep = internalMutation({
           : ({ kind: 'unknown_stage' } as const);
         switch (plan.kind) {
           case 'unknown_stage':
-            await logStep(ctx, run, node, 'skipped', { detail: 'étape introuvable' });
+            await logStep(ctx, run, node, 'skipped', { detail: 'statut introuvable' });
             break;
           case 'regression_blocked':
             await logStep(ctx, run, node, 'skipped', { detail: 'retour en arrière interdit' });
             break;
           case 'unchanged':
-            await logStep(ctx, run, node, 'success', { detail: 'déjà à cette étape' });
+            await logStep(ctx, run, node, 'success', { detail: 'déjà à ce statut' });
             break;
           case 'change':
             await applyLifecycleTransition(ctx, lead._id, plan, {
@@ -288,7 +288,6 @@ export const executeStep = internalMutation({
               stageKey: node.stageKey,
               ownerId: lead.assignedTo,
               leadId: lead._id,
-              companyId: lead.companyId,
             },
             { source: 'workflow', workflowId: workflow._id, runSource: source },
           );

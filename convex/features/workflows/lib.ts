@@ -72,7 +72,7 @@ const NODE_TYPE_LABELS: Record<WorkflowNode['type'], string> = {
   send_email: 'Envoyer un e-mail',
   send_sms: 'Envoyer un SMS',
   update_property: 'Modifier une propriété',
-  set_lifecycle_stage: 'Changer l’étape du cycle de vie',
+  set_lifecycle_stage: 'Changer le statut du lead',
   create_deal: 'Créer une transaction',
   update_deal_stage: 'Changer le stade d’une transaction',
   add_to_list: 'Ajouter à une liste',
@@ -134,8 +134,8 @@ export function validateWorkflowGraph(
         break;
       }
       case 'set_lifecycle_stage':
-        if (!node.stage) return `${label} : choisissez une étape.`;
-        if (!lifecycleStageKeys.has(node.stage)) return `${label} : étape introuvable.`;
+        if (!node.stage) return `${label} : choisissez un statut.`;
+        if (!lifecycleStageKeys.has(node.stage)) return `${label} : statut introuvable.`;
         break;
       case 'create_deal': {
         if (!node.title.trim()) return `${label} : l'intitulé est requis.`;

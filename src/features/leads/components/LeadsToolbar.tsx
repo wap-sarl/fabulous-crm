@@ -83,11 +83,11 @@ export function LeadsToolbar({
         value={filters.lifecycleStages.length === 1 ? filters.lifecycleStages[0] : ALL_STAGES}
         onValueChange={(v) => setParam('lifecycle', v === ALL_STAGES ? undefined : v)}
       >
-        <SelectTrigger className="w-56" aria-label="Filtrer par étape du cycle de vie">
+        <SelectTrigger className="w-56" aria-label="Filtrer par statut du lead">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL_STAGES}>Cycle de vie : toutes les étapes</SelectItem>
+          <SelectItem value={ALL_STAGES}>Status</SelectItem>
           {lifecycle.stages.map((s) => (
             <SelectItem key={s.key} value={s.key}>
               {s.label}

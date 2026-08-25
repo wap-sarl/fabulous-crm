@@ -20,15 +20,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   toast,
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { CURRENCIES } from '../../../lib/constants';
-import { CompanyPicker } from '../../companies/components/CompanyPicker';
 import { useDealActions } from '../hooks/useDealActions';
 import { usePipelines } from '../hooks/usePipelines';
 import { dealErrorMessage } from '../lib/errors';
@@ -41,8 +36,6 @@ interface DealFormDialogProps {
   defaults?: {
     leadId?: Id<'leads'>;
     leadName?: string;
-    companyId?: Id<'companies'>;
-    companyName?: string;
     pipelineId?: Id<'pipelines'>;
   };
   onCreated?: (dealId: Id<'deals'>) => void;
@@ -57,7 +50,6 @@ interface FormState {
   expectedCloseDate: string;
   ownerId: string;
   leadId: Id<'leads'> | '';
-  companyId: Id<'companies'> | '';
   sourceCampaignId: string;
 }
 
@@ -78,7 +70,6 @@ function initialForm(
       expectedCloseDate: deal.expectedCloseDate ?? '',
       ownerId: deal.ownerId ?? '',
       leadId: deal.leadId ?? '',
-      companyId: deal.companyId ?? '',
       sourceCampaignId: deal.sourceCampaignId ?? '',
     };
   }
@@ -91,7 +82,6 @@ function initialForm(
     expectedCloseDate: '',
     ownerId: '',
     leadId: defaults?.leadId ?? '',
-    companyId: defaults?.companyId ?? '',
     sourceCampaignId: '',
   };
 }
@@ -139,12 +129,6 @@ function DealFormBody({
     ),
   );
   const [submitting, setSubmitting] = useState(false);
-  const [target, setTarget] = useState<'lead' | 'company'>(() =>
-    (deal ? !deal.leadId && !!deal.companyId : !defaults?.leadId && !!defaults?.companyId)
-      ? 'company'
-      : 'lead',
-  );
-  const [leadCompanyName, setLeadCompanyName] = useState<string | null>(null);
 
   const pipeline =
     byId.get(form.pipelineId) ?? (isEdit ? undefined : (defaultPipeline ?? undefined));
@@ -177,7 +161,6 @@ function DealFormBody({
           expectedCloseDate: form.expectedCloseDate || null,
           ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : null,
           leadId: form.leadId || null,
-          companyId: form.companyId || null,
           sourceCampaignId: form.sourceCampaignId
             ? (form.sourceCampaignId as Id<'campaigns'>)
             : null,
@@ -198,7 +181,6 @@ function DealFormBody({
           expectedCloseDate: form.expectedCloseDate || undefined,
           ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : undefined,
           leadId: form.leadId || undefined,
-          companyId: form.companyId || undefined,
           sourceCampaignId: form.sourceCampaignId
             ? (form.sourceCampaignId as Id<'campaigns'>)
             : undefined,
@@ -321,53 +303,15 @@ function DealFormBody({
           />
         </div>
 
-        <div className="space-y-2 sm:col-span-2">
-          <Label>Rattachée à</Label>
-          <Tabs
-            value={target}
-            onValueChange={(v) => {
-              const next = v as 'lead' | 'company';
-              setTarget(next);
-              if (next === 'company') set('leadId', '');
-            }}
-          >
-            <TabsList>
-              <TabsTrigger value="lead" data-testid="deal-target-lead">
-                Lead
-              </TabsTrigger>
-              <TabsTrigger value="company" data-testid="deal-target-company">
-                Entreprise
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="lead" className="pt-2">
-              <LeadPicker
-                value={form.leadId}
-                selectedName={deal?.leadName ?? defaults?.leadName ?? null}
-                onChange={(leadId, companyId, companyName) => {
-                  set('leadId', leadId);
-                  set('companyId', companyId ?? '');
-                  setLeadCompanyName(companyName);
-                }}
-                modal
-              />
-              <HelperText>
-                {form.leadId
-                  ? form.companyId
-                    ? `Entreprise du lead : ${leadCompanyName ?? deal?.companyName ?? defaults?.companyName ?? '—'}.`
-                    : 'Ce lead n’a pas d’entreprise.'
-                  : 'La transaction suit ce lead et son entreprise.'}
-              </HelperText>
-            </TabsContent>
-            <TabsContent value="company" className="pt-2">
-              <CompanyPicker
-                value={form.companyId}
-                selectedName={deal?.companyName ?? defaults?.companyName ?? null}
-                onChange={(v) => set('companyId', v)}
-                modal
-              />
-              <HelperText>Transaction au niveau de l’entreprise, sans lead particulier.</HelperText>
-            </TabsContent>
-          </Tabs>
+        <div className="space-y-1 sm:col-span-2">
+          <Label>Lead</Label>
+          <LeadPicker
+            value={form.leadId}
+            selectedName={deal?.leadName ?? defaults?.leadName ?? null}
+            onChange={(leadId) => set('leadId', leadId)}
+            modal
+          />
+          <HelperText>La transaction apparaît sur la fiche du lead.</HelperText>
         </div>
 
         <div className="space-y-1 sm:col-span-2">

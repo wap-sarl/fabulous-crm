@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
-import { Button, PageHeader, toast } from '@crm/design-system';
+import { Button, ConfirmDialog, PageHeader, toast } from '@crm/design-system';
 import { Plus, Upload, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useEmployees } from '../../lib/hooks/useEmployees';
@@ -69,27 +69,30 @@ export function LeadsPage() {
     setFormOpen(true);
   };
 
-  const handleDelete = async (lead: LeadRow) => {
-    if (!window.confirm(`Supprimer le lead ${lead.firstName} ${lead.lastName} ?`)) return;
+  // What the confirmation dialog is about: one lead, or the whole selection.
+  const [pendingDelete, setPendingDelete] = useState<LeadRow | 'selection' | null>(null);
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
     try {
-      await deleteLead({ leadId: lead._id });
-      toast.success('Lead supprimé.');
+      if (pendingDelete === 'selection') {
+        const count = selectedIds.size;
+        await deleteLeads({ leadIds: [...selectedIds] as Id<'leads'>[] });
+        setSelectedIds(new Set());
+        toast.success(`${count} lead(s) supprimé(s).`);
+      } else {
+        await deleteLead({ leadId: pendingDelete._id });
+        toast.success('Lead supprimé.');
+      }
     } catch {
       toast.error('Échec de la suppression.');
+    } finally {
+      setPendingDelete(null);
     }
   };
-
-  const handleBulkDelete = async () => {
-    const count = selectedIds.size;
-    if (count === 0) return;
-    if (!window.confirm(`Supprimer les ${count} lead(s) sélectionné(s) ?`)) return;
-    try {
-      await deleteLeads({ leadIds: [...selectedIds] as Id<'leads'>[] });
-      setSelectedIds(new Set());
-      toast.success(`${count} lead(s) supprimé(s).`);
-    } catch {
-      toast.error('Échec de la suppression.');
-    }
+  const handleDelete = (lead: LeadRow) => setPendingDelete(lead);
+  const handleBulkDelete = () => {
+    if (selectedIds.size > 0) setPendingDelete('selection');
   };
 
   return (
@@ -172,6 +175,27 @@ export function LeadsPage() {
 
       <LeadFormDialog open={formOpen} onOpenChange={setFormOpen} lead={editingLead} />
       <CsvImportDialog open={importOpen} onOpenChange={setImportOpen} />
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onOpenChange={(open) => !open && setPendingDelete(null)}
+        title={
+          pendingDelete === 'selection'
+            ? `Supprimer ${selectedIds.size} lead(s) ?`
+            : pendingDelete
+              ? `Supprimer ${pendingDelete.firstName} ${pendingDelete.lastName} ?`
+              : ''
+        }
+        description={
+          pendingDelete === 'selection'
+            ? 'Les leads sélectionnés seront retirés du CRM avec leurs notes, activités et historiques.'
+            : 'Le lead sera retiré du CRM avec ses notes, activités et historiques.'
+        }
+        confirmLabel={
+          pendingDelete === 'selection' ? 'Supprimer la sélection' : 'Supprimer le lead'
+        }
+        destructive
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
