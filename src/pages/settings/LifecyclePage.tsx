@@ -16,11 +16,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SortableList,
   Spinner,
   Switch,
   toast,
 } from '@crm/design-system';
-import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 
 /** Derive a stage key from its label: accent-free, lowercase, `_`-joined. */
@@ -87,14 +88,6 @@ export function LifecyclePage() {
       setter(v);
       setDirty(true);
     };
-
-  const move = (index: number, delta: -1 | 1) => {
-    const target = index + delta;
-    if (target < 0 || target >= stages.length) return;
-    const next = [...stages];
-    [next[index], next[target]] = [next[target], next[index]];
-    touch(setStages)(next);
-  };
 
   const rename = (index: number, label: string) =>
     touch(setStages)(stages.map((s, i) => (i === index ? { ...s, label } : s)));
@@ -197,37 +190,25 @@ export function LifecyclePage() {
             L’ordre de la liste est l’ordre de l’entonnoir. Une étape ne peut être supprimée que si
             aucun lead ne s’y trouve.
           </p>
-          <ul className="flex flex-col gap-2">
-            {stages.map((stage, index) => (
-              <li key={stage.key} className="flex items-center gap-2" data-testid="lifecycle-stage">
+          <SortableList
+            items={stages}
+            getId={(stage) => stage.key}
+            onReorder={touch(setStages)}
+            itemClassName="flex items-center gap-2"
+            renderItem={(stage, index, handle) => (
+              <>
+                {handle}
                 <span className="w-6 text-right font-mono text-xs text-faint">{index + 1}</span>
                 <Input
                   value={stage.label}
                   onChange={(e) => rename(index, e.target.value)}
                   aria-label={`Libellé de l’étape ${index + 1}`}
                   className="flex-1"
+                  data-testid="lifecycle-stage"
                 />
                 <span className="w-28 truncate font-mono text-xs text-faint" title={stage.key}>
                   {stage.key}
                 </span>
-                <IconButton
-                  variant="secondary"
-                  size="sm"
-                  aria-label="Monter"
-                  disabled={index === 0}
-                  onClick={() => move(index, -1)}
-                >
-                  <ArrowUp className="size-4" />
-                </IconButton>
-                <IconButton
-                  variant="secondary"
-                  size="sm"
-                  aria-label="Descendre"
-                  disabled={index === stages.length - 1}
-                  onClick={() => move(index, 1)}
-                >
-                  <ArrowDown className="size-4" />
-                </IconButton>
                 <IconButton
                   variant="secondary"
                   size="sm"
@@ -237,9 +218,9 @@ export function LifecyclePage() {
                 >
                   <Trash2 className="size-4" />
                 </IconButton>
-              </li>
-            ))}
-          </ul>
+              </>
+            )}
+          />
           <div className="mt-3 flex items-center gap-2">
             <Input
               value={newLabel}

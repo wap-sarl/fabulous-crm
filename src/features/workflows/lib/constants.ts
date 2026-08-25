@@ -1,6 +1,7 @@
 import type { LucideIcon } from 'lucide-react';
 import {
   Clock,
+  Handshake,
   ListMinus,
   ListPlus,
   Mail,
@@ -9,6 +10,7 @@ import {
   PenLine,
   Split,
   Webhook,
+  KanbanSquare,
 } from 'lucide-react';
 import type {
   WorkflowNode,
@@ -41,7 +43,11 @@ export type TriggerOptionValue =
   | 'sms_delivered'
   | 'sms_reply'
   | 'sms_stop'
-  | 'link_click';
+  | 'link_click'
+  | 'deal_created'
+  | 'deal_stage_changed'
+  | 'deal_won'
+  | 'deal_lost';
 
 export const TRIGGER_GROUPS: {
   label: string;
@@ -88,6 +94,15 @@ export const TRIGGER_GROUPS: {
     label: 'Liens suivis',
     options: [{ value: 'link_click', label: 'Clic sur un lien suivi' }],
   },
+  {
+    label: 'Transactions',
+    options: [
+      { value: 'deal_created', label: 'Transaction créée' },
+      { value: 'deal_stage_changed', label: 'Transaction changée de stade' },
+      { value: 'deal_won', label: 'Transaction gagnée' },
+      { value: 'deal_lost', label: 'Transaction perdue' },
+    ],
+  },
 ];
 
 const TRIGGER_OPTION_LABEL = new Map<TriggerOptionValue, string>(
@@ -109,6 +124,11 @@ export function triggerToOption(trigger: WorkflowTrigger): TriggerOptionValue {
       return SMS_EVENT_TO_OPTION[trigger.event];
     case 'tracked_link_click':
       return 'link_click';
+    case 'deal_created':
+    case 'deal_stage_changed':
+    case 'deal_won':
+    case 'deal_lost':
+      return trigger.type;
   }
 }
 
@@ -139,6 +159,13 @@ export function optionToTrigger(
     prev?.type === 'tracked_link_click'
       ? prev.campaignId
       : undefined;
+  const prevPipelineId =
+    prev?.type === 'deal_created' ||
+    prev?.type === 'deal_stage_changed' ||
+    prev?.type === 'deal_won' ||
+    prev?.type === 'deal_lost'
+      ? prev.pipelineId
+      : undefined;
 
   switch (value) {
     case 'lead_created':
@@ -158,6 +185,16 @@ export function optionToTrigger(
       };
     case 'link_click':
       return { type: 'tracked_link_click', campaignId: prevCampaignId };
+    case 'deal_created':
+    case 'deal_won':
+    case 'deal_lost':
+      return { type: value, pipelineId: prevPipelineId };
+    case 'deal_stage_changed':
+      return {
+        type: 'deal_stage_changed',
+        pipelineId: prevPipelineId,
+        stageKey: prev?.type === 'deal_stage_changed' ? prev.stageKey : undefined,
+      };
     case 'sms_delivered':
     case 'sms_reply':
     case 'sms_stop':
@@ -193,6 +230,10 @@ export const TRIGGER_TYPE_LABEL: Record<WorkflowTriggerType | 'manual' | 'bulk_r
     campaign_email_event: 'Événement e-mail',
     campaign_sms_event: 'Événement SMS',
     tracked_link_click: 'Clic sur un lien suivi',
+    deal_created: 'Transaction créée',
+    deal_stage_changed: 'Transaction changée de stade',
+    deal_won: 'Transaction gagnée',
+    deal_lost: 'Transaction perdue',
     manual: 'Inscription manuelle',
     bulk_reenroll: 'Réinscription en masse',
   };
@@ -206,6 +247,8 @@ export const STEP_TYPES: {
   { type: 'send_sms', label: 'Envoyer un SMS', icon: MessageSquare },
   { type: 'update_property', label: 'Modifier une propriété', icon: PenLine },
   { type: 'set_lifecycle_stage', label: 'Changer l’étape du cycle de vie', icon: Milestone },
+  { type: 'create_deal', label: 'Créer une transaction', icon: Handshake },
+  { type: 'update_deal_stage', label: 'Changer le stade d’une transaction', icon: KanbanSquare },
   { type: 'add_to_list', label: 'Ajouter à une liste', icon: ListPlus },
   { type: 'remove_from_list', label: 'Retirer d’une liste', icon: ListMinus },
   { type: 'wait', label: 'Attendre', icon: Clock },
@@ -274,6 +317,8 @@ export function nodeSummary(
     listNameById: Map<string, string>;
     definitionLabelById: Map<string, string>;
     lifecycleStageLabelByKey: Map<string, string>;
+    pipelineNameById: Map<string, string>;
+    stageLabel: (pipelineId: string | undefined, stageKey: string) => string;
   },
 ): string {
   switch (node.type) {
@@ -292,6 +337,14 @@ export function nodeSummary(
       return node.stage
         ? `Étape : ${ctx.lifecycleStageLabelByKey.get(node.stage) ?? node.stage}`
         : 'Étape à choisir';
+    case 'create_deal':
+      return node.title.trim()
+        ? `${node.title.trim().slice(0, 40)}${node.pipelineId ? ` · ${ctx.pipelineNameById.get(node.pipelineId) ?? 'pipeline'}` : ''}`
+        : 'Intitulé à définir';
+    case 'update_deal_stage':
+      return node.stageKey
+        ? `Stade : ${ctx.stageLabel(node.pipelineId, node.stageKey)}`
+        : 'Stade à choisir';
     case 'add_to_list':
     case 'remove_from_list':
       return node.listId

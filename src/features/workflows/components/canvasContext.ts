@@ -13,6 +13,8 @@ export interface CanvasHandlers {
   listNameById: Map<string, string>;
   definitionLabelById: Map<string, string>;
   lifecycleStageLabelByKey: Map<string, string>;
+  pipelineNameById: Map<string, string>;
+  stageLabel: (pipelineId: string | undefined, stageKey: string) => string;
   readOnly?: boolean;
 }
 

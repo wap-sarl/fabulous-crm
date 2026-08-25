@@ -54,6 +54,14 @@ export const workflowTriggerValidator = v.union(
     campaignId: v.optional(v.id('campaigns')),
     linkKey: v.optional(v.string()),
   }),
+  v.object({ type: v.literal('deal_created'), pipelineId: v.optional(v.id('pipelines')) }),
+  v.object({
+    type: v.literal('deal_stage_changed'),
+    pipelineId: v.optional(v.id('pipelines')),
+    stageKey: v.optional(v.string()),
+  }),
+  v.object({ type: v.literal('deal_won'), pipelineId: v.optional(v.id('pipelines')) }),
+  v.object({ type: v.literal('deal_lost'), pipelineId: v.optional(v.id('pipelines')) }),
 );
 
 /**
@@ -112,6 +120,23 @@ export const workflowNodeValidator = v.union(
     ...nodeBase,
     type: v.literal('set_lifecycle_stage'),
     stage: v.optional(v.string()),
+    next: v.optional(v.string()),
+  }),
+  v.object({
+    ...nodeBase,
+    type: v.literal('create_deal'),
+    pipelineId: v.optional(v.id('pipelines')),
+    stageKey: v.optional(v.string()),
+    title: v.string(),
+    amount: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    next: v.optional(v.string()),
+  }),
+  v.object({
+    ...nodeBase,
+    type: v.literal('update_deal_stage'),
+    pipelineId: v.optional(v.id('pipelines')),
+    stageKey: v.optional(v.string()),
     next: v.optional(v.string()),
   }),
   v.object({

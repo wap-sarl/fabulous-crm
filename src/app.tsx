@@ -31,6 +31,9 @@ import { LeadListsPage } from './pages/settings/LeadListsPage';
 import { LifecyclePage } from './pages/settings/LifecyclePage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
 import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
+import { DealsPage } from './pages/deals/DealsPage';
+import { DealDetailPage } from './pages/deals/DealDetailPage';
+import { PipelinesPage } from './pages/settings/PipelinesPage';
 
 function NotFoundPage() {
   const navigate = useNavigate();
@@ -70,6 +73,8 @@ function AppRoutes() {
             <Route path="/leads/:leadId" element={<LeadDetailPage />} />
             <Route path="/companies" element={<CompaniesPage />} />
             <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
+            <Route path="/deals" element={<DealsPage />} />
+            <Route path="/deals/:dealId" element={<DealDetailPage />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/campaigns/new" element={<CampaignCreatePage />} />
             <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
@@ -83,6 +88,7 @@ function AppRoutes() {
             <Route path="/settings/lead-properties" element={<LeadPropertiesPage />} />
             <Route path="/settings/lists" element={<LeadListsPage />} />
             <Route path="/settings/lifecycle" element={<LifecyclePage />} />
+            <Route path="/settings/pipelines" element={<PipelinesPage />} />
             <Route path="/design-system" element={<DesignSystemPage />} />
           </Route>
         </Route>

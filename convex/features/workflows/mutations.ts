@@ -156,12 +156,18 @@ export const setWorkflowStatus = employeeMutation({
       const listIds = new Set<string>(lists.map((l) => l._id as string));
       const lifecycle = await loadLifecycleConfig(ctx);
       const stageKeys = new Set(lifecycle.stages.map((s) => s.key));
+      const pipelines = new Map(
+        (await ctx.db.query('pipelines').collect())
+          .filter(isNotDeleted)
+          .map((p) => [p._id as string, p]),
+      );
       const error = validateWorkflowGraph(
         workflow.nodes,
         workflow.startNodeId,
         defsById,
         listIds,
         stageKeys,
+        pipelines,
       );
       if (error) throw new Error(error);
     }

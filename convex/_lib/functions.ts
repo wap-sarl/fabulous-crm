@@ -7,6 +7,7 @@ import {
 } from '../_generated/server';
 import { companiesTotal, leadsByCompany } from '../lib/companyAggregates';
 import { companySearchText } from '../lib/companySearch';
+import { dealsByPipelineStatus, dealsByStage } from '../lib/dealAggregates';
 import { leadsByLifecycle, leadsByOwner, leadsByStatus } from '../lib/leadAggregates';
 import { leadSearchText } from '../lib/leadSearch';
 
@@ -19,6 +20,8 @@ triggers.register('leads', leadsByOwner.idempotentTrigger());
 triggers.register('leads', leadsByLifecycle.idempotentTrigger());
 triggers.register('leads', leadsByCompany.idempotentTrigger());
 triggers.register('companies', companiesTotal.idempotentTrigger());
+triggers.register('deals', dealsByStage.idempotentTrigger());
+triggers.register('deals', dealsByPipelineStatus.idempotentTrigger());
 // Keep the denormalized searchText in step with the identity fields (#12).
 // The corrective patch re-fires the triggers once; the values then match and
 // the recursion stops.

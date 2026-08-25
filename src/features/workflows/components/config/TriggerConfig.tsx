@@ -23,6 +23,7 @@ import {
   STANDARD_FILTER_FIELDS,
 } from '../../../leads/lib/advancedFilter';
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
+import { usePipelines } from '../../../deals/hooks/usePipelines';
 import type { LeadPropertyDefinitionRow } from '../../../leads/types';
 import { optionToTrigger, TRIGGER_GROUPS, triggerToOption } from '../../lib/constants';
 
@@ -54,6 +55,7 @@ const decodeField = (key: string): FilterField =>
  */
 export function TriggerConfig({ value, onChange, definitions }: TriggerConfigProps) {
   const lists = useLeadLists();
+  const { pipelines, byId: pipelineById } = usePipelines();
   const campaigns = useAuthQuery(api.features.crm.queries.listCampaigns, {}) ?? [];
   const { trigger } = value;
 
@@ -187,6 +189,65 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
               ))}
             </SelectContent>
           </Select>
+        </div>
+      )}
+
+      {(trigger?.type === 'deal_created' ||
+        trigger?.type === 'deal_stage_changed' ||
+        trigger?.type === 'deal_won' ||
+        trigger?.type === 'deal_lost') && (
+        <div className="space-y-1.5">
+          <Label>Pipeline concerné</Label>
+          <Select
+            value={(trigger.pipelineId as string | undefined) ?? ANY}
+            onValueChange={(v) =>
+              setTrigger({
+                ...trigger,
+                pipelineId: v === ANY ? undefined : (v as never),
+                ...(trigger.type === 'deal_stage_changed' ? { stageKey: undefined } : {}),
+              })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANY}>Tous les pipelines</SelectItem>
+              {pipelines.map((p) => (
+                <SelectItem key={p._id} value={p._id}>
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {trigger.type === 'deal_stage_changed' ? (
+            <>
+              <Label>Stade atteint</Label>
+              <Select
+                value={trigger.stageKey ?? ANY}
+                onValueChange={(v) =>
+                  setTrigger({ ...trigger, stageKey: v === ANY ? undefined : v })
+                }
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ANY}>Tous les stades</SelectItem>
+                  {(trigger.pipelineId
+                    ? (pipelineById.get(trigger.pipelineId)?.stages ?? [])
+                    : pipelines.flatMap((p) => p.stages)
+                  )
+                    .filter((s, i, all) => all.findIndex((o) => o.key === s.key) === i)
+                    .map((s) => (
+                      <SelectItem key={s.key} value={s.key}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </>
+          ) : null}
         </div>
       )}
 

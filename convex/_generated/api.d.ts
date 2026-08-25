@@ -18,6 +18,7 @@ import type * as _lib_validators_auditLogs from "../_lib/validators/auditLogs.js
 import type * as _lib_validators_companies from "../_lib/validators/companies.js";
 import type * as _lib_validators_companyRegistry from "../_lib/validators/companyRegistry.js";
 import type * as _lib_validators_crm from "../_lib/validators/crm.js";
+import type * as _lib_validators_deals from "../_lib/validators/deals.js";
 import type * as _lib_validators_employees from "../_lib/validators/employees.js";
 import type * as _lib_validators_invitations from "../_lib/validators/invitations.js";
 import type * as _lib_validators_leadFilters from "../_lib/validators/leadFilters.js";
@@ -43,6 +44,8 @@ import type * as features_crm_leadTableFilters from "../features/crm/leadTableFi
 import type * as features_crm_leadTargets from "../features/crm/leadTargets.js";
 import type * as features_crm_mutations from "../features/crm/mutations.js";
 import type * as features_crm_queries from "../features/crm/queries.js";
+import type * as features_deals_mutations from "../features/deals/mutations.js";
+import type * as features_deals_queries from "../features/deals/queries.js";
 import type * as features_email_actions from "../features/email/actions.js";
 import type * as features_email_send from "../features/email/send.js";
 import type * as features_invitations_internal from "../features/invitations/internal.js";
@@ -68,6 +71,8 @@ import type * as lib_companyDomains from "../lib/companyDomains.js";
 import type * as lib_companySearch from "../lib/companySearch.js";
 import type * as lib_crypto from "../lib/crypto.js";
 import type * as lib_dbHelpers from "../lib/dbHelpers.js";
+import type * as lib_dealAggregates from "../lib/dealAggregates.js";
+import type * as lib_deals from "../lib/deals.js";
 import type * as lib_devWhitelist from "../lib/devWhitelist.js";
 import type * as lib_emailProvider from "../lib/emailProvider.js";
 import type * as lib_emailUtils from "../lib/emailUtils.js";
@@ -106,6 +111,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/companies": typeof _lib_validators_companies;
   "_lib/validators/companyRegistry": typeof _lib_validators_companyRegistry;
   "_lib/validators/crm": typeof _lib_validators_crm;
+  "_lib/validators/deals": typeof _lib_validators_deals;
   "_lib/validators/employees": typeof _lib_validators_employees;
   "_lib/validators/invitations": typeof _lib_validators_invitations;
   "_lib/validators/leadFilters": typeof _lib_validators_leadFilters;
@@ -131,6 +137,8 @@ declare const fullApi: ApiFromModules<{
   "features/crm/leadTargets": typeof features_crm_leadTargets;
   "features/crm/mutations": typeof features_crm_mutations;
   "features/crm/queries": typeof features_crm_queries;
+  "features/deals/mutations": typeof features_deals_mutations;
+  "features/deals/queries": typeof features_deals_queries;
   "features/email/actions": typeof features_email_actions;
   "features/email/send": typeof features_email_send;
   "features/invitations/internal": typeof features_invitations_internal;
@@ -156,6 +164,8 @@ declare const fullApi: ApiFromModules<{
   "lib/companySearch": typeof lib_companySearch;
   "lib/crypto": typeof lib_crypto;
   "lib/dbHelpers": typeof lib_dbHelpers;
+  "lib/dealAggregates": typeof lib_dealAggregates;
+  "lib/deals": typeof lib_deals;
   "lib/devWhitelist": typeof lib_devWhitelist;
   "lib/emailProvider": typeof lib_emailProvider;
   "lib/emailUtils": typeof lib_emailUtils;
@@ -212,5 +222,7 @@ export declare const components: {
   leadsByLifecycle: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByLifecycle">;
   companiesTotal: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"companiesTotal">;
   leadsByCompany: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByCompany">;
+  dealsByStage: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByStage">;
+  dealsByPipelineStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByPipelineStatus">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

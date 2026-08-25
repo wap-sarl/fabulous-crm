@@ -129,6 +129,28 @@ export const listLeadsPaginated = employeeQuery({
   },
 });
 
+export const searchLeads = employeeQuery({
+  args: { search: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const term = args.search ? normalizeSearchText(args.search) : '';
+    const rows = term
+      ? await ctx.db
+          .query('leads')
+          .withSearchIndex('by_searchText', (q) => q.search('searchText', term))
+          .take(20)
+      : await ctx.db.query('leads').order('desc').take(20);
+    return rows
+      .filter(isNotDeleted)
+      .slice(0, 10)
+      .map((l) => ({
+        _id: l._id,
+        name: `${l.firstName} ${l.lastName}`,
+        email: l.email ?? null,
+        companyId: l.companyId ?? null,
+      }));
+  },
+});
+
 export const getLead = employeeQuery({
   args: { leadId: v.id('leads') },
   handler: async (ctx, args) => {

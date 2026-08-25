@@ -28,6 +28,7 @@ import { LeadNotes } from '../../features/leads/components/LeadNotes';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { LeadLifecycleCard } from '../../features/leads/components/LeadLifecycleCard';
+import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { formatPropertyValue, hasPropertyValue } from '../../features/leads/lib/customProperties';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
@@ -161,6 +162,13 @@ export function LeadDetailPage() {
         {/* Aside column */}
         <div className="flex flex-col gap-5">
           <LeadLifecycleCard leadId={lead._id} currentStage={lead.lifecycleStage} />
+
+          <EntityDealsCard
+            leadId={lead._id}
+            leadName={fullName}
+            companyId={company?._id}
+            companyName={company?.name}
+          />
 
           <LeadNotes leadId={lead._id} />
 

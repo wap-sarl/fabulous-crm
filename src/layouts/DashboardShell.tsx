@@ -1,6 +1,14 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { UsersRound, Palette, SlidersHorizontal, ListChecks, Mail, Milestone } from 'lucide-react';
+import {
+  UsersRound,
+  Palette,
+  SlidersHorizontal,
+  ListChecks,
+  Mail,
+  Milestone,
+  KanbanSquare,
+} from 'lucide-react';
 import { DashboardLayout, useAuth, type NavItem } from '@crm/widgets';
 import { NAV_ITEMS } from '../lib/navigation';
 
@@ -29,6 +37,13 @@ const LIFECYCLE_NAV_ITEM: NavItem = {
   label: 'Cycle de vie',
   icon: <Milestone />,
   path: '/settings/lifecycle',
+  position: 'bottom',
+};
+
+const PIPELINES_NAV_ITEM: NavItem = {
+  label: 'Pipelines',
+  icon: <KanbanSquare />,
+  path: '/settings/pipelines',
   position: 'bottom',
 };
 
@@ -76,6 +91,7 @@ export function DashboardShell() {
           EMAIL_NAV_ITEM,
           PROPERTIES_NAV_ITEM,
           LIFECYCLE_NAV_ITEM,
+          PIPELINES_NAV_ITEM,
         ]
       : [...NAV_ITEMS, LISTS_NAV_ITEM];
 

@@ -27,6 +27,15 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   du pays en dessous. Le **numéro de TVA** des entreprises est
   validé par pays (format + clé via `jsvat`) et vérifié en direct dans VIES
   pour l'UE.
+- **Transactions et pipelines** : transactions (montant, devise, date de
+  clôture, propriétaire, lead, entreprise, campagne d'origine) dans des
+  pipelines configurables (*Paramètres → Pipelines* : stades ordonnés,
+  stades gagné/perdu, plusieurs pipelines). Vue Kanban
+  (glisser-déposer) et vue liste ; historique des stades (`dealStageHistory`) ;
+  compteurs et montants par stade via agrégats. Déclencheurs de workflow
+  `deal_created` / `deal_stage_changed` / `deal_won` / `deal_lost` et étapes
+  « Créer une transaction » / « Changer le stade d'une transaction ». Une transaction
+  gagnée fait passer son lead à l'étape de cycle de vie « Client ».
 - **Cycle de vie** : étape d'entonnoir par lead (`lifecycleStage`, abonné → lead → MQL → SQL → opportunité → client → ambassadeur),
   configurable dans *Paramètres → Cycle de vie* (étapes, étape par défaut,
   interdiction du retour en arrière). Chaque changement est journalisé dans

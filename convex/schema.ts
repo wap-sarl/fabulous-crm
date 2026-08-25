@@ -16,6 +16,11 @@ import { invitationValidator } from './_lib/validators/invitations';
 import { lifecycleStageHistoryValidator } from './_lib/validators/lifecycle';
 import { companyValidator } from './_lib/validators/companies';
 import {
+  dealStageHistoryValidator,
+  dealValidator,
+  pipelineValidator,
+} from './_lib/validators/deals';
+import {
   workflowValidator,
   workflowRunValidator,
   workflowRunStepValidator,
@@ -48,6 +53,21 @@ export type { AuditLog, AuditLogEntityType, AuditLogAction } from './_lib/valida
 
 export type { Company } from './_lib/validators/companies';
 export { companyValidator } from './_lib/validators/companies';
+
+export type {
+  Deal,
+  DealStatus,
+  Pipeline,
+  PipelineStage,
+  DealStageHistory,
+} from './_lib/validators/deals';
+export {
+  dealValidator,
+  dealStatusValidator,
+  pipelineValidator,
+  pipelineStageValidator,
+  dealStageHistoryValidator,
+} from './_lib/validators/deals';
 
 export type {
   Lead,
@@ -180,6 +200,17 @@ export default defineSchema({
     .index('by_vatNumber', ['vatNumber'])
     .index('by_name', ['name'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
+
+  pipelines: defineTable(pipelineValidator),
+
+  deals: defineTable(dealValidator)
+    .index('by_pipeline_stage', ['pipelineId', 'stageKey'])
+    .index('by_pipeline_status', ['pipelineId', 'status'])
+    .index('by_lead', ['leadId'])
+    .index('by_company', ['companyId'])
+    .index('by_owner', ['ownerId']),
+
+  dealStageHistory: defineTable(dealStageHistoryValidator).index('by_deal', ['dealId']),
 
   // Admin-defined custom property definitions for leads. Small, soft-deletable,
   // ordered table read in full (collect + isNotDeleted + sortByOrder) — no index.

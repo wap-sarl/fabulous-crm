@@ -133,6 +133,8 @@ export type { StatCardProps } from './components/data-display/stat-card';
 export { KeyValueList, KeyValueRow } from './components/data-display/key-value-list';
 export type { KeyValueRowProps } from './components/data-display/key-value-list';
 export { FunnelBar } from './components/data-display/funnel-bar';
+export { SortableList } from './components/data-display/sortable-list';
+export type { SortableListProps } from './components/data-display/sortable-list';
 export type { FunnelBarProps } from './components/data-display/funnel-bar';
 export { Sparkline } from './components/data-display/sparkline';
 export type { SparklineProps } from './components/data-display/sparkline';

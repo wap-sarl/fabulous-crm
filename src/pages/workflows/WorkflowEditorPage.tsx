@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id, WorkflowNode } from '@crm/lib/backend';
@@ -21,6 +21,7 @@ import { usePageTitle } from '../../layouts/DashboardShell';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
 import { useLeadLists } from '../../features/leads/hooks/useLeadLists';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
+import { usePipelines } from '../../features/deals/hooks/usePipelines';
 import { useWorkflowDraft, subtreeIds } from '../../features/workflows/hooks/useWorkflowDraft';
 import { draftFromWorkflow, draftToPayload, type InsertSlot } from '../../features/workflows/types';
 import { WorkflowCanvas } from '../../features/workflows/components/WorkflowCanvas';
@@ -103,6 +104,22 @@ export function WorkflowEditorPage() {
   const lifecycleStageLabelByKey = useMemo(
     () => new Map(lifecycle.stages.map((s) => [s.key, s.label])),
     [lifecycle.stages],
+  );
+  const { pipelines, stageLabel: pipelineStageLabel } = usePipelines();
+  const pipelineNameById = useMemo(
+    () => new Map(pipelines.map((p) => [p._id as string, p.name])),
+    [pipelines],
+  );
+  const stageLabel = useCallback(
+    (pipelineId: string | undefined, stageKey: string) => {
+      if (pipelineId) return pipelineStageLabel(pipelineId, stageKey);
+      for (const p of pipelines) {
+        const stage = p.stages.find((s) => s.key === stageKey);
+        if (stage) return stage.label;
+      }
+      return stageKey;
+    },
+    [pipelines, pipelineStageLabel],
   );
 
   const selection: PanelSelection = useMemo(() => {
@@ -310,6 +327,8 @@ export function WorkflowEditorPage() {
           listNameById,
           definitionLabelById,
           lifecycleStageLabelByKey,
+          pipelineNameById,
+          stageLabel,
           readOnly,
         }}
       />

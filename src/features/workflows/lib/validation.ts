@@ -46,6 +46,14 @@ export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
       case 'set_lifecycle_stage':
         if (!node.stage) push('choisissez une étape.');
         break;
+      case 'create_deal':
+        if (!node.title.trim()) push('l’intitulé est requis.');
+        else if (node.amount !== undefined && (!Number.isFinite(node.amount) || node.amount < 0))
+          push('montant invalide.');
+        break;
+      case 'update_deal_stage':
+        if (!node.stageKey) push('choisissez un stade.');
+        break;
       case 'add_to_list':
       case 'remove_from_list':
         if (!node.listId) push('choisissez une liste.');
