@@ -20,6 +20,10 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   toast,
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
@@ -135,6 +139,12 @@ function DealFormBody({
     ),
   );
   const [submitting, setSubmitting] = useState(false);
+  const [target, setTarget] = useState<'lead' | 'company'>(() =>
+    (deal ? !deal.leadId && !!deal.companyId : !defaults?.leadId && !!defaults?.companyId)
+      ? 'company'
+      : 'lead',
+  );
+  const [leadCompanyName, setLeadCompanyName] = useState<string | null>(null);
 
   const pipeline =
     byId.get(form.pipelineId) ?? (isEdit ? undefined : (defaultPipeline ?? undefined));
@@ -311,26 +321,53 @@ function DealFormBody({
           />
         </div>
 
-        <div className="space-y-1">
-          <Label>Lead</Label>
-          <LeadPicker
-            value={form.leadId}
-            selectedName={deal?.leadName ?? defaults?.leadName ?? null}
-            onChange={(leadId, companyId) => {
-              set('leadId', leadId);
-              if (companyId && !form.companyId) set('companyId', companyId);
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Rattachée à</Label>
+          <Tabs
+            value={target}
+            onValueChange={(v) => {
+              const next = v as 'lead' | 'company';
+              setTarget(next);
+              if (next === 'company') set('leadId', '');
             }}
-            modal
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Entreprise</Label>
-          <CompanyPicker
-            value={form.companyId}
-            selectedName={deal?.companyName ?? defaults?.companyName ?? null}
-            onChange={(v) => set('companyId', v)}
-            modal
-          />
+          >
+            <TabsList>
+              <TabsTrigger value="lead" data-testid="deal-target-lead">
+                Lead
+              </TabsTrigger>
+              <TabsTrigger value="company" data-testid="deal-target-company">
+                Entreprise
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="lead" className="pt-2">
+              <LeadPicker
+                value={form.leadId}
+                selectedName={deal?.leadName ?? defaults?.leadName ?? null}
+                onChange={(leadId, companyId, companyName) => {
+                  set('leadId', leadId);
+                  set('companyId', companyId ?? '');
+                  setLeadCompanyName(companyName);
+                }}
+                modal
+              />
+              <HelperText>
+                {form.leadId
+                  ? form.companyId
+                    ? `Entreprise du lead : ${leadCompanyName ?? deal?.companyName ?? defaults?.companyName ?? '—'}.`
+                    : 'Ce lead n’a pas d’entreprise.'
+                  : 'La transaction suit ce lead et son entreprise.'}
+              </HelperText>
+            </TabsContent>
+            <TabsContent value="company" className="pt-2">
+              <CompanyPicker
+                value={form.companyId}
+                selectedName={deal?.companyName ?? defaults?.companyName ?? null}
+                onChange={(v) => set('companyId', v)}
+                modal
+              />
+              <HelperText>Transaction au niveau de l’entreprise, sans lead particulier.</HelperText>
+            </TabsContent>
+          </Tabs>
         </div>
 
         <div className="space-y-1 sm:col-span-2">

@@ -104,6 +104,8 @@ export {
   DialogDescription,
 } from './components/feedback/dialog';
 export { Progress } from './components/feedback/progress';
+export { ConfirmDialog } from './components/feedback/confirm-dialog';
+export type { ConfirmDialogProps } from './components/feedback/confirm-dialog';
 export { Skeleton } from './components/feedback/skeleton';
 export { Toaster, toast } from './components/feedback/sonner';
 export { Spinner } from './components/feedback/spinner';

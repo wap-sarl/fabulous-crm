@@ -10,6 +10,13 @@ import { useAuthQuery } from '@crm/widgets';
 import {
   Button,
   Card,
+  ConfirmDialog,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  HelperText,
   IconButton,
   Input,
   Label,
@@ -57,6 +64,7 @@ function PipelineEditor({
   const [newLabel, setNewLabel] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const countOf = (key: string) => stats?.stages.find((s) => s.key === key)?.count ?? 0;
   const openCount = stages.filter((s) => s.kind === 'open').length;
 
@@ -109,15 +117,16 @@ function PipelineEditor({
     }
   };
   const remove = async () => {
-    if (!window.confirm(`Supprimer le pipeline « ${pipeline.name} » ?`)) return;
     try {
       await deletePipeline({ pipelineId: pipeline._id });
       toast.success('Pipeline supprimé.');
       onDeleted();
     } catch (e) {
       toast.error(dealErrorMessage(e, 'Échec de la suppression.'));
+      setDeleteOpen(false);
     }
   };
+  const total = stats ? stats.open.count + stats.won.count + stats.lost.count : 0;
 
   return (
     <Card className="flex flex-col gap-4 p-5" data-testid="pipeline-editor">
@@ -151,9 +160,26 @@ function PipelineEditor({
         <Button onClick={save} loading={saving} disabled={!dirty}>
           Enregistrer
         </Button>
-        <IconButton variant="secondary" aria-label="Supprimer le pipeline" onClick={remove}>
+        <IconButton
+          variant="secondary"
+          aria-label="Supprimer le pipeline"
+          onClick={() => setDeleteOpen(true)}
+        >
           <Trash2 className="size-4" />
         </IconButton>
+        <ConfirmDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title={`Supprimer le pipeline « ${pipeline.name} » ?`}
+          description={
+            total > 0
+              ? `Ce pipeline contient ${total} transaction(s) : déplacez-les ou supprimez-les d’abord.`
+              : 'Ses stades disparaissent ; cette action est irréversible.'
+          }
+          confirmLabel="Supprimer le pipeline"
+          destructive
+          onConfirm={remove}
+        />
       </div>
 
       {stats ? (
@@ -231,14 +257,21 @@ export function PipelinesPage() {
   const { pipelines, isLoading } = usePipelines();
   const { createPipeline } = useDealActions();
   const [creating, setCreating] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newName, setNewName] = useState('');
 
   const create = async () => {
-    const name = window.prompt('Nom du nouveau pipeline');
-    if (!name?.trim()) return;
+    const name = newName.trim();
+    if (!name) {
+      toast.error('Le nom du pipeline est requis.');
+      return;
+    }
     setCreating(true);
     try {
       await createPipeline({ name, stages: [...DEFAULT_PIPELINE_STAGES] });
       toast.success('Pipeline créé.');
+      setCreateOpen(false);
+      setNewName('');
     } catch (e) {
       toast.error(dealErrorMessage(e, 'Échec de la création.'));
     } finally {
@@ -252,12 +285,46 @@ export function PipelinesPage() {
         title="Pipelines"
         subtitle="Stades des transactions (les stades gagnée / perdue terminent chaque pipeline) et pipeline par défaut"
         actions={
-          <Button onClick={create} loading={creating} data-testid="new-pipeline">
+          <Button onClick={() => setCreateOpen(true)} data-testid="new-pipeline">
             <Plus className="size-4" />
             Nouveau pipeline
           </Button>
         }
       />
+      <Dialog open={createOpen} onOpenChange={(o) => !creating && setCreateOpen(o)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nouveau pipeline</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="new-pipeline-name">Nom</Label>
+            <Input
+              id="new-pipeline-name"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  void create();
+                }
+              }}
+              placeholder="Pipeline partenaires"
+              autoFocus
+            />
+            <HelperText>
+              Le pipeline démarre avec les stades standard, modifiables ensuite.
+            </HelperText>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setCreateOpen(false)} disabled={creating}>
+              Annuler
+            </Button>
+            <Button onClick={create} loading={creating} data-testid="create-pipeline">
+              Créer
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <div className="mt-6 flex flex-col gap-5">
         {isLoading ? (
           <Spinner size="sm" />

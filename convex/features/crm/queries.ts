@@ -139,15 +139,27 @@ export const searchLeads = employeeQuery({
           .withSearchIndex('by_searchText', (q) => q.search('searchText', term))
           .take(20)
       : await ctx.db.query('leads').order('desc').take(20);
-    return rows
-      .filter(isNotDeleted)
-      .slice(0, 10)
-      .map((l) => ({
+    const leads = rows.filter(isNotDeleted).slice(0, 10);
+    const companyNames = new Map<string, string | null>();
+    const out = [];
+    for (const l of leads) {
+      let companyName: string | null = null;
+      if (l.companyId) {
+        if (!companyNames.has(l.companyId)) {
+          const company = await ctx.db.get(l.companyId);
+          companyNames.set(l.companyId, company && isNotDeleted(company) ? company.name : null);
+        }
+        companyName = companyNames.get(l.companyId) ?? null;
+      }
+      out.push({
         _id: l._id,
         name: `${l.firstName} ${l.lastName}`,
         email: l.email ?? null,
         companyId: l.companyId ?? null,
-      }));
+        companyName,
+      });
+    }
+    return out;
   },
 });
 

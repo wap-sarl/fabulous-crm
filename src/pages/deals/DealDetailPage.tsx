@@ -6,6 +6,7 @@ import type { Id, PipelineStage } from '@crm/lib/backend';
 import {
   Button,
   Card,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -102,6 +103,7 @@ export function DealDetailPage() {
   const { moveDealStage, deleteDeal } = useDealActions();
   const [editOpen, setEditOpen] = useState(false);
   const [lossStage, setLossStage] = useState<PipelineStage | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (data === undefined) {
     return (
@@ -129,13 +131,13 @@ export function DealDetailPage() {
     else void move(stage);
   };
   const handleDelete = async () => {
-    if (!window.confirm(`Supprimer la transaction « ${deal.title} » ?`)) return;
     try {
       await deleteDeal({ dealId: deal._id });
       toast.success('Transaction supprimée.');
-      navigate('/deals');
+      navigate(`/deals?pipeline=${deal.pipelineId}`);
     } catch (e) {
       toast.error(dealErrorMessage(e, 'Échec de la suppression.'));
+      setDeleteOpen(false);
     }
   };
 
@@ -161,7 +163,12 @@ export function DealDetailPage() {
               <Pencil className="h-4 w-4" />
               Modifier
             </Button>
-            <Button variant="ghost" onClick={handleDelete} aria-label="Supprimer la transaction">
+            <Button
+              variant="ghost"
+              onClick={() => setDeleteOpen(true)}
+              aria-label="Supprimer la transaction"
+              data-testid="delete-deal"
+            >
               <Trash2 className="h-4 w-4" />
             </Button>
           </>
@@ -302,6 +309,17 @@ export function DealDetailPage() {
       </div>
 
       <DealFormDialog open={editOpen} onOpenChange={setEditOpen} deal={deal} />
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Supprimer « ${deal.title} » ?`}
+        description={`La transaction${
+          deal.amount !== undefined ? ` de ${formatMoney(deal.amount, deal.currency)}` : ''
+        } et son historique de stades seront supprimés. Cette action est irréversible.`}
+        confirmLabel="Supprimer la transaction"
+        destructive
+        onConfirm={handleDelete}
+      />
       {lossStage ? (
         <LossReasonDialog
           stage={lossStage}

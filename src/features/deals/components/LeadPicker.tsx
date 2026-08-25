@@ -6,7 +6,11 @@ import { Combobox } from '@crm/design-system';
 
 interface LeadPickerProps {
   value: Id<'leads'> | '';
-  onChange: (value: Id<'leads'> | '', companyId: Id<'companies'> | null) => void;
+  onChange: (
+    value: Id<'leads'> | '',
+    companyId: Id<'companies'> | null,
+    companyName: string | null,
+  ) => void;
   selectedName?: string | null;
   disabled?: boolean;
   modal?: boolean;
@@ -35,7 +39,7 @@ export function LeadPicker({ value, onChange, selectedName, disabled, modal }: L
       value={value}
       onValueChange={(v) => {
         const lead = (results ?? []).find((l) => l._id === v);
-        onChange(v as Id<'leads'> | '', lead?.companyId ?? null);
+        onChange(v as Id<'leads'> | '', lead?.companyId ?? null, lead?.companyName ?? null);
       }}
       onSearch={setSearch}
       placeholder="Aucun lead"
