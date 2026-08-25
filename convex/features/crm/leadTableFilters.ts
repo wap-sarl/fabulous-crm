@@ -16,6 +16,8 @@ export const leadFilterArgs = {
   statuses: v.optional(v.array(leadStatusValidator)),
   // Lifecycle stage keys (appConfig.lifecycle); OR within the filter.
   lifecycleStages: v.optional(v.array(v.string())),
+  // Companies a lead must belong to one of (OR within the filter).
+  companyIds: v.optional(v.array(v.id('companies'))),
   assignedToIds: v.optional(v.array(v.id('users'))),
   isRedFlagged: v.optional(v.boolean()),
   // Custom-property filters: definitionId -> allowed values. A lead matches a
@@ -35,6 +37,7 @@ export type LeadFilters = {
   search?: string;
   statuses?: Doc<'leads'>['status'][];
   lifecycleStages?: string[];
+  companyIds?: Id<'companies'>[];
   assignedToIds?: Doc<'leads'>['assignedTo'][];
   isRedFlagged?: boolean;
   customProperties?: Record<string, LeadPropertyValue[]>;
@@ -103,6 +106,10 @@ export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): bo
     if (!lead.lifecycleStage || !filters.lifecycleStages.includes(lead.lifecycleStage)) {
       return false;
     }
+  }
+
+  if (filters.companyIds && filters.companyIds.length > 0) {
+    if (!lead.companyId || !filters.companyIds.includes(lead.companyId)) return false;
   }
 
   if (filters.assignedToIds && filters.assignedToIds.length > 0) {

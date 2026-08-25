@@ -30,6 +30,8 @@ import { LEAD_STATUSES } from '../../../lib/constants';
 import { useLeadActions } from '../hooks/useLeadActions';
 import { useLeadPropertyDefinitions } from '../hooks/useLeadPropertyDefinitions';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
+import { CompanyPicker } from '../../companies/components/CompanyPicker';
+import { HelperText } from '@crm/design-system';
 import { validateLeadPropertyValue } from '../lib/customProperties';
 import { LeadCustomPropertyFields } from './LeadCustomPropertyFields';
 import type { LeadRow } from '../types';
@@ -48,6 +50,8 @@ interface FormState {
   status: LeadStatus;
   /** '' = the configured default stage (create only). */
   lifecycleStage: string;
+  /** '' = none; on create the server may still match one from the email domain. */
+  companyId: Id<'companies'> | '';
   assignedTo: string;
   isRedFlagged: boolean;
   comment: string;
@@ -71,6 +75,7 @@ function emptyForm(): FormState {
     phone: '',
     status: 'nouveau',
     lifecycleStage: '',
+    companyId: '',
     assignedTo: '',
     isRedFlagged: false,
     comment: '',
@@ -87,6 +92,7 @@ function fromLead(lead: LeadRow): FormState {
     phone: lead.phone ?? '',
     status: lead.status,
     lifecycleStage: lead.lifecycleStage ?? '',
+    companyId: lead.companyId ?? '',
     assignedTo: lead.assignedTo ?? '',
     isRedFlagged: lead.isRedFlagged,
     comment: lead.comment ?? '',
@@ -174,10 +180,10 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     setSubmitting(true);
     try {
       if (isEdit && lead) {
-        await updateLead({ leadId: lead._id, ...payload });
+        await updateLead({ leadId: lead._id, ...payload, companyId: form.companyId || null });
         toast.success('Lead mis à jour.');
       } else {
-        await createLead(payload);
+        await createLead({ ...payload, companyId: form.companyId || undefined });
         toast.success('Lead créé.');
       }
       onOpenChange(false);
@@ -275,6 +281,20 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label>Entreprise</Label>
+            <CompanyPicker
+              value={form.companyId}
+              onChange={(v) => setField('companyId', v)}
+              selectedName={lead?.companyName ?? null}
+              modal
+            />
+            {!isEdit && !form.companyId ? (
+              <HelperText>
+                Laissez vide pour rattacher automatiquement l’entreprise du domaine de l’e-mail.
+              </HelperText>
+            ) : null}
           </div>
           <div className="space-y-1">
             <Label>Assigné à</Label>

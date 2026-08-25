@@ -11,6 +11,8 @@ export interface LeadFilters {
   statuses: LeadStatus[];
   /** Lifecycle stage keys (appConfig.lifecycle); a lead matches any (OR). */
   lifecycleStages: string[];
+  /** Companies a lead must belong to one of (OR). URL param `company`. */
+  companyIds: Id<'companies'>[];
   assignedToIds: Id<'users'>[];
   /** Lead lists to filter by; a lead matches if it belongs to any (OR). */
   listIds: Id<'leadLists'>[];
@@ -72,6 +74,7 @@ export function useLeadFilters() {
       search: searchParams.get('q') ?? '',
       statuses: rawStatuses,
       lifecycleStages: csv(searchParams.get('lifecycle')),
+      companyIds: csv(searchParams.get('company')) as Id<'companies'>[],
       assignedToIds: csv(searchParams.get('assigned')) as Id<'users'>[],
       listIds: csv(searchParams.get('lists')) as Id<'leadLists'>[],
       flagged: flaggedParam === 'true' ? true : flaggedParam === 'false' ? false : undefined,

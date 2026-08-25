@@ -2,6 +2,7 @@ import { type Infer, v } from 'convex/values';
 
 export const auditLogEntityTypeValidator = v.union(
   v.literal('lead'),
+  v.literal('company'),
   v.literal('employee'),
   v.literal('campaign'),
   v.literal('appConfig'),

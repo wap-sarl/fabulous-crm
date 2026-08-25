@@ -53,6 +53,7 @@ export const leadValidator = v.object({
 
   comment: v.optional(v.string()),
   assignedTo: v.optional(v.id('users')),
+  companyId: v.optional(v.id('companies')),
 
   isRedFlagged: v.boolean(),
   status: leadStatusValidator,

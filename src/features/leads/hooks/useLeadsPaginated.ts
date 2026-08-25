@@ -23,6 +23,7 @@ export function toFilterArgs(filters: LeadFilters) {
     search: filters.search || undefined,
     statuses: filters.statuses.length > 0 ? filters.statuses : undefined,
     lifecycleStages: filters.lifecycleStages.length > 0 ? filters.lifecycleStages : undefined,
+    companyIds: filters.companyIds.length > 0 ? filters.companyIds : undefined,
     assignedToIds: filters.assignedToIds.length > 0 ? filters.assignedToIds : undefined,
     listIds: filters.listIds.length > 0 ? filters.listIds : undefined,
     isRedFlagged: filters.flagged,

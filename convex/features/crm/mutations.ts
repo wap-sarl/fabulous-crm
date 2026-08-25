@@ -47,6 +47,7 @@ import {
   type LifecycleTransition,
 } from '../../lib/lifecycle';
 import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators/lifecycle';
+import { resolveCompanyForLead } from '../../lib/companies';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 
@@ -194,7 +195,22 @@ const leadRowArgs = {
   status: v.optional(leadStatusValidator),
   // A stage key from appConfig.lifecycle; defaults to the configured stage.
   lifecycleStage: v.optional(v.string()),
+  companyId: v.optional(v.id('companies')),
+  company: v.optional(
+    v.object({
+      name: v.optional(v.string()),
+      country: v.optional(v.string()),
+      registrationNumber: v.optional(v.string()),
+      domain: v.optional(v.string()),
+    }),
+  ),
 } as const;
+
+/** A live company id, or throw — an explicit pick that no longer exists is a form bug. */
+async function requireCompany(ctx: MutationCtx, companyId: Id<'companies'>): Promise<void> {
+  const company = await ctx.db.get(companyId);
+  if (!company || company.deletedAt != null) throw new Error('company_not_found');
+}
 
 function initialLifecycleStage(config: LifecycleConfig, requested: string | undefined): string {
   if (requested === undefined) return config.defaultStage;
@@ -217,11 +233,17 @@ export const createLead = employeeMutation({
     const customProperties = await sanitizeCustomProperties(ctx, args.customProperties);
     const lifecycle = await loadLifecycleConfig(ctx);
     const lifecycleStage = initialLifecycleStage(lifecycle, args.lifecycleStage);
+    const email = normalizeEmail(args.email);
+    let companyId = args.companyId;
+    if (companyId) await requireCompany(ctx, companyId);
+    else
+      companyId =
+        (await resolveCompanyForLead(ctx, args.company ?? {}, email, ctx.userId)) ?? undefined;
 
     const leadId = await ctx.db.insert('leads', {
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
-      email: normalizeEmail(args.email),
+      email,
       phone: args.phone?.trim() || undefined,
       address: args.address,
       // Consent starts empty; only the lead can grant it via the public link.
@@ -229,6 +251,7 @@ export const createLead = employeeMutation({
       consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
       comment: args.comment,
       assignedTo: args.assignedTo,
+      companyId,
       isRedFlagged: args.isRedFlagged ?? false,
       status: args.status ?? 'nouveau',
       lifecycleStage,
@@ -271,12 +294,13 @@ export const updateLead = employeeMutation({
     // Checked against the configured stages and the regression rule; a blocked
     // regression fails the whole update with `lifecycle_regression_blocked`.
     lifecycleStage: v.optional(v.string()),
+    companyId: v.optional(v.union(v.id('companies'), v.null())),
     customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
   },
   handler: async (ctx, args) => {
     // Marketing consent is deliberately not an accepted field — it is RGPD data
     // the lead controls, changeable only via the public consent link.
-    const { leadId, email, customProperties, lifecycleStage, ...rest } = args;
+    const { leadId, email, customProperties, lifecycleStage, companyId, ...rest } = args;
     const lead = await ctx.db.get(leadId);
     if (!lead || lead.deletedAt != null) {
       throw new Error('lead_not_found');
@@ -285,6 +309,20 @@ export const updateLead = employeeMutation({
     const updates: Record<string, unknown> = { ...rest };
     if (email !== undefined) {
       updates.email = normalizeEmail(email);
+    }
+    if (companyId !== undefined) {
+      if (companyId) await requireCompany(ctx, companyId);
+      // filterUndefined keeps null; patching null clears the field below.
+      updates.companyId = companyId;
+    } else if (!lead.companyId && email !== undefined && updates.email !== lead.email) {
+      // A new business email on a company-less lead: match like at creation.
+      const matched = await resolveCompanyForLead(
+        ctx,
+        {},
+        updates.email as string | undefined,
+        ctx.userId,
+      );
+      if (matched) updates.companyId = matched;
     }
     if (customProperties !== undefined) {
       // Whole-record replace; computeChanges JSON-compares so the audit diff works.
@@ -302,7 +340,12 @@ export const updateLead = employeeMutation({
 
     const filtered = filterUndefined(updates);
     const changes = computeChanges(lead, filtered);
-    await ctx.db.patch(leadId, { ...filtered, ...updateAuditFields(ctx.userId) });
+    await ctx.db.patch(leadId, {
+      ...filtered,
+      // `companyId: null` (detach) must reach the patch as undefined to remove the field.
+      ...(filtered.companyId === null ? { companyId: undefined } : {}),
+      ...updateAuditFields(ctx.userId),
+    });
     if (lifecycleChange) {
       await insertLifecycleHistory(ctx, leadId, lifecycleChange, {
         source: 'manual',
@@ -412,6 +455,8 @@ export const importLeads = employeeMutation({
     // Active workflows, loaded once for every trigger dispatch in the loop.
     const activeWorkflows = await loadActiveWorkflows(ctx);
     const lifecycle = await loadLifecycleConfig(ctx);
+    // Company lookups/creations memoized across the chunk (many rows share a domain).
+    const companyCache = new Map<string, Id<'companies'>>();
 
     for (let index = 0; index < args.rows.length; index++) {
       const row = args.rows[index];
@@ -449,6 +494,27 @@ export const importLeads = employeeMutation({
         // Merge custom properties: provided keys overwrite, the rest are kept.
         if (customProperties && Object.keys(customProperties).length) {
           updates.customProperties = { ...existing.customProperties, ...customProperties };
+        }
+
+        // Company: explicit CSV data (re)attaches; otherwise a company-less
+        // lead gets the automatic email-domain match.
+        try {
+          if (row.companyId) {
+            await requireCompany(ctx, row.companyId);
+            updates.companyId = row.companyId;
+          } else if (row.company || !existing.companyId) {
+            const matched = await resolveCompanyForLead(
+              ctx,
+              row.company ?? {},
+              email,
+              ctx.userId,
+              companyCache,
+            );
+            if (matched) updates.companyId = matched;
+          }
+        } catch (e) {
+          errors.push({ index, error: e instanceof Error ? e.message : 'company_error' });
+          continue;
         }
 
         let lifecycleChange: { from: string | undefined; to: string } | undefined;
@@ -502,10 +568,24 @@ export const importLeads = employeeMutation({
       }
 
       let lifecycleStage: string;
+      let companyId: Id<'companies'> | undefined;
       try {
         lifecycleStage = initialLifecycleStage(lifecycle, row.lifecycleStage);
+        if (row.companyId) {
+          await requireCompany(ctx, row.companyId);
+          companyId = row.companyId;
+        } else {
+          companyId =
+            (await resolveCompanyForLead(
+              ctx,
+              row.company ?? {},
+              email,
+              ctx.userId,
+              companyCache,
+            )) ?? undefined;
+        }
       } catch (e) {
-        errors.push({ index, error: e instanceof Error ? e.message : 'unknown_lifecycle_stage' });
+        errors.push({ index, error: e instanceof Error ? e.message : 'invalid_row' });
         continue;
       }
       const leadId = await ctx.db.insert('leads', {
@@ -519,6 +599,7 @@ export const importLeads = employeeMutation({
         consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
         comment: row.comment,
         assignedTo: row.assignedTo ?? ctx.userId,
+        companyId,
         isRedFlagged: row.isRedFlagged ?? false,
         status: row.status ?? 'nouveau',
         lifecycleStage,

@@ -464,7 +464,8 @@ export const backfillLeadSearchText = internalMutation({
       .paginate({ cursor: args.cursor ?? null, numItems: 200 });
     let patched = 0;
     for (const lead of page.page) {
-      const expected = leadSearchText(lead);
+      const company = lead.companyId ? await ctx.db.get(lead.companyId) : null;
+      const expected = leadSearchText(lead, company?.name);
       if (lead.searchText !== expected) {
         await ctx.db.patch(lead._id, { searchText: expected });
         patched++;

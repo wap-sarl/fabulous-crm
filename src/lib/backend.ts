@@ -27,6 +27,20 @@ export type {
   LifecycleConfig,
   LifecycleChangeSource,
 } from '../../convex/_lib/validators/lifecycle';
+export type { Company } from '../../convex/_lib/validators/companies';
+export type { RegistrationScheme } from '../../convex/_lib/validators/companyRegistry';
+export {
+  DEFAULT_COUNTRY,
+  GENERIC_REGISTRATION_SCHEME,
+  REGISTRATION_SCHEMES,
+  registrationSchemeFor,
+} from '../../convex/_lib/validators/companyRegistry';
+export {
+  companyDomainOfEmail,
+  isFreeMailDomain,
+  normalizeDomain,
+} from '../../convex/lib/companyDomains';
+export type { RegistrationLookupResult } from '../../convex/features/companies/actions';
 export {
   DEFAULT_LIFECYCLE_CONFIG,
   LIFECYCLE_STAGE_KEY_RE,
