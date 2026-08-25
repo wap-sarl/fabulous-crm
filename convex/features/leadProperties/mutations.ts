@@ -187,3 +187,26 @@ export const deleteDefinition = adminMutation({
     });
   },
 });
+
+export const reorderDefinitions = adminMutation({
+  args: { definitionIds: v.array(v.id('leadPropertyDefinitions')) },
+  handler: async (ctx, args) => {
+    let position = 0;
+    for (const definitionId of args.definitionIds) {
+      const def = await ctx.db.get(definitionId);
+      if (!def || !isNotDeleted(def)) continue;
+      position++;
+      if (def.order !== position) {
+        await ctx.db.patch(definitionId, { order: position, ...updateAuditFields(ctx.userId) });
+      }
+    }
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'leadPropertyDefinition',
+      entityId: 'reorder',
+      action: 'update',
+      metadata: { order: args.definitionIds },
+    });
+  },
+});

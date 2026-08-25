@@ -73,6 +73,8 @@ const NODE_TYPE_LABELS: Record<WorkflowNode['type'], string> = {
   send_sms: 'Envoyer un SMS',
   update_property: 'Modifier une propriété',
   set_lifecycle_stage: 'Changer l’étape du cycle de vie',
+  create_deal: 'Créer une transaction',
+  update_deal_stage: 'Changer le stade d’une transaction',
   add_to_list: 'Ajouter à une liste',
   remove_from_list: 'Retirer d’une liste',
   wait: 'Attendre',
@@ -92,6 +94,7 @@ export function validateWorkflowGraph(
   defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
   listIds: Set<string>,
   lifecycleStageKeys: Set<string>,
+  pipelines: Map<string, Doc<'pipelines'>>,
 ): string | null {
   const lightError = lightValidateGraph(nodes, startNodeId);
   if (lightError) return lightError;
@@ -134,6 +137,22 @@ export function validateWorkflowGraph(
         if (!node.stage) return `${label} : choisissez une étape.`;
         if (!lifecycleStageKeys.has(node.stage)) return `${label} : étape introuvable.`;
         break;
+      case 'create_deal': {
+        if (!node.title.trim()) return `${label} : l'intitulé est requis.`;
+        if (node.amount !== undefined && (!Number.isFinite(node.amount) || node.amount < 0)) {
+          return `${label} : montant invalide.`;
+        }
+        if (pipelines.size === 0) return `${label} : aucun pipeline.`;
+        const error = validatePipelineStageRef(node, pipelines);
+        if (error) return `${label} : ${error}`;
+        break;
+      }
+      case 'update_deal_stage': {
+        if (!node.stageKey) return `${label} : choisissez un stade.`;
+        const error = validatePipelineStageRef(node, pipelines);
+        if (error) return `${label} : ${error}`;
+        break;
+      }
       case 'add_to_list':
       case 'remove_from_list':
         if (!node.listId) return `${label} : choisissez une liste.`;
@@ -164,6 +183,24 @@ export function validateWorkflowGraph(
   return null;
 }
 
+function validatePipelineStageRef(
+  node: { pipelineId?: Id<'pipelines'>; stageKey?: string },
+  pipelines: Map<string, Doc<'pipelines'>>,
+): string | null {
+  if (node.pipelineId !== undefined && !pipelines.has(node.pipelineId)) {
+    return 'pipeline introuvable.';
+  }
+  if (node.stageKey !== undefined) {
+    const candidates = node.pipelineId
+      ? [pipelines.get(node.pipelineId)!]
+      : [...pipelines.values()];
+    if (!candidates.some((p) => p.stages.some((s) => s.key === node.stageKey))) {
+      return 'stade introuvable.';
+    }
+  }
+  return null;
+}
+
 /**
  * An occurrence of a triggerable event on a lead, dispatched by the CRM
  * mutations. Matched against each active workflow's trigger config.
@@ -175,7 +212,16 @@ export type WorkflowTriggerEvent =
   | { type: 'consent_updated' }
   | { type: 'campaign_email_event'; event: WorkflowEmailEvent; campaignId: Id<'campaigns'> }
   | { type: 'campaign_sms_event'; event: WorkflowSmsEvent; campaignId: Id<'campaigns'> }
-  | { type: 'tracked_link_click'; campaignId: Id<'campaigns'>; linkKey: string };
+  | { type: 'tracked_link_click'; campaignId: Id<'campaigns'>; linkKey: string }
+  | { type: 'deal_created'; pipelineId: Id<'pipelines'>; dealId: Id<'deals'> }
+  | {
+      type: 'deal_stage_changed';
+      pipelineId: Id<'pipelines'>;
+      stageKey: string;
+      dealId: Id<'deals'>;
+    }
+  | { type: 'deal_won'; pipelineId: Id<'pipelines'>; dealId: Id<'deals'> }
+  | { type: 'deal_lost'; pipelineId: Id<'pipelines'>; dealId: Id<'deals'> };
 
 const fieldKey = (f: FilterField) =>
   f.kind === 'standard' ? `std:${f.field}` : `cp:${f.definitionId}`;
@@ -216,6 +262,19 @@ export function matchesTrigger(trigger: WorkflowTrigger, event: WorkflowTriggerE
         event.type === 'tracked_link_click' &&
         (trigger.campaignId === undefined || trigger.campaignId === event.campaignId) &&
         (trigger.linkKey === undefined || trigger.linkKey === event.linkKey)
+      );
+    case 'deal_created':
+    case 'deal_won':
+    case 'deal_lost':
+      return (
+        event.type === trigger.type &&
+        (trigger.pipelineId === undefined || trigger.pipelineId === event.pipelineId)
+      );
+    case 'deal_stage_changed':
+      return (
+        event.type === 'deal_stage_changed' &&
+        (trigger.pipelineId === undefined || trigger.pipelineId === event.pipelineId) &&
+        (trigger.stageKey === undefined || trigger.stageKey === event.stageKey)
       );
   }
 }

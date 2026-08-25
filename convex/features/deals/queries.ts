@@ -1,0 +1,243 @@
+import { v } from 'convex/values';
+import { paginationOptsValidator } from 'convex/server';
+import type { Doc, Id } from '../../_generated/dataModel';
+import type { QueryCtx } from '../../_generated/server';
+import { employeeQuery } from '../../_lib/auth';
+import { dealStatusValidator, pipelineStage } from '../../_lib/validators/deals';
+import { isNotDeleted } from '../../lib';
+import { stageTotals, statusTotals } from '../../lib/dealAggregates';
+import { listLivePipelines } from '../../lib/deals';
+import { normalizeSearchText } from '../../lib/leadSearch';
+
+/** Pipelines in display order (default first). */
+export const listPipelines = employeeQuery({
+  args: {},
+  handler: async (ctx) => await listLivePipelines(ctx),
+});
+
+export const getPipelineStats = employeeQuery({
+  args: { pipelineId: v.id('pipelines') },
+  handler: async (ctx, args) => {
+    const pipeline = await ctx.db.get(args.pipelineId);
+    if (!pipeline || !isNotDeleted(pipeline)) return null;
+    const stages = [];
+    for (const stage of pipeline.stages) {
+      stages.push({ ...stage, ...(await stageTotals(ctx, pipeline._id, stage.key)) });
+    }
+    return {
+      _id: pipeline._id,
+      name: pipeline.name,
+      isDefault: !!pipeline.isDefault,
+      stages,
+      open: await statusTotals(ctx, pipeline._id, 'open'),
+      won: await statusTotals(ctx, pipeline._id, 'won'),
+      lost: await statusTotals(ctx, pipeline._id, 'lost'),
+    };
+  },
+});
+
+export type DealRow = Doc<'deals'> & {
+  leadName: string | null;
+  companyName: string | null;
+  ownerName: string | null;
+  stageLabel: string;
+};
+
+/** Attach the names a card/row displays (memoized point reads per page). */
+async function withRelations(ctx: QueryCtx, deals: Doc<'deals'>[]): Promise<DealRow[]> {
+  const leads = new Map<string, string | null>();
+  const companies = new Map<string, string | null>();
+  const users = new Map<string, string | null>();
+  const pipelines = new Map<string, Doc<'pipelines'> | null>();
+  const nameOf = async <T extends 'leads' | 'companies' | 'users'>(
+    cache: Map<string, string | null>,
+    id: Id<T>,
+    render: (doc: Doc<T>) => string,
+  ) => {
+    if (!cache.has(id)) {
+      const doc = (await ctx.db.get(id)) as Doc<T> | null;
+      cache.set(id, doc && isNotDeleted(doc as { deletedAt?: number }) ? render(doc) : null);
+    }
+    return cache.get(id) ?? null;
+  };
+  const out: DealRow[] = [];
+  for (const deal of deals) {
+    if (!pipelines.has(deal.pipelineId))
+      pipelines.set(deal.pipelineId, await ctx.db.get(deal.pipelineId));
+    const pipeline = pipelines.get(deal.pipelineId);
+    const stage = pipeline ? pipelineStage(pipeline, deal.stageKey) : undefined;
+    out.push({
+      ...deal,
+      leadName: deal.leadId
+        ? await nameOf(leads, deal.leadId, (l) => `${l.firstName} ${l.lastName}`)
+        : null,
+      companyName: deal.companyId ? await nameOf(companies, deal.companyId, (c) => c.name) : null,
+      ownerName: deal.ownerId
+        ? await nameOf(users, deal.ownerId, (u) => `${u.firstName} ${u.lastName}`)
+        : null,
+      stageLabel: stage?.label ?? deal.stageKey,
+    });
+  }
+  return out;
+}
+
+/** One Kanban column: the live deals of a stage, newest first, cursor-paginated. */
+export const listStageDeals = employeeQuery({
+  args: {
+    pipelineId: v.id('pipelines'),
+    stageKey: v.string(),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, args) => {
+    const result = await ctx.db
+      .query('deals')
+      .withIndex('by_pipeline_stage', (q) =>
+        q.eq('pipelineId', args.pipelineId).eq('stageKey', args.stageKey),
+      )
+      .order('desc')
+      .paginate(args.paginationOpts);
+    return { ...result, page: await withRelations(ctx, result.page.filter(isNotDeleted)) };
+  },
+});
+
+export const dealFilterArgs = {
+  pipelineId: v.optional(v.id('pipelines')),
+  stageKeys: v.optional(v.array(v.string())),
+  statuses: v.optional(v.array(dealStatusValidator)),
+  ownerIds: v.optional(v.array(v.id('users'))),
+  companyIds: v.optional(v.array(v.id('companies'))),
+  leadIds: v.optional(v.array(v.id('leads'))),
+  search: v.optional(v.string()),
+} as const;
+
+type DealFilters = {
+  pipelineId?: Id<'pipelines'>;
+  stageKeys?: string[];
+  statuses?: Doc<'deals'>['status'][];
+  ownerIds?: Id<'users'>[];
+  companyIds?: Id<'companies'>[];
+  leadIds?: Id<'leads'>[];
+  search?: string;
+};
+
+function matchesDealFilters(deal: Doc<'deals'>, f: DealFilters): boolean {
+  if (!isNotDeleted(deal)) return false;
+  if (f.pipelineId && deal.pipelineId !== f.pipelineId) return false;
+  if (f.stageKeys?.length && !f.stageKeys.includes(deal.stageKey)) return false;
+  if (f.statuses?.length && !f.statuses.includes(deal.status)) return false;
+  if (f.ownerIds?.length && (!deal.ownerId || !f.ownerIds.includes(deal.ownerId))) return false;
+  if (f.companyIds?.length && (!deal.companyId || !f.companyIds.includes(deal.companyId)))
+    return false;
+  if (f.leadIds?.length && (!deal.leadId || !f.leadIds.includes(deal.leadId))) return false;
+  const search = f.search ? normalizeSearchText(f.search) : '';
+  if (search && !normalizeSearchText(deal.title).includes(search)) return false;
+  return true;
+}
+
+export const listDealsPaginated = employeeQuery({
+  args: { paginationOpts: paginationOptsValidator, ...dealFilterArgs },
+  handler: async (ctx, args) => {
+    const one = <T>(list: T[] | undefined) => (list?.length === 1 ? list[0] : undefined);
+    const lead = one(args.leadIds);
+    const company = one(args.companyIds);
+    const owner = one(args.ownerIds);
+    const stage = one(args.stageKeys);
+    const status = one(args.statuses);
+    const pipelineId = args.pipelineId;
+    const base = ctx.db.query('deals');
+    const cursor =
+      lead !== undefined
+        ? base.withIndex('by_lead', (q) => q.eq('leadId', lead))
+        : company !== undefined
+          ? base.withIndex('by_company', (q) => q.eq('companyId', company))
+          : owner !== undefined
+            ? base.withIndex('by_owner', (q) => q.eq('ownerId', owner))
+            : pipelineId !== undefined && stage !== undefined
+              ? base.withIndex('by_pipeline_stage', (q) =>
+                  q.eq('pipelineId', pipelineId).eq('stageKey', stage),
+                )
+              : pipelineId !== undefined && status !== undefined
+                ? base.withIndex('by_pipeline_status', (q) =>
+                    q.eq('pipelineId', pipelineId).eq('status', status),
+                  )
+                : pipelineId !== undefined
+                  ? base.withIndex('by_pipeline_stage', (q) => q.eq('pipelineId', pipelineId))
+                  : base;
+    const result = await cursor.order('desc').paginate(args.paginationOpts);
+    return {
+      ...result,
+      page: await withRelations(
+        ctx,
+        result.page.filter((d) => matchesDealFilters(d, args)),
+      ),
+    };
+  },
+});
+
+/** Deal page payload: the deal with names, its pipeline, and the stage history. */
+export const getDeal = employeeQuery({
+  args: { dealId: v.id('deals') },
+  handler: async (ctx, args) => {
+    const deal = await ctx.db.get(args.dealId);
+    if (!deal || !isNotDeleted(deal)) return null;
+    const [row] = await withRelations(ctx, [deal]);
+    const pipeline = await ctx.db.get(deal.pipelineId);
+    const campaign = deal.sourceCampaignId ? await ctx.db.get(deal.sourceCampaignId) : null;
+    const history = await ctx.db
+      .query('dealStageHistory')
+      .withIndex('by_deal', (q) => q.eq('dealId', deal._id))
+      .collect();
+    const users = new Map<string, string | null>();
+    const workflows = new Map<string, string | null>();
+    const rows = [];
+    for (const h of history) {
+      if (h.changedBy && !users.has(h.changedBy)) {
+        const u = await ctx.db.get(h.changedBy);
+        users.set(h.changedBy, u ? `${u.firstName} ${u.lastName}` : null);
+      }
+      if (h.workflowId && !workflows.has(h.workflowId)) {
+        workflows.set(h.workflowId, (await ctx.db.get(h.workflowId))?.name ?? null);
+      }
+      rows.push({
+        _id: h._id,
+        from: h.from ?? null,
+        fromLabel: pipeline
+          ? (pipelineStage(pipeline, h.from)?.label ?? h.from ?? null)
+          : (h.from ?? null),
+        to: h.to,
+        toLabel: pipeline ? (pipelineStage(pipeline, h.to)?.label ?? h.to) : h.to,
+        source: h.source,
+        changedAt: h._creationTime,
+        changedByName: h.changedBy ? (users.get(h.changedBy) ?? null) : null,
+        workflowName: h.workflowId ? (workflows.get(h.workflowId) ?? null) : null,
+      });
+    }
+    return {
+      deal: row,
+      pipeline: pipeline && isNotDeleted(pipeline) ? pipeline : null,
+      sourceCampaignName: campaign?.name ?? null,
+      history: rows,
+    };
+  },
+});
+
+/** A lead's or a company's deals (newest first, bounded) for the entity pages. */
+export const listDealsForEntity = employeeQuery({
+  args: { leadId: v.optional(v.id('leads')), companyId: v.optional(v.id('companies')) },
+  handler: async (ctx, args) => {
+    const rows = args.leadId
+      ? await ctx.db
+          .query('deals')
+          .withIndex('by_lead', (q) => q.eq('leadId', args.leadId!))
+          .order('desc')
+          .take(50)
+      : args.companyId
+        ? await ctx.db
+            .query('deals')
+            .withIndex('by_company', (q) => q.eq('companyId', args.companyId!))
+            .order('desc')
+            .take(50)
+        : [];
+    return await withRelations(ctx, rows.filter(isNotDeleted));
+  },
+});

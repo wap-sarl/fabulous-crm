@@ -19,6 +19,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  SortableList,
   Spinner,
   Switch,
   toast,
@@ -33,10 +34,13 @@ import {
 import type { LeadPropertyDefinitionRow } from '../../features/leads/types';
 
 interface DraftOption {
+  uid: string;
   value: string; // stable slug; '' for a not-yet-persisted new option
   label: string;
   locked?: boolean; // true for already-saved options: value must not change
 }
+
+const newUid = () => crypto.randomUUID();
 
 /** Validation rules held as strings for controlled inputs; parsed on submit. */
 interface DraftValidation {
@@ -125,7 +129,7 @@ function finalizeOptions(options: DraftOption[]): DraftOption[] {
       value = `${value}-${n}`;
     }
     used.add(value);
-    result.push({ value, label });
+    result.push({ uid: opt.uid, value, label });
   }
   return result;
 }
@@ -155,6 +159,7 @@ function DefinitionDialog({
         type: definition.type,
         showInTable: definition.showInTable,
         options: (definition.options ?? []).map((o) => ({
+          uid: newUid(),
           value: o.value,
           label: o.label,
           locked: true,
@@ -185,7 +190,9 @@ function DefinitionDialog({
       return;
     }
     const optionBased = isOptionBased(draft.type);
-    const options = optionBased ? finalizeOptions(draft.options) : undefined;
+    const options = optionBased
+      ? finalizeOptions(draft.options).map(({ value, label }) => ({ value, label }))
+      : undefined;
     if (optionBased && (!options || options.length === 0)) {
       toast.error('Ajoutez au moins une option.');
       return;
@@ -269,14 +276,20 @@ function DefinitionDialog({
               <Label>Options</Label>
               {draft.options.length > 0 && (
                 <div className="flex items-center gap-2 text-xs text-faint">
+                  <span className="size-7 shrink-0" aria-hidden />
                   <span className="w-40 shrink-0">Valeur (stockée)</span>
                   <span className="flex-1">Libellé (affiché)</span>
                   <span className="size-8 shrink-0" aria-hidden />
                 </div>
               )}
-              <div className="flex flex-col gap-2">
-                {draft.options.map((opt, index) => (
-                  <div key={index} className="flex items-center gap-2">
+              <SortableList
+                items={draft.options}
+                getId={(opt) => opt.uid}
+                onReorder={(options) => setField('options', options)}
+                itemClassName="flex items-center gap-2"
+                renderItem={(opt, index, handle) => (
+                  <>
+                    {handle}
                     <div className="relative w-40 shrink-0">
                       <Input
                         value={opt.value}
@@ -327,13 +340,15 @@ function DefinitionDialog({
                     >
                       <X className="h-4 w-4" />
                     </button>
-                  </div>
-                ))}
-              </div>
+                  </>
+                )}
+              />
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setField('options', [...draft.options, { value: '', label: '' }])}
+                onClick={() =>
+                  setField('options', [...draft.options, { uid: newUid(), value: '', label: '' }])
+                }
               >
                 <Plus className="h-4 w-4" />
                 Ajouter une option
@@ -411,6 +426,25 @@ function DefinitionDialog({
 function LeadPropertiesManager() {
   const definitions = useQuery(api.features.leadProperties.queries.listDefinitions);
   const deleteDefinition = useMutation(api.features.leadProperties.mutations.deleteDefinition);
+  const reorderDefinitions = useMutation(api.features.leadProperties.mutations.reorderDefinitions);
+  const [localOrder, setLocalOrder] = useState<{
+    base: LeadPropertyDefinitionRow[] | undefined;
+    order: LeadPropertyDefinitionRow[];
+  } | null>(null);
+  const ordered =
+    (localOrder?.base === definitions ? localOrder?.order : undefined) ?? definitions ?? [];
+
+  const handleReorder = async (next: LeadPropertyDefinitionRow[]) => {
+    setLocalOrder({ base: definitions, order: next });
+    try {
+      await reorderDefinitions({
+        definitionIds: next.map((d) => d._id as Id<'leadPropertyDefinitions'>),
+      });
+    } catch {
+      setLocalOrder(null);
+      toast.error('Échec du réordonnancement.');
+    }
+  };
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<LeadPropertyDefinitionRow | undefined>(undefined);
@@ -451,9 +485,15 @@ function LeadPropertiesManager() {
       {definitions.length === 0 ? (
         <p className="py-6 text-center text-sm text-faint">Aucune propriété personnalisée.</p>
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
-          {definitions.map((def) => (
-            <li key={def._id} className="flex items-center gap-3 px-4 py-3">
+        <SortableList
+          items={ordered}
+          getId={(def) => def._id}
+          onReorder={handleReorder}
+          className="gap-0 divide-y divide-border rounded-lg border border-border"
+          itemClassName="flex items-center gap-3 px-2 py-3"
+          renderItem={(def, _index, handle) => (
+            <>
+              {handle}
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink">{def.label}</p>
                 <p className="text-xs text-faint">
@@ -478,9 +518,9 @@ function LeadPropertiesManager() {
               >
                 <Trash2 className="h-4 w-4" />
               </button>
-            </li>
-          ))}
-        </ul>
+            </>
+          )}
+        />
       )}
 
       <DefinitionDialog open={dialogOpen} onOpenChange={setDialogOpen} definition={editing} />

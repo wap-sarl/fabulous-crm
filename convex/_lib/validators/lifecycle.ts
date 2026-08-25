@@ -93,6 +93,8 @@ export const lifecycleChangeSourceValidator = v.union(
   v.literal('import'),
   v.literal('workflow'),
   v.literal('migration'),
+  // A won deal turned the lead into a customer.
+  v.literal('deal'),
 );
 
 /**

@@ -2,6 +2,7 @@ import type {
   CampaignEventType,
   CampaignSendStatus,
   CampaignStatus,
+  DealStatus,
   LeadStatus,
   MarketingConsentChannel,
 } from '@crm/lib/backend';
@@ -157,3 +158,37 @@ export const CONSENT_CHANNELS: { value: MarketingConsentChannel; label: string }
 export const CONSENT_CHANNEL_LABEL: Record<MarketingConsentChannel, string> = Object.fromEntries(
   CONSENT_CHANNELS.map((c) => [c.value, c.label]),
 ) as Record<MarketingConsentChannel, string>;
+
+export const DEAL_STATUSES: { value: DealStatus; label: string; tone: StatusTone }[] = [
+  { value: 'open', label: 'En cours', tone: 'blue' },
+  { value: 'won', label: 'Gagnée', tone: 'green' },
+  { value: 'lost', label: 'Perdue', tone: 'red' },
+];
+export const DEAL_STATUS_LABEL: Record<DealStatus, string> = Object.fromEntries(
+  DEAL_STATUSES.map((s) => [s.value, s.label]),
+) as Record<DealStatus, string>;
+export const DEAL_STATUS_TONE: Record<DealStatus, StatusTone> = Object.fromEntries(
+  DEAL_STATUSES.map((s) => [s.value, s.tone]),
+) as Record<DealStatus, StatusTone>;
+
+export const CURRENCIES = ['EUR', 'USD', 'GBP', 'CHF', 'CAD', 'MAD'] as const;
+
+const moneyFormats = new Map<string, Intl.NumberFormat>();
+
+export function formatMoney(amount: number | undefined | null, currency: string): string {
+  if (amount === undefined || amount === null) return '—';
+  let format = moneyFormats.get(currency);
+  if (!format) {
+    try {
+      format = new Intl.NumberFormat('fr-FR', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 0,
+      });
+    } catch {
+      format = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+    }
+    moneyFormats.set(currency, format);
+  }
+  return format.format(amount);
+}

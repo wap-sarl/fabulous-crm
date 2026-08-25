@@ -21,6 +21,7 @@ import { usePageTitle } from '../../layouts/DashboardShell';
 import { countryName } from '../../lib/countries';
 import { LEAD_STATUS_LABEL, LEAD_STATUS_TONE } from '../../lib/constants';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
+import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { useCompanyActions } from '../../features/companies/hooks/useCompanyActions';
 import { companyErrorMessage } from '../../features/companies/lib/errors';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
@@ -229,6 +230,8 @@ export function CompanyDetailPage() {
         </div>
 
         <div className="flex flex-col gap-5">
+          <EntityDealsCard companyId={company._id} companyName={company.name} />
+
           <Card className="p-5">
             <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink">
               <Users className="size-4 text-faint" aria-hidden />

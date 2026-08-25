@@ -12,6 +12,8 @@ import {
   loadLifecycleConfig,
   planLifecycleTransition,
 } from '../../lib/lifecycle';
+import { createDealRecord, latestOpenDealOfLead, moveDealToStage } from '../../lib/deals';
+import { renderPlaceholders } from '../../lib/emailUtils';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
 import type { FilterField } from '../../_lib/validators/leadFilters';
@@ -265,6 +267,58 @@ export const executeStep = internalMutation({
               { source },
             );
             break;
+        }
+        await advanceRun(ctx, run, workflow, node.next);
+        return;
+      }
+
+      case 'create_deal': {
+        const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
+        const defsById = new Map(defs.map((d) => [d._id as string, d]));
+        const params = buildLeadParams(lead, defsById, appOrigin() || 'http://localhost:4202');
+        const title = renderPlaceholders(node.title, params, false).trim();
+        try {
+          const dealId = await createDealRecord(
+            ctx,
+            {
+              title: title || node.title,
+              amount: node.amount,
+              currency: node.currency,
+              pipelineId: node.pipelineId,
+              stageKey: node.stageKey,
+              ownerId: lead.assignedTo,
+              leadId: lead._id,
+              companyId: lead.companyId,
+            },
+            { source: 'workflow', workflowId: workflow._id, runSource: source },
+          );
+          await logStep(ctx, run, node, 'success', { detail: `transaction ${dealId}` });
+        } catch (e) {
+          await logStep(ctx, run, node, 'skipped', {
+            detail: e instanceof Error ? e.message : 'pipeline introuvable',
+          });
+        }
+        await advanceRun(ctx, run, workflow, node.next);
+        return;
+      }
+
+      case 'update_deal_stage': {
+        const deal = await latestOpenDealOfLead(ctx, lead._id, node.pipelineId);
+        if (!deal || !node.stageKey) {
+          await logStep(ctx, run, node, 'skipped', { detail: 'aucune transaction ouverte' });
+        } else {
+          const move = await moveDealToStage(ctx, deal, node.stageKey, {
+            source: 'workflow',
+            workflowId: workflow._id,
+            runSource: source,
+          });
+          if (move.kind === 'unknown_stage') {
+            await logStep(ctx, run, node, 'skipped', { detail: 'stade introuvable' });
+          } else if (move.kind === 'unchanged') {
+            await logStep(ctx, run, node, 'success', { detail: 'déjà à ce stade' });
+          } else {
+            await logStep(ctx, run, node, 'success', { detail: `transaction ${deal._id}` });
+          }
         }
         await advanceRun(ctx, run, workflow, node.next);
         return;

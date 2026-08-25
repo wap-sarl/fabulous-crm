@@ -38,6 +38,10 @@ function emptyNode(type: WorkflowNodeType, id: string): WorkflowNode {
       return { id, type, target: { kind: 'standard', field: 'status' }, value: 'nouveau' };
     case 'set_lifecycle_stage':
       return { id, type, stage: undefined };
+    case 'create_deal':
+      return { id, type, title: 'Transaction {{ params.firstName }} {{ params.lastName }}' };
+    case 'update_deal_stage':
+      return { id, type, stageKey: undefined };
     case 'add_to_list':
     case 'remove_from_list':
       return { id, type, listId: undefined };

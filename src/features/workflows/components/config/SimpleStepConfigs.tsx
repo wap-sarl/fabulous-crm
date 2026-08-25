@@ -23,12 +23,16 @@ import type {
 import { LEAD_STATUSES } from '../../../../lib/constants';
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
 import { useLifecycleConfig } from '../../../leads/hooks/useLifecycleConfig';
+import { usePipelines } from '../../../deals/hooks/usePipelines';
+import { CURRENCIES } from '../../../../lib/constants';
 import type { LeadPropertyDefinitionRow } from '../../../leads/types';
 import { WAIT_UNIT_LABEL } from '../../lib/constants';
 
 type PropertyNode = Extract<WorkflowNode, { type: 'update_property' }>;
 type ListNode = Extract<WorkflowNode, { type: 'add_to_list' | 'remove_from_list' }>;
 type LifecycleNode = Extract<WorkflowNode, { type: 'set_lifecycle_stage' }>;
+type CreateDealNode = Extract<WorkflowNode, { type: 'create_deal' }>;
+type DealStageNode = Extract<WorkflowNode, { type: 'update_deal_stage' }>;
 type WaitNode = Extract<WorkflowNode, { type: 'wait' }>;
 type WebhookNode = Extract<WorkflowNode, { type: 'webhook' }>;
 
@@ -248,6 +252,160 @@ export function LifecycleStepConfig({ value, onChange }: LifecycleStepConfigProp
           ? 'Le lead passe à cette étape, même si elle précède l’étape actuelle.'
           : 'Le lead passe à cette étape ; un retour en arrière est ignoré (Paramètres → Cycle de vie).'}
       </HelperText>
+    </div>
+  );
+}
+
+const ANY_PIPELINE = '__default__';
+
+/** Pipeline + stage pair used by both deal steps. */
+function PipelineStageFields({
+  pipelineId,
+  stageKey,
+  onChange,
+  pipelineHelper,
+  stageRequired,
+}: {
+  pipelineId: Id<'pipelines'> | undefined;
+  stageKey: string | undefined;
+  onChange: (next: { pipelineId?: Id<'pipelines'>; stageKey?: string }) => void;
+  pipelineHelper: string;
+  stageRequired: boolean;
+}) {
+  const { pipelines, byId, defaultPipeline } = usePipelines();
+  const pipeline = (pipelineId ? byId.get(pipelineId) : undefined) ?? defaultPipeline;
+  return (
+    <>
+      <div className="space-y-1.5">
+        <Label>Pipeline</Label>
+        <Select
+          value={(pipelineId as string | undefined) ?? ANY_PIPELINE}
+          onValueChange={(v) =>
+            onChange({
+              pipelineId: v === ANY_PIPELINE ? undefined : (v as Id<'pipelines'>),
+              stageKey: undefined,
+            })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ANY_PIPELINE}>Pipeline par défaut</SelectItem>
+            {pipelines.map((p) => (
+              <SelectItem key={p._id} value={p._id}>
+                {p.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <HelperText>{pipelineHelper}</HelperText>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Stade{stageRequired ? '' : ' (optionnel)'}</Label>
+        <Select
+          value={stageKey ?? (stageRequired ? undefined : '__first__')}
+          onValueChange={(v) =>
+            onChange({ pipelineId, stageKey: v === '__first__' ? undefined : v })
+          }
+        >
+          <SelectTrigger className="w-full" data-testid="deal-stage-select">
+            <SelectValue placeholder="Choisir un stade…" />
+          </SelectTrigger>
+          <SelectContent>
+            {!stageRequired ? (
+              <SelectItem value="__first__">Premier stade ouvert</SelectItem>
+            ) : null}
+            {(pipeline?.stages ?? []).map((s) => (
+              <SelectItem key={s.key} value={s.key}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
+}
+
+export function CreateDealStepConfig({
+  value,
+  onChange,
+}: {
+  value: CreateDealNode;
+  onChange: (next: CreateDealNode) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="space-y-1.5">
+        <Label htmlFor="wf-deal-title">Intitulé de la transaction</Label>
+        <Input
+          id="wf-deal-title"
+          value={value.title}
+          onChange={(e) => onChange({ ...value, title: e.target.value })}
+          placeholder="Transaction {{ params.firstName }} {{ params.lastName }}"
+        />
+        <HelperText>Les {'{{ params.x }}'} du lead sont remplacés à la création.</HelperText>
+      </div>
+      <div className="flex items-end gap-2">
+        <div className="flex-1 space-y-1.5">
+          <Label htmlFor="wf-deal-amount">Montant (optionnel)</Label>
+          <Input
+            id="wf-deal-amount"
+            type="number"
+            min={0}
+            value={value.amount !== undefined ? String(value.amount) : ''}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                amount: e.target.value === '' ? undefined : Number(e.target.value),
+              })
+            }
+          />
+        </div>
+        <Select
+          value={value.currency ?? 'EUR'}
+          onValueChange={(currency) => onChange({ ...value, currency })}
+        >
+          <SelectTrigger className="w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CURRENCIES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <PipelineStageFields
+        pipelineId={value.pipelineId}
+        stageKey={value.stageKey}
+        onChange={(next) => onChange({ ...value, ...next })}
+        pipelineHelper="La transaction est créée pour le lead, son entreprise et son responsable."
+        stageRequired={false}
+      />
+    </div>
+  );
+}
+
+export function DealStageStepConfig({
+  value,
+  onChange,
+}: {
+  value: DealStageNode;
+  onChange: (next: DealStageNode) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <PipelineStageFields
+        pipelineId={value.pipelineId}
+        stageKey={value.stageKey}
+        onChange={(next) => onChange({ ...value, ...next })}
+        pipelineHelper="Déplace la transaction ouverte la plus récente du lead (dans ce pipeline)."
+        stageRequired
+      />
     </div>
   );
 }

@@ -104,6 +104,8 @@ export {
   DialogDescription,
 } from './components/feedback/dialog';
 export { Progress } from './components/feedback/progress';
+export { ConfirmDialog } from './components/feedback/confirm-dialog';
+export type { ConfirmDialogProps } from './components/feedback/confirm-dialog';
 export { Skeleton } from './components/feedback/skeleton';
 export { Toaster, toast } from './components/feedback/sonner';
 export { Spinner } from './components/feedback/spinner';
@@ -133,6 +135,8 @@ export type { StatCardProps } from './components/data-display/stat-card';
 export { KeyValueList, KeyValueRow } from './components/data-display/key-value-list';
 export type { KeyValueRowProps } from './components/data-display/key-value-list';
 export { FunnelBar } from './components/data-display/funnel-bar';
+export { SortableList } from './components/data-display/sortable-list';
+export type { SortableListProps } from './components/data-display/sortable-list';
 export type { FunnelBarProps } from './components/data-display/funnel-bar';
 export { Sparkline } from './components/data-display/sparkline';
 export type { SparklineProps } from './components/data-display/sparkline';

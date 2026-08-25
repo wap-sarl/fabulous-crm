@@ -15,6 +15,7 @@ const SOURCE_LABEL: Record<LifecycleChangeSource, string> = {
   import: 'Import CSV',
   workflow: 'Workflow',
   migration: 'Migration',
+  deal: 'Transaction gagnée',
 };
 
 /** Human-readable duration between two transitions ("3 j", "5 h", "12 min"). */

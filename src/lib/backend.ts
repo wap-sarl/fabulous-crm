@@ -28,6 +28,23 @@ export type {
   LifecycleChangeSource,
 } from '../../convex/_lib/validators/lifecycle';
 export type { Company } from '../../convex/_lib/validators/companies';
+export type {
+  Deal,
+  DealStatus,
+  Pipeline,
+  PipelineStage,
+  DealStageHistory,
+} from '../../convex/_lib/validators/deals';
+export {
+  DEFAULT_CURRENCY,
+  DEFAULT_PIPELINE_STAGES,
+  MAX_PIPELINE_STAGES,
+  PIPELINE_STAGE_KEY_RE,
+  defaultPipelineStage,
+  pipelineStage,
+  validatePipelineStages,
+} from '../../convex/_lib/validators/deals';
+export type { DealRow } from '../../convex/features/deals/queries';
 export type { RegistrationScheme } from '../../convex/_lib/validators/companyRegistry';
 export {
   DEFAULT_COUNTRY,
