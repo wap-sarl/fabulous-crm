@@ -29,9 +29,17 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   otpEmail: { kind: 'token bucket', rate: 5, period: 15 * MINUTE },
   // RPPS verification (billed external API), per employee.
   rppsVerify: { kind: 'token bucket', rate: 30, period: HOUR },
+  // Company registration lookups (public registries, e.g. INSEE), per employee.
+  registryVerify: { kind: 'token bucket', rate: 60, period: HOUR },
 });
 
-type LimitName = 'consentUpdate' | 'consentInvalid' | 'trackedLink' | 'otpEmail' | 'rppsVerify';
+type LimitName =
+  | 'consentUpdate'
+  | 'consentInvalid'
+  | 'trackedLink'
+  | 'otpEmail'
+  | 'rppsVerify'
+  | 'registryVerify';
 
 /**
  * Consume one unit of `name` for `key`. Returns false — and logs the overrun —

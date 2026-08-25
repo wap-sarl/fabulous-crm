@@ -24,13 +24,16 @@ export const softDeleteValidator = v.object({
 });
 
 export const addressValidator = v.object({
+  country: v.string(),
   streetNumber: v.string(),
   street: v.string(),
+  line2: v.optional(v.string()),
   postalCode: v.string(),
   city: v.string(),
-  country: v.string(),
-  // Optional metadata populated when the address is picked from an autocomplete
-  // provider (e.g. Google Places). Absent for manually-entered addresses.
+  region: v.optional(v.string()),
+  // DEPRECATED: `country` used to hold a display name ("France") with the ISO
+  // code here. backfillAddressCountries folds it into `country`; kept optional
+  // so pre-migration rows validate, never written anymore.
   countryCode: v.optional(v.string()),
   placeId: v.optional(v.string()),
   coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),

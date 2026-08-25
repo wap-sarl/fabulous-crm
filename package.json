@@ -46,6 +46,7 @@
     "convex-helpers": "^0.1.123",
     "date-fns": "4.4.0",
     "jose": "^6.2.3",
+    "jsvat": "^2.5.4",
     "libphonenumber-js": "1.13.4",
     "lucide-react": "1.17.0",
     "nodemailer": "^9.0.3",

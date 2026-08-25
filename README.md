@@ -9,6 +9,24 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
 - **Leads** : création, édition, suppression (unitaire et en masse), filtres,
   pagination, import CSV avec upsert (clé de matching : email), assignation à
   un employé.
+- **Entreprises** : organisations rattachées aux leads (`companies`,
+  `leads.companyId`). Rattachement automatique: par numéro
+  d'immatriculation, puis par domaine de l'e-mail (`x@acme.fr` → entreprise de
+  domaine `acme.fr`, créée au besoin ; les messageries grand public sont
+  exclues). Le numéro d'immatriculation dépend du pays de l'entreprise
+  (SIRET vérifié dans la base Sirene pour la France, texte libre ailleurs) via
+  un registre d'inputs par pays extensible (`src/lib/countryInputs`).
+- **Adresses par pays** : l'adresse (objet imbriqué partagé par leads,
+  entreprises et employés) est pilotée par son `country` (code ISO) : ordre des
+  champs, libellés (État / province / préfecture, code ZIP…), champs requis,
+  format du code postal et liste des régions viennent des métadonnées
+  libaddressinput de Google (`convex/_lib/validators/addressFormats.generated.ts`,
+  régénérées par `bun run scripts/generate-address-formats.ts`). Même saisie
+  pour tous les pays : recherche d'adresse en haut (BAN pour la France, Photon
+  / OpenStreetMap ou Google Places ailleurs, selon le pays), champs imbriqués
+  du pays en dessous. Le **numéro de TVA** des entreprises est
+  validé par pays (format + clé via `jsvat`) et vérifié en direct dans VIES
+  pour l'UE.
 - **Cycle de vie** : étape d'entonnoir par lead (`lifecycleStage`, abonné → lead → MQL → SQL → opportunité → client → ambassadeur),
   configurable dans *Paramètres → Cycle de vie* (étapes, étape par défaut,
   interdiction du retour en arrière). Chaque changement est journalisé dans
@@ -108,7 +126,7 @@ localStorage.setItem('wap-crm-session-token', '<token retourné>')
 | `CONVEX_DEPLOYMENT` | CLI | Déploiement ciblé par `convex dev` / `convex run` (écrit automatiquement) |
 | `VITE_CONVEX_URL` | **oui** | URL du déploiement Convex ; `main.tsx` lève une erreur si absente |
 | `VITE_CONVEX_SITE_URL` | non | Origine `.convex.site` servant les routes Better Auth (`/api/auth/*`), utilisée comme `baseURL` du client d'auth. Si absente, dérivée de `VITE_CONVEX_URL` (`.convex.cloud` → `.convex.site`) |
-| `VITE_GOOGLE_MAPS_API_KEY` | ~~déprécié~~ | Ancienne autocomplétion d'adresse Google Places. L'app utilise désormais l'API **BAN** gouvernementale (sans clé) ; le fournisseur Google (`createGooglePlacesProvider`) reste exporté mais n'est plus câblé. |
+| `VITE_GOOGLE_MAPS_API_KEY` | non | Autocomplétion d'adresse Google Places pour les pays **hors France** (restreinte au pays sélectionné). Sans clé, l'app utilise Photon (OpenStreetMap, sans clé) ; la France passe toujours par l'API **BAN** gouvernementale. Voir `src/lib/countryInputs/address.tsx` (`registerAddressProvider`). |
 
 En production, les `VITE_*` sont injectées **au démarrage du conteneur** :
 l'entrypoint génère `/srv/env.js` (`window.__ENV__`) à partir des variables
@@ -207,6 +225,33 @@ bloqué par l'assistant : la présence d'utilisateurs vaut « installation
 terminée ». Pour créer une config propre et promouvoir les employés existants en
 `admin`, lancer une fois :
 `bunx convex run seed/bootstrapConfig:bootstrapExistingDeployment`.
+
+#### Rattachement des leads existants à leurs entreprises (optionnel)
+
+Les leads antérieurs à l'objet *Entreprise* n'ont pas de `companyId`. Pour les
+rattacher (et créer les entreprises manquantes) d'après le domaine de leur
+e-mail, comme le fait aujourd'hui la création d'un lead, lancer en boucle sur
+`continueCursor` jusqu'à `isDone: true` (l'`userId` est l'admin stampé comme
+créateur des entreprises) :
+
+```bash
+bunx convex run features/companies/internal:backfillLeadCompanies '{"userId": "<id users>"}' --prod
+```
+
+#### Migration des adresses (pays en code ISO)
+
+`address.country` contenait un nom affiché (« France ») ; il devient un code
+ISO à 2 lettres et l'ancien `countryCode` disparaît. Lancer pour chacune des
+trois tables, en boucle sur `continueCursor` jusqu'à `isDone: true` :
+
+```bash
+bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "leads"}' --prod
+bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "companies"}' --prod
+bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "users"}' --prod
+```
+
+Les noms de pays non reconnus sont laissés tels quels et comptés dans
+`unmapped` — à corriger à la main depuis la fiche. Idempotent.
 
 #### Migration du cycle de vie (leads antérieurs)
 

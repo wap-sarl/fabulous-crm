@@ -29,6 +29,8 @@ import { EmailPage } from './pages/settings/EmailPage';
 import { LeadPropertiesPage } from './pages/settings/LeadPropertiesPage';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
 import { LifecyclePage } from './pages/settings/LifecyclePage';
+import { CompaniesPage } from './pages/companies/CompaniesPage';
+import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
 
 function NotFoundPage() {
   const navigate = useNavigate();
@@ -66,6 +68,8 @@ function AppRoutes() {
             <Route path="/" element={<Navigate to="/leads" replace />} />
             <Route path="/leads" element={<LeadsPage />} />
             <Route path="/leads/:leadId" element={<LeadDetailPage />} />
+            <Route path="/companies" element={<CompaniesPage />} />
+            <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/campaigns/new" element={<CampaignCreatePage />} />
             <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />

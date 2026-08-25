@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
@@ -16,6 +16,7 @@ import {
 } from '@crm/design-system';
 import { ChevronRight, Link2, Mail, Milestone, Pencil } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
+import { formatAddress } from '../../lib/addresses';
 import {
   CONSENT_CHANNEL_LABEL,
   LEAD_STATUS_LABEL,
@@ -42,16 +43,6 @@ const CONSENT_SOURCE_LABEL: Record<string, string> = {
   sms_stop: 'Réponse STOP (SMS)',
 };
 
-function formatAddress(address: {
-  streetNumber: string;
-  street: string;
-  postalCode: string;
-  city: string;
-  country: string;
-}): string {
-  return `${address.streetNumber} ${address.street}, ${address.postalCode} ${address.city}, ${address.country}`;
-}
-
 export function LeadDetailPage() {
   usePageTitle('Lead');
   const navigate = useNavigate();
@@ -77,7 +68,7 @@ export function LeadDetailPage() {
     return <p className="p-7 text-faint">Lead introuvable.</p>;
   }
 
-  const { lead, assignedToName, campaigns } = data;
+  const { lead, assignedToName, company, campaigns } = data;
   const fullName = `${lead.firstName} ${lead.lastName}`;
 
   const copyConsentLink = async () => {
@@ -122,6 +113,19 @@ export function LeadDetailPage() {
           <Card className="p-5">
             <h2 className="mb-2 text-[15px] font-bold text-ink">Détails</h2>
             <KeyValueList>
+              <KeyValueRow label="Entreprise">
+                {company ? (
+                  <Link
+                    to={`/companies/${company._id}`}
+                    className="text-primary hover:underline"
+                    data-testid="lead-company-link"
+                  >
+                    {company.name}
+                  </Link>
+                ) : (
+                  '—'
+                )}
+              </KeyValueRow>
               <KeyValueRow label="Assigné à">{assignedToName ?? '—'}</KeyValueRow>
               <KeyValueRow label="E-mail">{lead.email ?? '—'}</KeyValueRow>
               <KeyValueRow label="Téléphone" mono>
@@ -225,7 +229,11 @@ export function LeadDetailPage() {
         </div>
       </div>
 
-      <LeadFormDialog open={editOpen} onOpenChange={setEditOpen} lead={lead} />
+      <LeadFormDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        lead={{ ...lead, companyName: company?.name ?? null }}
+      />
     </div>
   );
 }

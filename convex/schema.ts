@@ -14,6 +14,7 @@ import { leadListValidator, leadListMemberValidator } from './_lib/validators/le
 import { appConfigValidator } from './_lib/validators/appConfig';
 import { invitationValidator } from './_lib/validators/invitations';
 import { lifecycleStageHistoryValidator } from './_lib/validators/lifecycle';
+import { companyValidator } from './_lib/validators/companies';
 import {
   workflowValidator,
   workflowRunValidator,
@@ -44,6 +45,9 @@ export {
 } from './_lib/validators/lifecycle';
 
 export type { AuditLog, AuditLogEntityType, AuditLogAction } from './_lib/validators/auditLogs';
+
+export type { Company } from './_lib/validators/companies';
+export { companyValidator } from './_lib/validators/companies';
 
 export type {
   Lead,
@@ -164,9 +168,17 @@ export default defineSchema({
     .index('by_assignedTo_status', ['assignedTo', 'status'])
     // [lifecycleStage, _creationTime]: single-stage filter under the default sort.
     .index('by_lifecycleStage', ['lifecycleStage'])
+    .index('by_company', ['companyId'])
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
     .index('by_email', ['email'])
+    .searchIndex('by_searchText', { searchField: 'searchText' }),
+
+  companies: defineTable(companyValidator)
+    .index('by_domain', ['domain'])
+    .index('by_country_registrationNumber', ['country', 'registrationNumber'])
+    .index('by_vatNumber', ['vatNumber'])
+    .index('by_name', ['name'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
 
   // Admin-defined custom property definitions for leads. Small, soft-deletable,

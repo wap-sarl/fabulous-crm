@@ -27,6 +27,39 @@ export type {
   LifecycleConfig,
   LifecycleChangeSource,
 } from '../../convex/_lib/validators/lifecycle';
+export type { Company } from '../../convex/_lib/validators/companies';
+export type { RegistrationScheme } from '../../convex/_lib/validators/companyRegistry';
+export {
+  DEFAULT_COUNTRY,
+  EU_COUNTRIES,
+  GENERIC_REGISTRATION_SCHEME,
+  REGISTRATION_SCHEMES,
+  hasVatChecksum,
+  registrationSchemeFor,
+  vatSchemeFor,
+} from '../../convex/_lib/validators/companyRegistry';
+export type { VatScheme } from '../../convex/_lib/validators/companyRegistry';
+export type {
+  AddressFieldSpec,
+  AddressFormat,
+  FormattableAddress,
+} from '../../convex/_lib/validators/addressFormats';
+export {
+  addressFormatFor,
+  formatAddressLines,
+  formatAddressOneLine,
+  regionLabel,
+  validateAddress,
+} from '../../convex/_lib/validators/addressFormats';
+export {
+  companyDomainOfEmail,
+  isFreeMailDomain,
+  normalizeDomain,
+} from '../../convex/lib/companyDomains';
+export type {
+  RegistrationLookupResult,
+  VatLookupResult,
+} from '../../convex/features/companies/actions';
 export {
   DEFAULT_LIFECYCLE_CONFIG,
   LIFECYCLE_STAGE_KEY_RE,

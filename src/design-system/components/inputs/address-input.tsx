@@ -15,11 +15,15 @@ import { Switch } from './switch';
 export interface AddressValue {
   streetNumber: string;
   street: string;
+  /** Second street line (building, floor…). */
+  line2?: string;
   postalCode: string;
   city: string;
-  /** Display name, e.g. "France". */
+  /** Administrative area (state, province, prefecture…) — metadata key or free text. */
+  region?: string;
+  /** ISO-3166-1 alpha-2, e.g. "FR" — drives the country-specific layout. */
   country: string;
-  /** ISO-3166-1 alpha-2, e.g. "FR". */
+  /** @deprecated `country` now holds the ISO code. */
   countryCode?: string;
   /** Provider place id when chosen from autocomplete; cleared on manual edit. */
   placeId?: string;
@@ -61,7 +65,7 @@ const DEFAULT_PLACEHOLDERS: Record<AddressFieldKey, string> = {
   streetNumber: 'N°',
   postalCode: '75001',
   city: 'Paris',
-  country: 'France',
+  country: 'FR',
 };
 
 /** Shared base classes — kept in sync with `input.tsx`. */
@@ -187,8 +191,8 @@ export function createGooglePlacesProvider({
         pick('postal_town')?.longText ??
         pick('administrative_area_level_2')?.longText ??
         '',
-      country: countryComp?.longText ?? '',
-      countryCode: countryComp?.shortText,
+      country: countryComp?.shortText ?? '',
+      region: pick('administrative_area_level_1')?.shortText ?? undefined,
     };
     const { latitude, longitude } = data.location ?? {};
     if (latitude != null && longitude != null) {
@@ -257,8 +261,7 @@ export function createBanAddressProvider({ limit = 5 }: BanAddressProviderOption
           street: p.street ?? p.name ?? '',
           postalCode: p.postcode ?? '',
           city: p.city ?? '',
-          country: 'France',
-          countryCode: 'FR',
+          country: 'FR',
           placeId: p.id,
           coordinates: lat != null && lng != null ? { lat, lng } : undefined,
         };
@@ -309,6 +312,13 @@ export interface AddressInputProps {
   /** Placeholder for the collapsed full-address search input. Defaults to the street placeholder. */
   searchPlaceholder?: string;
   className?: string;
+  renderFields?: (props: {
+    value: AddressValue;
+    onChange: (value: AddressValue) => void;
+    disabled?: boolean;
+  }) => React.ReactNode;
+  /** One-line rendering of a picked address in the collapsed search box. */
+  formatOneLine?: (value: AddressValue) => string;
 }
 
 /** Keep an existing value when the incoming patch has nothing for that field. */
@@ -316,10 +326,11 @@ function mergeAddress(prev: AddressValue, patch: Partial<AddressValue>): Address
   return {
     streetNumber: patch.streetNumber || prev.streetNumber,
     street: patch.street || prev.street,
+    line2: patch.line2 ?? prev.line2,
     postalCode: patch.postalCode || prev.postalCode,
     city: patch.city || prev.city,
+    region: patch.region ?? prev.region,
     country: patch.country || prev.country,
-    countryCode: patch.countryCode ?? prev.countryCode,
     placeId: patch.placeId ?? prev.placeId,
     coordinates: patch.coordinates ?? prev.coordinates,
   };
@@ -349,6 +360,8 @@ function AddressInput({
   required = false,
   searchPlaceholder = DEFAULT_PLACEHOLDERS.street,
   className,
+  renderFields,
+  formatOneLine = formatAddressOneLine,
 }: AddressInputProps) {
   const hasAutocomplete = !!fetchSuggestions;
   const [open, setOpen] = React.useState(false);
@@ -368,7 +381,7 @@ function AddressInput({
 
   const showFields = !hasAutocomplete || manualEntry;
   const hasAddress = !!(value.street && (value.city || value.postalCode));
-  const displayValue = editing ? query : hasAddress ? formatAddressOneLine(value) : query;
+  const displayValue = editing ? query : hasAddress ? formatOneLine(value) : query;
   const searchId = `${idPrefix ? `${idPrefix}-` : ''}addressSearch`;
   const manualToggleId = `${idPrefix ? `${idPrefix}-` : ''}addressManualToggle`;
 
@@ -435,7 +448,7 @@ function AddressInput({
     setSuggestions([]);
     if (!resolveDetails) {
       const next = { ...value, street: suggestion.label, placeId: suggestion.placeId };
-      setQuery(formatAddressOneLine(next));
+      setQuery(formatOneLine(next));
       onChange(next);
       return;
     }
@@ -444,12 +457,12 @@ function AddressInput({
     try {
       const details = await resolveDetails(suggestion, controller.signal);
       const next = mergeAddress(value, details);
-      setQuery(formatAddressOneLine(next));
+      setQuery(formatOneLine(next));
       onChange(next);
     } catch (err) {
       if ((err as { name?: string })?.name !== 'AbortError') {
         const next = { ...value, street: suggestion.label, placeId: suggestion.placeId };
-        setQuery(formatAddressOneLine(next));
+        setQuery(formatOneLine(next));
         onChange(next);
       }
     } finally {
@@ -501,7 +514,7 @@ function AddressInput({
                       }}
                       onFocus={() => {
                         setEditing(true);
-                        if (hasAddress && query === '') setQuery(formatAddressOneLine(value));
+                        if (hasAddress && query === '') setQuery(formatOneLine(value));
                         if (trimmedLength >= minQueryLength && suggestions.length > 0) {
                           setOpen(true);
                         }
@@ -587,17 +600,23 @@ function AddressInput({
 
       <Collapse open={showFields}>
         <div className={cn('grid gap-3 p-1', hasAutocomplete && 'pt-3')}>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-            {renderField('streetNumber', 'sm:col-span-1')}
-            {renderField('street', 'sm:col-span-3')}
-          </div>
+          {renderFields ? (
+            renderFields({ value, onChange, disabled })
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                {renderField('streetNumber', 'sm:col-span-1')}
+                {renderField('street', 'sm:col-span-3')}
+              </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {renderField('postalCode')}
-            {renderField('city')}
-          </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {renderField('postalCode')}
+                {renderField('city')}
+              </div>
 
-          {showCountry && renderField('country')}
+              {showCountry && renderField('country')}
+            </>
+          )}
         </div>
       </Collapse>
     </div>

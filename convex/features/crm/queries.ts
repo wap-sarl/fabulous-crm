@@ -20,6 +20,23 @@ import {
 const sortFieldValidator = v.union(v.literal('recent'), v.literal('lastName'), v.literal('status'));
 const sortDirectionValidator = v.union(v.literal('asc'), v.literal('desc'));
 
+async function withCompanyNames(ctx: QueryCtx, page: Doc<'leads'>[]) {
+  const names = new Map<string, string | null>();
+  const out: (Doc<'leads'> & { companyName: string | null })[] = [];
+  for (const lead of page) {
+    let companyName: string | null = null;
+    if (lead.companyId) {
+      if (!names.has(lead.companyId)) {
+        const company = await ctx.db.get(lead.companyId);
+        names.set(lead.companyId, company && isNotDeleted(company) ? company.name : null);
+      }
+      companyName = names.get(lead.companyId) ?? null;
+    }
+    out.push({ ...lead, companyName });
+  }
+  return out;
+}
+
 export const listLeadsPaginated = employeeQuery({
   args: {
     paginationOpts: paginationOptsValidator,
@@ -44,8 +61,11 @@ export const listLeadsPaginated = employeeQuery({
       );
       return {
         ...result,
-        page: result.page.filter((lead) =>
-          matchesLeadFilters(lead, { ...args, search: undefined, listMemberIds }),
+        page: await withCompanyNames(
+          ctx,
+          result.page.filter((lead) =>
+            matchesLeadFilters(lead, { ...args, search: undefined, listMemberIds }),
+          ),
         ),
       };
     }
@@ -55,6 +75,7 @@ export const listLeadsPaginated = employeeQuery({
     const singleStatus = args.statuses?.length === 1 ? args.statuses[0] : undefined;
     const singleAssignee = args.assignedToIds?.length === 1 ? args.assignedToIds[0] : undefined;
     const singleStage = args.lifecycleStages?.length === 1 ? args.lifecycleStages[0] : undefined;
+    const singleCompany = args.companyIds?.length === 1 ? args.companyIds[0] : undefined;
 
     const cursor =
       sortField === 'lastName'
@@ -75,12 +96,17 @@ export const listLeadsPaginated = employeeQuery({
                   .query('leads')
                   .withIndex('by_status', (q) => q.eq('status', singleStatus))
                   .order(direction)
-              : singleStage !== undefined
+              : singleCompany !== undefined
                 ? ctx.db
                     .query('leads')
-                    .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
+                    .withIndex('by_company', (q) => q.eq('companyId', singleCompany))
                     .order(direction)
-                : ctx.db.query('leads').order(direction);
+                : singleStage !== undefined
+                  ? ctx.db
+                      .query('leads')
+                      .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
+                      .order(direction)
+                  : ctx.db.query('leads').order(direction);
 
     const result = await cursor.paginate(args.paginationOpts);
 
@@ -95,7 +121,10 @@ export const listLeadsPaginated = employeeQuery({
     );
     return {
       ...result,
-      page: result.page.filter((lead) => matchesLeadFilters(lead, { ...args, listMemberIds })),
+      page: await withCompanyNames(
+        ctx,
+        result.page.filter((lead) => matchesLeadFilters(lead, { ...args, listMemberIds })),
+      ),
     };
   },
 });
@@ -120,6 +149,11 @@ export const getLeadDetail = employeeQuery({
     if (!lead || !isNotDeleted(lead)) return null;
 
     const assignee = lead.assignedTo ? await ctx.db.get(lead.assignedTo) : null;
+    const companyDoc = lead.companyId ? await ctx.db.get(lead.companyId) : null;
+    const company =
+      companyDoc && isNotDeleted(companyDoc)
+        ? { _id: companyDoc._id, name: companyDoc.name, domain: companyDoc.domain ?? null }
+        : null;
 
     const sends = await ctx.db
       .query('campaignSends')
@@ -146,6 +180,7 @@ export const getLeadDetail = employeeQuery({
     return {
       lead,
       assignedToName: assignee ? `${assignee.firstName} ${assignee.lastName}` : null,
+      company,
       campaigns,
     };
   },

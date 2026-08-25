@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { Id, LeadStatus, LeadPropertyValue } from '@crm/lib/backend';
 import {
   Dialog,
@@ -20,8 +20,6 @@ import {
   PhoneInput,
   EmailInput,
   validateEmail,
-  AddressInput,
-  createBanAddressProvider,
   toast,
   type AddressValue,
 } from '@crm/design-system';
@@ -30,6 +28,10 @@ import { LEAD_STATUSES } from '../../../lib/constants';
 import { useLeadActions } from '../hooks/useLeadActions';
 import { useLeadPropertyDefinitions } from '../hooks/useLeadPropertyDefinitions';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
+import { CompanyPicker } from '../../companies/components/CompanyPicker';
+import { HelperText } from '@crm/design-system';
+import { DEFAULT_COUNTRY, validateAddress } from '@crm/lib/backend';
+import { CountryAddressInput } from '../../../lib/countryInputs';
 import { validateLeadPropertyValue } from '../lib/customProperties';
 import { LeadCustomPropertyFields } from './LeadCustomPropertyFields';
 import type { LeadRow } from '../types';
@@ -48,6 +50,8 @@ interface FormState {
   status: LeadStatus;
   /** '' = the configured default stage (create only). */
   lifecycleStage: string;
+  /** '' = none; on create the server may still match one from the email domain. */
+  companyId: Id<'companies'> | '';
   assignedTo: string;
   isRedFlagged: boolean;
   comment: string;
@@ -56,11 +60,11 @@ interface FormState {
 }
 
 const EMPTY_ADDRESS: AddressValue = {
+  country: DEFAULT_COUNTRY,
   streetNumber: '',
   street: '',
   postalCode: '',
   city: '',
-  country: 'France',
 };
 
 function emptyForm(): FormState {
@@ -71,6 +75,7 @@ function emptyForm(): FormState {
     phone: '',
     status: 'nouveau',
     lifecycleStage: '',
+    companyId: '',
     assignedTo: '',
     isRedFlagged: false,
     comment: '',
@@ -87,15 +92,18 @@ function fromLead(lead: LeadRow): FormState {
     phone: lead.phone ?? '',
     status: lead.status,
     lifecycleStage: lead.lifecycleStage ?? '',
+    companyId: lead.companyId ?? '',
     assignedTo: lead.assignedTo ?? '',
     isRedFlagged: lead.isRedFlagged,
     comment: lead.comment ?? '',
     address: {
+      country: lead.address?.country ?? DEFAULT_COUNTRY,
       streetNumber: lead.address?.streetNumber ?? '',
       street: lead.address?.street ?? '',
+      line2: lead.address?.line2,
       postalCode: lead.address?.postalCode ?? '',
       city: lead.address?.city ?? '',
-      country: lead.address?.country ?? 'France',
+      region: lead.address?.region,
     },
     customProperties: { ...(lead.customProperties ?? {}) },
   };
@@ -108,9 +116,6 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   const propertyDefinitions = useLeadPropertyDefinitions();
   const lifecycle = useLifecycleConfig();
   const currentStageIndex = isEdit ? lifecycle.indexOf(lead?.lifecycleStage) : -1;
-
-  // French BAN address autocomplete — keyless government API, no env var needed.
-  const addressProvider = useMemo(() => createBanAddressProvider(), []);
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -146,16 +151,25 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     }
 
     const a = form.address;
-    const hasAddress = a.streetNumber && a.street && a.postalCode && a.city;
+    const hasAddress = !!(a.street || a.postalCode || a.city || a.region);
     const address = hasAddress
       ? {
+          country: a.country,
           streetNumber: a.streetNumber.trim(),
           street: a.street.trim(),
+          line2: a.line2?.trim() || undefined,
           postalCode: a.postalCode.trim(),
           city: a.city.trim(),
-          country: a.country.trim() || 'France',
+          region: a.region || undefined,
         }
       : undefined;
+    if (address) {
+      const addressError = validateAddress(address);
+      if (addressError) {
+        toast.error(`Adresse : ${addressError}`);
+        return;
+      }
+    }
 
     const payload = {
       firstName: form.firstName,
@@ -174,10 +188,10 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     setSubmitting(true);
     try {
       if (isEdit && lead) {
-        await updateLead({ leadId: lead._id, ...payload });
+        await updateLead({ leadId: lead._id, ...payload, companyId: form.companyId || null });
         toast.success('Lead mis à jour.');
       } else {
-        await createLead(payload);
+        await createLead({ ...payload, companyId: form.companyId || undefined });
         toast.success('Lead créé.');
       }
       onOpenChange(false);
@@ -276,6 +290,20 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-1 sm:col-span-2">
+            <Label>Entreprise</Label>
+            <CompanyPicker
+              value={form.companyId}
+              onChange={(v) => setField('companyId', v)}
+              selectedName={lead?.companyName ?? null}
+              modal
+            />
+            {!isEdit && !form.companyId ? (
+              <HelperText>
+                Laissez vide pour rattacher automatiquement l’entreprise du domaine de l’e-mail.
+              </HelperText>
+            ) : null}
+          </div>
           <div className="space-y-1">
             <Label>Assigné à</Label>
             <Combobox
@@ -294,19 +322,10 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
         </div>
 
         <fieldset className="space-y-2 rounded-md border border-border p-3">
-          <AddressInput
+          <CountryAddressInput
             idPrefix="lead"
             value={form.address}
             onChange={(v) => setField('address', v)}
-            fetchSuggestions={addressProvider.fetchSuggestions}
-            resolveDetails={addressProvider.resolveDetails}
-            labels={{
-              streetNumber: 'N°',
-              street: 'Rue',
-              postalCode: 'Code postal',
-              city: 'Ville',
-              country: 'Pays',
-            }}
           />
         </fieldset>
 

@@ -1,4 +1,5 @@
 import type { Id, LeadStatus, LeadPropertyValue } from '@crm/lib/backend';
+import { DEFAULT_COUNTRY } from '@crm/lib/backend';
 import { isValidEmail, isValidPhone } from '@crm/lib/shared';
 import { LEAD_STATUSES } from '../../../lib/constants';
 import type { LeadPropertyDefinitionRow } from '../types';
@@ -19,14 +20,24 @@ export interface LeadImportRow {
   isRedFlagged?: boolean;
   assignedTo?: Id<'users'>;
   address?: {
+    country: string;
     streetNumber: string;
     street: string;
+    line2?: string;
     postalCode: string;
     city: string;
-    country: string;
+    region?: string;
   };
   /** Custom-property values, keyed by definition id (see leadPropertyDefinitions). */
   customProperties?: Record<string, LeadPropertyValue>;
+  /** Company columns: matched (registration number, domain) or created (name). */
+  company?: {
+    name?: string;
+    country?: string;
+    registrationNumber?: string;
+    vatNumber?: string;
+    domain?: string;
+  };
 }
 
 /** Lookup maps resolving human-readable cell values to document ids. */
@@ -36,7 +47,14 @@ export interface ImportContext {
   lifecycleStageByName: Map<string, string>;
 }
 
-type AddressKey = 'streetNumber' | 'street' | 'postalCode' | 'city';
+type AddressKey =
+  | 'streetNumber'
+  | 'street'
+  | 'line2'
+  | 'postalCode'
+  | 'city'
+  | 'region'
+  | 'country';
 export type AddressParts = Partial<Record<AddressKey, string>>;
 
 type ParseResult = { value: unknown } | { error: string };
@@ -61,6 +79,7 @@ const VALID_STATUSES = new Set<string>(LEAD_STATUSES.map((s) => s.value));
 /** Dropdown group labels for the mapping table. */
 export const LEAD_FIELDS_GROUP = 'Champs du lead';
 export const ADDRESS_GROUP = 'Adresse';
+export const COMPANY_GROUP = 'Entreprise';
 export const CUSTOM_GROUP = 'Propriétés personnalisées';
 
 /** Prefix marking a mapping target that points at a custom property (`custom:<defId>`). */
@@ -79,6 +98,12 @@ function parseBool(raw: string): boolean | undefined {
   if (['true', '1', 'oui', 'yes', 'vrai'].includes(v)) return true;
   if (['false', '0', 'non', 'no', 'faux'].includes(v)) return false;
   return undefined;
+}
+
+/** The row's company block, created on first use. */
+function companyOf(row: LeadImportRow): NonNullable<LeadImportRow['company']> {
+  if (!row.company) row.company = {};
+  return row.company;
 }
 
 function addrField(header: string, label: string, key: AddressKey): ImportFieldDef {
@@ -185,10 +210,73 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
       if (value) row.assignedTo = value as Id<'users'>;
     },
   },
+  {
+    header: 'company',
+    label: 'Entreprise (nom)',
+    group: COMPANY_GROUP,
+    parse: (raw) => ({ value: raw }),
+    apply: (row, value) => {
+      companyOf(row).name = value as string;
+    },
+  },
+  {
+    header: 'companyregistrationnumber',
+    label: 'Entreprise — n° d’immatriculation (SIRET…)',
+    group: COMPANY_GROUP,
+    // Validated server-side against the company country's scheme.
+    parse: (raw) => ({ value: raw }),
+    apply: (row, value) => {
+      companyOf(row).registrationNumber = value as string;
+    },
+  },
+  {
+    header: 'companyvatnumber',
+    label: 'Entreprise — n° de TVA',
+    group: COMPANY_GROUP,
+    parse: (raw) => ({ value: raw }),
+    apply: (row, value) => {
+      companyOf(row).vatNumber = value as string;
+    },
+  },
+  {
+    header: 'companydomain',
+    label: 'Entreprise — domaine',
+    group: COMPANY_GROUP,
+    parse: (raw) => ({ value: raw }),
+    apply: (row, value) => {
+      companyOf(row).domain = value as string;
+    },
+  },
+  {
+    header: 'companycountry',
+    label: 'Entreprise — pays (code ISO)',
+    group: COMPANY_GROUP,
+    parse: (raw) =>
+      /^[a-z]{2}$/i.test(raw.trim())
+        ? { value: raw.trim().toUpperCase() }
+        : { error: `code pays invalide « ${raw} » (2 lettres, ex. FR)` },
+    apply: (row, value) => {
+      companyOf(row).country = value as string;
+    },
+  },
   addrField('streetnumber', 'N°', 'streetNumber'),
   addrField('street', 'Rue', 'street'),
+  addrField('addressline2', 'Complément d’adresse', 'line2'),
   addrField('postalcode', 'Code postal', 'postalCode'),
   addrField('city', 'Ville', 'city'),
+  addrField('region', 'Région / État / Province', 'region'),
+  {
+    header: 'country',
+    label: 'Pays (code ISO)',
+    group: ADDRESS_GROUP,
+    parse: (raw) =>
+      /^[a-z]{2}$/i.test(raw.trim())
+        ? { value: raw.trim().toUpperCase() }
+        : { error: `code pays invalide « ${raw} » (2 lettres, ex. FR)` },
+    apply: (_row, value, parts) => {
+      parts.country = value as string;
+    },
+  },
 ];
 
 /** All recognized CSV headers, in registry order. */
@@ -231,6 +319,10 @@ export function buildImportTargetGroups(
     {
       label: ADDRESS_GROUP,
       options: IMPORT_FIELDS.filter((f) => f.group === ADDRESS_GROUP).map(toOption),
+    },
+    {
+      label: COMPANY_GROUP,
+      options: IMPORT_FIELDS.filter((f) => f.group === COMPANY_GROUP).map(toOption),
     },
   ];
   if (customDefs.length) {
@@ -351,10 +443,12 @@ export function buildAddress(parts: AddressParts): LeadImportRow['address'] | un
     street = split.street;
   }
   return {
+    country: parts.country ?? DEFAULT_COUNTRY,
     streetNumber,
     street,
+    line2: parts.line2?.trim() || undefined,
     postalCode: parts.postalCode,
     city: parts.city,
-    country: 'France',
+    region: parts.region?.trim() || undefined,
   };
 }

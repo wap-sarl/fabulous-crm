@@ -6,6 +6,8 @@ import {
   formatLeadPropertyParamValue,
   type LeadPropertyValue,
 } from '../../_lib/validators/leadProperties';
+import { formatAddressLines } from '../../_lib/validators/addressFormats';
+import { DEFAULT_COUNTRY } from '../../_lib/validators/companyRegistry';
 import {
   LEAD_STATUS_LABELS,
   type TrackedLinkStandardField,
@@ -23,12 +25,16 @@ export type LeadTarget =
   | { kind: 'standard'; field: TrackedLinkStandardField }
   | { kind: 'custom'; propertyDefId: Id<'leadPropertyDefinitions'> };
 
-/** One-line postal address for {{ params.address }}; '' when unset/empty. */
+/**
+ * One-line postal address for {{ params.address }} in the country's writing
+ * order, '' when unset. The country code is appended only for foreign
+ * addresses — a domestic mailing doesn't repeat the country.
+ */
 export function formatAddressParam(address: Doc<'leads'>['address']): string {
   if (!address) return '';
-  const street = [address.streetNumber, address.street].filter(Boolean).join(' ');
-  const city = [address.postalCode, address.city].filter(Boolean).join(' ');
-  return [street, city].filter(Boolean).join(', ');
+  const lines = formatAddressLines(address);
+  if (address.country && address.country !== DEFAULT_COUNTRY) lines.push(address.country);
+  return lines.join(', ');
 }
 
 /**
