@@ -14,7 +14,7 @@ import {
   StatusBadge,
   toast,
 } from '@crm/design-system';
-import { ChevronRight, Link2, Mail, Milestone, Pencil } from 'lucide-react';
+import { ChevronRight, Link2, Mail, Milestone, Pencil, Phone } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { formatAddress } from '../../lib/addresses';
 import { CONSENT_CHANNEL_LABEL, SEND_STATUS_LABEL } from '../../lib/constants';
@@ -24,6 +24,8 @@ import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPr
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { LeadLifecycleCard } from '../../features/leads/components/LeadLifecycleCard';
 import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
+import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
+import { LogCallDialog } from '../../features/activities/components/ActivityDialogs';
 import { formatPropertyValue, hasPropertyValue } from '../../features/leads/lib/customProperties';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
@@ -49,6 +51,7 @@ export function LeadDetailPage() {
   );
 
   const [editOpen, setEditOpen] = useState(false);
+  const [callOpen, setCallOpen] = useState(false);
   const propertyDefinitions = useLeadPropertyDefinitions();
   const lifecycle = useLifecycleConfig();
 
@@ -93,10 +96,20 @@ export function LeadDetailPage() {
         }
         subtitle={[lead.email, lead.phone].filter(Boolean).join(' · ') || 'Aucune coordonnée'}
         actions={
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4" />
-            Modifier
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              onClick={() => setCallOpen(true)}
+              data-testid="log-call-header"
+            >
+              <Phone className="h-4 w-4" />
+              Consigner un appel
+            </Button>
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Pencil className="h-4 w-4" />
+              Modifier
+            </Button>
+          </>
         }
       />
 
@@ -154,6 +167,8 @@ export function LeadDetailPage() {
         {/* Aside column */}
         <div className="flex flex-col gap-5">
           <LeadLifecycleCard leadId={lead._id} currentStage={lead.lifecycleStage} />
+
+          <EntityActivitiesCard leadId={lead._id} />
 
           <EntityDealsCard leadId={lead._id} leadName={fullName} />
 
@@ -224,6 +239,7 @@ export function LeadDetailPage() {
         </div>
       </div>
 
+      <LogCallDialog open={callOpen} onOpenChange={setCallOpen} links={{ leadId: lead._id }} />
       <LeadFormDialog
         open={editOpen}
         onOpenChange={setEditOpen}

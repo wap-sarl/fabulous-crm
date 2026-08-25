@@ -12,6 +12,7 @@ app.use(aggregate, { name: 'companiesTotal' });
 app.use(aggregate, { name: 'leadsByCompany' });
 app.use(aggregate, { name: 'dealsByStage' });
 app.use(aggregate, { name: 'dealsByPipelineStatus' });
+app.use(aggregate, { name: 'activitiesByOwner' });
 app.use(rateLimiter);
 
 export default app;

@@ -3,6 +3,7 @@ import {
   Clock,
   Handshake,
   ListMinus,
+  ListTodo,
   ListPlus,
   Mail,
   MessageSquare,
@@ -249,6 +250,7 @@ export const STEP_TYPES: {
   { type: 'set_lifecycle_stage', label: 'Changer le statut', icon: Milestone },
   { type: 'create_deal', label: 'Créer une transaction', icon: Handshake },
   { type: 'update_deal_stage', label: 'Changer le stade d’une transaction', icon: KanbanSquare },
+  { type: 'create_task', label: 'Créer une tâche', icon: ListTodo },
   { type: 'add_to_list', label: 'Ajouter à une liste', icon: ListPlus },
   { type: 'remove_from_list', label: 'Retirer d’une liste', icon: ListMinus },
   { type: 'wait', label: 'Attendre', icon: Clock },
@@ -340,6 +342,10 @@ export function nodeSummary(
     case 'create_deal':
       return node.title.trim()
         ? `${node.title.trim().slice(0, 40)}${node.pipelineId ? ` · ${ctx.pipelineNameById.get(node.pipelineId) ?? 'pipeline'}` : ''}`
+        : 'Intitulé à définir';
+    case 'create_task':
+      return node.title.trim()
+        ? `${node.title.trim().slice(0, 40)}${node.dueInDays !== undefined ? ` · J+${node.dueInDays}` : ''}`
         : 'Intitulé à définir';
     case 'update_deal_stage':
       return node.stageKey

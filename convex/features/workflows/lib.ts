@@ -75,6 +75,7 @@ const NODE_TYPE_LABELS: Record<WorkflowNode['type'], string> = {
   set_lifecycle_stage: 'Changer le statut',
   create_deal: 'Créer une transaction',
   update_deal_stage: 'Changer le stade d’une transaction',
+  create_task: 'Créer une tâche',
   add_to_list: 'Ajouter à une liste',
   remove_from_list: 'Retirer d’une liste',
   wait: 'Attendre',
@@ -147,6 +148,15 @@ export function validateWorkflowGraph(
         if (error) return `${label} : ${error}`;
         break;
       }
+      case 'create_task':
+        if (!node.title.trim()) return `${label} : l'intitulé est requis.`;
+        if (
+          node.dueInDays !== undefined &&
+          (!Number.isInteger(node.dueInDays) || node.dueInDays < 0 || node.dueInDays > 365)
+        ) {
+          return `${label} : échéance invalide (0 à 365 jours).`;
+        }
+        break;
       case 'update_deal_stage': {
         if (!node.stageKey) return `${label} : choisissez un stade.`;
         const error = validatePipelineStageRef(node, pipelines);

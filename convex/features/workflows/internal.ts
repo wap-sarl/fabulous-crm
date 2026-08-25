@@ -13,6 +13,7 @@ import {
   planLifecycleTransition,
 } from '../../lib/lifecycle';
 import { createDealRecord, latestOpenDealOfLead, moveDealToStage } from '../../lib/deals';
+import { createActivityRecord } from '../../lib/activities';
 import { renderPlaceholders } from '../../lib/emailUtils';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
@@ -306,6 +307,42 @@ export const executeStep = internalMutation({
         return;
       }
 
+      case 'create_task': {
+        const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
+        const defsById = new Map(defs.map((d) => [d._id as string, d]));
+        const params = buildLeadParams(
+          lead,
+          defsById,
+          appOrigin() || 'http://localhost:4202',
+          await loadLifecycleConfig(ctx),
+        );
+        const ownerId = node.ownerId ?? lead.assignedTo ?? workflow.createdBy ?? workflow.updatedBy;
+        if (!ownerId || !(await ctx.db.get(ownerId))) {
+          await logStep(ctx, run, node, 'skipped', { detail: 'aucun propriétaire' });
+        } else {
+          const dueAt =
+            node.dueInDays === undefined ? undefined : Date.now() + node.dueInDays * DAY_MS;
+          const activityId = await createActivityRecord(
+            ctx,
+            {
+              type: node.activityType ?? 'task',
+              title: renderPlaceholders(node.title, params, false).trim() || node.title,
+              description: node.description
+                ? renderPlaceholders(node.description, params, false)
+                : undefined,
+              dueAt,
+              ownerId,
+              leadId: lead._id,
+              companyId: lead.companyId,
+            },
+            { workflowId: workflow._id },
+          );
+          await logStep(ctx, run, node, 'success', { detail: `activité ${activityId}` });
+        }
+        await advanceRun(ctx, run, workflow, node.next);
+        return;
+      }
+
       case 'update_deal_stage': {
         const deal = await latestOpenDealOfLead(ctx, lead._id, node.pipelineId);
         if (!deal || !node.stageKey) {
@@ -564,6 +601,7 @@ export const completeActionStep = internalMutation({
 // runs and writes a run cancellation + a fresh run + workflow counter patches,
 // so 100 leads per page stays far below the per-transaction limits.
 const REENROLL_BATCH = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const reenrollBatch = internalMutation({
   args: { workflowId: v.id('workflows'), cursor: v.optional(v.string()) },

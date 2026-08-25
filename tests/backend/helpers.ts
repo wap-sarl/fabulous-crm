@@ -75,6 +75,7 @@ export function createTestConvex(): T {
   t.registerComponent('leadsByCompany', aggregateSchema, aggregateModules);
   t.registerComponent('dealsByStage', aggregateSchema, aggregateModules);
   t.registerComponent('dealsByPipelineStatus', aggregateSchema, aggregateModules);
+  t.registerComponent('activitiesByOwner', aggregateSchema, aggregateModules);
   t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
   return t;
 }

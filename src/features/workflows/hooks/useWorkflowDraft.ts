@@ -42,6 +42,13 @@ function emptyNode(type: WorkflowNodeType, id: string): WorkflowNode {
       return { id, type, title: 'Transaction {{ params.firstName }} {{ params.lastName }}' };
     case 'update_deal_stage':
       return { id, type, stageKey: undefined };
+    case 'create_task':
+      return {
+        id,
+        type,
+        title: 'Rappeler {{ params.firstName }} {{ params.lastName }}',
+        dueInDays: 1,
+      };
     case 'add_to_list':
     case 'remove_from_list':
       return { id, type, listId: undefined };

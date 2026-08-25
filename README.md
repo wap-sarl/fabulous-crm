@@ -37,6 +37,14 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   `deal_created` / `deal_stage_changed` / `deal_won` / `deal_lost` et étapes
   « Créer une transaction » / « Changer le stade d'une transaction ». Une transaction
   gagnée fait passer son lead au statut « Client ».
+- **Tâches et activités** : appels, réunions, tâches, e-mails, notes
+  (`activities`) rattachés à un lead, une entreprise ou une transaction, avec
+  échéance, propriétaire et résultat. Vue « Mes tâches » par période (en
+  retard / aujourd'hui / cette semaine / plus tard / sans date, compteurs par
+  agrégat), compte-rendu rapide d'un appel depuis les fiches (avec rappel
+  optionnel), étape de workflow « Créer une tâche ». Les rappels à l'échéance
+  arrivent avec le système de notifications (lot 5) ; `dueAt` en est le point
+  d'accroche.
 - **Statuts** : position du lead dans le parcours marketing → commercial
   (`lifecycleStage` : abonné → lead → MQL → SQL → opportunité → client →
   ambassadeur), configurable dans *Paramètres → Statuts* (statuts,

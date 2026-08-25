@@ -1,4 +1,6 @@
 import type {
+  ActivityStatus,
+  ActivityType,
   CampaignEventType,
   CampaignSendStatus,
   CampaignStatus,
@@ -171,3 +173,27 @@ export function formatMoney(amount: number | undefined | null, currency: string)
   }
   return format.format(amount);
 }
+
+export const ACTIVITY_TYPES: { value: ActivityType; label: string }[] = [
+  { value: 'task', label: 'Tâche' },
+  { value: 'call', label: 'Appel' },
+  { value: 'meeting', label: 'Réunion' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'note', label: 'Note' },
+];
+export const ACTIVITY_TYPE_LABEL: Record<ActivityType, string> = Object.fromEntries(
+  ACTIVITY_TYPES.map((t) => [t.value, t.label]),
+) as Record<ActivityType, string>;
+
+export const ACTIVITY_STATUS_LABEL: Record<ActivityStatus, string> = {
+  open: 'À faire',
+  done: 'Terminée',
+  cancelled: 'Annulée',
+};
+export const ACTIVITY_STATUS_TONE: Record<ActivityStatus, StatusTone> = {
+  open: 'blue',
+  done: 'green',
+  cancelled: 'gray',
+};
+
+export const CALL_OUTCOMES = ['Répondu', 'Pas de réponse', 'Messagerie', 'Occupé', 'Faux numéro'];
