@@ -20,6 +20,7 @@ import { countryName } from '../../lib/countries';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
 
 const PAGE_SIZE = 30;
+const SKELETON_ROWS = ['s1', 's2', 's3', 's4', 's5', 's6'];
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 export function CompaniesPage() {
@@ -96,8 +97,8 @@ export function CompaniesPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                Array.from({ length: 6 }).map((_, i) => (
-                  <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
+                SKELETON_ROWS.map((row) => (
+                  <TableRow key={row} className="hover:bg-transparent">
                     <TableCell colSpan={6} className="py-3">
                       <Skeleton className="h-9 w-full" />
                     </TableCell>

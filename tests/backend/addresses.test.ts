@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
+import type { Id } from '../../convex/_generated/dataModel';
 import {
   addressFormatFor,
   formatAddressLines,
@@ -148,8 +149,8 @@ describe('address validation in mutations', () => {
 });
 
 describe('backfillAddressCountries', () => {
-  async function addressOf(t: T, id: Parameters<T['run']>[0] extends never ? never : string) {
-    return await t.run(async (ctx) => (await ctx.db.get(id as never))?.address);
+  async function addressOf(t: T, id: Id<'leads'>) {
+    return await t.run(async (ctx) => (await ctx.db.get(id))?.address);
   }
 
   test('turns display names into ISO codes, drops countryCode, counts unknown names', async () => {

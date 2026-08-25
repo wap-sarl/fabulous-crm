@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { Id, LeadStatus, LeadPropertyValue } from '@crm/lib/backend';
 import {
   Dialog,
