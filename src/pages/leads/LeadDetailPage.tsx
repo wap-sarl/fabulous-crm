@@ -14,7 +14,7 @@ import {
   StatusBadge,
   toast,
 } from '@crm/design-system';
-import { ChevronRight, Link2, Mail, Pencil } from 'lucide-react';
+import { ChevronRight, Link2, Mail, Milestone, Pencil } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import {
   CONSENT_CHANNEL_LABEL,
@@ -25,6 +25,8 @@ import {
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
 import { LeadNotes } from '../../features/leads/components/LeadNotes';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
+import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
+import { LeadLifecycleCard } from '../../features/leads/components/LeadLifecycleCard';
 import { formatPropertyValue, hasPropertyValue } from '../../features/leads/lib/customProperties';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
@@ -61,6 +63,7 @@ export function LeadDetailPage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const propertyDefinitions = useLeadPropertyDefinitions();
+  const lifecycle = useLifecycleConfig();
 
   if (data === undefined) {
     return (
@@ -94,9 +97,15 @@ export function LeadDetailPage() {
         leading={<InitialsAvatar name={fullName} size={46} />}
         title={fullName}
         titleExtra={
-          <StatusBadge tone={LEAD_STATUS_TONE[lead.status]}>
-            {LEAD_STATUS_LABEL[lead.status]}
-          </StatusBadge>
+          <span className="flex flex-wrap items-center gap-1.5">
+            <StatusBadge tone="violet" withDot={false}>
+              <Milestone className="size-3" aria-hidden />
+              {lifecycle.labelOf(lead.lifecycleStage)}
+            </StatusBadge>
+            <StatusBadge tone={LEAD_STATUS_TONE[lead.status]}>
+              {LEAD_STATUS_LABEL[lead.status]}
+            </StatusBadge>
+          </span>
         }
         subtitle={[lead.email, lead.phone].filter(Boolean).join(' · ') || 'Aucune coordonnée'}
         actions={
@@ -147,6 +156,8 @@ export function LeadDetailPage() {
 
         {/* Aside column */}
         <div className="flex flex-col gap-5">
+          <LeadLifecycleCard leadId={lead._id} currentStage={lead.lifecycleStage} />
+
           <LeadNotes leadId={lead._id} />
 
           <Card className="p-5">

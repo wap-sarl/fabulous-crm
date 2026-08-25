@@ -14,6 +14,7 @@ import { STEP_TYPE_META } from '../lib/constants';
 import { TriggerConfig, type TriggerFormValue } from './config/TriggerConfig';
 import { EmailStepConfig, SmsStepConfig } from './config/MessageStepConfigs';
 import {
+  LifecycleStepConfig,
   ListStepConfig,
   PropertyStepConfig,
   WaitStepConfig,
@@ -111,6 +112,8 @@ function NodePanelBody({
           <SmsStepConfig value={node} onChange={setNode} definitions={definitions} />
         ) : node.type === 'update_property' ? (
           <PropertyStepConfig value={node} onChange={setNode} definitions={definitions} />
+        ) : node.type === 'set_lifecycle_stage' ? (
+          <LifecycleStepConfig value={node} onChange={setNode} />
         ) : node.type === 'add_to_list' || node.type === 'remove_from_list' ? (
           <ListStepConfig value={node} onChange={setNode} />
         ) : node.type === 'wait' ? (

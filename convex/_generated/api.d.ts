@@ -20,6 +20,7 @@ import type * as _lib_validators_invitations from "../_lib/validators/invitation
 import type * as _lib_validators_leadFilters from "../_lib/validators/leadFilters.js";
 import type * as _lib_validators_leadLists from "../_lib/validators/leadLists.js";
 import type * as _lib_validators_leadProperties from "../_lib/validators/leadProperties.js";
+import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js";
 import type * as _lib_validators_shared from "../_lib/validators/shared.js";
 import type * as _lib_validators_users from "../_lib/validators/users.js";
 import type * as _lib_validators_workflows from "../_lib/validators/workflows.js";
@@ -62,6 +63,7 @@ import type * as lib_index from "../lib/index.js";
 import type * as lib_leadAggregates from "../lib/leadAggregates.js";
 import type * as lib_leadListMembers from "../lib/leadListMembers.js";
 import type * as lib_leadSearch from "../lib/leadSearch.js";
+import type * as lib_lifecycle from "../lib/lifecycle.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_smsUtils from "../lib/smsUtils.js";
 import type * as lib_smtpUtils from "../lib/smtpUtils.js";
@@ -93,6 +95,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/leadFilters": typeof _lib_validators_leadFilters;
   "_lib/validators/leadLists": typeof _lib_validators_leadLists;
   "_lib/validators/leadProperties": typeof _lib_validators_leadProperties;
+  "_lib/validators/lifecycle": typeof _lib_validators_lifecycle;
   "_lib/validators/shared": typeof _lib_validators_shared;
   "_lib/validators/users": typeof _lib_validators_users;
   "_lib/validators/workflows": typeof _lib_validators_workflows;
@@ -135,6 +138,7 @@ declare const fullApi: ApiFromModules<{
   "lib/leadAggregates": typeof lib_leadAggregates;
   "lib/leadListMembers": typeof lib_leadListMembers;
   "lib/leadSearch": typeof lib_leadSearch;
+  "lib/lifecycle": typeof lib_lifecycle;
   "lib/rateLimits": typeof lib_rateLimits;
   "lib/smsUtils": typeof lib_smsUtils;
   "lib/smtpUtils": typeof lib_smtpUtils;
@@ -179,5 +183,6 @@ export declare const components: {
   leadListMemberCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadListMemberCounts">;
   leadsByStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByStatus">;
   leadsByOwner: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByOwner">;
+  leadsByLifecycle: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByLifecycle">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

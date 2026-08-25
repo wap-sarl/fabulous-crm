@@ -83,8 +83,6 @@ function CanvasInner({ draft, invalidIds, handlers }: WorkflowCanvasProps) {
     </CanvasContext.Provider>
   );
 }
-
-/** The HubSpot-style step graph. Pan/zoom only — layout is engine-computed. */
 export function WorkflowCanvas(props: WorkflowCanvasProps) {
   return (
     <div className={cn('relative overflow-hidden rounded-xl border bg-canvas', props.className)}>

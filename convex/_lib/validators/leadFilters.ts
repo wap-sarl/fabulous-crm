@@ -17,6 +17,7 @@ export const standardFieldValidator = v.union(
   v.literal('phone'),
   v.literal('comment'),
   v.literal('status'),
+  v.literal('lifecycleStage'),
   v.literal('assignedTo'),
   v.literal('isRedFlagged'),
   v.literal('marketingConsent'),
@@ -92,7 +93,7 @@ export type AdvancedFilter = Infer<typeof advancedFilterValidator>;
 
 /**
  * Unified "type" a rule's field resolves to, spanning custom-property types and
- * the special standard fields (`status`, `assignee`). Drives which operators and
+ * the special standard fields (`status`, `lifecycle`, `assignee`). Drives which operators and
  * which value input the builder shows. `select` covers both select and radio.
  */
 export type FilterFieldType =
@@ -104,6 +105,7 @@ export type FilterFieldType =
   | 'checkbox'
   | 'boolean'
   | 'status'
+  | 'lifecycle'
   | 'assignee';
 
 /**
@@ -128,6 +130,8 @@ export function operatorsForType(type: FilterFieldType): FilterOperator[] {
       return ['equals'];
     case 'status':
       return ['equals'];
+    case 'lifecycle':
+      return ['equals', 'isEmpty', 'isNotEmpty'];
     case 'assignee':
       return ['equals', 'isEmpty', 'isNotEmpty'];
   }

@@ -6,7 +6,8 @@ import type { QueryCtx } from '../../_generated/server';
 import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
-import { countLiveLeadsByStatus } from '../../lib/leadAggregates';
+import { countLiveLeadsByLifecycleStage, countLiveLeadsByStatus } from '../../lib/leadAggregates';
+import { loadLifecycleConfig } from '../../lib/lifecycle';
 import { normalizeSearchText } from '../../lib/leadSearch';
 import { leadListMemberCounts } from '../../lib/leadListMembers';
 import {
@@ -53,6 +54,7 @@ export const listLeadsPaginated = employeeQuery({
     // (a multi-select would need a union of ranges, which one cursor can't do).
     const singleStatus = args.statuses?.length === 1 ? args.statuses[0] : undefined;
     const singleAssignee = args.assignedToIds?.length === 1 ? args.assignedToIds[0] : undefined;
+    const singleStage = args.lifecycleStages?.length === 1 ? args.lifecycleStages[0] : undefined;
 
     const cursor =
       sortField === 'lastName'
@@ -73,7 +75,12 @@ export const listLeadsPaginated = employeeQuery({
                   .query('leads')
                   .withIndex('by_status', (q) => q.eq('status', singleStatus))
                   .order(direction)
-              : ctx.db.query('leads').order(direction);
+              : singleStage !== undefined
+                ? ctx.db
+                    .query('leads')
+                    .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
+                    .order(direction)
+                : ctx.db.query('leads').order(direction);
 
     const result = await cursor.paginate(args.paginationOpts);
 
@@ -207,6 +214,52 @@ export const countLeadsByStatus = employeeQuery({
       total += n;
     }
     return { total, byStatus };
+  },
+});
+
+export const countLeadsByLifecycleStage = employeeQuery({
+  args: {},
+  handler: async (ctx) => {
+    const config = await loadLifecycleConfig(ctx);
+    const byStage: Record<string, number> = {};
+    for (const stage of config.stages) {
+      byStage[stage.key] = await countLiveLeadsByLifecycleStage(ctx, stage.key);
+    }
+    return { byStage, unset: await countLiveLeadsByLifecycleStage(ctx, null) };
+  },
+});
+
+export const listLifecycleHistory = employeeQuery({
+  args: { leadId: v.id('leads') },
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
+      .query('lifecycleStageHistory')
+      .withIndex('by_lead', (q) => q.eq('leadId', args.leadId))
+      .collect();
+
+    const userNames = new Map<string, string | null>();
+    const workflowNames = new Map<string, string | null>();
+    for (const row of rows) {
+      if (row.changedBy && !userNames.has(row.changedBy)) {
+        const user = await ctx.db.get(row.changedBy);
+        userNames.set(row.changedBy, user ? `${user.firstName} ${user.lastName}` : null);
+      }
+      if (row.workflowId && !workflowNames.has(row.workflowId)) {
+        const workflow = await ctx.db.get(row.workflowId);
+        workflowNames.set(row.workflowId, workflow?.name ?? null);
+      }
+    }
+
+    return rows.map((row) => ({
+      _id: row._id,
+      from: row.from ?? null,
+      to: row.to,
+      source: row.source,
+      changedAt: row._creationTime,
+      changedByName: row.changedBy ? (userNames.get(row.changedBy) ?? null) : null,
+      workflowId: row.workflowId ?? null,
+      workflowName: row.workflowId ? (workflowNames.get(row.workflowId) ?? null) : null,
+    }));
   },
 });
 

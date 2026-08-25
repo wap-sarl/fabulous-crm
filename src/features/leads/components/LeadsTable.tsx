@@ -25,6 +25,8 @@ interface LeadsTableProps {
   /** Active custom property definitions; those with showInTable get a column. */
   definitions: LeadPropertyDefinitionRow[];
   employeeName: Map<string, string>;
+  /** Label of a lifecycle stage key (useLifecycleConfig().labelOf). */
+  lifecycleLabel: (key: string | undefined) => string;
   selectedIds: Set<string>;
   onToggleSelect: (id: Id<'leads'>) => void;
   onToggleSelectAll: () => void;
@@ -83,6 +85,7 @@ export function LeadsTable({
   isLoading = false,
   definitions,
   employeeName,
+  lifecycleLabel,
   selectedIds,
   onToggleSelect,
   onToggleSelectAll,
@@ -95,7 +98,7 @@ export function LeadsTable({
 }: LeadsTableProps) {
   const allSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l._id));
   const visibleCols = definitions.filter((d) => d.showInTable);
-  const colCount = 7 + visibleCols.length;
+  const colCount = 8 + visibleCols.length;
 
   return (
     <div className="rounded-xl border bg-card shadow-card">
@@ -127,6 +130,7 @@ export function LeadsTable({
                 onSort={onSort}
               />
             </TableHead>
+            <TableHead>Cycle de vie</TableHead>
             <TableHead>Assigné</TableHead>
             <TableHead>Consentements</TableHead>
             <TableHead>
@@ -203,6 +207,9 @@ export function LeadsTable({
                     <StatusBadge tone={LEAD_STATUS_TONE[lead.status]}>
                       {LEAD_STATUS_LABEL[lead.status]}
                     </StatusBadge>
+                  </TableCell>
+                  <TableCell className="whitespace-nowrap text-[13px] text-soft">
+                    {lifecycleLabel(lead.lifecycleStage)}
                   </TableCell>
                   <TableCell className="text-[13px] text-soft">
                     {lead.assignedTo ? (employeeName.get(lead.assignedTo) ?? '—') : '—'}

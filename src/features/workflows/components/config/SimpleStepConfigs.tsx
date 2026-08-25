@@ -22,11 +22,13 @@ import type {
 } from '@crm/lib/backend';
 import { LEAD_STATUSES } from '../../../../lib/constants';
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
+import { useLifecycleConfig } from '../../../leads/hooks/useLifecycleConfig';
 import type { LeadPropertyDefinitionRow } from '../../../leads/types';
 import { WAIT_UNIT_LABEL } from '../../lib/constants';
 
 type PropertyNode = Extract<WorkflowNode, { type: 'update_property' }>;
 type ListNode = Extract<WorkflowNode, { type: 'add_to_list' | 'remove_from_list' }>;
+type LifecycleNode = Extract<WorkflowNode, { type: 'set_lifecycle_stage' }>;
 type WaitNode = Extract<WorkflowNode, { type: 'wait' }>;
 type WebhookNode = Extract<WorkflowNode, { type: 'webhook' }>;
 
@@ -214,6 +216,40 @@ function PropertyValueInput({
         />
       );
   }
+}
+
+interface LifecycleStepConfigProps {
+  value: LifecycleNode;
+  onChange: (next: LifecycleNode) => void;
+}
+
+export function LifecycleStepConfig({ value, onChange }: LifecycleStepConfigProps) {
+  const lifecycle = useLifecycleConfig();
+  return (
+    <div className="space-y-1.5">
+      <Label>Étape du cycle de vie</Label>
+      <Select
+        value={value.stage ?? undefined}
+        onValueChange={(v) => onChange({ ...value, stage: v })}
+      >
+        <SelectTrigger className="w-full" data-testid="lifecycle-step-select">
+          <SelectValue placeholder="Choisir une étape…" />
+        </SelectTrigger>
+        <SelectContent>
+          {lifecycle.stages.map((s) => (
+            <SelectItem key={s.key} value={s.key}>
+              {s.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <HelperText>
+        {lifecycle.allowRegression
+          ? 'Le lead passe à cette étape, même si elle précède l’étape actuelle.'
+          : 'Le lead passe à cette étape ; un retour en arrière est ignoré (Paramètres → Cycle de vie).'}
+      </HelperText>
+    </div>
+  );
 }
 
 interface ListStepConfigProps {

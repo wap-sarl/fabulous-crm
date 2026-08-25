@@ -7,6 +7,11 @@ import { internal } from '../../_generated/api';
 import { appOrigin, deleteListMember, insertListMember, isNotDeleted, logAudit } from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { buildLeadParams, buildLeadTargetPatch } from '../crm/leadTargets';
+import {
+  applyLifecycleTransition,
+  loadLifecycleConfig,
+  planLifecycleTransition,
+} from '../../lib/lifecycle';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
 import type { FilterField } from '../../_lib/validators/leadFilters';
@@ -229,6 +234,42 @@ export const executeStep = internalMutation({
         return;
       }
 
+      case 'set_lifecycle_stage': {
+        const config = await loadLifecycleConfig(ctx);
+        const plan = node.stage
+          ? planLifecycleTransition(config, lead, node.stage)
+          : ({ kind: 'unknown_stage' } as const);
+        switch (plan.kind) {
+          case 'unknown_stage':
+            await logStep(ctx, run, node, 'skipped', { detail: 'étape introuvable' });
+            break;
+          case 'regression_blocked':
+            await logStep(ctx, run, node, 'skipped', { detail: 'retour en arrière interdit' });
+            break;
+          case 'unchanged':
+            await logStep(ctx, run, node, 'success', { detail: 'déjà à cette étape' });
+            break;
+          case 'change':
+            await applyLifecycleTransition(ctx, lead._id, plan, {
+              source: 'workflow',
+              workflowId: workflow._id,
+            });
+            await logStep(ctx, run, node, 'success');
+            await dispatchWorkflowTrigger(
+              ctx,
+              lead._id,
+              {
+                type: 'lead_property_changed',
+                changedFields: [{ kind: 'standard', field: 'lifecycleStage' }],
+              },
+              { source },
+            );
+            break;
+        }
+        await advanceRun(ctx, run, workflow, node.next);
+        return;
+      }
+
       case 'add_to_list': {
         const listId = node.listId;
         const list = listId ? await ctx.db.get(listId) : null;
@@ -402,6 +443,7 @@ export const getActionStepContext = internalQuery({
             email: lead.email,
             phone: lead.phone,
             status: lead.status,
+            lifecycleStage: lead.lifecycleStage,
             comment: lead.comment,
             address: lead.address,
             marketingConsent: lead.marketingConsent,

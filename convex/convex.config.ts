@@ -8,6 +8,7 @@ app.use(betterAuth);
 app.use(aggregate, { name: 'leadListMemberCounts' });
 app.use(aggregate, { name: 'leadsByStatus' });
 app.use(aggregate, { name: 'leadsByOwner' });
+app.use(aggregate, { name: 'leadsByLifecycle' });
 app.use(rateLimiter);
 
 export default app;

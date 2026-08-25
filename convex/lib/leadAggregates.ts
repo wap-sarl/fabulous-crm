@@ -27,6 +27,16 @@ export const leadsByOwner = new TableAggregate<{
   sortKey: aliveness,
 });
 
+export const leadsByLifecycle = new TableAggregate<{
+  Namespace: string | null;
+  Key: 0 | 1;
+  DataModel: DataModel;
+  TableName: 'leads';
+}>(components.leadsByLifecycle, {
+  namespace: (doc) => doc.lifecycleStage ?? null,
+  sortKey: aliveness,
+});
+
 /** Count the live (non-soft-deleted) leads with the given status. */
 export async function countLiveLeadsByStatus(
   ctx: QueryCtx,
@@ -34,6 +44,16 @@ export async function countLiveLeadsByStatus(
 ): Promise<number> {
   return await leadsByStatus.count(ctx, {
     namespace: status,
+    bounds: { lower: { key: 0, inclusive: true }, upper: { key: 0, inclusive: true } },
+  });
+}
+
+export async function countLiveLeadsByLifecycleStage(
+  ctx: QueryCtx,
+  stage: string | null,
+): Promise<number> {
+  return await leadsByLifecycle.count(ctx, {
+    namespace: stage,
     bounds: { lower: { key: 0, inclusive: true }, upper: { key: 0, inclusive: true } },
   });
 }

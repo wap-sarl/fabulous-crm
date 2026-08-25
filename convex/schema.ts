@@ -13,6 +13,7 @@ import { leadPropertyDefinitionValidator } from './_lib/validators/leadPropertie
 import { leadListValidator, leadListMemberValidator } from './_lib/validators/leadLists';
 import { appConfigValidator } from './_lib/validators/appConfig';
 import { invitationValidator } from './_lib/validators/invitations';
+import { lifecycleStageHistoryValidator } from './_lib/validators/lifecycle';
 import {
   workflowValidator,
   workflowRunValidator,
@@ -28,6 +29,19 @@ export { userValidator } from './_lib/validators/users';
 
 export type { AppConfig, SsoProvider } from './_lib/validators/appConfig';
 export { appConfigValidator, ssoProviderValidator } from './_lib/validators/appConfig';
+
+export type {
+  LifecycleStage,
+  LifecycleConfig,
+  LifecycleChangeSource,
+  LifecycleStageHistory,
+} from './_lib/validators/lifecycle';
+export {
+  lifecycleStageValidator,
+  lifecycleConfigValidator,
+  lifecycleChangeSourceValidator,
+  lifecycleStageHistoryValidator,
+} from './_lib/validators/lifecycle';
 
 export type { AuditLog, AuditLogEntityType, AuditLogAction } from './_lib/validators/auditLogs';
 
@@ -148,6 +162,8 @@ export default defineSchema({
     // + single status) under the default sort. The assignedTo prefix subsumes
     // the former by_assignedTo index.
     .index('by_assignedTo_status', ['assignedTo', 'status'])
+    // [lifecycleStage, _creationTime]: single-stage filter under the default sort.
+    .index('by_lifecycleStage', ['lifecycleStage'])
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
     .index('by_email', ['email'])
@@ -194,8 +210,9 @@ export default defineSchema({
   // Free-text notes attached to a lead (many per lead, pinnable). See crm validators.
   leadNotes: defineTable(leadNoteValidator).index('by_lead', ['leadId']),
 
-  // HubSpot-style automations on leads (see _lib/validators/workflows.ts).
-  // Few rows, read in full like leadLists — no index.
+  // Append-only lifecycle transitions (see lifecycleStageHistoryValidator).
+  // `by_lead` serves the lead page timeline, in _creationTime order.
+  lifecycleStageHistory: defineTable(lifecycleStageHistoryValidator).index('by_lead', ['leadId']),
   workflows: defineTable(workflowValidator),
 
   // One row per enrollment of a lead in a workflow. `by_workflow_lead` serves

@@ -1,6 +1,13 @@
 import { v } from 'convex/values';
 import { adminMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
+import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
+import { loadLifecycleConfig } from '../../lib/lifecycle';
+import {
+  LIFECYCLE_STAGE_KEY_RE,
+  MAX_LIFECYCLE_STAGES,
+  lifecycleStageValidator,
+} from '../../_lib/validators/lifecycle';
 import type {
   SsoProvider,
   SocialProviderConfig,
@@ -199,6 +206,60 @@ export const updateConfig = adminMutation({
         ssoProviderIds: mergedSso?.map((p) => p.providerId),
         socialProviderIds: mergedSocial?.map((p) => p.id),
         emailProvider: mergedEmail?.provider,
+      },
+    });
+
+    return { success: true };
+  },
+});
+
+export const updateLifecycleConfig = adminMutation({
+  args: {
+    stages: v.array(lifecycleStageValidator),
+    defaultStage: v.string(),
+    allowRegression: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    const cfg = await ctx.db.query('appConfig').first();
+    if (!cfg) throw new Error('Config not initialized');
+
+    if (args.stages.length === 0) throw new Error('lifecycle_no_stages');
+    if (args.stages.length > MAX_LIFECYCLE_STAGES) throw new Error('lifecycle_too_many_stages');
+    const stages = args.stages.map((s) => ({ key: s.key, label: s.label.trim() }));
+    const keys = new Set<string>();
+    for (const stage of stages) {
+      if (!LIFECYCLE_STAGE_KEY_RE.test(stage.key)) throw new Error('lifecycle_invalid_key');
+      if (keys.has(stage.key)) throw new Error('lifecycle_duplicate_key');
+      if (!stage.label) throw new Error('lifecycle_empty_label');
+      keys.add(stage.key);
+    }
+    if (!keys.has(args.defaultStage)) throw new Error('lifecycle_invalid_default');
+
+    const previous = await loadLifecycleConfig(ctx);
+    for (const stage of previous.stages) {
+      if (keys.has(stage.key)) continue;
+      if ((await countLiveLeadsByLifecycleStage(ctx, stage.key)) > 0) {
+        throw new Error('lifecycle_stage_in_use');
+      }
+    }
+
+    await ctx.db.patch(cfg._id, {
+      lifecycle: { stages, defaultStage: args.defaultStage, allowRegression: args.allowRegression },
+      updatedAt: Date.now(),
+      updatedBy: ctx.userId,
+    });
+
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'appConfig',
+      entityId: cfg._id,
+      action: 'update',
+      metadata: {
+        fields: ['lifecycle'],
+        lifecycleStages: stages.map((s) => s.key),
+        defaultStage: args.defaultStage,
+        allowRegression: args.allowRegression,
       },
     });
 

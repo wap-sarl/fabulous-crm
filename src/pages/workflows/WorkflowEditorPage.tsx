@@ -20,6 +20,7 @@ import { ArrowLeft, Pause, Play, RefreshCw, Save } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
 import { useLeadLists } from '../../features/leads/hooks/useLeadLists';
+import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { useWorkflowDraft, subtreeIds } from '../../features/workflows/hooks/useWorkflowDraft';
 import { draftFromWorkflow, draftToPayload, type InsertSlot } from '../../features/workflows/types';
 import { WorkflowCanvas } from '../../features/workflows/components/WorkflowCanvas';
@@ -97,6 +98,11 @@ export function WorkflowEditorPage() {
   const definitionLabelById = useMemo(
     () => new Map(definitions.map((d) => [d._id as string, d.label])),
     [definitions],
+  );
+  const lifecycle = useLifecycleConfig();
+  const lifecycleStageLabelByKey = useMemo(
+    () => new Map(lifecycle.stages.map((s) => [s.key, s.label])),
+    [lifecycle.stages],
   );
 
   const selection: PanelSelection = useMemo(() => {
@@ -303,6 +309,7 @@ export function WorkflowEditorPage() {
           onRemove: requestRemove,
           listNameById,
           definitionLabelById,
+          lifecycleStageLabelByKey,
           readOnly,
         }}
       />

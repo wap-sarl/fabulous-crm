@@ -43,6 +43,9 @@ export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
           push('choisissez une valeur.');
         }
         break;
+      case 'set_lifecycle_stage':
+        if (!node.stage) push('choisissez une étape.');
+        break;
       case 'add_to_list':
       case 'remove_from_list':
         if (!node.listId) push('choisissez une liste.');

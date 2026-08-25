@@ -23,6 +23,7 @@ import {
 } from '@crm/design-system';
 import type { Id } from '@crm/lib/backend';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
+import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { useLeadActions } from '../hooks/useLeadActions';
 import { useLeadLists } from '../hooks/useLeadLists';
 import { useLeadPropertyDefinitions } from '../hooks/useLeadPropertyDefinitions';
@@ -70,6 +71,7 @@ const IMPORT_CHUNK_SIZE = 500;
 
 export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
   const { employees } = useEmployees();
+  const lifecycle = useLifecycleConfig();
   const { importLeads, createLeadList } = useLeadActions();
   const customDefs = useLeadPropertyDefinitions();
   const lists = useLeadLists();
@@ -181,6 +183,12 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
     const ctx: ImportContext = {
       userByEmail: new Map(
         employees.filter((e) => Boolean(e.email)).map((e) => [e.email!.toLowerCase(), e._id]),
+      ),
+      lifecycleStageByName: new Map(
+        lifecycle.stages.flatMap((s) => [
+          [s.key.toLowerCase(), s.key],
+          [s.label.toLowerCase(), s.key],
+        ]),
       ),
     };
 
