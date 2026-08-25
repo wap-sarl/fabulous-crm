@@ -19,11 +19,6 @@ import {
 } from '../../lib/companies';
 import { requireValidAddress } from '../../lib/addresses';
 import { normalizeDomain } from '../../lib/companyDomains';
-import {
-  assertLifecycleTransition,
-  loadLifecycleConfig,
-  planLifecycleTransition,
-} from '../../lib/lifecycle';
 
 const companyFieldArgs = {
   name: v.string(),
@@ -35,7 +30,6 @@ const companyFieldArgs = {
   sector: v.optional(v.string()),
   headcount: v.optional(v.number()),
   address: v.optional(addressValidator),
-  lifecycleStage: v.optional(v.string()),
 } as const;
 
 const blank = (s: string | undefined) => (s?.trim() ? s.trim() : undefined);
@@ -79,11 +73,6 @@ export const createCompany = employeeMutation({
     if (!name) throw new Error('company_name_required');
     const ids = await normalizeIdentifiers(ctx, args);
 
-    const lifecycle = await loadLifecycleConfig(ctx);
-    if (args.lifecycleStage && !lifecycle.stages.some((s) => s.key === args.lifecycleStage)) {
-      throw new Error('unknown_lifecycle_stage');
-    }
-
     const companyId = await ctx.db.insert('companies', {
       name,
       ...ids,
@@ -91,7 +80,6 @@ export const createCompany = employeeMutation({
       sector: blank(args.sector),
       headcount: args.headcount,
       address: requireValidAddress(args.address),
-      lifecycleStage: args.lifecycleStage,
       ...createAuditFields(ctx.userId),
     });
     await logAudit({
@@ -150,15 +138,6 @@ export const updateCompany = employeeMutation({
     if (rest.sector !== undefined) updates.sector = blank(rest.sector);
     if (rest.headcount !== undefined) updates.headcount = rest.headcount;
     if (rest.address !== undefined) updates.address = requireValidAddress(rest.address);
-    if (rest.lifecycleStage !== undefined) {
-      const plan = planLifecycleTransition(
-        await loadLifecycleConfig(ctx),
-        company,
-        rest.lifecycleStage,
-      );
-      assertLifecycleTransition(plan);
-      if (plan.kind === 'change') updates.lifecycleStage = plan.to;
-    }
 
     const changes = computeChanges(company, filterUndefined(updates));
     const renamed = typeof updates.name === 'string' && updates.name !== company.name;

@@ -2,14 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { DEFAULT_LIFECYCLE_STAGES } from '../../convex/_lib/validators/lifecycle';
-import {
-  asIdentity,
-  createTestConvex,
-  seedEmployee,
-  seedLead,
-  type SeededEmployee,
-  type T,
-} from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, type SeededEmployee, type T } from './helpers';
 
 async function setup(role: 'admin' | 'member' = 'admin') {
   const t = createTestConvex();
@@ -325,7 +318,7 @@ describe('workflow step set_lifecycle_stage', () => {
         workflowId,
         status: 'active',
       }),
-    ).rejects.toThrow('étape introuvable');
+    ).rejects.toThrow('statut introuvable');
   });
 
   test('moves the lead forward and logs the workflow as the actor', async () => {
@@ -403,48 +396,5 @@ describe('updateLifecycleConfig', () => {
 
     const config = await as.query(api.features.config.queries.getLifecycleConfig, {});
     expect(config.stages.map((s) => s.key)).not.toContain('evangelist');
-  });
-});
-
-describe('backfillLeadLifecycleStage', () => {
-  test('derives the stage from status, logs a migration row and registers the aggregate', async () => {
-    const { t, as } = await setup();
-    // Raw inserts bypass the trigger wrapper — exactly the legacy situation.
-    const nouveau = await seedLead(t, { email: 'n@example.com', status: 'nouveau' });
-    const interesse = await seedLead(t, { email: 'i@example.com', status: 'interesse' });
-    const converti = await seedLead(t, { email: 'c@example.com', status: 'converti' });
-    let counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
-    expect(counts.unset).toBe(0); // unregistered, not "unset": the aggregate knows nothing yet
-
-    let cursor: string | undefined;
-    for (;;) {
-      const page = await t.mutation(
-        internal.features.crm.internal.backfillLeadLifecycleStage,
-        cursor ? { cursor } : {},
-      );
-      if (page.isDone) break;
-      cursor = page.continueCursor;
-    }
-
-    const stages = await t.run(async (ctx) => [
-      (await ctx.db.get(nouveau))?.lifecycleStage,
-      (await ctx.db.get(interesse))?.lifecycleStage,
-      (await ctx.db.get(converti))?.lifecycleStage,
-    ]);
-    expect(stages).toEqual(['lead', 'sql', 'customer']);
-    expect((await historyOf(t, converti))[0]).toMatchObject({
-      to: 'customer',
-      source: 'migration',
-    });
-
-    counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
-    expect(counts.byStage.lead).toBe(1);
-    expect(counts.byStage.sql).toBe(1);
-    expect(counts.byStage.customer).toBe(1);
-
-    // Idempotent: a second pass changes nothing.
-    const again = await t.mutation(internal.features.crm.internal.backfillLeadLifecycleStage, {});
-    expect(again.derived).toBe(0);
-    expect(await historyOf(t, converti)).toHaveLength(1);
   });
 });

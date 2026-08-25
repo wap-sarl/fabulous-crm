@@ -68,30 +68,12 @@ export function lifecycleStageLabel(config: LifecycleConfig, key: string | undef
   return config.stages.find((s) => s.key === key)?.label ?? key;
 }
 
-/**
- * Initial lifecycle stage derived from the legacy `leads.status` by the
- * one-off migration (backfillLeadLifecycleStage). `status` only tells us the
- * state of the commercial relationship, so the mapping is deliberately
- * conservative: a converted lead is a customer, an interested one is
- * sales-qualified, everything else (including lost — a deal outcome, not a
- * funnel position) starts as a plain lead.
- */
-export const LIFECYCLE_FROM_STATUS: Record<
-  'nouveau' | 'contacte' | 'interesse' | 'converti' | 'perdu',
-  string
-> = {
-  nouveau: 'lead',
-  contacte: 'lead',
-  interesse: 'sql',
-  converti: 'customer',
-  perdu: 'lead',
-};
-
 /** Who or what moved a lead between stages. */
 export const lifecycleChangeSourceValidator = v.union(
   v.literal('manual'),
   v.literal('import'),
   v.literal('workflow'),
+  // Historical rows only (the one-off import of pre-lifecycle leads).
   v.literal('migration'),
   // A won deal turned the lead into a customer.
   v.literal('deal'),

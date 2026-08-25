@@ -126,7 +126,6 @@ export type NewDeal = {
   expectedCloseDate?: string;
   ownerId?: Id<'users'>;
   leadId?: Id<'leads'>;
-  companyId?: Id<'companies'>;
   sourceCampaignId?: Id<'campaigns'>;
 };
 
@@ -160,7 +159,6 @@ export async function createDealRecord(
     closedAt: stage.kind === 'open' ? undefined : now,
     ownerId: data.ownerId,
     leadId: data.leadId,
-    companyId: data.companyId,
     sourceCampaignId: data.sourceCampaignId,
     updatedAt: now,
     createdBy: meta.changedBy,

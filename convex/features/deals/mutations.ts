@@ -153,7 +153,6 @@ const dealFieldArgs = {
   expectedCloseDate: v.optional(v.string()),
   ownerId: v.optional(v.id('users')),
   leadId: v.optional(v.id('leads')),
-  companyId: v.optional(v.id('companies')),
   sourceCampaignId: v.optional(v.id('campaigns')),
 } as const;
 
@@ -170,7 +169,6 @@ async function validateDealFields(
     expectedCloseDate?: string;
     ownerId?: Id<'users'>;
     leadId?: Id<'leads'>;
-    companyId?: Id<'companies'>;
     sourceCampaignId?: Id<'campaigns'>;
   },
 ): Promise<void> {
@@ -190,10 +188,6 @@ async function validateDealFields(
     const lead = await ctx.db.get(fields.leadId);
     if (!lead || !isNotDeleted(lead)) throw new Error('lead_not_found');
   }
-  if (fields.companyId) {
-    const company = await ctx.db.get(fields.companyId);
-    if (!company || !isNotDeleted(company)) throw new Error('company_not_found');
-  }
   if (fields.sourceCampaignId && !(await ctx.db.get(fields.sourceCampaignId))) {
     throw new Error('invalid_deal: sourceCampaignId');
   }
@@ -207,12 +201,9 @@ export const createDeal = employeeMutation({
   },
   handler: async (ctx, args) => {
     await validateDealFields(ctx, args);
-    // The company defaults to the lead's when only a lead is given.
-    let companyId = args.companyId;
-    if (!companyId && args.leadId) companyId = (await ctx.db.get(args.leadId))?.companyId;
     return await createDealRecord(
       ctx,
-      { ...args, companyId, ownerId: args.ownerId ?? ctx.userId },
+      { ...args, ownerId: args.ownerId ?? ctx.userId },
       { source: 'create', changedBy: ctx.userId },
     );
   },
@@ -227,7 +218,6 @@ export const updateDeal = employeeMutation({
     // null clears an optional relation / field.
     ownerId: v.optional(v.union(v.id('users'), v.null())),
     leadId: v.optional(v.union(v.id('leads'), v.null())),
-    companyId: v.optional(v.union(v.id('companies'), v.null())),
     sourceCampaignId: v.optional(v.union(v.id('campaigns'), v.null())),
     expectedCloseDate: v.optional(v.union(v.string(), v.null())),
     amount: v.optional(v.union(v.number(), v.null())),

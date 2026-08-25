@@ -23,10 +23,6 @@ export const companyValidator = v.object({
   headcount: v.optional(v.number()),
   address: v.optional(addressValidator),
 
-  // Funnel position, same stage keys as leads (#29). Checked against the
-  // regression rule on update; no per-company history (leads only).
-  lifecycleStage: v.optional(v.string()),
-
   // Denormalized search text (name, domain, registration number), maintained
   // by the Triggers wrapper (_lib/functions.ts) — never written by hand.
   searchText: v.optional(v.string()),

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { api, internal } from '../../convex/_generated/api';
+import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -70,36 +70,5 @@ describe('listLeadLists member counts', () => {
     const lists = await as.query(api.features.crm.queries.listLeadLists, {});
     expect(lists.find((list) => list._id === dropId)).toBeUndefined();
     expect(await memberCountOf(as, keepId)).toBe(2);
-  });
-
-  test('backfill registers junction rows that predate the aggregate', async () => {
-    const { t, emp, as } = await setup();
-    const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
-      name: 'Legacy',
-    });
-
-    // Simulate pre-aggregate data: raw junction inserts that bypass the helper.
-    for (let i = 0; i < 3; i++) {
-      const leadId = await seedLead(t, { email: `legacy-${i}@example.com` });
-      await t.run(async (ctx) => {
-        await ctx.db.insert('leadListMembers', { listId, leadId, addedBy: emp.userId });
-      });
-    }
-    expect(await memberCountOf(as, listId)).toBe(0);
-
-    let cursor: string | undefined;
-    for (;;) {
-      const page = await t.mutation(
-        internal.features.crm.internal.backfillLeadListMemberCounts,
-        cursor ? { cursor } : {},
-      );
-      if (page.isDone) break;
-      cursor = page.continueCursor;
-    }
-    expect(await memberCountOf(as, listId)).toBe(3);
-
-    // Idempotent: re-running the backfill must not double-count.
-    await t.mutation(internal.features.crm.internal.backfillLeadListMemberCounts, {});
-    expect(await memberCountOf(as, listId)).toBe(3);
   });
 });

@@ -199,7 +199,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       const message = e instanceof Error ? e.message : '';
       toast.error(
         message.includes('lifecycle_regression_blocked')
-          ? 'Le retour à une étape antérieure du cycle de vie est désactivé (Paramètres → Cycle de vie).'
+          ? 'Le retour à un statut antérieur est désactivé (Paramètres → Statut du lead).'
           : 'Une erreur est survenue.',
       );
     } finally {
@@ -269,7 +269,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>Cycle de vie</Label>
+            <Label>Statut du lead</Label>
             <Select
               value={form.lifecycleStage || lifecycle.defaultStage}
               onValueChange={(v) => setField('lifecycleStage', v)}
@@ -300,7 +300,8 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
             />
             {!isEdit && !form.companyId ? (
               <HelperText>
-                Laissez vide pour rattacher automatiquement l’entreprise du domaine de l’e-mail.
+                Laissez vide pour rattacher automatiquement une entreprise existante portant le
+                domaine de l’e-mail.
               </HelperText>
             ) : null}
           </div>

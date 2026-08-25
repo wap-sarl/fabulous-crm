@@ -159,9 +159,9 @@ export function asIdentity(t: T, identity: SeededEmployee['identity']) {
 
 /**
  * Direct-db lead factory with schema-required defaults. Raw inserts bypass the
- * Triggers wrapper, so `searchText` is stamped here explicitly (mirroring the
- * post-backfill state); aggregate counters are NOT registered — count tests
- * must create leads through the mutations.
+ * Triggers wrapper, so `searchText` is stamped here explicitly; aggregate
+ * counters are NOT registered — count tests must create leads through the
+ * mutations.
  */
 export async function seedLead(
   t: T,

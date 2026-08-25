@@ -6,17 +6,13 @@ import { Combobox } from '@crm/design-system';
 
 interface LeadPickerProps {
   value: Id<'leads'> | '';
-  onChange: (
-    value: Id<'leads'> | '',
-    companyId: Id<'companies'> | null,
-    companyName: string | null,
-  ) => void;
+  onChange: (value: Id<'leads'> | '') => void;
   selectedName?: string | null;
   disabled?: boolean;
   modal?: boolean;
 }
 
-/** Searchable lead selector (search index, 10 rows); reports the lead's company for defaults. */
+/** Searchable lead selector (search index, 10 rows). */
 export function LeadPicker({ value, onChange, selectedName, disabled, modal }: LeadPickerProps) {
   const [search, setSearch] = useState('');
   const results = useAuthQuery(api.features.crm.queries.searchLeads, {
@@ -37,10 +33,7 @@ export function LeadPicker({ value, onChange, selectedName, disabled, modal }: L
     <Combobox
       items={items}
       value={value}
-      onValueChange={(v) => {
-        const lead = (results ?? []).find((l) => l._id === v);
-        onChange(v as Id<'leads'> | '', lead?.companyId ?? null, lead?.companyName ?? null);
-      }}
+      onValueChange={(v) => onChange(v as Id<'leads'> | '')}
       onSearch={setSearch}
       placeholder="Aucun lead"
       searchPlaceholder="Rechercher un lead…"

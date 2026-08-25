@@ -31,10 +31,6 @@ export const addressValidator = v.object({
   postalCode: v.string(),
   city: v.string(),
   region: v.optional(v.string()),
-  // DEPRECATED: `country` used to hold a display name ("France") with the ISO
-  // code here. backfillAddressCountries folds it into `country`; kept optional
-  // so pre-migration rows validate, never written anymore.
-  countryCode: v.optional(v.string()),
   placeId: v.optional(v.string()),
   coordinates: v.optional(v.object({ lat: v.number(), lng: v.number() })),
 });

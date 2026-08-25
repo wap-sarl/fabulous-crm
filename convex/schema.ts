@@ -207,7 +207,6 @@ export default defineSchema({
     .index('by_pipeline_stage', ['pipelineId', 'stageKey'])
     .index('by_pipeline_status', ['pipelineId', 'status'])
     .index('by_lead', ['leadId'])
-    .index('by_company', ['companyId'])
     .index('by_owner', ['ownerId']),
 
   dealStageHistory: defineTable(dealStageHistoryValidator).index('by_deal', ['dealId']),

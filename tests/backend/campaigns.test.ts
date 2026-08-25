@@ -136,7 +136,6 @@ describe('createCampaign', () => {
     expect(campaign?.totalCount).toBe(2);
     expect(campaign?.failedCount).toBe(1); // the no-email skip
     expect(campaign?.status).toBe('sending');
-    expect(campaign?.recipientLeadIds).toBeUndefined();
 
     const sends = await t.run((ctx) => ctx.db.query('campaignSends').collect());
     expect(sends).toHaveLength(2);

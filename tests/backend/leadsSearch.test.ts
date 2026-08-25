@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { api, internal } from '../../convex/_generated/api';
+import { api } from '../../convex/_generated/api';
 import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 
 async function setup() {
@@ -97,34 +97,5 @@ describe('lead search (by_searchText index)', () => {
       search: 'helene',
     });
     expect(result.leadIds).toEqual([leadId]);
-  });
-
-  test('backfill stamps searchText on legacy rows, idempotently', async () => {
-    const { t, as } = await setup();
-    // Legacy row: raw insert without searchText (bypasses helper and triggers).
-    // (Not asserted via search here: convex-test's search scan chokes on docs
-    // missing the search field, where real Convex just leaves them unindexed.)
-    const leadId = await t.run(async (ctx) => {
-      return await ctx.db.insert('leads', {
-        firstName: 'Hélène',
-        lastName: 'Legacy',
-        email: 'legacy@example.com',
-        phone: '',
-        status: 'nouveau',
-        marketingConsent: [],
-        consentToken: 'legacy-token',
-        isRedFlagged: false,
-        updatedAt: Date.now(),
-      });
-    });
-    // `t.run` serializes `undefined` to `null` on the way out.
-    expect(await t.run(async (ctx) => (await ctx.db.get(leadId))?.searchText ?? null)).toBeNull();
-
-    const first = await t.mutation(internal.features.crm.internal.backfillLeadSearchText, {});
-    expect(first.patched).toBe(1);
-    expect((await searchLeads(as, 'helene')).map((l) => l.lastName)).toEqual(['Legacy']);
-
-    const second = await t.mutation(internal.features.crm.internal.backfillLeadSearchText, {});
-    expect(second.patched).toBe(0);
   });
 });

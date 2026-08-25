@@ -40,7 +40,6 @@ export const dealValidator = v.object({
   closedAt: v.optional(v.number()),
   ownerId: v.optional(v.id('users')),
   leadId: v.optional(v.id('leads')),
-  companyId: v.optional(v.id('companies')),
   lossReason: v.optional(v.string()),
   // Campaign that originated the deal — the hook for revenue attribution.
   sourceCampaignId: v.optional(v.id('campaigns')),

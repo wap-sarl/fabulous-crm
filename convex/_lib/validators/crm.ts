@@ -60,10 +60,9 @@ export const leadValidator = v.object({
 
   lifecycleStage: v.optional(v.string()),
 
-  // Denormalized, normalized identity text (first/last name, email, phone)
-  // serving the by_searchText search index. Maintained automatically by the
-  // Triggers wrapper (_lib/functions.ts) — never write it by hand. Optional
-  // for rows predating the field, until backfillLeadSearchText has run.
+  // Denormalized, normalized identity text (first/last name, email, phone,
+  // company name) serving the by_searchText search index. Stamped by the
+  // Triggers wrapper (_lib/functions.ts) on every write — never write it by hand.
   searchText: v.optional(v.string()),
 
   // Admin-defined custom property values, keyed by leadPropertyDefinitions._id.
@@ -174,11 +173,6 @@ export const campaignValidator = v.object({
   // legacy rows and on SMS campaigns = Brevo (the only provider that existed).
   emailProvider: v.optional(v.union(v.literal('brevo'), v.literal('smtp'))),
   status: campaignStatusValidator,
-  // DEPRECATED: recipients live in campaignSends only. Convex arrays cap at
-  // 8,192 elements, so storing ids here put a hard ceiling on campaign size.
-  // Kept optional so legacy rows validate until the strip migration
-  // (stripCampaignRecipientLeadIds) has run; never written anymore.
-  recipientLeadIds: v.optional(v.array(v.id('leads'))),
   totalCount: v.number(),
   sentCount: v.number(),
   failedCount: v.number(),

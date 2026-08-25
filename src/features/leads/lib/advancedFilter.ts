@@ -22,7 +22,7 @@ export const STANDARD_FILTER_FIELDS: {
   { field: 'phone', label: 'Téléphone', type: 'text' },
   { field: 'comment', label: 'Commentaire', type: 'text' },
   { field: 'status', label: 'Statut', type: 'status' },
-  { field: 'lifecycleStage', label: 'Cycle de vie', type: 'lifecycle' },
+  { field: 'lifecycleStage', label: 'Statut du lead', type: 'lifecycle' },
   { field: 'assignedTo', label: 'Assigné à', type: 'assignee' },
   { field: 'isRedFlagged', label: 'Signalé', type: 'boolean' },
   { field: 'marketingConsent', label: 'Consentement marketing', type: 'checkbox' },

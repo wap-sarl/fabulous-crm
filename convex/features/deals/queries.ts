@@ -38,7 +38,6 @@ export const getPipelineStats = employeeQuery({
 
 export type DealRow = Doc<'deals'> & {
   leadName: string | null;
-  companyName: string | null;
   ownerName: string | null;
   stageLabel: string;
 };
@@ -46,7 +45,6 @@ export type DealRow = Doc<'deals'> & {
 /** Attach the names a card/row displays (memoized point reads per page). */
 async function withRelations(ctx: QueryCtx, deals: Doc<'deals'>[]): Promise<DealRow[]> {
   const leads = new Map<string, string | null>();
-  const companies = new Map<string, string | null>();
   const users = new Map<string, string | null>();
   const pipelines = new Map<string, Doc<'pipelines'> | null>();
   const nameOf = async <T extends 'leads' | 'companies' | 'users'>(
@@ -71,7 +69,6 @@ async function withRelations(ctx: QueryCtx, deals: Doc<'deals'>[]): Promise<Deal
       leadName: deal.leadId
         ? await nameOf(leads, deal.leadId, (l) => `${l.firstName} ${l.lastName}`)
         : null,
-      companyName: deal.companyId ? await nameOf(companies, deal.companyId, (c) => c.name) : null,
       ownerName: deal.ownerId
         ? await nameOf(users, deal.ownerId, (u) => `${u.firstName} ${u.lastName}`)
         : null,
@@ -105,7 +102,6 @@ export const dealFilterArgs = {
   stageKeys: v.optional(v.array(v.string())),
   statuses: v.optional(v.array(dealStatusValidator)),
   ownerIds: v.optional(v.array(v.id('users'))),
-  companyIds: v.optional(v.array(v.id('companies'))),
   leadIds: v.optional(v.array(v.id('leads'))),
   search: v.optional(v.string()),
 } as const;
@@ -115,7 +111,6 @@ type DealFilters = {
   stageKeys?: string[];
   statuses?: Doc<'deals'>['status'][];
   ownerIds?: Id<'users'>[];
-  companyIds?: Id<'companies'>[];
   leadIds?: Id<'leads'>[];
   search?: string;
 };
@@ -126,8 +121,6 @@ function matchesDealFilters(deal: Doc<'deals'>, f: DealFilters): boolean {
   if (f.stageKeys?.length && !f.stageKeys.includes(deal.stageKey)) return false;
   if (f.statuses?.length && !f.statuses.includes(deal.status)) return false;
   if (f.ownerIds?.length && (!deal.ownerId || !f.ownerIds.includes(deal.ownerId))) return false;
-  if (f.companyIds?.length && (!deal.companyId || !f.companyIds.includes(deal.companyId)))
-    return false;
   if (f.leadIds?.length && (!deal.leadId || !f.leadIds.includes(deal.leadId))) return false;
   const search = f.search ? normalizeSearchText(f.search) : '';
   if (search && !normalizeSearchText(deal.title).includes(search)) return false;
@@ -139,7 +132,6 @@ export const listDealsPaginated = employeeQuery({
   handler: async (ctx, args) => {
     const one = <T>(list: T[] | undefined) => (list?.length === 1 ? list[0] : undefined);
     const lead = one(args.leadIds);
-    const company = one(args.companyIds);
     const owner = one(args.ownerIds);
     const stage = one(args.stageKeys);
     const status = one(args.statuses);
@@ -148,21 +140,19 @@ export const listDealsPaginated = employeeQuery({
     const cursor =
       lead !== undefined
         ? base.withIndex('by_lead', (q) => q.eq('leadId', lead))
-        : company !== undefined
-          ? base.withIndex('by_company', (q) => q.eq('companyId', company))
-          : owner !== undefined
-            ? base.withIndex('by_owner', (q) => q.eq('ownerId', owner))
-            : pipelineId !== undefined && stage !== undefined
-              ? base.withIndex('by_pipeline_stage', (q) =>
-                  q.eq('pipelineId', pipelineId).eq('stageKey', stage),
+        : owner !== undefined
+          ? base.withIndex('by_owner', (q) => q.eq('ownerId', owner))
+          : pipelineId !== undefined && stage !== undefined
+            ? base.withIndex('by_pipeline_stage', (q) =>
+                q.eq('pipelineId', pipelineId).eq('stageKey', stage),
+              )
+            : pipelineId !== undefined && status !== undefined
+              ? base.withIndex('by_pipeline_status', (q) =>
+                  q.eq('pipelineId', pipelineId).eq('status', status),
                 )
-              : pipelineId !== undefined && status !== undefined
-                ? base.withIndex('by_pipeline_status', (q) =>
-                    q.eq('pipelineId', pipelineId).eq('status', status),
-                  )
-                : pipelineId !== undefined
-                  ? base.withIndex('by_pipeline_stage', (q) => q.eq('pipelineId', pipelineId))
-                  : base;
+              : pipelineId !== undefined
+                ? base.withIndex('by_pipeline_stage', (q) => q.eq('pipelineId', pipelineId))
+                : base;
     const result = await cursor.order('desc').paginate(args.paginationOpts);
     return {
       ...result,
@@ -221,23 +211,15 @@ export const getDeal = employeeQuery({
   },
 });
 
-/** A lead's or a company's deals (newest first, bounded) for the entity pages. */
+/** A lead's transactions (newest first, bounded) for the lead page. */
 export const listDealsForEntity = employeeQuery({
-  args: { leadId: v.optional(v.id('leads')), companyId: v.optional(v.id('companies')) },
+  args: { leadId: v.id('leads') },
   handler: async (ctx, args) => {
-    const rows = args.leadId
-      ? await ctx.db
-          .query('deals')
-          .withIndex('by_lead', (q) => q.eq('leadId', args.leadId!))
-          .order('desc')
-          .take(50)
-      : args.companyId
-        ? await ctx.db
-            .query('deals')
-            .withIndex('by_company', (q) => q.eq('companyId', args.companyId!))
-            .order('desc')
-            .take(50)
-        : [];
+    const rows = await ctx.db
+      .query('deals')
+      .withIndex('by_lead', (q) => q.eq('leadId', args.leadId))
+      .order('desc')
+      .take(50);
     return await withRelations(ctx, rows.filter(isNotDeleted));
   },
 });

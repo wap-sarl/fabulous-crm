@@ -40,18 +40,18 @@ function keyFromLabel(label: string, taken: Set<string>): string {
 }
 
 const ERROR_MESSAGES: Record<string, string> = {
-  lifecycle_no_stages: 'Au moins une étape est requise.',
-  lifecycle_too_many_stages: `Au plus ${MAX_LIFECYCLE_STAGES} étapes.`,
-  lifecycle_invalid_key: 'Identifiant d’étape invalide.',
-  lifecycle_duplicate_key: 'Deux étapes partagent le même identifiant.',
-  lifecycle_empty_label: 'Chaque étape doit avoir un libellé.',
-  lifecycle_invalid_default: 'L’étape par défaut doit être une étape de la liste.',
+  lifecycle_no_stages: 'Au moins un statut est requis.',
+  lifecycle_too_many_stages: `Au plus ${MAX_LIFECYCLE_STAGES} statuts.`,
+  lifecycle_invalid_key: 'Identifiant de statut invalide.',
+  lifecycle_duplicate_key: 'Deux statuts partagent le même identifiant.',
+  lifecycle_empty_label: 'Chaque statut doit avoir un libellé.',
+  lifecycle_invalid_default: 'Le statut par défaut doit être un statut de la liste.',
   lifecycle_stage_in_use:
-    'Impossible de supprimer une étape à laquelle des leads se trouvent encore.',
+    'Impossible de supprimer un statut dans lequel des leads se trouvent encore.',
 };
 
 export function LifecyclePage() {
-  usePageTitle('Cycle de vie');
+  usePageTitle('Statut du lead');
   const config = useAuthQuery(api.features.config.queries.getLifecycleConfig, {});
   const counts = useAuthQuery(api.features.crm.queries.countLeadsByLifecycleStage, {});
   const updateLifecycleConfig = useAuthMutation(
@@ -128,7 +128,7 @@ export function LifecyclePage() {
     try {
       await updateLifecycleConfig({ stages, defaultStage, allowRegression });
       setDirty(false);
-      toast.success('Cycle de vie enregistré.');
+      toast.success('Statuts du lead enregistrés.');
     } catch (e) {
       const message = e instanceof Error ? e.message : '';
       const known = Object.keys(ERROR_MESSAGES).find((k) => message.includes(k));
@@ -149,8 +149,8 @@ export function LifecyclePage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
       <PageHeader
-        title="Cycle de vie"
-        subtitle="Étapes du parcours marketing → commercial, dans l’ordre de l’entonnoir"
+        title="Statut du lead"
+        subtitle="Statuts du parcours marketing → commercial, dans l’ordre du parcours"
         actions={
           <Button onClick={save} loading={saving} disabled={!dirty} data-testid="save-lifecycle">
             Enregistrer
@@ -160,10 +160,10 @@ export function LifecyclePage() {
 
       <div className="mt-6 flex flex-col gap-5">
         <Card className="p-5">
-          <h2 className="mb-1 text-[15px] font-bold text-ink">Entonnoir</h2>
+          <h2 className="mb-1 text-[15px] font-bold text-ink">Répartition des leads</h2>
           <p className="mb-4 text-sm text-faint">
             {counts ? `${total} lead(s) actif(s)` : 'Chargement…'}
-            {counts && counts.unset > 0 ? ` · ${counts.unset} sans étape (migration à lancer)` : ''}
+            {counts && counts.unset > 0 ? ` · ${counts.unset} sans statut` : ''}
           </p>
           <ul className="flex flex-col gap-2" data-testid="lifecycle-funnel">
             {stages.map((stage) => {
@@ -185,9 +185,9 @@ export function LifecyclePage() {
         </Card>
 
         <Card className="p-5">
-          <h2 className="mb-1 text-[15px] font-bold text-ink">Étapes</h2>
+          <h2 className="mb-1 text-[15px] font-bold text-ink">Statuts</h2>
           <p className="mb-4 text-sm text-faint">
-            L’ordre de la liste est l’ordre de l’entonnoir. Une étape ne peut être supprimée que si
+            L’ordre de la liste est l’ordre du parcours. Un statut ne peut être supprimé que si
             aucun lead ne s’y trouve.
           </p>
           <SortableList
@@ -202,7 +202,7 @@ export function LifecyclePage() {
                 <Input
                   value={stage.label}
                   onChange={(e) => rename(index, e.target.value)}
-                  aria-label={`Libellé de l’étape ${index + 1}`}
+                  aria-label={`Libellé du statut ${index + 1}`}
                   className="flex-1"
                   data-testid="lifecycle-stage"
                 />
@@ -212,7 +212,7 @@ export function LifecyclePage() {
                 <IconButton
                   variant="secondary"
                   size="sm"
-                  aria-label={`Supprimer l’étape ${stage.label}`}
+                  aria-label={`Supprimer le statut ${stage.label}`}
                   disabled={stages.length <= 1 || (counts?.byStage[stage.key] ?? 0) > 0}
                   onClick={() => remove(index)}
                 >
@@ -231,8 +231,8 @@ export function LifecyclePage() {
                   add();
                 }
               }}
-              placeholder="Nouvelle étape…"
-              aria-label="Libellé de la nouvelle étape"
+              placeholder="Nouveau statut…"
+              aria-label="Libellé du nouveau statut"
               className="flex-1"
               data-testid="new-lifecycle-stage"
             />
@@ -245,7 +245,7 @@ export function LifecyclePage() {
 
         <Card className="flex flex-col gap-4 p-5">
           <div className="space-y-1.5">
-            <Label>Étape par défaut des nouveaux leads</Label>
+            <Label>Statut par défaut des nouveaux leads</Label>
             <Select value={defaultStage} onValueChange={touch(setDefaultStage)}>
               <SelectTrigger className="w-full sm:w-72">
                 <SelectValue placeholder="Choisir…" />
@@ -258,7 +258,7 @@ export function LifecyclePage() {
                 ))}
               </SelectContent>
             </Select>
-            <HelperText>Appliquée aux leads créés sans étape (formulaire, import CSV).</HelperText>
+            <HelperText>Appliqué aux leads créés sans statut (formulaire, import CSV).</HelperText>
           </div>
 
           <label className="flex items-start gap-3 text-sm">
@@ -271,8 +271,8 @@ export function LifecyclePage() {
             <span className="flex flex-col gap-0.5">
               <span className="font-medium text-ink">Autoriser le retour en arrière</span>
               <span className="text-faint">
-                Désactivé: un lead ne peut pas revenir à une étape antérieure, ni manuellement ni
-                par workflow.
+                Désactivé: un lead ne peut pas revenir à un statut antérieur, ni manuellement ni par
+                workflow.
               </span>
             </span>
           </label>

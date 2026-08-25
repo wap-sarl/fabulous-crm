@@ -44,7 +44,7 @@ export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
         }
         break;
       case 'set_lifecycle_stage':
-        if (!node.stage) push('choisissez une étape.');
+        if (!node.stage) push('choisissez un statut.');
         break;
       case 'create_deal':
         if (!node.title.trim()) push('l’intitulé est requis.');

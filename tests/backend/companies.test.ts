@@ -7,7 +7,7 @@ import {
   isFreeMailDomain,
   normalizeDomain,
 } from '../../convex/lib/companyDomains';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -141,29 +141,33 @@ describe('automatic lead ↔ company matching', () => {
     expect(found.page[0].companyName).toBe('Acme');
   });
 
-  test('an unknown business domain creates the company; free mail creates nothing', async () => {
+  test('an unknown business domain creates nothing — a lead may have no company', async () => {
     const { t, as } = await setup();
     const leadId = await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@newco.io',
     });
-    const lead = await leadOf(t, leadId);
-    expect(lead.companyId).toBeDefined();
-    const company = (await t.run((ctx) => ctx.db.get(lead.companyId!)))!;
-    expect(company).toMatchObject({
-      name: 'newco.io',
-      domain: 'newco.io',
-      website: 'https://newco.io',
-    });
-
+    expect((await leadOf(t, leadId)).companyId).toBeUndefined();
     const gmailLead = await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'B',
       lastName: 'B',
       email: 'b@gmail.com',
     });
     expect((await leadOf(t, gmailLead)).companyId).toBeUndefined();
-    expect((await as.query(api.features.companies.queries.countCompanies, {})).total).toBe(1);
+    expect((await as.query(api.features.companies.queries.countCompanies, {})).total).toBe(0);
+
+    // Once the company exists, the same domain matches.
+    const newco = await as.mutation(api.features.companies.mutations.createCompany, {
+      name: 'Newco',
+      domain: 'newco.io',
+    });
+    const later = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'C',
+      lastName: 'C',
+      email: 'c@newco.io',
+    });
+    expect((await leadOf(t, later)).companyId).toBe(newco);
   });
 
   test('an explicit company wins; a new business email on a company-less lead matches', async () => {
@@ -313,18 +317,6 @@ describe('company lifecycle side effects', () => {
       paginationOpts: { numItems: 10, cursor: null },
     });
     expect(page.page.map((l) => l.firstName)).toEqual(['A']);
-  });
-
-  test('backfillLeadCompanies attaches legacy company-less leads by domain', async () => {
-    const { t, emp, as } = await setup();
-    await seedLead(t, { email: 'x@legacy-corp.io' });
-    await seedLead(t, { email: 'y@legacy-corp.io' });
-    await seedLead(t, { email: 'z@hotmail.fr' });
-    const res = await t.mutation(internal.features.companies.internal.backfillLeadCompanies, {
-      userId: emp.userId,
-    });
-    expect(res).toMatchObject({ seen: 3, attached: 2, isDone: true });
-    expect((await as.query(api.features.companies.queries.countCompanies, {})).total).toBe(1);
   });
 });
 

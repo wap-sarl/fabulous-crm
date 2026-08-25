@@ -245,18 +245,6 @@ export function DealDetailPage() {
                   '—'
                 )}
               </KeyValueRow>
-              <KeyValueRow label="Entreprise">
-                {deal.companyId ? (
-                  <Link
-                    to={`/companies/${deal.companyId}`}
-                    className="text-primary hover:underline"
-                  >
-                    {deal.companyName ?? 'Entreprise'}
-                  </Link>
-                ) : (
-                  '—'
-                )}
-              </KeyValueRow>
               <KeyValueRow label="Campagne d’origine">
                 {deal.sourceCampaignId ? (
                   <Link
