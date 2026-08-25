@@ -78,10 +78,10 @@ describe('lead search (by_searchText index)', () => {
       firstName: 'Paul',
       lastName: 'Test',
       email: 'p2@example.com',
-      status: 'converti',
+      lifecycleStage: 'customer',
     });
 
-    const page = await searchLeads(as, 'paul', { statuses: ['converti'] });
+    const page = await searchLeads(as, 'paul', { lifecycleStages: ['customer'] });
     expect(page.map((l) => l._id)).toEqual([converted]);
   });
 

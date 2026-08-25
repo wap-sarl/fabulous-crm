@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { loadLifecycleConfig } from '../../lib/lifecycle';
 import { internalQuery, type MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
 import { internalMutation } from '../../_lib/functions';
@@ -324,6 +325,7 @@ export const prepareCampaignBatch = internalMutation({
     const defsById = await loadPropertyDefsById(ctx);
     const consentBase = appOrigin() || 'http://localhost:4202';
     const linkBase = process.env.CONVEX_SITE_URL;
+    const lifecycle = await loadLifecycleConfig(ctx);
 
     const page = await ctx.db
       .query('leads')
@@ -350,6 +352,7 @@ export const prepareCampaignBatch = internalMutation({
         defsById,
         consentBase,
         linkBase,
+        lifecycle,
       });
 
       const contact = isSms ? lead.phone : lead.email;

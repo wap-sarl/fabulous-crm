@@ -5,17 +5,6 @@ import type { QueryCtx } from '../_generated/server';
 
 const aliveness = (doc: Doc<'leads'>): 0 | 1 => (doc.deletedAt != null ? 1 : 0);
 
-/** Lead count per status (namespace = status, key = aliveness bit). */
-export const leadsByStatus = new TableAggregate<{
-  Namespace: Doc<'leads'>['status'];
-  Key: 0 | 1;
-  DataModel: DataModel;
-  TableName: 'leads';
-}>(components.leadsByStatus, {
-  namespace: (doc) => doc.status,
-  sortKey: aliveness,
-});
-
 /** Lead count per owner (namespace = assignedTo or null, key = aliveness bit). */
 export const leadsByOwner = new TableAggregate<{
   Namespace: Id<'users'> | null;
@@ -36,17 +25,6 @@ export const leadsByLifecycle = new TableAggregate<{
   namespace: (doc) => doc.lifecycleStage ?? null,
   sortKey: aliveness,
 });
-
-/** Count the live (non-soft-deleted) leads with the given status. */
-export async function countLiveLeadsByStatus(
-  ctx: QueryCtx,
-  status: Doc<'leads'>['status'],
-): Promise<number> {
-  return await leadsByStatus.count(ctx, {
-    namespace: status,
-    bounds: { lower: { key: 0, inclusive: true }, upper: { key: 0, inclusive: true } },
-  });
-}
 
 export async function countLiveLeadsByLifecycleStage(
   ctx: QueryCtx,

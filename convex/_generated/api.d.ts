@@ -211,7 +211,6 @@ export declare const internal: FilterApi<
 export declare const components: {
   betterAuth: import("@convex-dev/better-auth/_generated/component.js").ComponentApi<"betterAuth">;
   leadListMemberCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadListMemberCounts">;
-  leadsByStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByStatus">;
   leadsByOwner: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByOwner">;
   leadsByLifecycle: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByLifecycle">;
   companiesTotal: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"companiesTotal">;

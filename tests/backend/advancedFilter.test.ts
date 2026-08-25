@@ -12,7 +12,7 @@ import { evalAdvancedFilter, evalRule } from '../../convex/features/crm/leadMatc
  * Exhaustive coverage of the pure advanced-filter evaluator — the engine the
  * plan builds dynamic lists (#23) and lead scoring (#25) on. Every operator is
  * exercised against every kind of stored value it can meet: standard string
- * columns, the status enum, booleans, the marketingConsent array, and custom
+ * columns, the status, booleans, the marketingConsent array, and custom
  * properties (text, number, checkbox array).
  */
 
@@ -29,7 +29,7 @@ function lead(overrides: Partial<Doc<'leads'>> = {}): Doc<'leads'> {
     email: 'marie.curie@example.com',
     phone: '+33612345678',
     comment: 'Physicienne',
-    status: 'nouveau',
+    lifecycleStage: 'lead',
     assignedTo: undefined,
     isRedFlagged: false,
     marketingConsent: ['email'],
@@ -59,8 +59,8 @@ describe('equals', () => {
   test.each([
     ['string match', std('firstName'), 'Marie', true],
     ['string mismatch', std('firstName'), 'Pierre', false],
-    ['status enum match', std('status'), 'nouveau', true],
-    ['status enum mismatch', std('status'), 'converti', false],
+    ['status match', std('lifecycleStage'), 'lead', true],
+    ['status mismatch', std('lifecycleStage'), 'customer', false],
     ['custom text match', custom(DEF_TEXT), 'Radiologie', true],
     ['custom number match', custom(DEF_NUM), 42, true],
     ['custom number mismatch', custom(DEF_NUM), 43, false],
@@ -76,9 +76,9 @@ describe('equals', () => {
   });
 
   test('"is one of": an array value matches any listed option', () => {
-    const r = rule(std('status'), 'equals', ['contacte', 'interesse']);
-    expect(evalRule(lead({ status: 'contacte' }), r)).toBe(true);
-    expect(evalRule(lead({ status: 'nouveau' }), r)).toBe(false);
+    const r = rule(std('lifecycleStage'), 'equals', ['mql', 'sql']);
+    expect(evalRule(lead({ lifecycleStage: 'mql' }), r)).toBe(true);
+    expect(evalRule(lead({ lifecycleStage: 'lead' }), r)).toBe(false);
   });
 
   test('array stored (checkbox / consent): equals means intersection', () => {

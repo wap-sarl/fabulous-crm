@@ -20,7 +20,6 @@ import type {
   WorkflowNode,
   WorkflowWaitUnit,
 } from '@crm/lib/backend';
-import { LEAD_STATUSES } from '../../../../lib/constants';
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
 import { useLifecycleConfig } from '../../../leads/hooks/useLifecycleConfig';
 import { usePipelines } from '../../../deals/hooks/usePipelines';
@@ -43,7 +42,6 @@ const WRITABLE_STANDARD_FIELDS: { field: TrackedLinkStandardField; label: string
   { field: 'email', label: 'E-mail' },
   { field: 'phone', label: 'Téléphone' },
   { field: 'comment', label: 'Commentaire' },
-  { field: 'status', label: 'Statut' },
   { field: 'isRedFlagged', label: 'Signalé' },
 ];
 
@@ -71,11 +69,7 @@ export function PropertyStepConfig({ value, onChange, definitions }: PropertySte
       : { kind: 'standard', field: key.slice(4) as TrackedLinkStandardField };
     // Reset the value to a type-appropriate default when the target changes.
     const defaultValue: LeadPropertyValue =
-      target.kind === 'standard' && target.field === 'status'
-        ? 'nouveau'
-        : target.kind === 'standard' && target.field === 'isRedFlagged'
-          ? true
-          : '';
+      target.kind === 'standard' && target.field === 'isRedFlagged' ? true : '';
     onChange({ ...value, target, value: defaultValue });
   };
 
@@ -132,25 +126,6 @@ function PropertyValueInput({
   );
 
   if (target.kind === 'standard') {
-    if (target.field === 'status') {
-      return (
-        <Select
-          value={typeof value === 'string' ? value : undefined}
-          onValueChange={(v) => onChange(v)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Statut…" />
-          </SelectTrigger>
-          <SelectContent>
-            {LEAD_STATUSES.map((s) => (
-              <SelectItem key={s.value} value={s.value}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      );
-    }
     if (target.field === 'isRedFlagged') return booleanSelect;
     return (
       <Input
@@ -231,7 +206,7 @@ export function LifecycleStepConfig({ value, onChange }: LifecycleStepConfigProp
   const lifecycle = useLifecycleConfig();
   return (
     <div className="space-y-1.5">
-      <Label>Statut du lead</Label>
+      <Label>Statut</Label>
       <Select
         value={value.stage ?? undefined}
         onValueChange={(v) => onChange({ ...value, stage: v })}
@@ -250,7 +225,7 @@ export function LifecycleStepConfig({ value, onChange }: LifecycleStepConfigProp
       <HelperText>
         {lifecycle.allowRegression
           ? 'Le lead passe à ce statut, même s’il précède le statut actuel.'
-          : 'Le lead passe à ce statut ; un retour en arrière est ignoré (Paramètres → Statut du lead).'}
+          : 'Le lead passe à ce statut ; un retour en arrière est ignoré (Paramètres → Statuts).'}
       </HelperText>
     </div>
   );

@@ -34,7 +34,7 @@ const PROPERTIES_NAV_ITEM: NavItem = {
 };
 
 const LIFECYCLE_NAV_ITEM: NavItem = {
-  label: 'Statut du lead',
+  label: 'Statuts',
   icon: <Milestone />,
   path: '/settings/lifecycle',
   position: 'bottom',

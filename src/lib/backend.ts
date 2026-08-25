@@ -6,7 +6,6 @@ export { api, internal } from '../../convex/_generated/api';
 export type { Id, Doc, TableNames, DataModel } from '../../convex/_generated/dataModel';
 export type {
   Lead,
-  LeadStatus,
   MarketingConsentChannel,
   ConsentSource,
   Campaign,
@@ -20,8 +19,6 @@ export type {
   CampaignEventType,
   TrackedLinkStandardField,
 } from '../../convex/_lib/validators/crm';
-// Pure, dependency-free — safe to bundle into the browser.
-export { LEAD_STATUS_LABELS } from '../../convex/_lib/validators/crm';
 export type {
   LifecycleStage,
   LifecycleConfig,

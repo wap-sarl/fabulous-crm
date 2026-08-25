@@ -6,7 +6,6 @@ import rateLimiter from '@convex-dev/rate-limiter/convex.config';
 const app = defineApp();
 app.use(betterAuth);
 app.use(aggregate, { name: 'leadListMemberCounts' });
-app.use(aggregate, { name: 'leadsByStatus' });
 app.use(aggregate, { name: 'leadsByOwner' });
 app.use(aggregate, { name: 'leadsByLifecycle' });
 app.use(aggregate, { name: 'companiesTotal' });

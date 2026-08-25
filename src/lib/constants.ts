@@ -3,30 +3,9 @@ import type {
   CampaignSendStatus,
   CampaignStatus,
   DealStatus,
-  LeadStatus,
   MarketingConsentChannel,
 } from '@crm/lib/backend';
-import { LEAD_STATUS_LABELS } from '@crm/lib/backend';
 import type { StatusTone } from '@crm/design-system';
-
-/** Lead pipeline statuses with French labels (shared with the backend) and badge tones. */
-export const LEAD_STATUSES: {
-  value: LeadStatus;
-  label: string;
-  tone: StatusTone;
-}[] = [
-  { value: 'nouveau', label: LEAD_STATUS_LABELS.nouveau, tone: 'blue' },
-  { value: 'contacte', label: LEAD_STATUS_LABELS.contacte, tone: 'amber' },
-  { value: 'interesse', label: LEAD_STATUS_LABELS.interesse, tone: 'violet' },
-  { value: 'converti', label: LEAD_STATUS_LABELS.converti, tone: 'green' },
-  { value: 'perdu', label: LEAD_STATUS_LABELS.perdu, tone: 'red' },
-];
-
-export const LEAD_STATUS_LABEL: Record<LeadStatus, string> = LEAD_STATUS_LABELS;
-
-export const LEAD_STATUS_TONE: Record<LeadStatus, StatusTone> = Object.fromEntries(
-  LEAD_STATUSES.map((s) => [s.value, s.tone]),
-) as Record<LeadStatus, StatusTone>;
 
 /** Campaign statuses with French labels and badge tones. */
 export const CAMPAIGN_STATUSES: {

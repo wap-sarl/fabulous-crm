@@ -6,7 +6,7 @@ import type { QueryCtx } from '../../_generated/server';
 import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
-import { countLiveLeadsByLifecycleStage, countLiveLeadsByStatus } from '../../lib/leadAggregates';
+import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import { normalizeSearchText } from '../../lib/leadSearch';
 import { leadListMemberCounts } from '../../lib/leadListMembers';
@@ -17,7 +17,11 @@ import {
   matchesLeadFilters,
 } from './leadTableFilters';
 
-const sortFieldValidator = v.union(v.literal('recent'), v.literal('lastName'), v.literal('status'));
+const sortFieldValidator = v.union(
+  v.literal('recent'),
+  v.literal('lastName'),
+  v.literal('lifecycleStage'),
+);
 const sortDirectionValidator = v.union(v.literal('asc'), v.literal('desc'));
 
 async function withCompanyNames(ctx: QueryCtx, page: Doc<'leads'>[]) {
@@ -72,7 +76,6 @@ export const listLeadsPaginated = employeeQuery({
 
     // Indexable prefix: only single-value selections can ride an index range
     // (a multi-select would need a union of ranges, which one cursor can't do).
-    const singleStatus = args.statuses?.length === 1 ? args.statuses[0] : undefined;
     const singleAssignee = args.assignedToIds?.length === 1 ? args.assignedToIds[0] : undefined;
     const singleStage = args.lifecycleStages?.length === 1 ? args.lifecycleStages[0] : undefined;
     const singleCompany = args.companyIds?.length === 1 ? args.companyIds[0] : undefined;
@@ -80,33 +83,24 @@ export const listLeadsPaginated = employeeQuery({
     const cursor =
       sortField === 'lastName'
         ? ctx.db.query('leads').withIndex('by_lastName').order(direction)
-        : sortField === 'status'
-          ? ctx.db.query('leads').withIndex('by_status').order(direction)
+        : sortField === 'lifecycleStage'
+          ? ctx.db.query('leads').withIndex('by_lifecycleStage').order(direction)
           : singleAssignee !== undefined
             ? ctx.db
                 .query('leads')
-                .withIndex('by_assignedTo_status', (q) =>
-                  singleStatus !== undefined
-                    ? q.eq('assignedTo', singleAssignee).eq('status', singleStatus)
-                    : q.eq('assignedTo', singleAssignee),
-                )
+                .withIndex('by_assignedTo', (q) => q.eq('assignedTo', singleAssignee))
                 .order(direction)
-            : singleStatus !== undefined
+            : singleCompany !== undefined
               ? ctx.db
                   .query('leads')
-                  .withIndex('by_status', (q) => q.eq('status', singleStatus))
+                  .withIndex('by_company', (q) => q.eq('companyId', singleCompany))
                   .order(direction)
-              : singleCompany !== undefined
+              : singleStage !== undefined
                 ? ctx.db
                     .query('leads')
-                    .withIndex('by_company', (q) => q.eq('companyId', singleCompany))
+                    .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
                     .order(direction)
-                : singleStage !== undefined
-                  ? ctx.db
-                      .query('leads')
-                      .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
-                      .order(direction)
-                  : ctx.db.query('leads').order(direction);
+                : ctx.db.query('leads').order(direction);
 
     const result = await cursor.paginate(args.paginationOpts);
 
@@ -259,33 +253,6 @@ export const listLeadNotes = employeeQuery({
   },
 });
 
-/**
- * Global lead counts per status for the list filter chips, served by the
- * `leadsByStatus` aggregate (#13) — O(log n) per status, no table scan. The
- * total is the sum of the five statuses, which also gives the paginated list
- * its exact overall count.
- */
-export const countLeadsByStatus = employeeQuery({
-  args: {},
-  handler: async (ctx) => {
-    const statuses = ['nouveau', 'contacte', 'interesse', 'converti', 'perdu'] as const;
-    const byStatus: Record<Doc<'leads'>['status'], number> = {
-      nouveau: 0,
-      contacte: 0,
-      interesse: 0,
-      converti: 0,
-      perdu: 0,
-    };
-    let total = 0;
-    for (const status of statuses) {
-      const n = await countLiveLeadsByStatus(ctx, status);
-      byStatus[status] = n;
-      total += n;
-    }
-    return { total, byStatus };
-  },
-});
-
 export const countLeadsByLifecycleStage = employeeQuery({
   args: {},
   handler: async (ctx) => {
@@ -294,7 +261,9 @@ export const countLeadsByLifecycleStage = employeeQuery({
     for (const stage of config.stages) {
       byStage[stage.key] = await countLiveLeadsByLifecycleStage(ctx, stage.key);
     }
-    return { byStage, unset: await countLiveLeadsByLifecycleStage(ctx, null) };
+    const unset = await countLiveLeadsByLifecycleStage(ctx, null);
+    const total = Object.values(byStage).reduce((a, b) => a + b, 0) + unset;
+    return { byStage, unset, total };
   },
 });
 

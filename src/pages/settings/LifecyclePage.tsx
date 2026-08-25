@@ -51,7 +51,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 export function LifecyclePage() {
-  usePageTitle('Statut du lead');
+  usePageTitle('Statuts');
   const config = useAuthQuery(api.features.config.queries.getLifecycleConfig, {});
   const counts = useAuthQuery(api.features.crm.queries.countLeadsByLifecycleStage, {});
   const updateLifecycleConfig = useAuthMutation(
@@ -128,7 +128,7 @@ export function LifecyclePage() {
     try {
       await updateLifecycleConfig({ stages, defaultStage, allowRegression });
       setDirty(false);
-      toast.success('Statuts du lead enregistrés.');
+      toast.success('Statuts enregistrés.');
     } catch (e) {
       const message = e instanceof Error ? e.message : '';
       const known = Object.keys(ERROR_MESSAGES).find((k) => message.includes(k));
@@ -149,7 +149,7 @@ export function LifecyclePage() {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
       <PageHeader
-        title="Statut du lead"
+        title="Statuts"
         subtitle="Statuts du parcours marketing → commercial, dans l’ordre du parcours"
         actions={
           <Button onClick={save} loading={saving} disabled={!dirty} data-testid="save-lifecycle">

@@ -8,11 +8,8 @@ import {
 } from '../../_lib/validators/leadProperties';
 import { formatAddressLines } from '../../_lib/validators/addressFormats';
 import { DEFAULT_COUNTRY } from '../../_lib/validators/companyRegistry';
-import {
-  LEAD_STATUS_LABELS,
-  type TrackedLinkStandardField,
-  type LeadStatus,
-} from '../../_lib/validators/crm';
+import type { TrackedLinkStandardField } from '../../_lib/validators/crm';
+import { lifecycleStageLabel, type LifecycleConfig } from '../../_lib/validators/lifecycle';
 
 /**
  * Lead-targeting helpers shared by campaign tracked links and workflow
@@ -47,13 +44,15 @@ export function buildLeadParams(
   lead: Doc<'leads'>,
   defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
   consentBase: string,
+  // {{ params.status }} is the lead's status label (its lifecycle stage).
+  lifecycle: LifecycleConfig,
 ): Record<string, string> {
   const params: Record<string, string> = {
     firstName: lead.firstName,
     lastName: lead.lastName,
     email: lead.email ?? '',
     phone: lead.phone ?? '',
-    status: LEAD_STATUS_LABELS[lead.status],
+    status: lead.lifecycleStage ? lifecycleStageLabel(lifecycle, lead.lifecycleStage) : '',
     comment: lead.comment ?? '',
     address: formatAddressParam(lead.address),
     consentUrl: `${consentBase}/consent/${lead.consentToken}`,
@@ -84,8 +83,6 @@ export function validateLeadTargetValue(
   }
   const { field } = target;
   switch (field) {
-    case 'status':
-      return typeof value === 'string' && value in LEAD_STATUS_LABELS ? null : 'statut invalide.';
     case 'isRedFlagged':
       return typeof value === 'boolean' ? null : 'valeur oui/non requise.';
     case 'email':
@@ -119,10 +116,6 @@ export async function buildLeadTargetPatch(
   }
   const { field } = target;
   switch (field) {
-    case 'status':
-      return typeof value === 'string' && value in LEAD_STATUS_LABELS
-        ? { status: value as LeadStatus }
-        : null;
     case 'isRedFlagged':
       return typeof value === 'boolean' ? { isRedFlagged: value } : null;
     default:

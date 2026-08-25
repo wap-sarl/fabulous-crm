@@ -275,7 +275,12 @@ export const executeStep = internalMutation({
       case 'create_deal': {
         const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
         const defsById = new Map(defs.map((d) => [d._id as string, d]));
-        const params = buildLeadParams(lead, defsById, appOrigin() || 'http://localhost:4202');
+        const params = buildLeadParams(
+          lead,
+          defsById,
+          appOrigin() || 'http://localhost:4202',
+          await loadLifecycleConfig(ctx),
+        );
         const title = renderPlaceholders(node.title, params, false).trim();
         try {
           const dealId = await createDealRecord(
@@ -465,7 +470,12 @@ export const getActionStepContext = internalQuery({
     if (node.type === 'send_email' || node.type === 'send_sms') {
       const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
       const defsById = new Map(defs.map((d) => [d._id as string, d]));
-      const params = buildLeadParams(lead, defsById, appOrigin() || 'http://localhost:4202');
+      const params = buildLeadParams(
+        lead,
+        defsById,
+        appOrigin() || 'http://localhost:4202',
+        await loadLifecycleConfig(ctx),
+      );
       if (node.type === 'send_email') {
         if (!lead.email) return null;
         return {
@@ -495,7 +505,6 @@ export const getActionStepContext = internalQuery({
             lastName: lead.lastName,
             email: lead.email,
             phone: lead.phone,
-            status: lead.status,
             lifecycleStage: lead.lifecycleStage,
             comment: lead.comment,
             address: lead.address,

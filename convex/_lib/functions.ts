@@ -8,14 +8,13 @@ import {
 import { companiesTotal, leadsByCompany } from '../lib/companyAggregates';
 import { companySearchText } from '../lib/companySearch';
 import { dealsByPipelineStatus, dealsByStage } from '../lib/dealAggregates';
-import { leadsByLifecycle, leadsByOwner, leadsByStatus } from '../lib/leadAggregates';
+import { leadsByLifecycle, leadsByOwner } from '../lib/leadAggregates';
 import { leadSearchText } from '../lib/leadSearch';
 
 const triggers = new Triggers<DataModel>();
 // idempotentTrigger (not trigger): tolerates documents not registered in the
 // aggregate (rows inserted outside the wrapper, e.g. test seeds), so a patch
 // never throws on them.
-triggers.register('leads', leadsByStatus.idempotentTrigger());
 triggers.register('leads', leadsByOwner.idempotentTrigger());
 triggers.register('leads', leadsByLifecycle.idempotentTrigger());
 triggers.register('leads', leadsByCompany.idempotentTrigger());

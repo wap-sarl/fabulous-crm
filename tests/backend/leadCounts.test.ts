@@ -20,7 +20,7 @@ async function countByOwner(t: T, owner: Id<'users'> | null) {
   });
 }
 
-describe('countLeadsByStatus (aggregate-backed)', () => {
+describe('countLeadsByLifecycleStage (aggregate-backed)', () => {
   test('creations land in their status bucket and the total', async () => {
     const { as } = await setup();
     await as.mutation(api.features.crm.mutations.createLead, {
@@ -32,13 +32,13 @@ describe('countLeadsByStatus (aggregate-backed)', () => {
       firstName: 'B',
       lastName: 'B',
       email: 'b@example.com',
-      status: 'converti',
+      lifecycleStage: 'customer',
     });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByStatus, {});
+    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(2);
-    expect(counts.byStatus.nouveau).toBe(1);
-    expect(counts.byStatus.converti).toBe(1);
+    expect(counts.byStage.lead).toBe(1);
+    expect(counts.byStage.customer).toBe(1);
   });
 
   test('a status change moves the lead between buckets', async () => {
@@ -51,13 +51,13 @@ describe('countLeadsByStatus (aggregate-backed)', () => {
 
     await as.mutation(api.features.crm.mutations.updateLead, {
       leadId,
-      status: 'interesse',
+      lifecycleStage: 'sql',
     });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByStatus, {});
+    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(1);
-    expect(counts.byStatus.nouveau).toBe(0);
-    expect(counts.byStatus.interesse).toBe(1);
+    expect(counts.byStage.lead).toBe(0);
+    expect(counts.byStage.sql).toBe(1);
   });
 
   test('a soft delete leaves the live counts', async () => {
@@ -75,9 +75,9 @@ describe('countLeadsByStatus (aggregate-backed)', () => {
 
     await as.mutation(api.features.crm.mutations.deleteLead, { leadId });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByStatus, {});
+    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(1);
-    expect(counts.byStatus.nouveau).toBe(1);
+    expect(counts.byStage.lead).toBe(1);
   });
 
   test('the CSV import upsert counts each lead exactly once', async () => {
@@ -90,7 +90,7 @@ describe('countLeadsByStatus (aggregate-backed)', () => {
     // Re-import: updates, not duplicates.
     await as.mutation(api.features.crm.mutations.importLeads, { rows });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByStatus, {});
+    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(2);
   });
 });

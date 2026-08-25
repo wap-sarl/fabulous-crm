@@ -13,7 +13,7 @@ import {
   cn,
 } from '@crm/design-system';
 import { ChevronUp, ChevronDown, ChevronRight, Pencil, Trash2, Flag } from 'lucide-react';
-import { LEAD_STATUS_LABEL, LEAD_STATUS_TONE, CONSENT_CHANNEL_LABEL } from '../../../lib/constants';
+import { CONSENT_CHANNEL_LABEL } from '../../../lib/constants';
 import type { LeadSortField, SortDirection } from '../hooks/useLeadFilters';
 import type { LeadRow, LeadPropertyDefinitionRow } from '../types';
 import { formatPropertyValue } from '../lib/customProperties';
@@ -98,7 +98,7 @@ export function LeadsTable({
 }: LeadsTableProps) {
   const allSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l._id));
   const visibleCols = definitions.filter((d) => d.showInTable);
-  const colCount = 9 + visibleCols.length;
+  const colCount = 8 + visibleCols.length;
 
   return (
     <div className="rounded-xl border bg-card shadow-card">
@@ -121,17 +121,16 @@ export function LeadsTable({
                 onSort={onSort}
               />
             </TableHead>
+            <TableHead>Entreprise</TableHead>
             <TableHead>
               <SortHeader
                 label="Statut"
-                field="status"
+                field="lifecycleStage"
                 sortField={sortField}
                 sortDirection={sortDirection}
                 onSort={onSort}
               />
             </TableHead>
-            <TableHead>Entreprise</TableHead>
-            <TableHead>Statut du lead</TableHead>
             <TableHead>Assigné</TableHead>
             <TableHead>Consentements</TableHead>
             <TableHead>
@@ -204,16 +203,11 @@ export function LeadsTable({
                       </span>
                     </span>
                   </TableCell>
-                  <TableCell>
-                    <StatusBadge tone={LEAD_STATUS_TONE[lead.status]}>
-                      {LEAD_STATUS_LABEL[lead.status]}
-                    </StatusBadge>
-                  </TableCell>
                   <TableCell className="max-w-[180px] truncate text-[13px] text-soft">
                     {lead.companyName ?? '—'}
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-[13px] text-soft">
-                    {lifecycleLabel(lead.lifecycleStage)}
+                  <TableCell>
+                    <StatusBadge tone="violet">{lifecycleLabel(lead.lifecycleStage)}</StatusBadge>
                   </TableCell>
                   <TableCell className="text-[13px] text-soft">
                     {lead.assignedTo ? (employeeName.get(lead.assignedTo) ?? '—') : '—'}

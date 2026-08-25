@@ -5,7 +5,7 @@ import { isNotDeleted } from '../../_lib/softDelete';
 import { advancedFilterValidator } from '../../_lib/validators/leadFilters';
 import type { AdvancedFilter } from '../../_lib/validators/leadFilters';
 import type { LeadPropertyValue } from '../../_lib/validators/leadProperties';
-import { leadPropertyValueValidator, leadStatusValidator } from '../../schema';
+import { leadPropertyValueValidator } from '../../schema';
 import { normalizeSearchText } from '../../lib/leadSearch';
 import { evalAdvancedFilter } from './leadMatching';
 
@@ -13,7 +13,6 @@ import { evalAdvancedFilter } from './leadMatching';
  * and the batched campaign-recipient resolution. */
 export const leadFilterArgs = {
   search: v.optional(v.string()),
-  statuses: v.optional(v.array(leadStatusValidator)),
   // Lifecycle stage keys (appConfig.lifecycle); OR within the filter.
   lifecycleStages: v.optional(v.array(v.string())),
   // Companies a lead must belong to one of (OR within the filter).
@@ -35,7 +34,6 @@ export const leadFilterArgs = {
 
 export type LeadFilters = {
   search?: string;
-  statuses?: Doc<'leads'>['status'][];
   lifecycleStages?: string[];
   companyIds?: Id<'companies'>[];
   assignedToIds?: Doc<'leads'>['assignedTo'][];
@@ -97,10 +95,6 @@ export async function loadListMemberIdsForLeads(
 
 export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): boolean {
   if (!isNotDeleted(lead)) return false;
-
-  if (filters.statuses && filters.statuses.length > 0) {
-    if (!filters.statuses.includes(lead.status)) return false;
-  }
 
   if (filters.lifecycleStages && filters.lifecycleStages.length > 0) {
     if (!lead.lifecycleStage || !filters.lifecycleStages.includes(lead.lifecycleStage)) {

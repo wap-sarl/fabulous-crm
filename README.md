@@ -37,12 +37,13 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   `deal_created` / `deal_stage_changed` / `deal_won` / `deal_lost` et étapes
   « Créer une transaction » / « Changer le stade d'une transaction ». Une transaction
   gagnée fait passer son lead au statut « Client ».
-- **Statut du lead** : position du lead dans le parcours marketing → commercial
+- **Statuts** : position du lead dans le parcours marketing → commercial
   (`lifecycleStage` : abonné → lead → MQL → SQL → opportunité → client →
-  ambassadeur), configurable dans *Paramètres → Statut du lead* (statuts,
+  ambassadeur), configurable dans *Paramètres → Statuts* (statuts,
   statut par défaut, interdiction du retour en arrière). Chaque changement est
   journalisé dans `lifecycleStageHistory` ; les workflows disposent d'une
-  étape « Changer le statut du lead ».
+  étape « Changer le statut ». Le placeholder `{{ params.status }}` des
+  campagnes renvoie le libellé du statut.
 - **Campagnes** : création de campagnes email Brevo (template + destinataires
   filtrés), suivi des envois (`campaignSends`), statuts.
 - **Consentement RGPD** : page publique `/consent/:token` permettant à un lead
