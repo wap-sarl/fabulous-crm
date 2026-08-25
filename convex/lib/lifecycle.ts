@@ -34,6 +34,16 @@ export function planLifecycleTransition(
   return { kind: 'change', from: lead.lifecycleStage, to };
 }
 
+/**
+ * Turn a planned transition into a thrown error for the interactive paths
+ * (forms): `unknown_lifecycle_stage` / `lifecycle_regression_blocked`.
+ * Bulk paths (CSV, workflows) decide their own outcome instead.
+ */
+export function assertLifecycleTransition(plan: LifecycleTransition): void {
+  if (plan.kind === 'unknown_stage') throw new Error('unknown_lifecycle_stage');
+  if (plan.kind === 'regression_blocked') throw new Error('lifecycle_regression_blocked');
+}
+
 export type LifecycleChangeMeta = {
   source: LifecycleChangeSource;
   changedBy?: Id<'users'>;

@@ -19,11 +19,13 @@ export { COMPANY_VAT_INPUT, type CompanyVatContext } from './vat';
 export {
   CountryAddressInput,
   MetadataAddressFields,
+  type AddressFieldsProps,
+  type CountryAddressInputProps,
+} from './address';
+export {
   createPhotonAddressProvider,
   registerAddressProvider,
   resolveAddressProvider,
-  type AddressFieldsProps,
   type AddressProvider,
   type AddressProviderFactory,
-  type CountryAddressInputProps,
-} from './address';
+} from './addressProviders';

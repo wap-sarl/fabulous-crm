@@ -3,7 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
-import { formatAddressOneLine, registrationSchemeFor, vatSchemeFor } from '@crm/lib/backend';
+import { registrationSchemeFor, vatSchemeFor } from '@crm/lib/backend';
+import { formatAddress } from '../../lib/addresses';
 import {
   Button,
   Card,
@@ -20,10 +21,8 @@ import { usePageTitle } from '../../layouts/DashboardShell';
 import { countryName } from '../../lib/countries';
 import { LEAD_STATUS_LABEL, LEAD_STATUS_TONE } from '../../lib/constants';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
-import {
-  companyErrorMessage,
-  useCompanyActions,
-} from '../../features/companies/hooks/useCompanyActions';
+import { useCompanyActions } from '../../features/companies/hooks/useCompanyActions';
+import { companyErrorMessage } from '../../features/companies/lib/errors';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
@@ -38,10 +37,6 @@ const ACTION_LABEL: Record<string, string> = {
   update: 'Modification',
   delete: 'Suppression',
 };
-
-function formatAddress(address: Parameters<typeof formatAddressOneLine>[0]): string {
-  return formatAddressOneLine(address, countryName);
-}
 
 export function CompanyDetailPage() {
   usePageTitle('Entreprise');

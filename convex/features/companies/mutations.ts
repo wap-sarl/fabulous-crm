@@ -17,9 +17,13 @@ import {
   normalizeRegistrationNumber,
   normalizeVatNumber,
 } from '../../lib/companies';
-import { validateAddress } from '../../_lib/validators/addressFormats';
+import { requireValidAddress } from '../../lib/addresses';
 import { normalizeDomain } from '../../lib/companyDomains';
-import { loadLifecycleConfig, planLifecycleTransition } from '../../lib/lifecycle';
+import {
+  assertLifecycleTransition,
+  loadLifecycleConfig,
+  planLifecycleTransition,
+} from '../../lib/lifecycle';
 
 const companyFieldArgs = {
   name: v.string(),
@@ -66,17 +70,6 @@ async function normalizeIdentifiers(
     if (other && other._id !== selfId) throw new Error('company_domain_exists');
   }
   return { country, registrationNumber, vatNumber, domain };
-}
-
-/** Country-format check of a provided address; throws `invalid_address: <reason>`. */
-function requireValidAddress<T extends Parameters<typeof validateAddress>[0] | undefined>(
-  address: T,
-): T {
-  if (address) {
-    const error = validateAddress(address);
-    if (error) throw new Error(`invalid_address: ${error}`);
-  }
-  return address;
 }
 
 export const createCompany = employeeMutation({
@@ -163,8 +156,7 @@ export const updateCompany = employeeMutation({
         company,
         rest.lifecycleStage,
       );
-      if (plan.kind === 'unknown_stage') throw new Error('unknown_lifecycle_stage');
-      if (plan.kind === 'regression_blocked') throw new Error('lifecycle_regression_blocked');
+      assertLifecycleTransition(plan);
       if (plan.kind === 'change') updates.lifecycleStage = plan.to;
     }
 

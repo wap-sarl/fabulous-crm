@@ -25,6 +25,15 @@ export async function findCompanyByRegistration(
   return company && isNotDeleted(company) ? company : null;
 }
 
+/** Assert a live company exists — an explicit pick that no longer exists is a form bug. */
+export async function requireCompany(
+  ctx: QueryCtx | MutationCtx,
+  companyId: Id<'companies'>,
+): Promise<void> {
+  const company = await ctx.db.get(companyId);
+  if (!company || company.deletedAt != null) throw new Error('company_not_found');
+}
+
 /** Live company by normalized VAT number, or null. */
 export async function findCompanyByVat(
   ctx: QueryCtx | MutationCtx,

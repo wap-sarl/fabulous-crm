@@ -245,9 +245,9 @@ ISO à 2 lettres et l'ancien `countryCode` disparaît. Lancer pour chacune des
 trois tables, en boucle sur `continueCursor` jusqu'à `isDone: true` :
 
 ```bash
-bunx convex run features/crm/internal:backfillAddressCountries '{"table": "leads"}' --prod
-bunx convex run features/crm/internal:backfillAddressCountries '{"table": "companies"}' --prod
-bunx convex run features/crm/internal:backfillAddressCountries '{"table": "users"}' --prod
+bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "leads"}' --prod
+bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "companies"}' --prod
+bunx convex run seed/migrateAddressCountries:backfillAddressCountries '{"table": "users"}' --prod
 ```
 
 Les noms de pays non reconnus sont laissés tels quels et comptés dans

@@ -41,14 +41,14 @@ import { buildLeadParams, validateLeadTargetValue } from './leadTargets';
 import { leadFilterArgs } from './leadTableFilters';
 import { enforceRateLimit } from '../../lib/rateLimits';
 import {
+  assertLifecycleTransition,
   insertLifecycleHistory,
   loadLifecycleConfig,
   planLifecycleTransition,
-  type LifecycleTransition,
 } from '../../lib/lifecycle';
 import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators/lifecycle';
-import { resolveCompanyForLead } from '../../lib/companies';
-import { validateAddress } from '../../_lib/validators/addressFormats';
+import { requireCompany, resolveCompanyForLead } from '../../lib/companies';
+import { requireValidAddress } from '../../lib/addresses';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 
@@ -208,33 +208,10 @@ const leadRowArgs = {
   ),
 } as const;
 
-/** Country-format check of a provided address; throws `invalid_address: <reason>`. */
-function requireValidAddress<T extends Parameters<typeof validateAddress>[0] | undefined>(
-  address: T,
-): T {
-  if (address) {
-    const error = validateAddress(address);
-    if (error) throw new Error(`invalid_address: ${error}`);
-  }
-  return address;
-}
-
-/** A live company id, or throw — an explicit pick that no longer exists is a form bug. */
-async function requireCompany(ctx: MutationCtx, companyId: Id<'companies'>): Promise<void> {
-  const company = await ctx.db.get(companyId);
-  if (!company || company.deletedAt != null) throw new Error('company_not_found');
-}
-
 function initialLifecycleStage(config: LifecycleConfig, requested: string | undefined): string {
   if (requested === undefined) return config.defaultStage;
   if (lifecycleStageIndex(config, requested) === -1) throw new Error('unknown_lifecycle_stage');
   return requested;
-}
-
-/** Turn a planned transition into a thrown error for the interactive paths. */
-function assertLifecycleTransition(plan: LifecycleTransition): void {
-  if (plan.kind === 'unknown_stage') throw new Error('unknown_lifecycle_stage');
-  if (plan.kind === 'regression_blocked') throw new Error('lifecycle_regression_blocked');
 }
 
 export const createLead = employeeMutation({

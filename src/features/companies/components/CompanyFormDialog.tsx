@@ -37,7 +37,8 @@ import {
   type CompanyVatContext,
 } from '../../../lib/countryInputs';
 import { useLifecycleConfig } from '../../leads/hooks/useLifecycleConfig';
-import { companyErrorMessage, useCompanyActions } from '../hooks/useCompanyActions';
+import { useCompanyActions } from '../hooks/useCompanyActions';
+import { companyErrorMessage } from '../lib/errors';
 
 interface CompanyFormDialogProps {
   open: boolean;

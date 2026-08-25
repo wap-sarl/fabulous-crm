@@ -59,6 +59,7 @@ import type * as features_workflows_mutations from "../features/workflows/mutati
 import type * as features_workflows_queries from "../features/workflows/queries.js";
 import type * as features_workflows_triggerDispatch from "../features/workflows/triggerDispatch.js";
 import type * as http from "../http.js";
+import type * as lib_addresses from "../lib/addresses.js";
 import type * as lib_appUrl from "../lib/appUrl.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_companies from "../lib/companies.js";
@@ -82,6 +83,7 @@ import type * as lib_timeConstants from "../lib/timeConstants.js";
 import type * as lib_userUtils from "../lib/userUtils.js";
 import type * as seed_bootstrapConfig from "../seed/bootstrapConfig.js";
 import type * as seed_devEmployee from "../seed/devEmployee.js";
+import type * as seed_migrateAddressCountries from "../seed/migrateAddressCountries.js";
 import type * as seed_migrateSsoProviders from "../seed/migrateSsoProviders.js";
 import type * as setup_helpers from "../setup/helpers.js";
 import type * as setup_mutations from "../setup/mutations.js";
@@ -145,6 +147,7 @@ declare const fullApi: ApiFromModules<{
   "features/workflows/queries": typeof features_workflows_queries;
   "features/workflows/triggerDispatch": typeof features_workflows_triggerDispatch;
   http: typeof http;
+  "lib/addresses": typeof lib_addresses;
   "lib/appUrl": typeof lib_appUrl;
   "lib/audit": typeof lib_audit;
   "lib/companies": typeof lib_companies;
@@ -168,6 +171,7 @@ declare const fullApi: ApiFromModules<{
   "lib/userUtils": typeof lib_userUtils;
   "seed/bootstrapConfig": typeof seed_bootstrapConfig;
   "seed/devEmployee": typeof seed_devEmployee;
+  "seed/migrateAddressCountries": typeof seed_migrateAddressCountries;
   "seed/migrateSsoProviders": typeof seed_migrateSsoProviders;
   "setup/helpers": typeof setup_helpers;
   "setup/mutations": typeof setup_mutations;

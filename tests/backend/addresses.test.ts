@@ -173,7 +173,7 @@ describe('backfillAddressCountries', () => {
       address: { ...legacy, country: 'Atlantide' },
     });
 
-    const res = await t.mutation(internal.features.crm.internal.backfillAddressCountries, {
+    const res = await t.mutation(internal.seed.migrateAddressCountries.backfillAddressCountries, {
       table: 'leads',
     });
     expect(res).toMatchObject({ seen: 4, patched: 2, unmapped: 1, isDone: true });
@@ -184,7 +184,7 @@ describe('backfillAddressCountries', () => {
     expect((await addressOf(t, unknown))?.country).toBe('Atlantide');
 
     // Idempotent.
-    const again = await t.mutation(internal.features.crm.internal.backfillAddressCountries, {
+    const again = await t.mutation(internal.seed.migrateAddressCountries.backfillAddressCountries, {
       table: 'leads',
     });
     expect(again.patched).toBe(0);
