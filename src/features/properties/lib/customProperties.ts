@@ -18,11 +18,11 @@ export const PROPERTY_TYPES: { value: PropertyType; label: string }[] = [
   { value: 'number', label: 'Nombre' },
   { value: 'email', label: 'E-mail' },
   { value: 'select', label: 'Liste déroulante' },
-  { value: 'radio', label: 'Choix unique (radio)' },
-  { value: 'checkbox', label: 'Choix multiple (cases)' },
+  { value: 'radio', label: 'Choix unique' },
+  { value: 'checkbox', label: 'Choix multiple' },
   { value: 'date', label: 'Date' },
   { value: 'boolean', label: 'Oui / Non' },
-  { value: 'rpps', label: 'RPPS (numéro)' },
+  { value: 'rpps', label: 'RPPS' },
 ];
 
 export const PROPERTY_TYPE_LABEL: Record<PropertyType, string> = Object.fromEntries(
