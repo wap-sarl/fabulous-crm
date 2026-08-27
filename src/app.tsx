@@ -28,6 +28,7 @@ import { BrandingPage } from './pages/settings/BrandingPage';
 import { EmailPage } from './pages/settings/EmailPage';
 import { PropertiesPage } from './pages/settings/PropertiesPage';
 import { DuplicatesPage } from './pages/leads/DuplicatesPage';
+import { FilesPage } from './pages/settings/FilesPage';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
 import { LifecyclePage } from './pages/settings/LifecyclePage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
@@ -93,6 +94,7 @@ function AppRoutes() {
             <Route path="/settings/lists" element={<LeadListsPage />} />
             <Route path="/settings/lifecycle" element={<LifecyclePage />} />
             <Route path="/settings/pipelines" element={<PipelinesPage />} />
+            <Route path="/settings/files" element={<FilesPage />} />
             <Route path="/design-system" element={<DesignSystemPage />} />
           </Route>
         </Route>

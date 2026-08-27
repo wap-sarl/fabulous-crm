@@ -21,6 +21,7 @@ import {
   pipelineValidator,
 } from './_lib/validators/deals';
 import { activityValidator } from './_lib/validators/activities';
+import { attachmentValidator } from './_lib/validators/attachments';
 import { duplicateScanValidator, leadDuplicateValidator } from './_lib/validators/duplicates';
 import {
   workflowValidator,
@@ -68,6 +69,21 @@ export {
   leadDuplicateValidator,
   duplicateScanValidator,
 } from './_lib/validators/duplicates';
+
+export type {
+  Attachment,
+  AttachmentEntityType,
+  AttachmentsConfig,
+  StorageProvider,
+} from './_lib/validators/attachments';
+export {
+  attachmentValidator,
+  attachmentEntityTypeValidator,
+  attachmentsConfigValidator,
+  storageProviderValidator,
+  DEFAULT_ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MAX_BYTES_CEILING,
+} from './_lib/validators/attachments';
 
 export type { Activity, ActivityType, ActivityStatus } from './_lib/validators/activities';
 export {
@@ -226,6 +242,8 @@ export default defineSchema({
     .index('by_leadB', ['leadBId']),
 
   duplicateScans: defineTable(duplicateScanValidator).index('by_status', ['status']),
+
+  attachments: defineTable(attachmentValidator).index('by_entity', ['entityType', 'entityId']),
 
   companies: defineTable(companyValidator)
     .index('by_domain', ['domain'])

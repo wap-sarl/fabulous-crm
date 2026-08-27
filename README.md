@@ -45,6 +45,16 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   optionnel), étape de workflow « Créer une tâche ». Les rappels à l'échéance
   arrivent avec le système de notifications (lot 5) ; `dueAt` en est le point
   d'accroche.
+- **Fichiers joints** : devis, scans, contrats… déposés (glisser-déposer) sur
+  une fiche lead, entreprise ou transaction (`attachments`), rangés dans une
+  arborescence de dossiers par fiche, aperçu des images et PDF, téléchargement,
+  suppression définitive (ligne + blob). Taille maximale configurable dans
+  *Paramètres → Fichiers* (`appConfig.attachments.maxSizeBytes`), appliquée
+  côté serveur à la demande d'URL d'envoi puis sur le blob stocké. Les octets
+  vivent dans Convex Storage derrière l'interface `FileStore`
+  (`convex/lib/fileStorage.ts`) ; chaque ligne porte déjà la clé
+  `type/identifiant/dossier/nom` d'un stockage objet, pour migrer vers S3 en
+  copiant les blobs clé par clé.
 - **Doublons** : détection des leads en double par téléphone normalisé
   (E.164), e-mail, nom + code postal et distance de Levenshtein sur le nom
   (clés `dedupe` estampillées par le trigger des leads, index dédiés). Analyse

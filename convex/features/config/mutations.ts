@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { adminMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
+import { ATTACHMENT_MAX_BYTES_CEILING } from '../../_lib/validators/attachments';
 import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
@@ -92,6 +93,7 @@ export const updateConfig = adminMutation({
     faviconStorageId: v.optional(v.id('_storage')),
     primaryColor: v.optional(v.string()),
     email: v.optional(emailConfigInput),
+    attachmentsMaxSizeBytes: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
@@ -99,6 +101,14 @@ export const updateConfig = adminMutation({
 
     if (args.primaryColor !== undefined && !hexColorRe.test(args.primaryColor)) {
       throw new Error('invalid_primary_color');
+    }
+    if (
+      args.attachmentsMaxSizeBytes !== undefined &&
+      (!Number.isInteger(args.attachmentsMaxSizeBytes) ||
+        args.attachmentsMaxSizeBytes < 1024 * 1024 ||
+        args.attachmentsMaxSizeBytes > ATTACHMENT_MAX_BYTES_CEILING)
+    ) {
+      throw new Error('invalid_attachment_max_size');
     }
 
     // Replacing a branding asset: drop the previous blob so it doesn't orphan.
@@ -184,6 +194,9 @@ export const updateConfig = adminMutation({
         socialProviders: mergedSocial ?? cfg.auth.socialProviders,
       },
       ...(mergedEmail !== undefined && { email: mergedEmail }),
+      ...(args.attachmentsMaxSizeBytes !== undefined && {
+        attachments: { maxSizeBytes: args.attachmentsMaxSizeBytes },
+      }),
       updatedAt: Date.now(),
       updatedBy: ctx.userId,
     });

@@ -1,13 +1,14 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  UsersRound,
-  Palette,
-  SlidersHorizontal,
+  KanbanSquare,
   ListChecks,
   Mail,
   Milestone,
-  KanbanSquare,
+  Palette,
+  Paperclip,
+  SlidersHorizontal,
+  UsersRound,
 } from 'lucide-react';
 import { DashboardLayout, useAuth, type NavItem } from '@crm/widgets';
 import { NAV_ITEMS } from '../lib/navigation';
@@ -44,6 +45,13 @@ const PIPELINES_NAV_ITEM: NavItem = {
   label: 'Pipelines',
   icon: <KanbanSquare />,
   path: '/settings/pipelines',
+  position: 'bottom',
+};
+
+const FILES_NAV_ITEM: NavItem = {
+  label: 'Fichiers',
+  icon: <Paperclip />,
+  path: '/settings/files',
   position: 'bottom',
 };
 
@@ -92,6 +100,7 @@ export function DashboardShell() {
           PROPERTIES_NAV_ITEM,
           LIFECYCLE_NAV_ITEM,
           PIPELINES_NAV_ITEM,
+          FILES_NAV_ITEM,
         ]
       : [...NAV_ITEMS, LISTS_NAV_ITEM];
 
