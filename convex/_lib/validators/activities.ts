@@ -27,7 +27,8 @@ export const activityValidator = v.object({
   // Planned date/time (ms). Unset = no deadline (a note, an undated to-do).
   dueAt: v.optional(v.number()),
   status: activityStatusValidator,
-  ownerId: v.id('users'),
+  ownerId: v.optional(v.id('users')),
+  teamId: v.optional(v.id('teams')),
   // Linked records; any combination, usually at least one.
   leadId: v.optional(v.id('leads')),
   companyId: v.optional(v.id('companies')),

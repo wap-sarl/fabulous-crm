@@ -128,7 +128,7 @@ export function BrandingPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
       <PageHeader title="Apparence" subtitle="Personnalisez le logo et le favicon" />
       <div className="mt-6">
-        {user?.role === 'admin' ? (
+        {user?.access.settings ? (
           <BrandingManager />
         ) : (
           <p className="text-sm text-soft">Cette page est réservée aux administrateurs.</p>

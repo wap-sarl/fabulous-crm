@@ -34,6 +34,33 @@ export const dealsByPipelineStatus = new TableAggregate<{
   sumValue: amount,
 });
 
+/**
+ * Per primary owner (see leadsByOwner for the multi-owner rule), keyed by
+ * stage / status: a scoped (own / team) pipeline board sums its owners'
+ * namespaces instead of reading the global aggregates.
+ */
+export const dealsByOwnerStage = new TableAggregate<{
+  Namespace: Id<'users'> | null;
+  Key: [0 | 1, string, string];
+  DataModel: DataModel;
+  TableName: 'deals';
+}>(components.dealsByOwnerStage, {
+  namespace: (doc) => doc.ownerIds[0] ?? null,
+  sortKey: (doc) => [aliveness(doc), doc.pipelineId, doc.stageKey],
+  sumValue: amount,
+});
+
+export const dealsByOwnerStatus = new TableAggregate<{
+  Namespace: Id<'users'> | null;
+  Key: [0 | 1, string, DealStatus];
+  DataModel: DataModel;
+  TableName: 'deals';
+}>(components.dealsByOwnerStatus, {
+  namespace: (doc) => doc.ownerIds[0] ?? null,
+  sortKey: (doc) => [aliveness(doc), doc.pipelineId, doc.status],
+  sumValue: amount,
+});
+
 const LIVE = {
   lower: { key: 0 as const, inclusive: true },
   upper: { key: 0 as const, inclusive: true },
@@ -63,4 +90,36 @@ export async function statusTotals(
     count: await dealsByPipelineStatus.count(ctx, { namespace, bounds: LIVE }),
     amount: await dealsByPipelineStatus.sum(ctx, { namespace, bounds: LIVE }),
   };
+}
+
+/** Stage totals restricted to the deals whose primary owner is one of `owners`. */
+export async function scopedStageTotals(
+  ctx: QueryCtx,
+  owners: (Id<'users'> | null)[],
+  pipelineId: Id<'pipelines'>,
+  stageKey: string,
+): Promise<DealTotals> {
+  const totals = { count: 0, amount: 0 };
+  for (const owner of owners) {
+    const bounds = { prefix: [0, pipelineId as string, stageKey] as [0, string, string] };
+    totals.count += await dealsByOwnerStage.count(ctx, { namespace: owner, bounds });
+    totals.amount += await dealsByOwnerStage.sum(ctx, { namespace: owner, bounds });
+  }
+  return totals;
+}
+
+/** Status totals restricted to the deals whose primary owner is one of `owners`. */
+export async function scopedStatusTotals(
+  ctx: QueryCtx,
+  owners: (Id<'users'> | null)[],
+  pipelineId: Id<'pipelines'>,
+  status: DealStatus,
+): Promise<DealTotals> {
+  const totals = { count: 0, amount: 0 };
+  for (const owner of owners) {
+    const bounds = { prefix: [0, pipelineId as string, status] as [0, string, DealStatus] };
+    totals.count += await dealsByOwnerStatus.count(ctx, { namespace: owner, bounds });
+    totals.amount += await dealsByOwnerStatus.sum(ctx, { namespace: owner, bounds });
+  }
+  return totals;
 }

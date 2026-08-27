@@ -11,7 +11,8 @@ export type NewActivity = {
   description?: string;
   dueAt?: number;
   status?: ActivityStatus;
-  ownerId: Id<'users'>;
+  ownerId?: Id<'users'>;
+  teamId?: Id<'teams'>;
   leadId?: Id<'leads'>;
   companyId?: Id<'companies'>;
   dealId?: Id<'deals'>;
@@ -59,6 +60,7 @@ export async function createActivityRecord(
     dueAt: data.dueAt,
     status,
     ownerId: data.ownerId,
+    teamId: data.teamId,
     leadId: data.leadId,
     companyId: data.companyId,
     dealId: data.dealId,

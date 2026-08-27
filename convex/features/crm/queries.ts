@@ -3,7 +3,7 @@ import { paginationOptsValidator } from 'convex/server';
 import { query } from '../../_generated/server';
 import { employeeQuery } from '../../_lib/auth';
 import type { QueryCtx } from '../../_generated/server';
-import type { Id } from '../../_generated/dataModel';
+import { ownerNamespaces } from '../../lib/visibility';
 import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
@@ -235,16 +235,15 @@ export const countLeadsByLifecycleStage = employeeQuery({
     const config = await loadLifecycleConfig(ctx);
     const byStage: Record<string, number> = {};
     let unset = 0;
-    if (ctx.visibility.scope === 'all') {
+    const namespaces = ownerNamespaces(ctx.visibility, 'leads');
+    if (namespaces === 'all') {
       for (const stage of config.stages) {
         byStage[stage.key] = await countLiveLeadsByLifecycleStage(ctx, stage.key);
       }
       unset = await countLiveLeadsByLifecycleStage(ctx, null);
+    } else if (namespaces === 'none') {
+      for (const stage of config.stages) byStage[stage.key] = 0;
     } else {
-      const namespaces: (Id<'users'> | null)[] = [
-        ...([...ctx.visibility.userIds] as Id<'users'>[]),
-        null,
-      ];
       for (const stage of config.stages) {
         let n = 0;
         for (const owner of namespaces) n += await countLiveLeadsByOwner(ctx, owner, stage.key);

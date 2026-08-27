@@ -87,7 +87,7 @@ describe('teams', () => {
     });
     await expect(
       asMarc.mutation(api.features.teams.mutations.updateTeam, { teamId: nord, name: 'X' }),
-    ).rejects.toThrow('admins only');
+    ).rejects.toThrow('settings access');
     await expect(
       asAdmin.mutation(api.features.teams.mutations.createTeam, { name: ' ', memberIds: [] }),
     ).rejects.toThrow('team_name_required');
@@ -125,7 +125,7 @@ describe('teams', () => {
         userId: sam.userId,
         role: 'admin',
       }),
-    ).rejects.toThrow('admins only');
+    ).rejects.toThrow('settings access');
     const audit = await t.run((ctx) =>
       ctx.db
         .query('auditLogs')
@@ -143,7 +143,7 @@ describe('visibility', () => {
     const { asAdmin, asMarc, asSam, ninas, sams, shared, pool } = await setup();
     const all = [ninas, sams, shared, pool].sort();
     expect(await listIds(asAdmin)).toEqual(all);
-    expect(await listIds(asSam)).toEqual(all);
+    expect(await listIds(asSam)).toEqual([sams, shared, pool].sort());
     expect(await listIds(asMarc)).toEqual([ninas, shared, pool].sort());
 
     // Search and detail follow the same perimeter.
@@ -168,12 +168,11 @@ describe('visibility', () => {
     const marcCounts = await asMarc.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
     expect(marcCounts.total).toBe(2);
     expect(marcCounts.byStage.lead).toBe(2);
+    // Sam (own): Sam's lead, the co-owned one (primary Sam) and the pool.
     expect((await asSam.query(api.features.crm.queries.countLeadsByLifecycleStage, {})).total).toBe(
-      4,
+      3,
     );
-    expect(
-      (await asMarc.query(api.features.companies.queries.countCompanies, {})).total,
-    ).toBeNull();
+    expect((await asMarc.query(api.features.companies.queries.countCompanies, {})).total).toBe(0);
     expect((await asAdmin.query(api.features.companies.queries.countCompanies, {})).total).toBe(0);
   });
 
@@ -235,10 +234,12 @@ describe('visibility', () => {
     expect(await asMarc.query(api.features.deals.queries.getDeal, { dealId: sams })).toBeNull();
     const pipelines = await asAdmin.query(api.features.deals.queries.listPipelines, {});
     expect(
-      await asMarc.query(api.features.deals.queries.getPipelineStats, {
-        pipelineId: pipelines[0]._id,
-      }),
-    ).toBeNull();
+      (
+        await asMarc.query(api.features.deals.queries.getPipelineStats, {
+          pipelineId: pipelines[0]._id,
+        })
+      )?.open.count,
+    ).toBe(1);
 
     const owned = await asAdmin.mutation(api.features.companies.mutations.createCompany, {
       name: 'Sam & Co',

@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { internal } from '../../_generated/api';
-import { adminMutation } from '../../_lib/auth';
+import { settingsMutation } from '../../_lib/auth';
 import {
   appOrigin,
   isEmailWhitelisted,
@@ -11,6 +11,8 @@ import {
 } from '../../lib';
 import { INVITE_EMAIL, LOGIN_ACCENT, generateEmailHtml } from '../../auth/emailTemplates';
 import { invitationRoleValidator } from '../../_lib/validators/invitations';
+import { DEFAULT_ROLES } from '../../_lib/validators/roles';
+import { findRole } from '../../lib/roles';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -36,11 +38,14 @@ async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
  * Better Auth method; the gate + `triggers.user.onCreate` provision their
  * employee row with this role on first login.
  */
-export const createInvitation = adminMutation({
+export const createInvitation = settingsMutation({
   args: { email: v.string(), role: invitationRoleValidator },
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
     if (!emailRe.test(email)) throw new Error('invalid_email');
+    if (!(await findRole(ctx, args.role)) && !DEFAULT_ROLES.some((r) => r.key === args.role)) {
+      throw new Error('invalid_role');
+    }
 
     const existing = await ctx.db
       .query('users')
@@ -87,7 +92,7 @@ export const createInvitation = adminMutation({
  * createInvitation this requires a configured email provider — its whole purpose
  * is the email — so it throws `email_not_configured` when none is set.
  */
-export const resendInvitation = adminMutation({
+export const resendInvitation = settingsMutation({
   args: { invitationId: v.id('invitations') },
   handler: async (ctx, args) => {
     const invite = await ctx.db.get(args.invitationId);
@@ -114,7 +119,7 @@ export const resendInvitation = adminMutation({
 });
 
 /** Revoke a still-pending invitation (admin only). */
-export const revokeInvitation = adminMutation({
+export const revokeInvitation = settingsMutation({
   args: { invitationId: v.id('invitations') },
   handler: async (ctx, args) => {
     const invite = await ctx.db.get(args.invitationId);

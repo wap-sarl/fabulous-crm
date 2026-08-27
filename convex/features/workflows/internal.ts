@@ -317,9 +317,12 @@ export const executeStep = internalMutation({
           appOrigin() || 'http://localhost:4202',
           await loadLifecycleConfig(ctx),
         );
+        const team = node.teamId ? await ctx.db.get(node.teamId) : null;
+        const teamId = team && team.deletedAt === undefined ? team._id : undefined;
         const ownerId =
-          node.ownerId ?? lead.ownerIds[0] ?? workflow.createdBy ?? workflow.updatedBy;
-        if (!ownerId || !(await ctx.db.get(ownerId))) {
+          node.ownerId ??
+          (teamId ? undefined : (lead.ownerIds[0] ?? workflow.createdBy ?? workflow.updatedBy));
+        if (!teamId && (!ownerId || !(await ctx.db.get(ownerId)))) {
           await logStep(ctx, run, node, 'skipped', { detail: 'aucun propriétaire' });
         } else {
           const dueAt =
@@ -334,6 +337,7 @@ export const executeStep = internalMutation({
                 : undefined,
               dueAt,
               ownerId,
+              teamId,
               leadId: lead._id,
               companyId: lead.companyId,
             },

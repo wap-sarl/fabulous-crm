@@ -13,7 +13,13 @@ import {
 import type { PropertyValue } from '../../_lib/validators/properties';
 import { evalFilter } from '../../lib/filterMatching';
 import { isNotDeleted } from '../../lib';
-import { stageTotals, statusTotals } from '../../lib/dealAggregates';
+import {
+  scopedStageTotals,
+  scopedStatusTotals,
+  stageTotals,
+  statusTotals,
+} from '../../lib/dealAggregates';
+import { ownerNamespaces } from '../../lib/visibility';
 import { listLivePipelines } from '../../lib/deals';
 import { normalizeSearchText } from '../../lib/leadSearch';
 
@@ -26,21 +32,31 @@ export const listPipelines = employeeQuery({
 export const getPipelineStats = employeeQuery({
   args: { pipelineId: v.id('pipelines') },
   handler: async (ctx, args) => {
-    if (ctx.visibility.scope !== 'all') return null;
     const pipeline = await ctx.db.get(args.pipelineId);
     if (!pipeline || !isNotDeleted(pipeline)) return null;
+    // Global aggregates for a full scope; per-primary-owner sums otherwise.
+    const owners = ownerNamespaces(ctx.visibility, 'deals');
+    if (owners === 'none') return null;
+    const byStage = (stageKey: string) =>
+      owners === 'all'
+        ? stageTotals(ctx, pipeline._id, stageKey)
+        : scopedStageTotals(ctx, owners, pipeline._id, stageKey);
+    const byStatus = (status: 'open' | 'won' | 'lost') =>
+      owners === 'all'
+        ? statusTotals(ctx, pipeline._id, status)
+        : scopedStatusTotals(ctx, owners, pipeline._id, status);
     const stages = [];
     for (const stage of pipeline.stages) {
-      stages.push({ ...stage, ...(await stageTotals(ctx, pipeline._id, stage.key)) });
+      stages.push({ ...stage, ...(await byStage(stage.key)) });
     }
     return {
       _id: pipeline._id,
       name: pipeline.name,
       isDefault: !!pipeline.isDefault,
       stages,
-      open: await statusTotals(ctx, pipeline._id, 'open'),
-      won: await statusTotals(ctx, pipeline._id, 'won'),
-      lost: await statusTotals(ctx, pipeline._id, 'lost'),
+      open: await byStatus('open'),
+      won: await byStatus('won'),
+      lost: await byStatus('lost'),
     };
   },
 });

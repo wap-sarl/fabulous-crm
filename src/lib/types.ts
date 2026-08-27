@@ -1,3 +1,4 @@
+import type { RoleAccess } from '@crm/lib/backend';
 /**
  * Vendored shared types.
  */
@@ -22,6 +23,8 @@ export type SessionUser = {
   _id: string;
   email: string;
   type: 'employee';
-  role: 'admin' | 'manager' | 'member';
+  role: string;
+  roleLabel: string;
+  access: RoleAccess;
   name: string;
 };

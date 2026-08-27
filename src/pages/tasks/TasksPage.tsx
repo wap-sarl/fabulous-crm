@@ -18,6 +18,7 @@ import {
 import { Plus } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useEmployees } from '../../lib/hooks/useEmployees';
+import { useTeams } from '../../lib/hooks/useTeams';
 import {
   ActivityFormDialog,
   CompleteActivityDialog,
@@ -45,8 +46,12 @@ export function TasksPage() {
   const bucket = (TASK_BUCKETS.find((b) => b.value === searchParams.get('bucket'))?.value ??
     'today') as TaskBucket;
   const ownerParam = searchParams.get('owner') ?? '';
+  const teamParam = searchParams.get('team') ?? '';
   const ownerId = ownerParam ? (ownerParam as Id<'users'>) : undefined;
+  const teamId = teamParam ? (teamParam as Id<'teams'>) : undefined;
   const { employees } = useEmployees();
+  const { teamsOf } = useTeams();
+  const myTeams = teamsOf(user?._id);
   const { reopenActivity } = useActivityActions();
   const [formOpen, setFormOpen] = useState(false);
   const [completing, setCompleting] = useState<ActivityRow | null>(null);
@@ -57,11 +62,12 @@ export function TasksPage() {
 
   const counts = useAuthQuery(api.features.activities.queries.countTaskBuckets, {
     ownerId,
+    teamId,
     ...bounds,
   });
   const { results, status, loadMore } = useAuthPaginatedQuery(
     api.features.activities.queries.listTasks,
-    { ownerId, ...window },
+    { ownerId, teamId, ...window },
     { initialNumItems: PAGE_SIZE },
   );
 
@@ -88,12 +94,33 @@ export function TasksPage() {
   const ownerLabel = ownerId
     ? (employees.find((e) => e._id === ownerId)?.firstName ?? 'ce collaborateur')
     : 'moi';
+  const teamLabel = teamId ? (myTeams.find((t) => t._id === teamId)?.name ?? 'mon équipe') : null;
+  const scope = teamId ? `team:${teamId}` : ownerParam || ME;
+  const setScope = (v: string) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('owner');
+        next.delete('team');
+        if (v.startsWith('team:')) next.set('team', v.slice(5));
+        else if (v !== ME) next.set('owner', v);
+        return next;
+      },
+      { replace: true },
+    );
+  };
 
   return (
     <div className="flex flex-col">
       <PageHeader
         className="px-5 sm:px-7"
-        title={ownerId && ownerId !== user?._id ? `Tâches de ${ownerLabel}` : 'Mes tâches'}
+        title={
+          teamLabel
+            ? `Tâches de l’équipe ${teamLabel}`
+            : ownerId && ownerId !== user?._id
+              ? `Tâches de ${ownerLabel}`
+              : 'Mes tâches'
+        }
         subtitle={
           counts
             ? `${counts.overdue} en retard · ${counts.today} aujourd’hui · ${counts.week} cette semaine`
@@ -119,15 +146,17 @@ export function TasksPage() {
             value={bucket}
             onChange={(v) => setParam('bucket', v === 'today' ? '' : v)}
           />
-          <Select
-            value={ownerParam || ME}
-            onValueChange={(v) => setParam('owner', v === ME ? '' : v)}
-          >
-            <SelectTrigger className="w-52" aria-label="Propriétaire">
+          <Select value={scope} onValueChange={setScope}>
+            <SelectTrigger className="w-56" aria-label="Périmètre">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ME}>Mes tâches</SelectItem>
+              {myTeams.map((t) => (
+                <SelectItem key={t._id} value={`team:${t._id}`}>
+                  Équipe {t.name}
+                </SelectItem>
+              ))}
               {employees
                 .filter((e) => e._id !== user?._id)
                 .map((e) => (

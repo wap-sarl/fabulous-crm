@@ -3,6 +3,7 @@ import { mutation } from '../_generated/server';
 import { ssoProviderValidator, socialProviderConfigValidator } from '../_lib/validators/appConfig';
 import { logAudit } from '../lib';
 import { isSetupComplete } from './helpers';
+import { ensureDefaultRoles } from '../lib/roles';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hexColorRe = /^#[0-9a-fA-F]{6}$/;
@@ -107,6 +108,7 @@ export const completeSetup = mutation({
       updatedAt: now,
     });
 
+    await ensureDefaultRoles(ctx, userId);
     await ctx.db.insert('appConfig', {
       setupCompletedAt: now,
       organizationName: args.organizationName.trim(),

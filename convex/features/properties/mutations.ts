@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { adminMutation } from '../../_lib/auth';
+import { settingsMutation } from '../../_lib/auth';
 import {
   createAuditFields,
   updateAuditFields,
@@ -67,7 +67,7 @@ function validateValidation(
   return cleaned && Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
 
-export const createDefinition = adminMutation({
+export const createDefinition = settingsMutation({
   // `computed` is not accepted: computed definitions belong to the engine that
   // maintains them (see propertyDefinitionValidator).
   args: {
@@ -111,7 +111,7 @@ export const createDefinition = adminMutation({
   },
 });
 
-export const updateDefinition = adminMutation({
+export const updateDefinition = settingsMutation({
   // `type` and `entityType` are intentionally NOT accepted — they are immutable
   // once values may exist. To change them, delete the property and create a new one.
   args: {
@@ -163,7 +163,7 @@ export const updateDefinition = adminMutation({
   },
 });
 
-export const deleteDefinition = adminMutation({
+export const deleteDefinition = settingsMutation({
   args: { definitionId: v.id('propertyDefinitions') },
   handler: async (ctx, args) => {
     const def = await ctx.db.get(args.definitionId);
@@ -187,7 +187,7 @@ export const deleteDefinition = adminMutation({
 });
 
 /** Reorder the definitions of one entity type (ids in their new display order). */
-export const reorderDefinitions = adminMutation({
+export const reorderDefinitions = settingsMutation({
   args: { definitionIds: v.array(v.id('propertyDefinitions')) },
   handler: async (ctx, args) => {
     let position = 0;

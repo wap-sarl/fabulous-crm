@@ -45,16 +45,23 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   optionnel), étape de workflow « Créer une tâche ». Les rappels à l'échéance
   arrivent avec le système de notifications (lot 5) ; `dueAt` en est le point
   d'accroche.
-- **Équipes et propriétaires** : chaque lead, entreprise et transaction a
+- **Équipes, rôles et accès** : chaque lead, entreprise et transaction a
   zéro, un ou plusieurs propriétaires (`ownerIds`, le premier est le
-  propriétaire principal, espace de noms de l'agrégat `leadsByOwner`). Les
-  collaborateurs sont `admin`, `manager` ou `member` et peuvent appartenir à
-  plusieurs équipes (`teams`, *Paramètres → Équipe*). Un manager ne voit que
-  les fiches dont un propriétaire est dans une de ses équipes, plus les fiches
-  sans propriétaire ; admins et membres voient tout. Le périmètre est appliqué
-  dans les wrappers `_lib/auth.ts` (row-level security `convex-helpers` sur
-  `leads`, `companies`, `deals` — lecture et écriture), jamais par requête ;
-  les compteurs par agrégat se restreignent via `ctx.visibility`.
+  propriétaire principal, espace de noms des agrégats par propriétaire). Les
+  collaborateurs peuvent appartenir à plusieurs équipes (`teams`, *Paramètres
+  → Équipe*) ; une tâche peut être confiée à une personne et/ou à une équipe
+  (toute l'équipe la voit ; sans l'un ni l'autre, tout le monde). Les rôles
+  sont des données (`roles`, *Paramètres → Rôles et accès*) : une grille
+  rôles × modules dont chaque case vaut `none` / `own` / `team` / `all`, plus
+  un interrupteur « Paramètres ». Valeurs par défaut : `admin` tout, `manager`
+  son équipe, `member` ses fiches — « Mes fiches » et « Mon équipe » incluent
+  les fiches sans propriétaire (le pool). Rôles personnalisés (créer, renommer,
+  supprimer avec réaffectation) ; `admin` est verrouillé et un rôle ne peut pas
+  se retirer « Paramètres ». Le périmètre est appliqué dans les wrappers
+  `_lib/auth.ts` (row-level security `convex-helpers` sur toutes les tables de
+  chaque module, enfants compris — lecture et écriture), jamais par requête ;
+  les compteurs par agrégat se restreignent via `ctx.visibility`, les
+  destinataires d'une campagne sont résolus dans le périmètre de son auteur.
 - **Fichiers joints** : devis, scans, contrats… déposés (glisser-déposer) sur
   une fiche lead, entreprise ou transaction (`attachments`), rangés dans une
   arborescence de dossiers par fiche, aperçu des images et PDF, téléchargement,

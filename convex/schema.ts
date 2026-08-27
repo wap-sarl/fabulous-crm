@@ -23,6 +23,7 @@ import {
 import { activityValidator } from './_lib/validators/activities';
 import { attachmentValidator } from './_lib/validators/attachments';
 import { teamValidator } from './_lib/validators/teams';
+import { roleValidator } from './_lib/validators/roles';
 import { duplicateScanValidator, leadDuplicateValidator } from './_lib/validators/duplicates';
 import {
   workflowValidator,
@@ -38,6 +39,31 @@ export type { User } from './_lib/validators/users';
 export type { EmployeeRole } from './_lib/validators/employees';
 export { employeeRoleValidator } from './_lib/validators/employees';
 export type { Team } from './_lib/validators/teams';
+export type {
+  AccessLevel,
+  AccessModule,
+  RoleAccess,
+  AccessWarning,
+} from './_lib/validators/access';
+export {
+  ACCESS_MODULES,
+  ACCESS_LEVELS,
+  accessLevelValidator,
+  roleAccessValidator,
+  accessWarnings,
+  uniformAccess,
+  isFullAccess,
+} from './_lib/validators/access';
+export type { Role } from './_lib/validators/roles';
+export {
+  roleValidator,
+  DEFAULT_ROLES,
+  BUILT_IN_ROLE_KEYS,
+  ADMIN_ROLE_KEY,
+  DEFAULT_ROLE_KEY,
+  MAX_ROLE_LABEL_LENGTH,
+  roleKeyOf,
+} from './_lib/validators/roles';
 export { teamValidator, MAX_TEAM_NAME_LENGTH } from './_lib/validators/teams';
 export { userValidator } from './_lib/validators/users';
 
@@ -250,6 +276,9 @@ export default defineSchema({
 
   teams: defineTable(teamValidator),
 
+  // Roles = rows of the access matrix (see roleValidator); resolved by key per request.
+  roles: defineTable(roleValidator).index('by_key', ['key']),
+
   companies: defineTable(companyValidator)
     .index('by_domain', ['domain'])
     .index('by_country_registrationNumber', ['country', 'registrationNumber'])
@@ -268,6 +297,8 @@ export default defineSchema({
 
   activities: defineTable(activityValidator)
     .index('by_owner_status_dueAt', ['ownerId', 'status', 'dueAt'])
+    // « Mon équipe » buckets: team-assigned tasks.
+    .index('by_team_status_dueAt', ['teamId', 'status', 'dueAt'])
     .index('by_lead', ['leadId'])
     .index('by_company', ['companyId'])
     .index('by_deal', ['dealId']),

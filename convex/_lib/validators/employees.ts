@@ -6,12 +6,11 @@ import {
   softDeleteValidator,
 } from './shared';
 
-/** admin: everything; manager: their team's records (lib/visibility.ts); member: the whole CRM, no settings. */
-export const employeeRoleValidator = v.union(
-  v.literal('admin'),
-  v.literal('manager'),
-  v.literal('member'),
-);
+/**
+ * A role key (`roles.key`): `admin`, `manager`, `member` or a custom role.
+ * The key's access matrix decides what the employee sees (lib/visibility.ts).
+ */
+export const employeeRoleValidator = v.string();
 export type EmployeeRole = Infer<typeof employeeRoleValidator>;
 
 export const employeeValidator = v.object({

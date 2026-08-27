@@ -149,6 +149,7 @@ export const workflowNodeValidator = v.union(
     description: v.optional(v.string()),
     dueInDays: v.optional(v.number()),
     ownerId: v.optional(v.id('users')),
+    teamId: v.optional(v.id('teams')),
     next: v.optional(v.string()),
   }),
   v.object({

@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
-import { adminMutation } from '../../_lib/auth';
+import { settingsMutation } from '../../_lib/auth';
 import { MAX_TEAM_NAME_LENGTH } from '../../_lib/validators/teams';
 import {
   computeChanges,
@@ -29,7 +29,7 @@ async function cleanMembers(ctx: MutationCtx, memberIds: Id<'users'>[]): Promise
   return out;
 }
 
-export const createTeam = adminMutation({
+export const createTeam = settingsMutation({
   args: { name: v.string(), memberIds: v.array(v.id('users')) },
   handler: async (ctx, args) => {
     const teamId = await ctx.db.insert('teams', {
@@ -48,7 +48,7 @@ export const createTeam = adminMutation({
   },
 });
 
-export const updateTeam = adminMutation({
+export const updateTeam = settingsMutation({
   args: {
     teamId: v.id('teams'),
     name: v.optional(v.string()),
@@ -77,7 +77,7 @@ export const updateTeam = adminMutation({
 });
 
 /** Soft delete; the managers who were in it lose that perimeter immediately. */
-export const deleteTeam = adminMutation({
+export const deleteTeam = settingsMutation({
   args: { teamId: v.id('teams') },
   handler: async (ctx, args) => {
     const team = await ctx.db.get(args.teamId);

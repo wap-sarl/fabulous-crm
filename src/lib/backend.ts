@@ -49,6 +49,27 @@ export type { AttachmentRow } from '../../convex/features/attachments/queries';
 export type { Team } from '../../convex/_lib/validators/teams';
 export type { EmployeeRole } from '../../convex/_lib/validators/employees';
 export type {
+  AccessLevel,
+  AccessModule,
+  AccessWarning,
+  RoleAccess,
+} from '../../convex/_lib/validators/access';
+export {
+  ACCESS_LEVELS,
+  ACCESS_MODULES,
+  accessWarnings,
+  isFullAccess,
+  uniformAccess,
+} from '../../convex/_lib/validators/access';
+export type { Role } from '../../convex/_lib/validators/roles';
+export {
+  ADMIN_ROLE_KEY,
+  BUILT_IN_ROLE_KEYS,
+  DEFAULT_ROLES,
+  MAX_ROLE_LABEL_LENGTH,
+  roleKeyOf,
+} from '../../convex/_lib/validators/roles';
+export type {
   Deal,
   DealStatus,
   Pipeline,

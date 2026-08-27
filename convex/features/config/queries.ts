@@ -1,5 +1,5 @@
 import { query } from '../../_generated/server';
-import { adminQuery, employeeQuery } from '../../_lib/auth';
+import { settingsQuery, employeeQuery } from '../../_lib/auth';
 import { isSetupComplete } from '../../setup/helpers';
 import { SOCIAL_PROVIDERS } from '../../_lib/socialProviders';
 import { resolveBrevo, resolveEmailProvider, isEmailProviderConfigured } from '../../lib';
@@ -62,7 +62,7 @@ export const getPublicConfig = query({
  * Admin-facing config for a settings screen. Secrets are replaced by boolean
  * presence flags; the real values never leave the server.
  */
-export const getAdminConfig = adminQuery({
+export const getAdminConfig = settingsQuery({
   args: {},
   handler: async (ctx) => {
     const cfg = await ctx.db.query('appConfig').first();

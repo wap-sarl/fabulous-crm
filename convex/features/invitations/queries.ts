@@ -1,7 +1,7 @@
-import { adminQuery } from '../../_lib/auth';
+import { settingsQuery } from '../../_lib/auth';
 
 /** Pending invitations, newest first (admin only). */
-export const listInvitations = adminQuery({
+export const listInvitations = settingsQuery({
   args: {},
   handler: async (ctx) => {
     const invites = await ctx.db.query('invitations').collect();

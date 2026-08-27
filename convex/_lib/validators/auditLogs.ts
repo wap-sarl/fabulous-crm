@@ -9,6 +9,7 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('attachment'),
   v.literal('employee'),
   v.literal('team'),
+  v.literal('role'),
   v.literal('campaign'),
   v.literal('appConfig'),
   v.literal('invitation'),
