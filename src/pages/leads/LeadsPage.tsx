@@ -10,14 +10,15 @@ import { useEmployees } from '../../lib/hooks/useEmployees';
 import { useLeadFilters } from '../../features/leads/hooks/useLeadFilters';
 import { useLeadsPaginated } from '../../features/leads/hooks/useLeadsPaginated';
 import { useLeadActions } from '../../features/leads/hooks/useLeadActions';
-import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
-import { AdvancedFilterBuilder } from '../../features/leads/components/AdvancedFilterBuilder';
+import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
 import { LeadsTable } from '../../features/leads/components/LeadsTable';
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
 import { CsvImportDialog } from '../../features/leads/components/CsvImportDialog';
 import type { LeadRow } from '../../features/leads/types';
+import { leadFieldCatalog } from '../../features/leads/lib/leadFilters';
 
 export function LeadsPage() {
   usePageTitle('Leads');
@@ -29,7 +30,7 @@ export function LeadsPage() {
   const lifecycle = useLifecycleConfig();
   const { employees } = useEmployees();
   const { deleteLead, deleteLeads } = useLeadActions();
-  const propertyDefinitions = useLeadPropertyDefinitions();
+  const propertyDefinitions = usePropertyDefinitions('lead');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen] = useState(false);
@@ -141,7 +142,7 @@ export function LeadsPage() {
           <AdvancedFilterBuilder
             filter={filters.advancedFilter}
             onChange={setAdvancedFilter}
-            definitions={propertyDefinitions}
+            catalog={leadFieldCatalog(propertyDefinitions)}
           />
         </div>
 

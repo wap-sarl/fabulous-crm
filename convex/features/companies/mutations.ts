@@ -3,6 +3,8 @@ import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
 import { COUNTRY_CODE_RE, normalizeCountryCode } from '../../_lib/validators/companyRegistry';
 import { addressValidator } from '../../schema';
+import { propertyValueValidator } from '../../_lib/validators/properties';
+import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import {
   computeChanges,
   createAuditFields,
@@ -30,6 +32,7 @@ const companyFieldArgs = {
   sector: v.optional(v.string()),
   headcount: v.optional(v.number()),
   address: v.optional(addressValidator),
+  customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 } as const;
 
 const blank = (s: string | undefined) => (s?.trim() ? s.trim() : undefined);
@@ -80,6 +83,10 @@ export const createCompany = employeeMutation({
       sector: blank(args.sector),
       headcount: args.headcount,
       address: requireValidAddress(args.address),
+      customProperties: sanitizeCustomProperties(
+        await loadPropertyDefsById(ctx, 'company'),
+        args.customProperties,
+      ),
       ...createAuditFields(ctx.userId),
     });
     await logAudit({
@@ -138,6 +145,12 @@ export const updateCompany = employeeMutation({
     if (rest.sector !== undefined) updates.sector = blank(rest.sector);
     if (rest.headcount !== undefined) updates.headcount = rest.headcount;
     if (rest.address !== undefined) updates.address = requireValidAddress(rest.address);
+    if (rest.customProperties !== undefined) {
+      updates.customProperties = sanitizeCustomProperties(
+        await loadPropertyDefsById(ctx, 'company'),
+        rest.customProperties,
+      );
+    }
 
     const changes = computeChanges(company, filterUndefined(updates));
     const renamed = typeof updates.name === 'string' && updates.name !== company.name;

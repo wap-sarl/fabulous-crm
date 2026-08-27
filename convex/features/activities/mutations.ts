@@ -1,6 +1,8 @@
 import { v } from 'convex/values';
 import { employeeMutation } from '../../_lib/auth';
 import { activityTypeValidator } from '../../_lib/validators/activities';
+import { propertyValueValidator } from '../../_lib/validators/properties';
+import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import { computeChanges, filterUndefined, logAudit, updateAuditFields } from '../../lib';
 import { createActivityRecord, loadActivity, requireActivityLinks } from '../../lib/activities';
 
@@ -13,6 +15,7 @@ const activityFieldArgs = {
   leadId: v.optional(v.id('leads')),
   companyId: v.optional(v.id('companies')),
   dealId: v.optional(v.id('deals')),
+  customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 } as const;
 
 /** Plan an activity (task, meeting, call to make…). Defaults to the caller as owner. */
@@ -22,7 +25,14 @@ export const createActivity = employeeMutation({
     if (args.ownerId && !(await ctx.db.get(args.ownerId))) throw new Error('invalid_owner');
     return await createActivityRecord(
       ctx,
-      { ...args, ownerId: args.ownerId ?? ctx.userId },
+      {
+        ...args,
+        ownerId: args.ownerId ?? ctx.userId,
+        customProperties: sanitizeCustomProperties(
+          await loadPropertyDefsById(ctx, 'activity'),
+          args.customProperties,
+        ),
+      },
       { changedBy: ctx.userId },
     );
   },
@@ -83,9 +93,10 @@ export const updateActivity = employeeMutation({
     companyId: v.optional(v.union(v.id('companies'), v.null())),
     dealId: v.optional(v.union(v.id('deals'), v.null())),
     outcome: v.optional(v.union(v.string(), v.null())),
+    customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
   handler: async (ctx, args) => {
-    const { activityId, ...rest } = args;
+    const { activityId, customProperties, ...rest } = args;
     const activity = await loadActivity(ctx, activityId);
     if (rest.title !== undefined && !rest.title.trim()) throw new Error('activity_title_required');
     if (rest.ownerId && !(await ctx.db.get(rest.ownerId))) throw new Error('invalid_owner');
@@ -99,6 +110,12 @@ export const updateActivity = employeeMutation({
       if (value === undefined) continue;
       // null clears the optional field (patching undefined removes it).
       updates[key] = value === null ? undefined : typeof value === 'string' ? value.trim() : value;
+    }
+    if (customProperties !== undefined) {
+      updates.customProperties = sanitizeCustomProperties(
+        await loadPropertyDefsById(ctx, 'activity'),
+        customProperties,
+      );
     }
     const changes = computeChanges(activity, filterUndefined(updates));
     await ctx.db.patch(activityId, { ...updates, ...updateAuditFields(ctx.userId) });

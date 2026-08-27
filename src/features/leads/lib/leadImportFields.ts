@@ -1,7 +1,7 @@
-import type { Id, LeadPropertyValue } from '@crm/lib/backend';
+import type { Id, PropertyValue } from '@crm/lib/backend';
 import { DEFAULT_COUNTRY } from '@crm/lib/backend';
 import { isValidEmail, isValidPhone } from '@crm/lib/shared';
-import type { LeadPropertyDefinitionRow } from '../types';
+import type { PropertyDefinitionRow } from '../../properties/types';
 
 /**
  * Shape of a single parsed row sent to the `importLeads` mutation. Mirrors the
@@ -26,8 +26,8 @@ export interface LeadImportRow {
     city: string;
     region?: string;
   };
-  /** Custom-property values, keyed by definition id (see leadPropertyDefinitions). */
-  customProperties?: Record<string, LeadPropertyValue>;
+  /** Custom-property values, keyed by definition id (see propertyDefinitions). */
+  customProperties?: Record<string, PropertyValue>;
   /** Company columns: matched (registration number, domain) or created (name). */
   company?: {
     name?: string;
@@ -290,9 +290,7 @@ export interface ImportTargetGroup {
 }
 
 /** Build the grouped target list for the mapping selects, given the live custom defs. */
-export function buildImportTargetGroups(
-  customDefs: LeadPropertyDefinitionRow[],
-): ImportTargetGroup[] {
+export function buildImportTargetGroups(customDefs: PropertyDefinitionRow[]): ImportTargetGroup[] {
   const toOption = (f: ImportFieldDef): ImportTargetOption => ({ id: f.header, label: f.label });
   const groups: ImportTargetGroup[] = [
     {
@@ -337,7 +335,7 @@ export function builtinFieldForTarget(targetId: string): ImportFieldDef | undefi
  */
 export function autoDetectTarget(
   header: string,
-  customDefs: LeadPropertyDefinitionRow[],
+  customDefs: PropertyDefinitionRow[],
 ): string | null {
   const h = header.trim().toLowerCase();
   if (IMPORT_FIELD_BY_HEADER.has(h)) return h;
@@ -346,14 +344,14 @@ export function autoDetectTarget(
 }
 
 /** Match a cell against an option by its value or label (case-insensitive). */
-function matchOption(def: LeadPropertyDefinitionRow, raw: string): string | undefined {
+function matchOption(def: PropertyDefinitionRow, raw: string): string | undefined {
   const needle = raw.trim().toLowerCase();
   return (def.options ?? []).find(
     (o) => o.value.toLowerCase() === needle || o.label.toLowerCase() === needle,
   )?.value;
 }
 
-type CustomParseResult = { value: LeadPropertyValue } | { error: string };
+type CustomParseResult = { value: PropertyValue } | { error: string };
 
 /**
  * Coerce a non-empty CSV cell into the typed value the property expects. The
@@ -361,7 +359,7 @@ type CustomParseResult = { value: LeadPropertyValue } | { error: string };
  * (string / finite number / boolean / string[] of option values).
  */
 export function coerceCustomPropertyValue(
-  def: LeadPropertyDefinitionRow,
+  def: PropertyDefinitionRow,
   raw: string,
 ): CustomParseResult {
   switch (def.type) {

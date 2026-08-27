@@ -16,7 +16,8 @@ import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { internal } from '../../_generated/api';
 import { appOrigin } from '../../lib';
-import { buildSendParams, loadPropertyDefsById } from './mutations';
+import { buildSendParams } from './mutations';
+import { loadPropertyDefsById } from '../../lib/properties';
 import { leadFilterArgs, loadListMemberIdsForLeads, matchesLeadFilters } from './leadTableFilters';
 
 const BATCH_SIZE = 50;
@@ -322,7 +323,7 @@ export const prepareCampaignBatch = internalMutation({
 
     const isSms = campaign.channel === 'sms';
     const trackedLinks = campaign.trackedLinks ?? [];
-    const defsById = await loadPropertyDefsById(ctx);
+    const defsById = await loadPropertyDefsById(ctx, 'lead');
     const consentBase = appOrigin() || 'http://localhost:4202';
     const linkBase = process.env.CONVEX_SITE_URL;
     const lifecycle = await loadLifecycleConfig(ctx);

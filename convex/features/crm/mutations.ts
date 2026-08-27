@@ -23,13 +23,15 @@ import {
 } from '../../lib';
 import {
   addressValidator,
-  leadPropertyValueValidator,
+  propertyValueValidator,
   marketingConsentChannelValidator,
 } from '../../schema';
+import type { PropertyValue } from '../../_lib/validators/properties';
 import {
-  validateLeadPropertyValue,
-  type LeadPropertyValue,
-} from '../../_lib/validators/leadProperties';
+  loadPropertyDefsById,
+  type PropertyDefinitionDoc,
+  sanitizeCustomProperties,
+} from '../../lib/properties';
 import {
   campaignChannelValidator,
   campaignTrackedLinkValidator,
@@ -67,84 +69,6 @@ const RESERVED_PARAM_KEYS = new Set([
   'address',
   'consentUrl',
 ]);
-
-/**
- * Keep only custom-property values that reference a live definition and whose
- * value matches that definition's type (select/radio → a known option value,
- * checkbox → an array of known option values, date → string, etc.). Mismatched
- * or orphaned entries are dropped. Surviving values are then checked against the
- * definition's validation rules (number range, text length/pattern, email
- * format) and a failure throws — the client normally blocks first, this is the
- * server-side safety net.
- */
-type LeadPropertyDef = Doc<'leadPropertyDefinitions'>;
-
-/** Load the active custom-property definitions once, keyed by id. */
-export async function loadPropertyDefsById(
-  ctx: MutationCtx,
-): Promise<Map<string, LeadPropertyDef>> {
-  const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
-  return new Map(defs.map((d) => [d._id as string, d]));
-}
-
-/**
- * Core of {@link sanitizeCustomProperties} that reuses an already-loaded
- * definitions map — lets the bulk import load the (tiny) definitions table once
- * per chunk instead of once per row.
- */
-function sanitizeCustomPropertiesWith(
-  byId: Map<string, LeadPropertyDef>,
-  raw: Record<string, LeadPropertyValue> | undefined,
-): Record<string, LeadPropertyValue> | undefined {
-  if (!raw) return undefined;
-
-  const clean: Record<string, LeadPropertyValue> = {};
-  for (const [key, value] of Object.entries(raw)) {
-    const def = byId.get(key);
-    if (!def) continue;
-    const optionValues = new Set((def.options ?? []).map((o) => o.value));
-
-    switch (def.type) {
-      case 'text':
-      case 'email':
-      case 'date':
-        if (typeof value === 'string' && value.length > 0) clean[key] = value;
-        break;
-      case 'number':
-        if (typeof value === 'number' && Number.isFinite(value)) clean[key] = value;
-        break;
-      case 'boolean':
-        if (typeof value === 'boolean') clean[key] = value;
-        break;
-      case 'select':
-      case 'radio':
-        if (typeof value === 'string' && optionValues.has(value)) clean[key] = value;
-        break;
-      case 'checkbox': {
-        if (Array.isArray(value)) {
-          const picked = value.filter((v) => typeof v === 'string' && optionValues.has(v));
-          if (picked.length > 0) clean[key] = picked;
-        }
-        break;
-      }
-    }
-
-    if (clean[key] !== undefined) {
-      const error = validateLeadPropertyValue(def, clean[key]);
-      if (error) throw new Error(`invalid_property_value: ${def.label}: ${error}`);
-    }
-  }
-  return clean;
-}
-
-/** Load definitions and sanitize a single lead's custom-property values. */
-async function sanitizeCustomProperties(
-  ctx: MutationCtx,
-  raw: Record<string, LeadPropertyValue> | undefined,
-): Promise<Record<string, LeadPropertyValue> | undefined> {
-  if (!raw) return undefined;
-  return sanitizeCustomPropertiesWith(await loadPropertyDefsById(ctx), raw);
-}
 
 /**
  * Add a lead to a list if it isn't already a member. Idempotent across import
@@ -215,10 +139,13 @@ function initialLifecycleStage(config: LifecycleConfig, requested: string | unde
 export const createLead = employeeMutation({
   args: {
     ...leadRowArgs,
-    customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
+    customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
   handler: async (ctx, args) => {
-    const customProperties = await sanitizeCustomProperties(ctx, args.customProperties);
+    const customProperties = sanitizeCustomProperties(
+      await loadPropertyDefsById(ctx, 'lead'),
+      args.customProperties,
+    );
     const lifecycle = await loadLifecycleConfig(ctx);
     const lifecycleStage = initialLifecycleStage(lifecycle, args.lifecycleStage);
     const email = normalizeEmail(args.email);
@@ -281,7 +208,7 @@ export const updateLead = employeeMutation({
     // regression fails the whole update with `lifecycle_regression_blocked`.
     lifecycleStage: v.optional(v.string()),
     companyId: v.optional(v.union(v.id('companies'), v.null())),
-    customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
+    customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
   handler: async (ctx, args) => {
     // Marketing consent is deliberately not an accepted field — it is RGPD data
@@ -312,8 +239,10 @@ export const updateLead = employeeMutation({
       if (matched) updates.companyId = matched;
     }
     if (customProperties !== undefined) {
-      // Whole-record replace; computeChanges JSON-compares so the audit diff works.
-      updates.customProperties = await sanitizeCustomProperties(ctx, customProperties);
+      updates.customProperties = sanitizeCustomProperties(
+        await loadPropertyDefsById(ctx, 'lead'),
+        customProperties,
+      );
     }
     let lifecycleChange: { from: string | undefined; to: string } | undefined;
     if (lifecycleStage !== undefined) {
@@ -426,7 +355,7 @@ export const importLeads = employeeMutation({
     rows: v.array(
       v.object({
         ...leadRowArgs,
-        customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
+        customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
       }),
     ),
     // Optional list every imported (created OR updated) lead is added to.
@@ -438,7 +367,7 @@ export const importLeads = employeeMutation({
     let updated = 0;
 
     // Load the custom-property definitions once for the whole chunk.
-    const propertyDefsById = await loadPropertyDefsById(ctx);
+    const propertyDefsById = await loadPropertyDefsById(ctx, 'lead');
     // Active workflows, loaded once for every trigger dispatch in the loop.
     const activeWorkflows = await loadActiveWorkflows(ctx);
     const lifecycle = await loadLifecycleConfig(ctx);
@@ -449,10 +378,10 @@ export const importLeads = employeeMutation({
       const row = args.rows[index];
       const email = normalizeEmail(row.email);
 
-      let customProperties: Record<string, LeadPropertyValue> | undefined;
+      let customProperties: Record<string, PropertyValue> | undefined;
       try {
         requireValidAddress(row.address);
-        customProperties = sanitizeCustomPropertiesWith(propertyDefsById, row.customProperties);
+        customProperties = sanitizeCustomProperties(propertyDefsById, row.customProperties);
       } catch (e) {
         errors.push({ index, error: e instanceof Error ? e.message : 'invalid_property_value' });
         continue;
@@ -842,7 +771,7 @@ export function buildSendParams(
   lead: Doc<'leads'>,
   opts: {
     trackedLinks: CampaignTrackedLink[];
-    defsById: Map<string, LeadPropertyDef>;
+    defsById: Map<string, PropertyDefinitionDoc>;
     consentBase: string;
     linkBase: string | undefined;
     lifecycle: LifecycleConfig;
@@ -900,7 +829,7 @@ export const createCampaign = employeeMutation({
 
     // Custom-property definitions: substituted as {{ params.custom_<id> }} and
     // referenced by tracked links.
-    const defsById = await loadPropertyDefsById(ctx);
+    const defsById = await loadPropertyDefsById(ctx, 'lead');
 
     // Validate tracked links up front (keys, target field/property, value, redirect).
     const trackedLinks = args.trackedLinks ?? [];
@@ -1035,7 +964,7 @@ async function loadResendContext(ctx: MutationCtx, campaign: Doc<'campaigns'>) {
   return {
     isSms: (campaign.channel ?? 'email') === 'sms',
     trackedLinks,
-    defsById: await loadPropertyDefsById(ctx),
+    defsById: await loadPropertyDefsById(ctx, 'lead'),
     consentBase: appOrigin() || 'http://localhost:4202',
     linkBase,
     lifecycle: await loadLifecycleConfig(ctx),
@@ -1055,7 +984,7 @@ async function requeueSend(
   remat: {
     isSms: boolean;
     trackedLinks: CampaignTrackedLink[];
-    defsById: Map<string, LeadPropertyDef>;
+    defsById: Map<string, PropertyDefinitionDoc>;
     consentBase: string;
     linkBase: string | undefined;
     lifecycle: LifecycleConfig;

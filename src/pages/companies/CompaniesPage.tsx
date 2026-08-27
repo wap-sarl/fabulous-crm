@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
+import type { CompanyAdvancedFilter, CompanyStandardField } from '@crm/lib/backend';
 import {
   Button,
   Input,
@@ -18,6 +19,14 @@ import { Building2, ChevronRight, Plus, Search } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { countryName } from '../../lib/countries';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
+import { companyFieldCatalog } from '../../features/companies/lib/companyFilters';
+import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
+import {
+  parseAdvancedFilter,
+  serializeAdvancedFilter,
+} from '../../features/filters/lib/advancedFilter';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
+import { formatPropertyValue } from '../../features/properties/lib/customProperties';
 
 const PAGE_SIZE = 30;
 const SKELETON_ROWS = ['s1', 's2', 's3', 's4', 's5', 's6'];
@@ -30,6 +39,24 @@ export function CompaniesPage() {
   const search = searchParams.get('q') ?? '';
   const [searchInput, setSearchInput] = useState(search);
   const [formOpen, setFormOpen] = useState(false);
+  const definitions = usePropertyDefinitions('company');
+  const visibleCols = definitions.filter((d) => d.showInTable);
+
+  const advancedFilter = useMemo(
+    () => parseAdvancedFilter<CompanyStandardField>(searchParams.get('af')),
+    [searchParams],
+  );
+  const setAdvancedFilter = (next: CompanyAdvancedFilter | undefined) =>
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        const serialized = serializeAdvancedFilter(next);
+        if (serialized) params.set('af', serialized);
+        else params.delete('af');
+        return params;
+      },
+      { replace: true },
+    );
 
   useEffect(() => setSearchInput(search), [search]);
   useEffect(() => {
@@ -50,11 +77,12 @@ export function CompaniesPage() {
 
   const { results, status, loadMore } = useAuthPaginatedQuery(
     api.features.companies.queries.listCompaniesPaginated,
-    { search: search || undefined },
+    { search: search || undefined, advancedFilter },
     { initialNumItems: PAGE_SIZE },
   );
   const counts = useAuthQuery(api.features.companies.queries.countCompanies, {});
   const isLoading = status === 'LoadingFirstPage';
+  const colSpan = 6 + visibleCols.length;
 
   return (
     <div className="flex flex-col">
@@ -71,15 +99,22 @@ export function CompaniesPage() {
       />
 
       <div className="flex flex-col gap-4 px-5 pb-6 sm:px-7">
-        <div className="relative w-72">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-placeholder" />
-          <Input
-            type="search"
-            placeholder="Rechercher (nom, domaine, SIRET…)"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="pl-9"
-            data-testid="companies-search"
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative w-72">
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-placeholder" />
+            <Input
+              type="search"
+              placeholder="Rechercher (nom, domaine, SIRET…)"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className="pl-9"
+              data-testid="companies-search"
+            />
+          </div>
+          <AdvancedFilterBuilder
+            filter={advancedFilter}
+            onChange={setAdvancedFilter}
+            catalog={companyFieldCatalog(definitions)}
           />
         </div>
 
@@ -91,6 +126,9 @@ export function CompaniesPage() {
                 <TableHead>Domaine</TableHead>
                 <TableHead>Pays</TableHead>
                 <TableHead>Contacts</TableHead>
+                {visibleCols.map((def) => (
+                  <TableHead key={def._id}>{def.label}</TableHead>
+                ))}
                 <TableHead>Créée le</TableHead>
                 <TableHead className="w-10" aria-label="Ouvrir" />
               </TableRow>
@@ -99,14 +137,14 @@ export function CompaniesPage() {
               {isLoading ? (
                 SKELETON_ROWS.map((row) => (
                   <TableRow key={row} className="hover:bg-transparent">
-                    <TableCell colSpan={6} className="py-3">
+                    <TableCell colSpan={colSpan} className="py-3">
                       <Skeleton className="h-9 w-full" />
                     </TableCell>
                   </TableRow>
                 ))
               ) : results.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-faint">
+                  <TableCell colSpan={colSpan} className="py-10 text-center text-faint">
                     Aucune entreprise.
                   </TableCell>
                 </TableRow>
@@ -140,6 +178,11 @@ export function CompaniesPage() {
                     <TableCell className="font-mono text-[12.5px] text-soft">
                       {company.contactCount}
                     </TableCell>
+                    {visibleCols.map((def) => (
+                      <TableCell key={def._id} className="text-[13px] text-soft">
+                        {formatPropertyValue(def, company.customProperties?.[def._id])}
+                      </TableCell>
+                    ))}
                     <TableCell className="whitespace-nowrap font-mono text-[12.5px] text-soft">
                       {dateFormat.format(company._creationTime)}
                     </TableCell>

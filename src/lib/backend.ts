@@ -92,21 +92,25 @@ export {
   lifecycleStageLabel,
 } from '../../convex/_lib/validators/lifecycle';
 export type {
-  LeadPropertyType,
-  LeadPropertyOption,
-  LeadPropertyValue,
-  LeadPropertyValidation,
-  LeadPropertyDefinition,
-} from '../../convex/_lib/validators/leadProperties';
+  PropertyEntityType,
+  PropertyType,
+  PropertyOption,
+  PropertyValue,
+  PropertyValidation,
+  PropertyDefinition,
+} from '../../convex/_lib/validators/properties';
 // Pure, dependency-free helpers — safe to bundle into the browser.
 export {
-  validateLeadPropertyValue,
+  PROPERTY_ENTITY_TYPES,
+  validatePropertyValue,
   customPropertyParamKey,
-  formatLeadPropertyParamValue,
+  formatPropertyParamValue,
   OPTION_BASED_TYPES,
-} from '../../convex/_lib/validators/leadProperties';
+} from '../../convex/_lib/validators/properties';
 export type {
-  StandardField,
+  LeadStandardField,
+  CompanyStandardField,
+  DealStandardField,
   FilterField,
   FilterOperator,
   FilterRange,
@@ -115,10 +119,13 @@ export type {
   FilterCombinator,
   FilterGroup,
   AdvancedFilter,
+  LeadAdvancedFilter,
+  CompanyAdvancedFilter,
+  DealAdvancedFilter,
   FilterFieldType,
-} from '../../convex/_lib/validators/leadFilters';
+} from '../../convex/_lib/validators/filters';
 // Pure, dependency-free helpers — safe to bundle into the browser.
-export { operatorsForType, isActiveRule } from '../../convex/_lib/validators/leadFilters';
+export { operatorsForType, isActiveRule } from '../../convex/_lib/validators/filters';
 export type {
   Workflow,
   WorkflowStatus,

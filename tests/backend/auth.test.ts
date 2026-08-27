@@ -57,10 +57,12 @@ describe('adminQuery / adminMutation', () => {
       asIdentity(t, member.identity).query(api.features.invitations.queries.listInvitations, {}),
     ).rejects.toThrow('Unauthorized: admins only');
     await expect(
-      asIdentity(t, member.identity).mutation(
-        api.features.leadProperties.mutations.createDefinition,
-        { label: 'Spécialité', type: 'text', showInTable: false },
-      ),
+      asIdentity(t, member.identity).mutation(api.features.properties.mutations.createDefinition, {
+        entityType: 'lead',
+        label: 'Spécialité',
+        type: 'text',
+        showInTable: false,
+      }),
     ).rejects.toThrow('Unauthorized: admins only');
   });
 
@@ -73,8 +75,8 @@ describe('adminQuery / adminMutation', () => {
     );
     expect(invitations).toEqual([]);
     const defId = await asIdentity(t, admin.identity).mutation(
-      api.features.leadProperties.mutations.createDefinition,
-      { label: 'Spécialité', type: 'text', showInTable: false },
+      api.features.properties.mutations.createDefinition,
+      { entityType: 'lead', label: 'Spécialité', type: 'text', showInTable: false },
     );
     expect(defId).toBeDefined();
   });

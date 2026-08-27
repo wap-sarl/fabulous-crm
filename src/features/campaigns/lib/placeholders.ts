@@ -1,6 +1,6 @@
 import { customPropertyParamKey } from '@crm/lib/backend';
 import type { CampaignTrackedLink } from '@crm/lib/backend';
-import type { LeadPropertyDefinitionRow } from '../../leads/types';
+import type { PropertyDefinitionRow } from '../../properties/types';
 
 /**
  * One insertable {{ params.x }} placeholder offered in the campaign composer.
@@ -37,7 +37,7 @@ const FIXED_PLACEHOLDERS: PlaceholderItem[] = [
  * Mirrors the params built per recipient in createCampaign.
  */
 export function buildPlaceholders(
-  definitions: LeadPropertyDefinitionRow[],
+  definitions: PropertyDefinitionRow[],
   trackedLinks: CampaignTrackedLink[],
 ): PlaceholderItem[] {
   return [

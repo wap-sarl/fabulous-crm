@@ -26,7 +26,7 @@ import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { useLeadActions } from '../hooks/useLeadActions';
 import { useLeadLists } from '../hooks/useLeadLists';
-import { useLeadPropertyDefinitions } from '../hooks/useLeadPropertyDefinitions';
+import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { parseCsv } from '../lib/parseCsv';
 import {
   REQUIRED_TARGETS,
@@ -73,7 +73,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
   const { employees } = useEmployees();
   const lifecycle = useLifecycleConfig();
   const { importLeads, createLeadList } = useLeadActions();
-  const customDefs = useLeadPropertyDefinitions();
+  const customDefs = usePropertyDefinitions('lead');
   const lists = useLeadLists();
   const [listMode, setListMode] = useState<ListMode>('new');
   const [newListName, setNewListName] = useState('');

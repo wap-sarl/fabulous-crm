@@ -51,6 +51,15 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   filtrable par type (`features/timeline`). Chaque source est paginée sur son
   propre index et fusionnée par curseur (`lib/timeline.ts`) : charger la suite
   ne relit jamais une table entière.
+- **Propriétés personnalisées** : champs définis par un admin (9 types :
+  texte, nombre, e-mail, liste, choix unique/multiple, date, boolean, RPPS)
+  sur les leads, entreprises, transactions et activités (`propertyDefinitions`,
+  `entityType`), valeurs stockées dans `customProperties` de chaque fiche.
+  Validation partagée front/back (`_lib/validators/properties.ts`,
+  `lib/properties.ts`), colonnes optionnelles dans les listes, formulaires et
+  filtres avancés génériques par entité (`_lib/validators/filters.ts`,
+  `features/filters`). Les propriétés calculées (score, dernière activité…)
+  sont prévues via le drapeau `computed`.
 - **Statuts** : position du lead dans le parcours marketing → commercial
   (`lifecycleStage` : abonné → lead → MQL → SQL → opportunité → client →
   ambassadeur), configurable dans *Paramètres → Statuts* (statuts,

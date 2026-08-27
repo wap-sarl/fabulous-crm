@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ActivityRow, ActivityType, Id } from '@crm/lib/backend';
+import type { ActivityRow, ActivityType, Id, PropertyValue } from '@crm/lib/backend';
 import {
   Button,
   Combobox,
@@ -23,6 +23,8 @@ import {
   toast,
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
+import { CustomPropertyFields } from '../../properties/components/CustomPropertyFields';
+import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { ACTIVITY_TYPES, CALL_OUTCOMES } from '../../../lib/constants';
 import { activityErrorMessage, useActivityActions } from '../hooks/useActivityActions';
 import { fromDueAt, toDueAt } from '../lib/buckets';
@@ -50,6 +52,7 @@ interface FormState {
   date: string;
   time: string;
   ownerId: string;
+  customProperties: Record<string, PropertyValue>;
 }
 
 export function ActivityFormDialog({
@@ -85,6 +88,7 @@ function ActivityFormBody({
   const isEdit = !!activity;
   const { createActivity, updateActivity } = useActivityActions();
   const { employees } = useEmployees();
+  const definitions = usePropertyDefinitions('activity');
   const [form, setForm] = useState<FormState>(() => {
     const due = fromDueAt(activity?.dueAt);
     return {
@@ -94,6 +98,7 @@ function ActivityFormBody({
       date: due.date,
       time: due.time,
       ownerId: activity?.ownerId ?? '',
+      customProperties: { ...(activity?.customProperties ?? {}) },
     };
   });
   const [submitting, setSubmitting] = useState(false);
@@ -116,6 +121,7 @@ function ActivityFormBody({
           description: form.description || null,
           dueAt: dueAt ?? null,
           ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : undefined,
+          customProperties: form.customProperties,
         });
         toast.success('Activité mise à jour.');
       } else {
@@ -125,6 +131,7 @@ function ActivityFormBody({
           description: form.description || undefined,
           dueAt,
           ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : undefined,
+          customProperties: form.customProperties,
           ...links,
         });
         toast.success('Activité planifiée.');
@@ -204,6 +211,18 @@ function ActivityFormBody({
           />
         </div>
       </div>
+      <CustomPropertyFields
+        definitions={definitions}
+        values={form.customProperties}
+        onChange={(id, value) =>
+          setForm((prev) => {
+            const next = { ...prev.customProperties };
+            if (value === undefined) delete next[id];
+            else next[id] = value;
+            return { ...prev, customProperties: next };
+          })
+        }
+      />
       <DialogFooter>
         <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
           Annuler

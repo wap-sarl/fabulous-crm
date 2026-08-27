@@ -5,6 +5,8 @@ import type { ActivityRow } from '@crm/lib/backend';
 import { Button, Card, Spinner, cn, toast } from '@crm/design-system';
 import { Check, Phone, Plus, RotateCcw } from 'lucide-react';
 import { ACTIVITY_TYPE_LABEL } from '../../../lib/constants';
+import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
+import { formatPropertyValue, hasPropertyValue } from '../../properties/lib/customProperties';
 import { activityErrorMessage, useActivityActions } from '../hooks/useActivityActions';
 import { ACTIVITY_ICON } from '../lib/constants';
 import {
@@ -32,6 +34,13 @@ export function ActivityListItem({
   showLinks?: boolean;
 }) {
   const Icon = ACTIVITY_ICON[activity.type];
+  const definitions = usePropertyDefinitions('activity');
+  const customLine = definitions
+    .filter((def) => hasPropertyValue(activity.customProperties?.[def._id]))
+    .map(
+      (def) => `${def.label} : ${formatPropertyValue(def, activity.customProperties?.[def._id])}`,
+    )
+    .join(' · ');
   const overdue =
     activity.status === 'open' && activity.dueAt !== undefined && activity.dueAt < Date.now();
   const links = showLinks
@@ -88,6 +97,9 @@ export function ActivityListItem({
         ) : null}
         {activity.description ? (
           <span className="block truncate text-xs text-faint">{activity.description}</span>
+        ) : null}
+        {customLine ? (
+          <span className="block truncate text-xs text-faint">{customLine}</span>
         ) : null}
       </span>
     </li>

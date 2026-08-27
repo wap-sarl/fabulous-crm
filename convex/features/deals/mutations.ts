@@ -2,6 +2,8 @@ import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { adminMutation, employeeMutation } from '../../_lib/auth';
+import { propertyValueValidator } from '../../_lib/validators/properties';
+import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import {
   pipelineStageValidator,
   validatePipelineStages,
@@ -154,6 +156,7 @@ const dealFieldArgs = {
   ownerId: v.optional(v.id('users')),
   leadId: v.optional(v.id('leads')),
   sourceCampaignId: v.optional(v.id('campaigns')),
+  customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 } as const;
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -203,7 +206,14 @@ export const createDeal = employeeMutation({
     await validateDealFields(ctx, args);
     return await createDealRecord(
       ctx,
-      { ...args, ownerId: args.ownerId ?? ctx.userId },
+      {
+        ...args,
+        ownerId: args.ownerId ?? ctx.userId,
+        customProperties: sanitizeCustomProperties(
+          await loadPropertyDefsById(ctx, 'deal'),
+          args.customProperties,
+        ),
+      },
       { source: 'create', changedBy: ctx.userId },
     );
   },
@@ -224,7 +234,7 @@ export const updateDeal = employeeMutation({
     lossReason: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
-    const { dealId, ...rest } = args;
+    const { dealId, customProperties, ...rest } = args;
     const deal = await ctx.db.get(dealId);
     if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
     const nonNull = Object.fromEntries(
@@ -242,6 +252,12 @@ export const updateDeal = employeeMutation({
     if (typeof updates.currency === 'string') updates.currency = updates.currency.toUpperCase();
     if (typeof updates.lossReason === 'string')
       updates.lossReason = updates.lossReason.trim() || undefined;
+    if (customProperties !== undefined) {
+      updates.customProperties = sanitizeCustomProperties(
+        await loadPropertyDefsById(ctx, 'deal'),
+        customProperties,
+      );
+    }
 
     const changes = computeChanges(deal, filterUndefined(updates));
     await ctx.db.patch(dealId, { ...updates, ...updateAuditFields(ctx.userId) });

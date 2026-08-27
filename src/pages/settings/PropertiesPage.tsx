@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@crm/lib/backend';
-import type { Id, LeadPropertyType, LeadPropertyValidation } from '@crm/lib/backend';
+import type { Id, PropertyEntityType, PropertyType, PropertyValidation } from '@crm/lib/backend';
 import { useAuth } from '@crm/widgets';
 import {
   Button,
   Card,
+  ConfirmDialog,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -19,6 +21,7 @@ import {
   SelectValue,
   SelectContent,
   SelectItem,
+  SegmentedControl,
   SortableList,
   Spinner,
   Switch,
@@ -27,11 +30,12 @@ import {
 import { Lock, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import {
+  PROPERTY_ENTITIES,
   PROPERTY_TYPES,
   PROPERTY_TYPE_LABEL,
   isOptionBased,
-} from '../../features/leads/lib/customProperties';
-import type { LeadPropertyDefinitionRow } from '../../features/leads/types';
+} from '../../features/properties/lib/customProperties';
+import type { PropertyDefinitionRow } from '../../features/properties/types';
 
 interface DraftOption {
   uid: string;
@@ -53,7 +57,7 @@ interface DraftValidation {
 
 interface Draft {
   label: string;
-  type: LeadPropertyType;
+  type: PropertyType;
   showInTable: boolean;
   options: DraftOption[];
   validation: DraftValidation;
@@ -84,11 +88,8 @@ function num(s: string): number | undefined {
 }
 
 /** Build the validation payload for the given type, or undefined when no rules. */
-function buildValidation(
-  type: LeadPropertyType,
-  dv: DraftValidation,
-): LeadPropertyValidation | undefined {
-  let obj: LeadPropertyValidation = {};
+function buildValidation(type: PropertyType, dv: DraftValidation): PropertyValidation | undefined {
+  let obj: PropertyValidation = {};
   if (type === 'number') {
     obj = { min: num(dv.min), max: num(dv.max) };
   } else if (type === 'text') {
@@ -100,7 +101,7 @@ function buildValidation(
   }
   const cleaned = Object.fromEntries(
     Object.entries(obj).filter(([, v]) => v !== undefined),
-  ) as LeadPropertyValidation;
+  ) as PropertyValidation;
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
 
@@ -137,15 +138,17 @@ function finalizeOptions(options: DraftOption[]): DraftOption[] {
 function DefinitionDialog({
   open,
   onOpenChange,
+  entityType,
   definition,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  definition?: LeadPropertyDefinitionRow;
+  entityType: PropertyEntityType;
+  definition?: PropertyDefinitionRow;
 }) {
   const isEdit = !!definition;
-  const createDefinition = useMutation(api.features.leadProperties.mutations.createDefinition);
-  const updateDefinition = useMutation(api.features.leadProperties.mutations.updateDefinition);
+  const createDefinition = useMutation(api.features.properties.mutations.createDefinition);
+  const updateDefinition = useMutation(api.features.properties.mutations.updateDefinition);
 
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [submitting, setSubmitting] = useState(false);
@@ -212,6 +215,7 @@ function DefinitionDialog({
         toast.success('Propriété mise à jour.');
       } else {
         await createDefinition({
+          entityType,
           label,
           type: draft.type,
           showInTable: draft.showInTable,
@@ -250,7 +254,7 @@ function DefinitionDialog({
             <Label>Type</Label>
             <Select
               value={draft.type}
-              onValueChange={(v) => setField('type', v as LeadPropertyType)}
+              onValueChange={(v) => setField('type', v as PropertyType)}
               disabled={isEdit}
             >
               <SelectTrigger>
@@ -401,13 +405,15 @@ function DefinitionDialog({
             </div>
           )}
 
-          <label className="flex items-center gap-2 text-sm">
-            <Switch
-              checked={draft.showInTable}
-              onCheckedChange={(c) => setField('showInTable', c === true)}
-            />
-            Afficher comme colonne dans la liste des leads
-          </label>
+          {entityType !== 'activity' && (
+            <label className="flex items-center gap-2 text-sm">
+              <Switch
+                checked={draft.showInTable}
+                onCheckedChange={(c) => setField('showInTable', c === true)}
+              />
+              Afficher comme colonne dans la liste
+            </label>
+          )}
         </div>
 
         <DialogFooter>
@@ -423,22 +429,23 @@ function DefinitionDialog({
   );
 }
 
-function LeadPropertiesManager() {
-  const definitions = useQuery(api.features.leadProperties.queries.listDefinitions);
-  const deleteDefinition = useMutation(api.features.leadProperties.mutations.deleteDefinition);
-  const reorderDefinitions = useMutation(api.features.leadProperties.mutations.reorderDefinitions);
+function PropertiesManager({ entityType }: { entityType: PropertyEntityType }) {
+  const definitions = useQuery(api.features.properties.queries.listDefinitions, { entityType });
+  const entity = PROPERTY_ENTITIES.find((e) => e.value === entityType);
+  const deleteDefinition = useMutation(api.features.properties.mutations.deleteDefinition);
+  const reorderDefinitions = useMutation(api.features.properties.mutations.reorderDefinitions);
   const [localOrder, setLocalOrder] = useState<{
-    base: LeadPropertyDefinitionRow[] | undefined;
-    order: LeadPropertyDefinitionRow[];
+    base: PropertyDefinitionRow[] | undefined;
+    order: PropertyDefinitionRow[];
   } | null>(null);
   const ordered =
     (localOrder?.base === definitions ? localOrder?.order : undefined) ?? definitions ?? [];
 
-  const handleReorder = async (next: LeadPropertyDefinitionRow[]) => {
+  const handleReorder = async (next: PropertyDefinitionRow[]) => {
     setLocalOrder({ base: definitions, order: next });
     try {
       await reorderDefinitions({
-        definitionIds: next.map((d) => d._id as Id<'leadPropertyDefinitions'>),
+        definitionIds: next.map((d) => d._id as Id<'propertyDefinitions'>),
       });
     } catch {
       setLocalOrder(null);
@@ -447,24 +454,27 @@ function LeadPropertiesManager() {
   };
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<LeadPropertyDefinitionRow | undefined>(undefined);
+  const [editing, setEditing] = useState<PropertyDefinitionRow | undefined>(undefined);
+  const [deleting, setDeleting] = useState<PropertyDefinitionRow | null>(null);
 
   const openCreate = () => {
     setEditing(undefined);
     setDialogOpen(true);
   };
-  const openEdit = (def: LeadPropertyDefinitionRow) => {
+  const openEdit = (def: PropertyDefinitionRow) => {
     setEditing(def);
     setDialogOpen(true);
   };
 
-  const handleDelete = async (def: LeadPropertyDefinitionRow) => {
-    if (!window.confirm(`Supprimer la propriété « ${def.label} » ?`)) return;
+  const handleDelete = async () => {
+    if (!deleting) return;
     try {
-      await deleteDefinition({ definitionId: def._id as Id<'leadPropertyDefinitions'> });
+      await deleteDefinition({ definitionId: deleting._id as Id<'propertyDefinitions'> });
       toast.success('Propriété supprimée.');
     } catch {
       toast.error('Échec de la suppression.');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -474,7 +484,7 @@ function LeadPropertiesManager() {
     <Card className="space-y-4 p-6">
       <div className="flex items-center justify-between">
         <p className="text-sm text-soft">
-          Définissez des champs personnalisés attachés à chaque lead.
+          Définissez des champs personnalisés attachés à {entity?.singular ?? 'chaque fiche'}.
         </p>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
@@ -500,6 +510,7 @@ function LeadPropertiesManager() {
                   {PROPERTY_TYPE_LABEL[def.type]}
                   {def.type === 'select' && def.options ? ` · ${def.options.length} option(s)` : ''}
                   {def.showInTable ? ' · colonne' : ''}
+                  {def.computed ? ' · calculée' : ''}
                 </p>
               </div>
               <button
@@ -513,7 +524,7 @@ function LeadPropertiesManager() {
               <button
                 type="button"
                 aria-label="Supprimer"
-                onClick={() => handleDelete(def)}
+                onClick={() => setDeleting(def)}
                 className="flex size-8 items-center justify-center rounded-lg text-faint transition-colors hover:bg-destructive-soft hover:text-destructive"
               >
                 <Trash2 className="h-4 w-4" />
@@ -523,22 +534,48 @@ function LeadPropertiesManager() {
         />
       )}
 
-      <DefinitionDialog open={dialogOpen} onOpenChange={setDialogOpen} definition={editing} />
+      <DefinitionDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        entityType={entityType}
+        definition={editing}
+      />
+      <ConfirmDialog
+        open={deleting !== null}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title={`Supprimer la propriété « ${deleting?.label ?? ''} » ?`}
+        description="Les valeurs déjà saisies restent stockées mais ne sont plus affichées."
+        confirmLabel="Supprimer"
+        destructive
+        onConfirm={handleDelete}
+      />
     </Card>
   );
 }
 
-/** Admin-only settings: define custom lead properties. */
-export function LeadPropertiesPage() {
+/** Admin-only settings: define custom properties per entity (leads, companies, deals, activities). */
+export function PropertiesPage() {
   usePageTitle('Propriétés');
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const entityType = (PROPERTY_ENTITIES.find((e) => e.value === searchParams.get('entity'))
+    ?.value ?? 'lead') as PropertyEntityType;
 
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
-      <PageHeader title="Propriétés" subtitle="Champs personnalisés pour les leads" />
-      <div className="mt-6">
+      <PageHeader
+        title="Propriétés"
+        subtitle="Champs personnalisés des leads, entreprises, transactions et activités"
+      />
+      <div className="mt-6 flex flex-col gap-4">
+        <SegmentedControl
+          aria-label="Entité"
+          items={PROPERTY_ENTITIES.map((e) => ({ value: e.value, label: e.label }))}
+          value={entityType}
+          onChange={(v) => setSearchParams(v === 'lead' ? {} : { entity: v }, { replace: true })}
+        />
         {user?.role === 'admin' ? (
-          <LeadPropertiesManager />
+          <PropertiesManager entityType={entityType} />
         ) : (
           <p className="text-sm text-soft">Cette page est réservée aux administrateurs.</p>
         )}

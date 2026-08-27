@@ -22,7 +22,7 @@ import {
 } from '@crm/design-system';
 import { CheckCircle2, Pause, Pencil, Play, Trash2, Users, XCircle, Zap } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
-import { countActiveRules } from '../../features/leads/lib/advancedFilter';
+import { countActiveRules } from '../../features/filters/lib/advancedFilter';
 import { RunDetailSheet } from '../../features/workflows/components/RunDetailSheet';
 import {
   RUN_STATUS_LABEL,

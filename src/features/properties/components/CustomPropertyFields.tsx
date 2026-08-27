@@ -15,31 +15,33 @@ import {
   type RppsVerificationResult,
 } from '@crm/design-system';
 import { api } from '@crm/lib/backend';
-import type { LeadPropertyValue } from '@crm/lib/backend';
+import type { PropertyValue } from '@crm/lib/backend';
 import { useAuthAction } from '@crm/widgets';
-import { validateLeadPropertyValue } from '../lib/customProperties';
-import type { LeadPropertyDefinitionRow } from '../types';
+import { validatePropertyValue } from '../lib/customProperties';
+import type { PropertyDefinitionRow } from '../types';
 
 /** Sentinel for the "no selection" item of a select property (Radix forbids ''). */
 const NONE = '__none__';
 
 interface Props {
-  definitions: LeadPropertyDefinitionRow[];
-  values: Record<string, LeadPropertyValue>;
+  definitions: PropertyDefinitionRow[];
+  values: Record<string, PropertyValue>;
   /** Set a value, or pass `undefined` to clear (removes the key). */
-  onChange: (definitionId: string, value: LeadPropertyValue | undefined) => void;
-  /** Lead first/last name, used to cross-check the RPPS practitioner card. */
+  onChange: (definitionId: string, value: PropertyValue | undefined) => void;
+  /** Person's first/last name (leads), used to cross-check the RPPS practitioner card. */
   firstName?: string;
   lastName?: string;
 }
 
 /**
- * Dynamic inputs for a lead's custom properties, one per active definition,
- * rendered by type. Shared by the create/edit lead form. Text/number/email show
- * inline validation errors; option-based types render select/radio/checkbox; the
- * `rpps` type renders an FHIR-verified input (Annuaire Santé lookup).
+ * Dynamic inputs for a record's custom properties, one per active definition
+ * of its entity type, rendered by type. Shared by the lead, company, deal and
+ * activity forms. Text/number/email show inline validation errors; option-based
+ * types render select/radio/checkbox; the `rpps` type renders an FHIR-verified
+ * input (Annuaire Santé lookup). Computed definitions are engine-owned and
+ * never rendered.
  */
-export function LeadCustomPropertyFields({
+export function CustomPropertyFields({
   definitions,
   values,
   onChange,
@@ -53,16 +55,17 @@ export function LeadCustomPropertyFields({
     [verifyRppsAction],
   );
 
-  if (definitions.length === 0) return null;
+  const editable = definitions.filter((def) => !def.computed);
+  if (editable.length === 0) return null;
 
   return (
     <fieldset className="space-y-3 rounded-md border border-border p-3">
       <legend className="px-1 text-sm font-medium">Propriétés personnalisées</legend>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {definitions.map((def) => {
+        {editable.map((def) => {
           const id = def._id;
           const value = values[id];
-          const error = validateLeadPropertyValue(def, value);
+          const error = validatePropertyValue(def, value);
 
           if (def.type === 'boolean') {
             return (

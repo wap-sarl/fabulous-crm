@@ -1,12 +1,13 @@
 import { useReducer } from 'react';
 import type {
-  AdvancedFilter,
+  LeadAdvancedFilter,
   WorkflowNode,
   WorkflowNodeType,
   WorkflowTrigger,
 } from '@crm/lib/backend';
-import { emptyAdvancedFilter } from '../../leads/lib/advancedFilter';
+import { emptyAdvancedFilter } from '../../filters/lib/advancedFilter';
 import type { InsertSlot, WorkflowDraft } from '../types';
+import { LEAD_FILTER_FIELDS } from '../../leads/lib/leadFilters';
 
 /**
  * Local editor state of a workflow (draft-then-commit: nothing is persisted
@@ -57,7 +58,7 @@ function emptyNode(type: WorkflowNodeType, id: string): WorkflowNode {
     case 'webhook':
       return { id, type, url: '' };
     case 'branch':
-      return { id, type, condition: emptyAdvancedFilter() };
+      return { id, type, condition: emptyAdvancedFilter(LEAD_FILTER_FIELDS) };
   }
 }
 
@@ -133,7 +134,7 @@ type DraftAction =
   | { type: 'init'; draft: WorkflowDraft }
   | { type: 'setName'; name: string }
   | { type: 'setTrigger'; trigger: WorkflowTrigger | null }
-  | { type: 'setEnrollmentCriteria'; filter: AdvancedFilter | undefined }
+  | { type: 'setEnrollmentCriteria'; filter: LeadAdvancedFilter | undefined }
   | { type: 'setAllowReEnrollment'; value: boolean }
   | { type: 'insertNode'; slot: InsertSlot; nodeType: WorkflowNodeType; id: string }
   | { type: 'updateNode'; node: WorkflowNode }

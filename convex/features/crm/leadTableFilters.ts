@@ -2,10 +2,10 @@ import { v } from 'convex/values';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { isNotDeleted } from '../../_lib/softDelete';
-import { advancedFilterValidator } from '../../_lib/validators/leadFilters';
-import type { AdvancedFilter } from '../../_lib/validators/leadFilters';
-import type { LeadPropertyValue } from '../../_lib/validators/leadProperties';
-import { leadPropertyValueValidator } from '../../schema';
+import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
+import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
+import type { PropertyValue } from '../../_lib/validators/properties';
+import { propertyValueValidator } from '../../schema';
 import { normalizeSearchText } from '../../lib/leadSearch';
 import { evalAdvancedFilter } from './leadMatching';
 
@@ -23,13 +23,13 @@ export const leadFilterArgs = {
   // property if its stored value is one of the allowed (OR within a property);
   // it must match every filtered property (AND across properties). Only select
   // and boolean properties are filterable.
-  customProperties: v.optional(v.record(v.string(), v.array(leadPropertyValueValidator))),
+  customProperties: v.optional(v.record(v.string(), v.array(propertyValueValidator))),
   // Lead lists a lead must belong to at least one of (OR within the filter).
   // Membership is resolved to a Set of lead ids in the handler before matching.
   listIds: v.optional(v.array(v.id('leadLists'))),
   // Advanced group-based filter (two-level AND/OR tree of typed rules). ANDs
   // with the flat quick filters above. See convex/_lib/validators/leadFilters.ts.
-  advancedFilter: v.optional(advancedFilterValidator),
+  advancedFilter: v.optional(leadAdvancedFilterValidator),
 } as const;
 
 export type LeadFilters = {
@@ -38,11 +38,11 @@ export type LeadFilters = {
   companyIds?: Id<'companies'>[];
   assignedToIds?: Doc<'leads'>['assignedTo'][];
   isRedFlagged?: boolean;
-  customProperties?: Record<string, LeadPropertyValue[]>;
+  customProperties?: Record<string, PropertyValue[]>;
   listIds?: Id<'leadLists'>[];
   // Resolved membership for `listIds`, computed once per query (not a raw arg).
   listMemberIds?: Set<string>;
-  advancedFilter?: AdvancedFilter;
+  advancedFilter?: LeadAdvancedFilter;
 };
 
 /**

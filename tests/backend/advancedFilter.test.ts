@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
 import type { Doc } from '../../convex/_generated/dataModel';
 import type {
-  AdvancedFilter,
+  LeadAdvancedFilter,
   FilterField,
   FilterRule,
-  StandardField,
-} from '../../convex/_lib/validators/leadFilters';
+  LeadStandardField,
+} from '../../convex/_lib/validators/filters';
 import { evalAdvancedFilter, evalRule } from '../../convex/features/crm/leadMatching';
 
 /**
@@ -44,13 +44,13 @@ function lead(overrides: Partial<Doc<'leads'>> = {}): Doc<'leads'> {
   } as Doc<'leads'>;
 }
 
-const std = (field: StandardField): FilterField => ({ kind: 'standard', field });
+const std = (field: LeadStandardField): FilterField => ({ kind: 'standard', field });
 const custom = (definitionId: string): FilterField => ({ kind: 'custom', definitionId });
 
 const rule = (field: FilterField, operator: FilterRule['operator'], value?: FilterRule['value']) =>
   ({ field, operator, value }) as FilterRule;
 
-const single = (r: FilterRule): AdvancedFilter => ({
+const single = (r: FilterRule): LeadAdvancedFilter => ({
   combinator: 'and',
   groups: [{ combinator: 'and', rules: [r] }],
 });
@@ -187,11 +187,11 @@ describe('the two-level boolean tree', () => {
   const missRule = rule(std('firstName'), 'equals', 'Pierre');
 
   test('group AND requires every rule; group OR requires one', () => {
-    const and: AdvancedFilter = {
+    const and: LeadAdvancedFilter = {
       combinator: 'and',
       groups: [{ combinator: 'and', rules: [matchRule, missRule] }],
     };
-    const or: AdvancedFilter = {
+    const or: LeadAdvancedFilter = {
       combinator: 'and',
       groups: [{ combinator: 'or', rules: [matchRule, missRule] }],
     };
@@ -209,7 +209,7 @@ describe('the two-level boolean tree', () => {
   });
 
   test('groups holding only inactive rules are neutral, not failing', () => {
-    const filter: AdvancedFilter = {
+    const filter: LeadAdvancedFilter = {
       combinator: 'and',
       groups: [
         { combinator: 'and', rules: [rule(std('lastName'), 'equals', '')] }, // inactive

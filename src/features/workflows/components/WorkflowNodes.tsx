@@ -1,7 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { Plus, TriangleAlert, Trash2, Zap } from 'lucide-react';
 import { cn } from '@crm/design-system';
-import { countActiveRules } from '../../leads/lib/advancedFilter';
+import { countActiveRules } from '../../filters/lib/advancedFilter';
 import { nodeSummary, STEP_TYPE_META, triggerLabel } from '../lib/constants';
 import { NODE_W, NODE_H, ADD_SIZE } from '../lib/layout';
 import type { AddNodeData, StepNodeData, TriggerNodeData } from '../lib/layout';

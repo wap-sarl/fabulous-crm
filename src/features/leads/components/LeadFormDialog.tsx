@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import type { Id, LeadPropertyValue } from '@crm/lib/backend';
+import type { Id, PropertyValue } from '@crm/lib/backend';
 import {
   Dialog,
   DialogContent,
@@ -25,14 +25,14 @@ import {
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { useLeadActions } from '../hooks/useLeadActions';
-import { useLeadPropertyDefinitions } from '../hooks/useLeadPropertyDefinitions';
+import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { CompanyPicker } from '../../companies/components/CompanyPicker';
 import { HelperText } from '@crm/design-system';
 import { DEFAULT_COUNTRY, validateAddress } from '@crm/lib/backend';
 import { CountryAddressInput } from '../../../lib/countryInputs';
-import { validateLeadPropertyValue } from '../lib/customProperties';
-import { LeadCustomPropertyFields } from './LeadCustomPropertyFields';
+import { validatePropertyValue } from '../../properties/lib/customProperties';
+import { CustomPropertyFields } from '../../properties/components/CustomPropertyFields';
 import type { LeadRow } from '../types';
 
 interface LeadFormDialogProps {
@@ -54,7 +54,7 @@ interface FormState {
   isRedFlagged: boolean;
   comment: string;
   address: AddressValue;
-  customProperties: Record<string, LeadPropertyValue>;
+  customProperties: Record<string, PropertyValue>;
 }
 
 const EMPTY_ADDRESS: AddressValue = {
@@ -109,7 +109,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   const isEdit = !!lead;
   const { employees } = useEmployees();
   const { createLead, updateLead } = useLeadActions();
-  const propertyDefinitions = useLeadPropertyDefinitions();
+  const propertyDefinitions = usePropertyDefinitions('lead');
   const lifecycle = useLifecycleConfig();
   const currentStageIndex = isEdit ? lifecycle.indexOf(lead?.lifecycleStage) : -1;
 
@@ -123,7 +123,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const setCustomProp = (definitionId: string, value: LeadPropertyValue | undefined) =>
+  const setCustomProp = (definitionId: string, value: PropertyValue | undefined) =>
     setForm((prev) => {
       const next = { ...prev.customProperties };
       if (value === undefined) delete next[definitionId];
@@ -139,7 +139,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
 
     // Block on any invalid custom-property value (email/number/text rules).
     const invalid = propertyDefinitions.some(
-      (def) => validateLeadPropertyValue(def, form.customProperties[def._id]) !== null,
+      (def) => validatePropertyValue(def, form.customProperties[def._id]) !== null,
     );
     if (invalid) {
       toast.error('Certaines propriétés personnalisées sont invalides.');
@@ -328,7 +328,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
           Marquer comme signalé (red flag)
         </label>
 
-        <LeadCustomPropertyFields
+        <CustomPropertyFields
           definitions={propertyDefinitions}
           values={form.customProperties}
           onChange={setCustomProp}

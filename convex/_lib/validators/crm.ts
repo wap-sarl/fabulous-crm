@@ -5,7 +5,7 @@ import {
   logsValidator,
   softDeleteValidator,
 } from './shared';
-import { leadPropertyValueValidator } from './leadProperties';
+import { customPropertiesValidator, propertyValueValidator } from './properties';
 
 /** Marketing consent channels a lead can opt into. */
 export const marketingConsentChannelValidator = v.union(
@@ -52,9 +52,9 @@ export const leadValidator = v.object({
   // Triggers wrapper (_lib/functions.ts) on every write — never write it by hand.
   searchText: v.optional(v.string()),
 
-  // Admin-defined custom property values, keyed by leadPropertyDefinitions._id.
+  // Admin-defined custom property values, keyed by propertyDefinitions._id.
   // Optional so leads written before any property existed stay valid.
-  customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
+  customProperties: customPropertiesValidator,
 });
 
 export type Lead = Infer<typeof leadValidator>;
@@ -112,9 +112,9 @@ export const campaignTrackedLinkValidator = v.object({
   label: v.string(),
   target: v.union(
     v.object({ kind: v.literal('standard'), field: trackedLinkStandardFieldValidator }),
-    v.object({ kind: v.literal('custom'), propertyDefId: v.id('leadPropertyDefinitions') }),
+    v.object({ kind: v.literal('custom'), propertyDefId: v.id('propertyDefinitions') }),
   ),
-  value: leadPropertyValueValidator,
+  value: propertyValueValidator,
   redirectUrl: v.optional(v.string()),
 });
 

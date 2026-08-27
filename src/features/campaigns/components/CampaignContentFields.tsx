@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { Input, Label, Textarea, cn } from '@crm/design-system';
 import type { CampaignChannel, CampaignTrackedLink, MessageType } from '@crm/lib/backend';
 import { MousePointerClick, X } from 'lucide-react';
-import type { LeadPropertyDefinitionRow } from '../../leads/types';
+import type { PropertyDefinitionRow } from '../../properties/types';
 import { insertAtCaret, type PlaceholderItem } from '../lib/placeholders';
 import { CampaignMessagePreview } from './CampaignMessagePreview';
 import { EmailBodyEditor, type EmailBodyEditorHandle } from './EmailBodyEditor';
@@ -31,7 +31,7 @@ interface Props {
   trackedLinks: CampaignTrackedLink[];
   onTrackedLinksChange: (links: CampaignTrackedLink[]) => void;
   /** Active custom property definitions (targets of tracked links). */
-  propertyDefinitions: LeadPropertyDefinitionRow[];
+  propertyDefinitions: PropertyDefinitionRow[];
   /** Brevo templates require the Brevo email provider; false under SMTP. */
   templateAvailable?: boolean;
 }

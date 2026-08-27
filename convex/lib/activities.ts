@@ -1,6 +1,7 @@
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import type { ActivityStatus, ActivityType } from '../_lib/validators/activities';
+import type { PropertyValue } from '../_lib/validators/properties';
 import { logAudit } from './audit';
 import { isNotDeleted } from './dbHelpers';
 
@@ -15,6 +16,7 @@ export type NewActivity = {
   companyId?: Id<'companies'>;
   dealId?: Id<'deals'>;
   outcome?: string;
+  customProperties?: Record<string, PropertyValue>;
 };
 
 /** Assert the linked records are live; throws `<entity>_not_found`. */
@@ -61,6 +63,7 @@ export async function createActivityRecord(
     companyId: data.companyId,
     dealId: data.dealId,
     outcome: data.outcome?.trim() || undefined,
+    customProperties: data.customProperties,
     completedAt: status === 'done' ? now : undefined,
     updatedAt: now,
     createdBy: meta.changedBy,

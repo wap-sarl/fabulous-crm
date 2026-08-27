@@ -4,6 +4,14 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
 import { employeeQuery } from '../../_lib/auth';
 import { dealStatusValidator, pipelineStage } from '../../_lib/validators/deals';
+import {
+  type DealAdvancedFilter,
+  type DealStandardField,
+  type FilterField,
+  dealAdvancedFilterValidator,
+} from '../../_lib/validators/filters';
+import type { PropertyValue } from '../../_lib/validators/properties';
+import { evalFilter } from '../../lib/filterMatching';
 import { isNotDeleted } from '../../lib';
 import { stageTotals, statusTotals } from '../../lib/dealAggregates';
 import { listLivePipelines } from '../../lib/deals';
@@ -104,6 +112,7 @@ export const dealFilterArgs = {
   ownerIds: v.optional(v.array(v.id('users'))),
   leadIds: v.optional(v.array(v.id('leads'))),
   search: v.optional(v.string()),
+  advancedFilter: v.optional(dealAdvancedFilterValidator),
 } as const;
 
 type DealFilters = {
@@ -113,7 +122,32 @@ type DealFilters = {
   ownerIds?: Id<'users'>[];
   leadIds?: Id<'leads'>[];
   search?: string;
+  advancedFilter?: DealAdvancedFilter;
 };
+
+/** The deal binding of the shared advanced-filter evaluator (lib/filterMatching.ts). */
+export function getDealFieldValue(
+  deal: Doc<'deals'>,
+  field: FilterField<DealStandardField>,
+): PropertyValue | undefined {
+  if (field.kind === 'custom') return deal.customProperties?.[field.definitionId];
+  switch (field.field) {
+    case 'title':
+      return deal.title;
+    case 'amount':
+      return deal.amount;
+    case 'currency':
+      return deal.currency;
+    case 'status':
+      return deal.status;
+    case 'stageKey':
+      return deal.stageKey;
+    case 'ownerId':
+      return deal.ownerId;
+    case 'expectedCloseDate':
+      return deal.expectedCloseDate;
+  }
+}
 
 function matchesDealFilters(deal: Doc<'deals'>, f: DealFilters): boolean {
   if (!isNotDeleted(deal)) return false;
@@ -124,6 +158,8 @@ function matchesDealFilters(deal: Doc<'deals'>, f: DealFilters): boolean {
   if (f.leadIds?.length && (!deal.leadId || !f.leadIds.includes(deal.leadId))) return false;
   const search = f.search ? normalizeSearchText(f.search) : '';
   if (search && !normalizeSearchText(deal.title).includes(search)) return false;
+  if (f.advancedFilter && !evalFilter((field) => getDealFieldValue(deal, field), f.advancedFilter))
+    return false;
   return true;
 }
 

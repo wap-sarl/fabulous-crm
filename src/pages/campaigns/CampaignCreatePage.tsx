@@ -18,10 +18,10 @@ import { AlertTriangle, ArrowLeft, Send, Users } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useLeadFilters } from '../../features/leads/hooks/useLeadFilters';
 import { toFilterArgs, useMatchingLeads } from '../../features/leads/hooks/useLeadsPaginated';
-import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
-import { AdvancedFilterBuilder } from '../../features/leads/components/AdvancedFilterBuilder';
-import { applyRecipientFilter } from '../../features/leads/lib/advancedFilter';
+import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
+import { applyRecipientFilter, leadFieldCatalog } from '../../features/leads/lib/leadFilters';
 import {
   withEmailCompliance,
   withSmsCompliance,
@@ -45,7 +45,7 @@ export function CampaignCreatePage() {
   const emailConfigured = capabilities?.emailConfigured ?? true;
   const templateAvailable = (capabilities?.emailProvider ?? 'brevo') === 'brevo';
   const { filters, setParam, setAdvancedFilter } = useLeadFilters();
-  const propertyDefinitions = useLeadPropertyDefinitions();
+  const propertyDefinitions = usePropertyDefinitions('lead');
   const matching = useMatchingLeads(filters);
 
   const [channel, setChannel] = useState<CampaignChannel>('email');
@@ -236,7 +236,7 @@ export function CampaignCreatePage() {
             <AdvancedFilterBuilder
               filter={filters.advancedFilter}
               onChange={setAdvancedFilter}
-              definitions={propertyDefinitions}
+              catalog={leadFieldCatalog(propertyDefinitions)}
             />
           </div>
         </div>

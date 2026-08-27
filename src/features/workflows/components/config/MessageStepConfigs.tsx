@@ -7,7 +7,7 @@ import {
 } from '../../../campaigns/components/EmailBodyEditor';
 import { PlaceholderChips } from '../../../campaigns/components/PlaceholderChips';
 import { buildPlaceholders, insertAtCaret } from '../../../campaigns/lib/placeholders';
-import type { LeadPropertyDefinitionRow } from '../../../leads/types';
+import type { PropertyDefinitionRow } from '../../../properties/types';
 
 type EmailNode = Extract<WorkflowNode, { type: 'send_email' }>;
 type SmsNode = Extract<WorkflowNode, { type: 'send_sms' }>;
@@ -15,7 +15,7 @@ type SmsNode = Extract<WorkflowNode, { type: 'send_sms' }>;
 interface EmailStepConfigProps {
   value: EmailNode;
   onChange: (next: EmailNode) => void;
-  definitions: LeadPropertyDefinitionRow[];
+  definitions: PropertyDefinitionRow[];
 }
 
 /** Subject + TipTap body with {{ params.x }} placeholder chips (no tracked links). */
@@ -60,7 +60,7 @@ export function EmailStepConfig({ value, onChange, definitions }: EmailStepConfi
 interface SmsStepConfigProps {
   value: SmsNode;
   onChange: (next: SmsNode) => void;
-  definitions: LeadPropertyDefinitionRow[];
+  definitions: PropertyDefinitionRow[];
 }
 
 export function SmsStepConfig({ value, onChange, definitions }: SmsStepConfigProps) {

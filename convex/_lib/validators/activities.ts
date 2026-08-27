@@ -1,4 +1,5 @@
 import { type Infer, v } from 'convex/values';
+import { customPropertiesValidator } from './properties';
 import { logsValidator, softDeleteValidator } from './shared';
 
 export const activityTypeValidator = v.union(
@@ -34,6 +35,8 @@ export const activityValidator = v.object({
   // What came out of it (call result, meeting notes…), recorded at completion.
   outcome: v.optional(v.string()),
   completedAt: v.optional(v.number()),
+  // Admin-defined custom property values, keyed by propertyDefinitions._id.
+  customProperties: customPropertiesValidator,
 });
 export type Activity = Infer<typeof activityValidator>;
 

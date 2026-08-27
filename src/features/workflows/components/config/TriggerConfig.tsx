@@ -14,39 +14,41 @@ import {
   Switch,
 } from '@crm/design-system';
 import { api } from '@crm/lib/backend';
-import type { AdvancedFilter, FilterField, StandardField, WorkflowTrigger } from '@crm/lib/backend';
+import type {
+  FilterField,
+  LeadAdvancedFilter,
+  LeadStandardField,
+  WorkflowTrigger,
+} from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
-import { AdvancedFilterGroupsEditor } from '../../../leads/components/AdvancedFilterBuilder';
-import {
-  countActiveRules,
-  emptyAdvancedFilter,
-  STANDARD_FILTER_FIELDS,
-} from '../../../leads/lib/advancedFilter';
+import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterBuilder';
+import { countActiveRules, emptyAdvancedFilter } from '../../../filters/lib/advancedFilter';
+import { LEAD_FILTER_FIELDS, leadFieldCatalog } from '../../../leads/lib/leadFilters';
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
 import { usePipelines } from '../../../deals/hooks/usePipelines';
-import type { LeadPropertyDefinitionRow } from '../../../leads/types';
+import type { PropertyDefinitionRow } from '../../../properties/types';
 import { optionToTrigger, TRIGGER_GROUPS, triggerToOption } from '../../lib/constants';
 
 export interface TriggerFormValue {
   trigger: WorkflowTrigger | null;
-  enrollmentCriteria?: AdvancedFilter;
+  enrollmentCriteria?: LeadAdvancedFilter;
   allowReEnrollment: boolean;
 }
 
 interface TriggerConfigProps {
   value: TriggerFormValue;
   onChange: (next: TriggerFormValue) => void;
-  definitions: LeadPropertyDefinitionRow[];
+  definitions: PropertyDefinitionRow[];
 }
 
 const ANY = '__any__';
 
-const encodeField = (f: FilterField) =>
+const encodeField = (f: FilterField<LeadStandardField>) =>
   f.kind === 'standard' ? `std:${f.field}` : `cp:${f.definitionId}`;
-const decodeField = (key: string): FilterField =>
+const decodeField = (key: string): FilterField<LeadStandardField> =>
   key.startsWith('cp:')
     ? { kind: 'custom', definitionId: key.slice(3) }
-    : { kind: 'standard', field: key.slice(4) as StandardField };
+    : { kind: 'standard', field: key.slice(4) as LeadStandardField };
 
 /**
  * Trigger panel body: the enrollment event (grouped Select), its per-type
@@ -61,8 +63,8 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
 
   // The criteria editor always needs a filter object to edit; whether the
   // stored criteria exist is decided by the active-rule count on apply (parent).
-  const [criteriaDraft, setCriteriaDraft] = useState<AdvancedFilter>(
-    () => value.enrollmentCriteria ?? emptyAdvancedFilter(),
+  const [criteriaDraft, setCriteriaDraft] = useState<LeadAdvancedFilter>(
+    () => value.enrollmentCriteria ?? emptyAdvancedFilter(LEAD_FILTER_FIELDS),
   );
 
   const setTrigger = (next: WorkflowTrigger) => onChange({ ...value, trigger: next });
@@ -81,7 +83,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
 
   const fieldItems = useMemo(
     () => [
-      ...STANDARD_FILTER_FIELDS.map((f) => ({ value: `std:${f.field}`, label: f.label })),
+      ...LEAD_FILTER_FIELDS.map((f) => ({ value: `std:${f.field}`, label: f.label })),
       ...definitions.map((d) => ({ value: `cp:${d._id}`, label: d.label })),
     ],
     [definitions],
@@ -267,7 +269,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
                 enrollmentCriteria: countActiveRules(next) > 0 ? next : undefined,
               });
             }}
-            definitions={definitions}
+            catalog={leadFieldCatalog(definitions)}
           />
         </div>
       </div>

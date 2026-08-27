@@ -1,15 +1,16 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
 
-/**
- * The kind of a custom lead property. Drives which input renders in the lead
- * form, how the value is displayed, and whether the property is filterable
- * (`select`, `radio`, `checkbox`, `boolean`). `date` values are stored as
- * `'YYYY-MM-DD'` strings and `checkbox` as a `string[]` (see
- * leadPropertyValueValidator). `radio` is a single choice (same string data as
- * `select`); `checkbox` is a multiple choice.
- */
-export const leadPropertyTypeValidator = v.union(
+export const PROPERTY_ENTITY_TYPES = ['lead', 'company', 'deal', 'activity'] as const;
+
+export const propertyEntityTypeValidator = v.union(
+  v.literal('lead'),
+  v.literal('company'),
+  v.literal('deal'),
+  v.literal('activity'),
+);
+
+export const propertyTypeValidator = v.union(
   v.literal('text'),
   v.literal('number'),
   v.literal('email'),
@@ -18,42 +19,28 @@ export const leadPropertyTypeValidator = v.union(
   v.literal('checkbox'),
   v.literal('date'),
   v.literal('boolean'),
-  // French health-professional identifier. Value is the 11-digit RPPS string; the
-  // lead form renders it with an FHIR-connected verified input (Annuaire Santé).
   v.literal('rpps'),
 );
 
 /** Types whose value is chosen from an admin-defined `options` list. */
-export const OPTION_BASED_TYPES: LeadPropertyType[] = ['select', 'radio', 'checkbox'];
+export const OPTION_BASED_TYPES: PropertyType[] = ['select', 'radio', 'checkbox'];
 
-/**
- * One choice of a `select`/`radio`/`checkbox` property. `value` is a stable slug
- * stored on the lead — it must never change once created (renaming edits only
- * `label`), so existing lead values keep resolving. `label` is the human-facing text.
- */
-export const leadPropertyOptionValidator = v.object({
+export const propertyOptionValidator = v.object({
   value: v.string(),
   label: v.string(),
 });
 
-/**
- * A stored custom-property value on a lead. Covers every property type:
- * text/email/select/radio/date → string ('YYYY-MM-DD' for date), number → number,
- * boolean → boolean, checkbox → string[] (option values).
- */
-export const leadPropertyValueValidator = v.union(
+export const propertyValueValidator = v.union(
   v.string(),
   v.number(),
   v.boolean(),
   v.array(v.string()),
 );
 
-/**
- * Optional validation rules on a definition. `min`/`max` bound a `number`;
- * `minLength`/`maxLength`/`pattern` (a regex source) constrain `text`. `email`
- * validates its format intrinsically and carries no config. Unset ⇒ no rule.
- */
-export const leadPropertyValidationValidator = v.object({
+/** The `customProperties` field shared by every entity that carries custom properties. */
+export const customPropertiesValidator = v.optional(v.record(v.string(), propertyValueValidator));
+
+export const propertyValidationValidator = v.object({
   min: v.optional(v.number()),
   max: v.optional(v.number()),
   minLength: v.optional(v.number()),
@@ -61,49 +48,38 @@ export const leadPropertyValidationValidator = v.object({
   pattern: v.optional(v.string()),
 });
 
-/**
- * Admin-defined custom property attached to leads. A soft-deletable, ordered
- * entity (same pattern as leads/campaigns). Lead values key off this doc's
- * stable `_id`. `type` is immutable after creation (change = delete + recreate).
- */
-export const leadPropertyDefinitionValidator = v.object({
+export const propertyDefinitionValidator = v.object({
   ...logsValidator.fields,
   ...softDeleteValidator.fields,
+  entityType: propertyEntityTypeValidator,
   label: v.string(),
-  type: leadPropertyTypeValidator,
+  type: propertyTypeValidator,
   // Required for option-based types (select/radio/checkbox); unset otherwise.
-  options: v.optional(v.array(leadPropertyOptionValidator)),
+  options: v.optional(v.array(propertyOptionValidator)),
   // Type-appropriate validation rules (number range / text length+pattern).
-  validation: v.optional(leadPropertyValidationValidator),
-  // When true, the property renders as a column in the leads table.
+  validation: v.optional(propertyValidationValidator),
+  // When true, the property renders as a column in the entity's list.
   showInTable: v.boolean(),
-  // Display order in the form/table/settings; sorted with `sortByOrder`.
+  // Display order in the form/table/settings, per entity type; sorted with `sortByOrder`.
   order: v.optional(v.number()),
+  // Read-only, engine-maintained value (see above).
+  computed: v.optional(v.literal(true)),
 });
 
-export type LeadPropertyType = Infer<typeof leadPropertyTypeValidator>;
-export type LeadPropertyOption = Infer<typeof leadPropertyOptionValidator>;
-export type LeadPropertyValue = Infer<typeof leadPropertyValueValidator>;
-export type LeadPropertyValidation = Infer<typeof leadPropertyValidationValidator>;
-export type LeadPropertyDefinition = Infer<typeof leadPropertyDefinitionValidator>;
+export type PropertyEntityType = Infer<typeof propertyEntityTypeValidator>;
+export type PropertyType = Infer<typeof propertyTypeValidator>;
+export type PropertyOption = Infer<typeof propertyOptionValidator>;
+export type PropertyValue = Infer<typeof propertyValueValidator>;
+export type PropertyValidation = Infer<typeof propertyValidationValidator>;
+export type PropertyDefinition = Infer<typeof propertyDefinitionValidator>;
 
-/**
- * Placeholder param key for a custom property ({{ params.custom_<defId> }}).
- * Convex ids are alphanumeric, so the key always matches the `[\w]+` capture
- * of renderPlaceholders; keying by _id survives label renames and collisions.
- */
 export function customPropertyParamKey(defId: string): string {
   return `custom_${defId}`;
 }
 
-/**
- * Format a stored custom-property value as the string substituted into
- * campaign messages. Option-based types render their human labels; unset
- * values render as ''. Pure and dependency-free (shared with the frontend).
- */
-export function formatLeadPropertyParamValue(
-  def: Pick<LeadPropertyDefinition, 'type' | 'options'>,
-  value: LeadPropertyValue | undefined,
+export function formatPropertyParamValue(
+  def: Pick<PropertyDefinition, 'type' | 'options'>,
+  value: PropertyValue | undefined,
 ): string {
   if (value === undefined || value === null || value === '') return '';
 
@@ -129,23 +105,16 @@ export function formatLeadPropertyParamValue(
 
 /** Minimal shape needed to validate a value — a full definition satisfies it. */
 type ValidatableDefinition = {
-  type: LeadPropertyType;
-  validation?: LeadPropertyValidation;
+  type: PropertyType;
+  validation?: PropertyValidation;
 };
 
 // Pragmatic, widely-compatible email check (mirrors the frontend zEmailSchema intent).
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/**
- * Validate a single custom-property value against its definition's type +
- * validation rules. Returns a French error message, or `null` when valid.
- * Empty/unset values are always valid (there is no "required" rule). Pure and
- * dependency-free so it is shared by the lead form (inline errors) and the
- * create/update mutation (server enforcement).
- */
-export function validateLeadPropertyValue(
+export function validatePropertyValue(
   def: ValidatableDefinition,
-  value: LeadPropertyValue | undefined,
+  value: PropertyValue | undefined,
 ): string | null {
   const isEmpty =
     value === undefined ||

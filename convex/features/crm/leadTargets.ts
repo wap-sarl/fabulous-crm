@@ -1,11 +1,11 @@
 import type { MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import {
-  validateLeadPropertyValue,
+  validatePropertyValue,
   customPropertyParamKey,
-  formatLeadPropertyParamValue,
-  type LeadPropertyValue,
-} from '../../_lib/validators/leadProperties';
+  formatPropertyParamValue,
+  type PropertyValue,
+} from '../../_lib/validators/properties';
 import { formatAddressLines } from '../../_lib/validators/addressFormats';
 import { DEFAULT_COUNTRY } from '../../_lib/validators/companyRegistry';
 import type { TrackedLinkStandardField } from '../../_lib/validators/crm';
@@ -20,7 +20,7 @@ import { lifecycleStageLabel, type LifecycleConfig } from '../../_lib/validators
 /** A writable lead target — the `target` shape of tracked links and workflow nodes. */
 export type LeadTarget =
   | { kind: 'standard'; field: TrackedLinkStandardField }
-  | { kind: 'custom'; propertyDefId: Id<'leadPropertyDefinitions'> };
+  | { kind: 'custom'; propertyDefId: Id<'propertyDefinitions'> };
 
 /**
  * One-line postal address for {{ params.address }} in the country's writing
@@ -42,7 +42,7 @@ export function formatAddressParam(address: Doc<'leads'>['address']): string {
  */
 export function buildLeadParams(
   lead: Doc<'leads'>,
-  defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
+  defsById: Map<string, Doc<'propertyDefinitions'>>,
   consentBase: string,
   // {{ params.status }} is the lead's status label (its lifecycle stage).
   lifecycle: LifecycleConfig,
@@ -58,7 +58,7 @@ export function buildLeadParams(
     consentUrl: `${consentBase}/consent/${lead.consentToken}`,
   };
   for (const def of defsById.values()) {
-    params[customPropertyParamKey(def._id)] = formatLeadPropertyParamValue(
+    params[customPropertyParamKey(def._id)] = formatPropertyParamValue(
       def,
       lead.customProperties?.[def._id],
     );
@@ -73,24 +73,22 @@ export function buildLeadParams(
  */
 export function validateLeadTargetValue(
   target: LeadTarget,
-  value: LeadPropertyValue,
-  defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
+  value: PropertyValue,
+  defsById: Map<string, Doc<'propertyDefinitions'>>,
 ): string | null {
   if (target.kind === 'custom') {
     const def = defsById.get(target.propertyDefId as string);
     if (!def) return 'propriété introuvable ou supprimée.';
-    return validateLeadPropertyValue(def, value);
+    return validatePropertyValue(def, value);
   }
   const { field } = target;
   switch (field) {
     case 'isRedFlagged':
       return typeof value === 'boolean' ? null : 'valeur oui/non requise.';
     case 'email':
-      // validateLeadPropertyValue lets empty values through — require one here.
       if (typeof value !== 'string' || value.trim() === '') return 'texte requis.';
-      return validateLeadPropertyValue({ type: 'email' }, value);
+      return validatePropertyValue({ type: 'email' }, value);
     default:
-      // firstName / lastName / phone / comment — a non-empty string.
       return typeof value === 'string' && value.trim() !== '' ? null : 'texte requis.';
   }
 }
@@ -105,7 +103,7 @@ export async function buildLeadTargetPatch(
   ctx: MutationCtx,
   lead: Doc<'leads'>,
   target: LeadTarget,
-  value: LeadPropertyValue,
+  value: PropertyValue,
 ): Promise<Partial<Doc<'leads'>> | null> {
   if (target.kind === 'custom') {
     const def = await ctx.db.get(target.propertyDefId);

@@ -1,8 +1,8 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
-import { advancedFilterValidator, filterFieldValidator } from './leadFilters';
+import { leadAdvancedFilterValidator, leadFilterValidators } from './filters';
 import { trackedLinkStandardFieldValidator } from './crm';
-import { leadPropertyValueValidator } from './leadProperties';
+import { propertyValueValidator } from './properties';
 
 /** Email engagement events (campaignEvents) that can enroll a lead. */
 export const workflowEmailEventValidator = v.union(
@@ -31,7 +31,7 @@ export const workflowTriggerValidator = v.union(
   v.object({
     type: v.literal('lead_property_changed'),
     // Unset = any filterable field change enrolls.
-    watchedFields: v.optional(v.array(filterFieldValidator)),
+    watchedFields: v.optional(v.array(leadFilterValidators.filterField)),
   }),
   v.object({
     type: v.literal('list_membership_changed'),
@@ -71,7 +71,7 @@ export const workflowTriggerValidator = v.union(
  */
 export const workflowLeadTargetValidator = v.union(
   v.object({ kind: v.literal('standard'), field: trackedLinkStandardFieldValidator }),
-  v.object({ kind: v.literal('custom'), propertyDefId: v.id('leadPropertyDefinitions') }),
+  v.object({ kind: v.literal('custom'), propertyDefId: v.id('propertyDefinitions') }),
 );
 
 export const workflowWaitUnitValidator = v.union(
@@ -113,7 +113,7 @@ export const workflowNodeValidator = v.union(
     ...nodeBase,
     type: v.literal('update_property'),
     target: workflowLeadTargetValidator,
-    value: leadPropertyValueValidator,
+    value: propertyValueValidator,
     next: v.optional(v.string()),
   }),
   v.object({
@@ -183,7 +183,7 @@ export const workflowNodeValidator = v.union(
     // Evaluated against the lead when the run reaches this node. A condition
     // with no active rule is neutral and evaluates true (evalAdvancedFilter
     // semantics).
-    condition: advancedFilterValidator,
+    condition: leadAdvancedFilterValidator,
     nextTrue: v.optional(v.string()),
     nextFalse: v.optional(v.string()),
   }),
@@ -205,7 +205,7 @@ export const workflowValidator = v.object({
   status: workflowStatusValidator,
   trigger: workflowTriggerValidator,
   // Extra AND/OR conditions a lead must match at trigger time to be enrolled.
-  enrollmentCriteria: v.optional(advancedFilterValidator),
+  enrollmentCriteria: v.optional(leadAdvancedFilterValidator),
   // false = a lead can only ever be enrolled once. Either way a lead is never
   // enrolled while it already has an active run in this workflow.
   allowReEnrollment: v.boolean(),

@@ -17,7 +17,8 @@ import { createActivityRecord } from '../../lib/activities';
 import { renderPlaceholders } from '../../lib/emailUtils';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
-import type { FilterField } from '../../_lib/validators/leadFilters';
+import type { FilterField, LeadStandardField } from '../../_lib/validators/filters';
+import { loadPropertyDefinitions } from '../../lib/properties';
 import {
   delayMs,
   diffLeadFilterFields,
@@ -119,7 +120,7 @@ async function failRun(
 /** The `changedFields` payload for an engine-made property write. */
 function targetAsFilterField(
   target: Extract<WorkflowNode, { type: 'update_property' }>['target'],
-): FilterField {
+): FilterField<LeadStandardField> {
   return target.kind === 'custom'
     ? { kind: 'custom', definitionId: target.propertyDefId }
     : { kind: 'standard', field: target.field };
@@ -274,7 +275,7 @@ export const executeStep = internalMutation({
       }
 
       case 'create_deal': {
-        const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
+        const defs = await loadPropertyDefinitions(ctx, 'lead');
         const defsById = new Map(defs.map((d) => [d._id as string, d]));
         const params = buildLeadParams(
           lead,
@@ -308,7 +309,7 @@ export const executeStep = internalMutation({
       }
 
       case 'create_task': {
-        const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
+        const defs = await loadPropertyDefinitions(ctx, 'lead');
         const defsById = new Map(defs.map((d) => [d._id as string, d]));
         const params = buildLeadParams(
           lead,
@@ -505,7 +506,7 @@ export const getActionStepContext = internalQuery({
     if (!lead || lead.deletedAt !== undefined) return null;
 
     if (node.type === 'send_email' || node.type === 'send_sms') {
-      const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
+      const defs = await loadPropertyDefinitions(ctx, 'lead');
       const defsById = new Map(defs.map((d) => [d._id as string, d]));
       const params = buildLeadParams(
         lead,
