@@ -27,6 +27,7 @@ import type * as _lib_validators_leadLists from "../_lib/validators/leadLists.js
 import type * as _lib_validators_leadProperties from "../_lib/validators/leadProperties.js";
 import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js";
 import type * as _lib_validators_shared from "../_lib/validators/shared.js";
+import type * as _lib_validators_timeline from "../_lib/validators/timeline.js";
 import type * as _lib_validators_users from "../_lib/validators/users.js";
 import type * as _lib_validators_workflows from "../_lib/validators/workflows.js";
 import type * as auth from "../auth.js";
@@ -57,6 +58,7 @@ import type * as features_invitations_queries from "../features/invitations/quer
 import type * as features_leadProperties_mutations from "../features/leadProperties/mutations.js";
 import type * as features_leadProperties_queries from "../features/leadProperties/queries.js";
 import type * as features_practitionerInfo_actions from "../features/practitionerInfo/actions.js";
+import type * as features_timeline_queries from "../features/timeline/queries.js";
 import type * as features_users_queries from "../features/users/queries.js";
 import type * as features_workflows_actions from "../features/workflows/actions.js";
 import type * as features_workflows_internal from "../features/workflows/internal.js";
@@ -90,6 +92,7 @@ import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_smsUtils from "../lib/smsUtils.js";
 import type * as lib_smtpUtils from "../lib/smtpUtils.js";
 import type * as lib_timeConstants from "../lib/timeConstants.js";
+import type * as lib_timeline from "../lib/timeline.js";
 import type * as lib_userUtils from "../lib/userUtils.js";
 import type * as seed_devEmployee from "../seed/devEmployee.js";
 import type * as setup_helpers from "../setup/helpers.js";
@@ -122,6 +125,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/leadProperties": typeof _lib_validators_leadProperties;
   "_lib/validators/lifecycle": typeof _lib_validators_lifecycle;
   "_lib/validators/shared": typeof _lib_validators_shared;
+  "_lib/validators/timeline": typeof _lib_validators_timeline;
   "_lib/validators/users": typeof _lib_validators_users;
   "_lib/validators/workflows": typeof _lib_validators_workflows;
   auth: typeof auth;
@@ -152,6 +156,7 @@ declare const fullApi: ApiFromModules<{
   "features/leadProperties/mutations": typeof features_leadProperties_mutations;
   "features/leadProperties/queries": typeof features_leadProperties_queries;
   "features/practitionerInfo/actions": typeof features_practitionerInfo_actions;
+  "features/timeline/queries": typeof features_timeline_queries;
   "features/users/queries": typeof features_users_queries;
   "features/workflows/actions": typeof features_workflows_actions;
   "features/workflows/internal": typeof features_workflows_internal;
@@ -185,6 +190,7 @@ declare const fullApi: ApiFromModules<{
   "lib/smsUtils": typeof lib_smsUtils;
   "lib/smtpUtils": typeof lib_smtpUtils;
   "lib/timeConstants": typeof lib_timeConstants;
+  "lib/timeline": typeof lib_timeline;
   "lib/userUtils": typeof lib_userUtils;
   "seed/devEmployee": typeof seed_devEmployee;
   "setup/helpers": typeof setup_helpers;

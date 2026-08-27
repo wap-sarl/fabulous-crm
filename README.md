@@ -45,6 +45,12 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   optionnel), étape de workflow « Créer une tâche ». Les rappels à l'échéance
   arrivent avec le système de notifications (lot 5) ; `dueAt` en est le point
   d'accroche.
+- **Historique unifié** : la fiche lead affiche notes, activités, envois et
+  événements de campagne, inscriptions aux workflows, changements de statut,
+  transactions et modifications de la fiche dans un seul fil chronologique,
+  filtrable par type (`features/timeline`). Chaque source est paginée sur son
+  propre index et fusionnée par curseur (`lib/timeline.ts`) : charger la suite
+  ne relit jamais une table entière.
 - **Statuts** : position du lead dans le parcours marketing → commercial
   (`lifecycleStage` : abonné → lead → MQL → SQL → opportunité → client →
   ambassadeur), configurable dans *Paramètres → Statuts* (statuts,
