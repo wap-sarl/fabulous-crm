@@ -143,6 +143,11 @@ export {
   OPTION_BASED_TYPES,
 } from '../../convex/_lib/validators/properties';
 export type {
+  PropertyRuleKey,
+  PropertyTypeDescriptor,
+} from '../../convex/_lib/validators/propertyTypes';
+export { PROPERTY_TYPE_KEYS, PROPERTY_TYPES } from '../../convex/_lib/validators/propertyTypes';
+export type {
   LeadStandardField,
   CompanyStandardField,
   DealStandardField,

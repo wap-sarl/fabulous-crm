@@ -1,6 +1,7 @@
 import type { Id, PropertyValue } from '@crm/lib/backend';
 import { DEFAULT_COUNTRY } from '@crm/lib/backend';
 import { isValidEmail, isValidPhone } from '@crm/lib/shared';
+import { propertyTypeUi } from '../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
 /**
@@ -370,39 +371,7 @@ export function coerceCustomPropertyValue(
   def: PropertyDefinitionRow,
   raw: string,
 ): CustomParseResult {
-  switch (def.type) {
-    case 'text':
-    case 'email':
-    case 'date':
-      return { value: raw };
-    case 'rpps':
-      // Store the bare digits; server-side validation enforces the 11-digit rule.
-      return { value: raw.replace(/\D/g, '') };
-    case 'number': {
-      const n = Number(raw);
-      return Number.isFinite(n) ? { value: n } : { error: `nombre invalide « ${raw} »` };
-    }
-    case 'boolean': {
-      const b = parseBool(raw);
-      return b === undefined ? { error: `valeur booléenne invalide « ${raw} »` } : { value: b };
-    }
-    case 'select':
-    case 'radio': {
-      const value = matchOption(def, raw);
-      return value ? { value } : { error: `option inconnue « ${raw} »` };
-    }
-    case 'checkbox': {
-      const values: string[] = [];
-      for (const token of splitMulti(raw)) {
-        const value = matchOption(def, token);
-        if (!value) return { error: `option inconnue « ${token} »` };
-        values.push(value);
-      }
-      return { value: values };
-    }
-    default:
-      return { value: raw };
-  }
+  return propertyTypeUi(def.type).coerceCsv(def, raw, { matchOption, splitMulti, parseBool });
 }
 
 // Leading French street number: "30", "35B", "46 bis", "1 ter".

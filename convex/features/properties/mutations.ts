@@ -14,17 +14,17 @@ import {
   propertyTypeValidator,
   propertyOptionValidator,
   propertyValidationValidator,
-  OPTION_BASED_TYPES,
   type PropertyOption,
   type PropertyType,
   type PropertyValidation,
 } from '../../_lib/validators/properties';
+import { PROPERTY_TYPES } from '../../_lib/validators/propertyTypes';
 
 function validateOptions(
   type: PropertyType,
   options: PropertyOption[] | undefined,
 ): PropertyOption[] | undefined {
-  if (!OPTION_BASED_TYPES.includes(type)) return undefined;
+  if (!PROPERTY_TYPES[type].optionBased) return undefined;
   const cleaned = (options ?? [])
     .map((o) => ({ value: o.value.trim(), label: o.label.trim() }))
     .filter((o) => o.value.length > 0);
@@ -44,27 +44,29 @@ function validateValidation(
   validation: PropertyValidation | undefined,
 ): PropertyValidation | undefined {
   if (!validation) return undefined;
-  let cleaned: PropertyValidation | undefined;
-  if (type === 'number') {
-    const { min, max } = validation;
-    if (min !== undefined && max !== undefined && min > max) throw new Error('invalid_range');
-    cleaned = filterUndefined({ min, max });
-  } else if (type === 'text') {
-    const { minLength, maxLength, pattern } = validation;
-    if (minLength !== undefined && minLength < 0) throw new Error('invalid_length');
-    if (maxLength !== undefined && maxLength < 0) throw new Error('invalid_length');
-    if (minLength !== undefined && maxLength !== undefined && minLength > maxLength)
-      throw new Error('invalid_range');
-    if (pattern) {
-      try {
-        new RegExp(pattern);
-      } catch {
-        throw new Error('invalid_pattern');
-      }
-    }
-    cleaned = filterUndefined({ minLength, maxLength, pattern: pattern || undefined });
+  const rules: PropertyValidation = {};
+  for (const key of PROPERTY_TYPES[type].rules) {
+    const value = validation[key];
+    if (value !== undefined && value !== '') (rules as Record<string, unknown>)[key] = value;
   }
-  return cleaned && Object.keys(cleaned).length > 0 ? cleaned : undefined;
+  if (rules.min !== undefined && rules.max !== undefined && rules.min > rules.max)
+    throw new Error('invalid_range');
+  if ((rules.minLength ?? 0) < 0 || (rules.maxLength ?? 0) < 0) throw new Error('invalid_length');
+  if (
+    rules.minLength !== undefined &&
+    rules.maxLength !== undefined &&
+    rules.minLength > rules.maxLength
+  )
+    throw new Error('invalid_range');
+  if (rules.pattern) {
+    try {
+      new RegExp(rules.pattern);
+    } catch {
+      throw new Error('invalid_pattern');
+    }
+  }
+  const cleaned = filterUndefined(rules);
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
 
 export const createDefinition = settingsMutation({

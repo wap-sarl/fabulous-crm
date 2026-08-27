@@ -94,7 +94,15 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   Validation partagée front/back (`_lib/validators/properties.ts`,
   `lib/properties.ts`), colonnes optionnelles dans les listes, formulaires et
   filtres avancés génériques par entité (`_lib/validators/filters.ts`,
-  `features/filters`). Les propriétés calculées (score, dernière activité…)
+  `features/filters`). Chaque type est décrit une fois de chaque côté par un
+  **registre** : `convex/_lib/validators/propertyTypes.ts` (forme stockée,
+  règles de validation, rendu des paramètres de campagne — le validateur
+  `propertyTypeValidator` et la liste des types à options en dérivent) et
+  `src/features/properties/lib/propertyTypes.tsx` (libellé, composant de
+  saisie, affichage, type de filtre, coercition CSV). Ajouter un type = une clé
+  dans `PROPERTY_TYPE_KEYS` et un descripteur dans chaque registre ; les
+  `Record<PropertyType, …>` font échouer `typecheck` s'il en manque un, et
+  `tests/backend/propertyTypes.test.ts` vérifie la cohérence. Les propriétés calculées (score, dernière activité…)
   sont prévues via le drapeau `computed`.
 - **Statuts** : position du lead dans le parcours marketing → commercial
   (`lifecycleStage` : abonné → lead → MQL → SQL → opportunité → client →

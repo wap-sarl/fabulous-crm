@@ -29,6 +29,7 @@ import type * as _lib_validators_invitations from "../_lib/validators/invitation
 import type * as _lib_validators_leadLists from "../_lib/validators/leadLists.js";
 import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js";
 import type * as _lib_validators_properties from "../_lib/validators/properties.js";
+import type * as _lib_validators_propertyTypes from "../_lib/validators/propertyTypes.js";
 import type * as _lib_validators_roles from "../_lib/validators/roles.js";
 import type * as _lib_validators_shared from "../_lib/validators/shared.js";
 import type * as _lib_validators_teams from "../_lib/validators/teams.js";
@@ -149,6 +150,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/leadLists": typeof _lib_validators_leadLists;
   "_lib/validators/lifecycle": typeof _lib_validators_lifecycle;
   "_lib/validators/properties": typeof _lib_validators_properties;
+  "_lib/validators/propertyTypes": typeof _lib_validators_propertyTypes;
   "_lib/validators/roles": typeof _lib_validators_roles;
   "_lib/validators/shared": typeof _lib_validators_shared;
   "_lib/validators/teams": typeof _lib_validators_teams;
