@@ -1,4 +1,5 @@
-import { type Infer, v } from 'convex/values';
+import { type Infer, v, type VLiteral } from 'convex/values';
+import { PROPERTY_TYPE_KEYS, PROPERTY_TYPES, type PropertyTypeKey } from './propertyTypes';
 import { logsValidator, softDeleteValidator } from './shared';
 
 export const PROPERTY_ENTITY_TYPES = ['lead', 'company', 'deal', 'activity'] as const;
@@ -10,20 +11,16 @@ export const propertyEntityTypeValidator = v.union(
   v.literal('activity'),
 );
 
-export const propertyTypeValidator = v.union(
-  v.literal('text'),
-  v.literal('number'),
-  v.literal('email'),
-  v.literal('select'),
-  v.literal('radio'),
-  v.literal('checkbox'),
-  v.literal('date'),
-  v.literal('boolean'),
-  v.literal('rpps'),
-);
+const typeLiterals = PROPERTY_TYPE_KEYS.map((k) => v.literal(k)) as unknown as [
+  VLiteral<PropertyTypeKey>,
+  VLiteral<PropertyTypeKey>,
+];
+export const propertyTypeValidator = v.union(...typeLiterals);
 
-/** Types whose value is chosen from an admin-defined `options` list. */
-export const OPTION_BASED_TYPES: PropertyType[] = ['select', 'radio', 'checkbox'];
+/** Types whose value is chosen from an admin-defined `options` list (from the registry). */
+export const OPTION_BASED_TYPES: PropertyType[] = PROPERTY_TYPE_KEYS.filter(
+  (k) => PROPERTY_TYPES[k].optionBased,
+);
 
 export const propertyOptionValidator = v.object({
   value: v.string(),
@@ -82,25 +79,7 @@ export function formatPropertyParamValue(
   value: PropertyValue | undefined,
 ): string {
   if (value === undefined || value === null || value === '') return '';
-
-  const optionLabel = (raw: string) => def.options?.find((o) => o.value === raw)?.label ?? raw;
-
-  switch (def.type) {
-    case 'boolean':
-      return value === true ? 'oui' : 'non';
-    case 'select':
-    case 'radio':
-      return typeof value === 'string' ? optionLabel(value) : String(value);
-    case 'checkbox':
-      return Array.isArray(value) ? value.map(optionLabel).join(', ') : String(value);
-    case 'date': {
-      // Stored as 'YYYY-MM-DD'; render French dd/MM/yyyy.
-      const m = typeof value === 'string' && /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-      return m ? `${m[3]}/${m[2]}/${m[1]}` : String(value);
-    }
-    default:
-      return Array.isArray(value) ? value.join(', ') : String(value);
-  }
+  return PROPERTY_TYPES[def.type].formatParam(value, def);
 }
 
 /** Minimal shape needed to validate a value — a full definition satisfies it. */
@@ -108,9 +87,6 @@ type ValidatableDefinition = {
   type: PropertyType;
   validation?: PropertyValidation;
 };
-
-// Pragmatic, widely-compatible email check (mirrors the frontend zEmailSchema intent).
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function validatePropertyValue(
   def: ValidatableDefinition,
@@ -122,48 +98,5 @@ export function validatePropertyValue(
     value === '' ||
     (Array.isArray(value) && value.length === 0);
   if (isEmpty) return null;
-
-  const rules = def.validation ?? {};
-
-  switch (def.type) {
-    case 'email':
-      if (typeof value !== 'string' || !EMAIL_RE.test(value)) return 'Adresse e-mail invalide.';
-      return null;
-
-    case 'number': {
-      if (typeof value !== 'number' || !Number.isFinite(value)) return 'Nombre invalide.';
-      if (rules.min !== undefined && value < rules.min)
-        return `La valeur doit être supérieure ou égale à ${rules.min}.`;
-      if (rules.max !== undefined && value > rules.max)
-        return `La valeur doit être inférieure ou égale à ${rules.max}.`;
-      return null;
-    }
-
-    case 'rpps': {
-      if (typeof value !== 'string') return 'Valeur invalide.';
-      const digits = value.replace(/\D/g, '');
-      if (digits.length !== 11 || digits[0] !== '1')
-        return 'Numéro RPPS invalide (11 chiffres, commence par 1).';
-      return null;
-    }
-
-    case 'text': {
-      if (typeof value !== 'string') return 'Valeur invalide.';
-      if (rules.minLength !== undefined && value.length < rules.minLength)
-        return `Au moins ${rules.minLength} caractère(s) requis.`;
-      if (rules.maxLength !== undefined && value.length > rules.maxLength)
-        return `Au plus ${rules.maxLength} caractère(s) autorisé(s).`;
-      if (rules.pattern) {
-        try {
-          if (!new RegExp(rules.pattern).test(value)) return 'Format invalide.';
-        } catch {
-          // An invalid stored pattern never blocks a value.
-        }
-      }
-      return null;
-    }
-
-    default:
-      return null;
-  }
+  return PROPERTY_TYPES[def.type].validate(value, def.validation ?? {});
 }

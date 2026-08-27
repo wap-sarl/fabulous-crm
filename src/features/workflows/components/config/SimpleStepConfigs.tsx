@@ -1,11 +1,9 @@
 import { useMemo } from 'react';
 import {
   Combobox,
-  DatePicker,
   HelperText,
   Input,
   Label,
-  MultiSelect,
   Select,
   SelectContent,
   SelectItem,
@@ -26,6 +24,7 @@ import { usePipelines } from '../../../deals/hooks/usePipelines';
 import { ACTIVITY_TYPES, CURRENCIES } from '../../../../lib/constants';
 import { useEmployees } from '../../../../lib/hooks/useEmployees';
 import { useTeams } from '../../../../lib/hooks/useTeams';
+import { propertyTypeUi } from '../../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../../properties/types';
 import { WAIT_UNIT_LABEL } from '../../lib/constants';
 
@@ -140,64 +139,12 @@ function PropertyValueInput({
 
   if (!def) return <HelperText>Propriété introuvable ou supprimée.</HelperText>;
 
-  const optionItems = (def.options ?? []).map((o) => ({ value: o.value, label: o.label }));
-  switch (def.type) {
-    case 'number':
-      return (
-        <Input
-          type="number"
-          value={typeof value === 'number' ? String(value) : ''}
-          onChange={(e) => onChange(e.target.value === '' ? '' : Number(e.target.value))}
-        />
-      );
-    case 'date':
-      return (
-        <DatePicker
-          value={typeof value === 'string' ? value : ''}
-          onValueChange={(v) => onChange(v)}
-        />
-      );
-    case 'boolean':
-      return booleanSelect;
-    case 'select':
-    case 'radio':
-      return (
-        <Select
-          value={typeof value === 'string' && value ? value : undefined}
-          onValueChange={(v) => onChange(v)}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Choisir…" />
-          </SelectTrigger>
-          <SelectContent>
-            {optionItems.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      );
-    case 'checkbox':
-      return (
-        <MultiSelect
-          items={optionItems}
-          value={Array.isArray(value) ? value : []}
-          onValueChange={(v) => onChange(v)}
-          placeholder="Choisir…"
-          modal
-          className="w-full"
-        />
-      );
-    default:
-      // text / email / rpps
-      return (
-        <Input
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      );
-  }
+  return propertyTypeUi(def.type).renderInput({
+    id: 'wf-property-value',
+    def,
+    value,
+    onChange: (v) => onChange(v ?? ''),
+  });
 }
 
 interface LifecycleStepConfigProps {

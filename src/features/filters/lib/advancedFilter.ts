@@ -8,6 +8,7 @@ import type {
   PropertyType,
 } from '@crm/lib/backend';
 import { isActiveRule } from '@crm/lib/backend';
+import { PROPERTY_TYPE_UI } from '../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
 /**
@@ -38,23 +39,9 @@ export const OPERATOR_LABEL: Record<FilterOperator, string> = {
   between: 'Entre',
 };
 
-/** Map a custom-property type to its unified filter-field type (radio ≈ select). */
+/** A custom property's unified filter-field type comes from the type registry. */
 function customPropertyType(type: PropertyType): FilterFieldType {
-  switch (type) {
-    case 'radio':
-      return 'select';
-    case 'rpps':
-      // RPPS is stored as a plain string; filter it like free text.
-      return 'text';
-    case 'text':
-    case 'number':
-    case 'email':
-    case 'select':
-    case 'checkbox':
-    case 'date':
-    case 'boolean':
-      return type;
-  }
+  return PROPERTY_TYPE_UI[type].filterType;
 }
 
 function standardSpec<F extends string>(

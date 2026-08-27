@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Checkbox,
-  DatePicker,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -24,6 +22,7 @@ import type {
   PropertyValue,
   TrackedLinkStandardField,
 } from '@crm/lib/backend';
+import { propertyTypeUi } from '../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
 interface Props {
@@ -293,91 +292,5 @@ function LinkValueInput({
   value: PropertyValue | undefined;
   onChange: (value: PropertyValue | undefined) => void;
 }) {
-  switch (def.type) {
-    case 'boolean':
-      return (
-        <Select
-          value={value === undefined ? undefined : value === true ? 'true' : 'false'}
-          onValueChange={(v) => onChange(v === 'true')}
-        >
-          <SelectTrigger id="tl-value">
-            <SelectValue placeholder="Choisir" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Oui</SelectItem>
-            <SelectItem value="false">Non</SelectItem>
-          </SelectContent>
-        </Select>
-      );
-
-    case 'select':
-    case 'radio':
-      return (
-        <Select
-          value={typeof value === 'string' ? value : undefined}
-          onValueChange={(v) => onChange(v)}
-        >
-          <SelectTrigger id="tl-value">
-            <SelectValue placeholder="Choisir" />
-          </SelectTrigger>
-          <SelectContent>
-            {(def.options ?? []).map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      );
-
-    case 'checkbox': {
-      const selected = Array.isArray(value) ? value : [];
-      return (
-        <div className="flex flex-col gap-1.5 pt-1">
-          {(def.options ?? []).map((o) => (
-            <label key={o.value} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={selected.includes(o.value)}
-                onCheckedChange={(c) => {
-                  const next =
-                    c === true ? [...selected, o.value] : selected.filter((v) => v !== o.value);
-                  onChange(next.length > 0 ? next : undefined);
-                }}
-              />
-              {o.label}
-            </label>
-          ))}
-        </div>
-      );
-    }
-
-    case 'number':
-      return (
-        <Input
-          id="tl-value"
-          type="number"
-          value={typeof value === 'number' ? String(value) : ''}
-          onChange={(e) => onChange(e.target.value === '' ? undefined : Number(e.target.value))}
-        />
-      );
-
-    case 'date':
-      return (
-        <DatePicker
-          id="tl-value"
-          value={typeof value === 'string' ? value : ''}
-          onValueChange={(v) => onChange(v || undefined)}
-        />
-      );
-
-    default:
-      // text / email / rpps → plain text input.
-      return (
-        <Input
-          id="tl-value"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value || undefined)}
-        />
-      );
-  }
+  return <>{propertyTypeUi(def.type).renderInput({ id: 'tl-value', def, value, onChange })}</>;
 }

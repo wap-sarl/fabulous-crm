@@ -34,6 +34,7 @@ import {
   PROPERTY_TYPES,
   PROPERTY_TYPE_LABEL,
   isOptionBased,
+  rulesOf,
 } from '../../features/properties/lib/customProperties';
 import type { PropertyDefinitionRow } from '../../features/properties/types';
 
@@ -63,6 +64,15 @@ interface Draft {
   validation: DraftValidation;
 }
 
+/** Placeholder of each validation rule input (the registry says which rules a type has). */
+const RULE_PLACEHOLDER: Record<keyof DraftValidation, string> = {
+  min: 'Minimum',
+  max: 'Maximum',
+  minLength: 'Longueur min.',
+  maxLength: 'Longueur max.',
+  pattern: 'Expression régulière (ex. ^[0-9]{5}$)',
+};
+
 const EMPTY_VALIDATION: DraftValidation = {
   min: '',
   max: '',
@@ -87,17 +97,11 @@ function num(s: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-/** Build the validation payload for the given type, or undefined when no rules. */
+/** Build the validation payload for the given type (registry rules), or undefined when none. */
 function buildValidation(type: PropertyType, dv: DraftValidation): PropertyValidation | undefined {
-  let obj: PropertyValidation = {};
-  if (type === 'number') {
-    obj = { min: num(dv.min), max: num(dv.max) };
-  } else if (type === 'text') {
-    obj = {
-      minLength: num(dv.minLength),
-      maxLength: num(dv.maxLength),
-      pattern: dv.pattern.trim() || undefined,
-    };
+  const obj: Record<string, number | string | undefined> = {};
+  for (const key of rulesOf(type)) {
+    obj[key] = key === 'pattern' ? dv.pattern.trim() || undefined : num(dv[key]);
   }
   const cleaned = Object.fromEntries(
     Object.entries(obj).filter(([, v]) => v !== undefined),
@@ -360,48 +364,29 @@ function DefinitionDialog({
             </div>
           )}
 
-          {draft.type === 'number' && (
-            <div className="space-y-1">
-              <Label>Validation (optionnel)</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="number"
-                  placeholder="Minimum"
-                  value={draft.validation.min}
-                  onChange={(e) => setValidationField('min', e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Maximum"
-                  value={draft.validation.max}
-                  onChange={(e) => setValidationField('max', e.target.value)}
-                />
-              </div>
-            </div>
-          )}
-
-          {draft.type === 'text' && (
+          {rulesOf(draft.type).length > 0 && (
             <div className="space-y-2">
               <Label>Validation (optionnel)</Label>
               <div className="grid grid-cols-2 gap-2">
-                <Input
-                  type="number"
-                  placeholder="Longueur min."
-                  value={draft.validation.minLength}
-                  onChange={(e) => setValidationField('minLength', e.target.value)}
-                />
-                <Input
-                  type="number"
-                  placeholder="Longueur max."
-                  value={draft.validation.maxLength}
-                  onChange={(e) => setValidationField('maxLength', e.target.value)}
-                />
+                {rulesOf(draft.type)
+                  .filter((rule) => rule !== 'pattern')
+                  .map((rule) => (
+                    <Input
+                      key={rule}
+                      type="number"
+                      placeholder={RULE_PLACEHOLDER[rule]}
+                      value={draft.validation[rule]}
+                      onChange={(e) => setValidationField(rule, e.target.value)}
+                    />
+                  ))}
               </div>
-              <Input
-                placeholder="Expression régulière (ex. ^[0-9]{5}$)"
-                value={draft.validation.pattern}
-                onChange={(e) => setValidationField('pattern', e.target.value)}
-              />
+              {rulesOf(draft.type).includes('pattern') && (
+                <Input
+                  placeholder={RULE_PLACEHOLDER.pattern}
+                  value={draft.validation.pattern}
+                  onChange={(e) => setValidationField('pattern', e.target.value)}
+                />
+              )}
             </div>
           )}
 
