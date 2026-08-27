@@ -8,7 +8,7 @@ export const leadStandardFieldValidator = v.union(
   v.literal('phone'),
   v.literal('comment'),
   v.literal('lifecycleStage'),
-  v.literal('assignedTo'),
+  v.literal('ownerIds'),
   v.literal('isRedFlagged'),
   v.literal('marketingConsent'),
 );
@@ -30,7 +30,7 @@ export const dealStandardFieldValidator = v.union(
   v.literal('currency'),
   v.literal('status'),
   v.literal('stageKey'),
-  v.literal('ownerId'),
+  v.literal('ownerIds'),
   v.literal('expectedCloseDate'),
 );
 

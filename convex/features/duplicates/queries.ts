@@ -95,11 +95,15 @@ export const getDuplicatePair = employeeQuery({
     const b = await liveLead(ctx, pair.leadBId);
     if (!a || !b) return null;
     const enrich = async (lead: Doc<'leads'>) => {
-      const assignee = lead.assignedTo ? await ctx.db.get(lead.assignedTo) : null;
+      const ownerNames: string[] = [];
+      for (const id of lead.ownerIds) {
+        const owner = await ctx.db.get(id);
+        if (owner) ownerNames.push(`${owner.firstName} ${owner.lastName}`);
+      }
       const company = lead.companyId ? await ctx.db.get(lead.companyId) : null;
       return {
         lead,
-        assignedToName: assignee ? `${assignee.firstName} ${assignee.lastName}` : null,
+        ownerNames,
         companyName: company && isNotDeleted(company) ? company.name : null,
       };
     };

@@ -12,7 +12,7 @@ async function setup() {
   const leadId = await as.mutation(api.features.crm.mutations.createLead, {
     firstName: 'Jean',
     lastName: 'Dupont',
-    assignedTo: emp.userId,
+    ownerIds: [emp.userId],
   });
   return { t, emp, as, leadId };
 }

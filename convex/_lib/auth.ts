@@ -11,6 +11,7 @@ import { authComponent } from '../auth';
 // Trigger-wrapped base so employee/admin mutations keep the lead aggregates in
 // sync on every `leads` write (see _lib/functions.ts).
 import { mutation } from './functions';
+import { loadVisibility, scopedReader, scopedWriter, type Visibility } from '../lib/visibility';
 
 /**
  * Authentication seam. Better Auth owns the session (see convex/auth.ts); these
@@ -55,22 +56,38 @@ const isAdmin = (u: Doc<'users'>) => u.type === 'employee' && u.role === 'admin'
 
 export const employeeQuery = customQuery(
   query,
-  customCtx((ctx) => requireRole(ctx, isEmployee, 'employees only')),
+  customCtx(async (ctx) => {
+    const session = await requireRole(ctx, isEmployee, 'employees only');
+    const visibility = await loadVisibility(ctx, session.user);
+    return { ...session, visibility, db: scopedReader(ctx, visibility) };
+  }),
 );
+
+const ALL: Visibility = { scope: 'all' };
 
 export const adminQuery = customQuery(
   query,
-  customCtx((ctx) => requireRole(ctx, isAdmin, 'admins only')),
+  customCtx(async (ctx) => ({
+    ...(await requireRole(ctx, isAdmin, 'admins only')),
+    visibility: ALL,
+  })),
 );
 
 export const employeeMutation = customMutation(
   mutation,
-  customCtx((ctx) => requireRole(ctx, isEmployee, 'employees only')),
+  customCtx(async (ctx) => {
+    const session = await requireRole(ctx, isEmployee, 'employees only');
+    const visibility = await loadVisibility(ctx, session.user);
+    return { ...session, visibility, db: scopedWriter(ctx, visibility) };
+  }),
 );
 
 export const adminMutation = customMutation(
   mutation,
-  customCtx((ctx) => requireRole(ctx, isAdmin, 'admins only')),
+  customCtx(async (ctx) => ({
+    ...(await requireRole(ctx, isAdmin, 'admins only')),
+    visibility: ALL,
+  })),
 );
 
 /**

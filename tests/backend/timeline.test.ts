@@ -19,7 +19,7 @@ async function seedTimeline() {
     firstName: 'Jean',
     lastName: 'Dupont',
     email: 'jean@dupont.fr',
-    assignedTo: emp.userId,
+    ownerIds: [emp.userId],
   });
   for (const content of ['Première note', 'Deuxième note', 'Troisième note']) {
     await as.mutation(api.features.crm.mutations.createNote, { leadId, content });

@@ -27,6 +27,7 @@ export const companyValidator = v.object({
   // by the Triggers wrapper (_lib/functions.ts) — never written by hand.
   searchText: v.optional(v.string()),
 
+  ownerIds: v.array(v.id('users')),
   customProperties: customPropertiesValidator,
 });
 

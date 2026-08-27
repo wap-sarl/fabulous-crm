@@ -17,7 +17,7 @@ export const leadFilterArgs = {
   lifecycleStages: v.optional(v.array(v.string())),
   // Companies a lead must belong to one of (OR within the filter).
   companyIds: v.optional(v.array(v.id('companies'))),
-  assignedToIds: v.optional(v.array(v.id('users'))),
+  ownerIds: v.optional(v.array(v.id('users'))),
   isRedFlagged: v.optional(v.boolean()),
   // Custom-property filters: definitionId -> allowed values. A lead matches a
   // property if its stored value is one of the allowed (OR within a property);
@@ -36,7 +36,7 @@ export type LeadFilters = {
   search?: string;
   lifecycleStages?: string[];
   companyIds?: Id<'companies'>[];
-  assignedToIds?: Doc<'leads'>['assignedTo'][];
+  ownerIds?: Id<'users'>[];
   isRedFlagged?: boolean;
   customProperties?: Record<string, PropertyValue[]>;
   listIds?: Id<'leadLists'>[];
@@ -106,8 +106,8 @@ export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): bo
     if (!lead.companyId || !filters.companyIds.includes(lead.companyId)) return false;
   }
 
-  if (filters.assignedToIds && filters.assignedToIds.length > 0) {
-    if (!lead.assignedTo || !filters.assignedToIds.includes(lead.assignedTo)) return false;
+  if (filters.ownerIds && filters.ownerIds.length > 0) {
+    if (!lead.ownerIds.some((id) => filters.ownerIds?.includes(id))) return false;
   }
 
   if (typeof filters.isRedFlagged === 'boolean') {

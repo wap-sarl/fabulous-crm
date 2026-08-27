@@ -3,6 +3,7 @@ import type { MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { adminMutation, employeeMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
+import { cleanOwnerIds } from '../../lib/owners';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import {
   pipelineStageValidator,
@@ -153,7 +154,7 @@ const dealFieldArgs = {
   amount: v.optional(v.number()),
   currency: v.optional(v.string()),
   expectedCloseDate: v.optional(v.string()),
-  ownerId: v.optional(v.id('users')),
+  ownerIds: v.optional(v.array(v.id('users'))),
   leadId: v.optional(v.id('leads')),
   sourceCampaignId: v.optional(v.id('campaigns')),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
@@ -170,7 +171,7 @@ async function validateDealFields(
     amount?: number;
     currency?: string;
     expectedCloseDate?: string;
-    ownerId?: Id<'users'>;
+    ownerIds?: Id<'users'>[];
     leadId?: Id<'leads'>;
     sourceCampaignId?: Id<'campaigns'>;
   },
@@ -185,8 +186,7 @@ async function validateDealFields(
   if (fields.expectedCloseDate !== undefined && !DATE_RE.test(fields.expectedCloseDate)) {
     throw new Error('invalid_deal: expectedCloseDate');
   }
-  if (fields.ownerId && !(await ctx.db.get(fields.ownerId)))
-    throw new Error('invalid_deal: ownerId');
+  if (fields.ownerIds) await cleanOwnerIds(ctx, fields.ownerIds);
   if (fields.leadId) {
     const lead = await ctx.db.get(fields.leadId);
     if (!lead || !isNotDeleted(lead)) throw new Error('lead_not_found');
@@ -208,7 +208,7 @@ export const createDeal = employeeMutation({
       ctx,
       {
         ...args,
-        ownerId: args.ownerId ?? ctx.userId,
+        ownerIds: args.ownerIds?.length ? args.ownerIds : [ctx.userId],
         customProperties: sanitizeCustomProperties(
           await loadPropertyDefsById(ctx, 'deal'),
           args.customProperties,
@@ -226,7 +226,6 @@ export const updateDeal = employeeMutation({
     ...dealFieldArgs,
     title: v.optional(v.string()),
     // null clears an optional relation / field.
-    ownerId: v.optional(v.union(v.id('users'), v.null())),
     leadId: v.optional(v.union(v.id('leads'), v.null())),
     sourceCampaignId: v.optional(v.union(v.id('campaigns'), v.null())),
     expectedCloseDate: v.optional(v.union(v.string(), v.null())),

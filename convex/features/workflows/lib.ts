@@ -297,7 +297,7 @@ const FILTERABLE_STANDARD_FIELDS = [
   'phone',
   'comment',
   'lifecycleStage',
-  'assignedTo',
+  'ownerIds',
   'isRedFlagged',
   'marketingConsent',
 ] as const;

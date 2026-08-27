@@ -19,6 +19,7 @@ import {
 } from '@crm/design-system';
 import { Mail, RotateCw, Trash2, UserPlus } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
+import { TeamsSection } from '../../features/teams/components/TeamsSection';
 
 const INVITE_ERRORS: Record<string, string> = {
   invalid_email: 'Adresse e-mail invalide.',
@@ -26,10 +27,16 @@ const INVITE_ERRORS: Record<string, string> = {
   already_invited: 'Une invitation est déjà en attente pour cette adresse.',
 };
 
-type Role = 'member' | 'admin';
+type Role = 'member' | 'manager' | 'admin';
+
+const ROLE_LABEL: Record<Role, string> = {
+  admin: 'Administrateur',
+  manager: 'Manager',
+  member: 'Membre',
+};
 
 function roleLabel(role: string): string {
-  return role === 'admin' ? 'Administrateur' : 'Membre';
+  return ROLE_LABEL[role as Role] ?? 'Membre';
 }
 
 function TeamManager() {
@@ -38,6 +45,8 @@ function TeamManager() {
   const createInvitation = useMutation(api.features.invitations.mutations.createInvitation);
   const revokeInvitation = useMutation(api.features.invitations.mutations.revokeInvitation);
   const resendInvitation = useMutation(api.features.invitations.mutations.resendInvitation);
+  const setEmployeeRole = useMutation(api.features.users.mutations.setEmployeeRole);
+  const { user: me } = useAuth();
 
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<Role>('member');
@@ -126,6 +135,7 @@ function TeamManager() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="member">Membre</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
                 <SelectItem value="admin">Administrateur</SelectItem>
               </SelectContent>
             </Select>
@@ -201,14 +211,40 @@ function TeamManager() {
                   </span>
                   <span className="truncate text-xs text-soft">{member.email}</span>
                 </div>
-                <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
-                  {roleLabel(member.role ?? 'member')}
-                </Badge>
+                {member._id === me?._id ? (
+                  <Badge variant={member.role === 'admin' ? 'default' : 'secondary'}>
+                    {roleLabel(member.role ?? 'member')}
+                  </Badge>
+                ) : (
+                  <Select
+                    value={member.role ?? 'member'}
+                    onValueChange={async (v) => {
+                      try {
+                        await setEmployeeRole({ userId: member._id, role: v as Role });
+                      } catch {
+                        setError('Le changement de rôle a échoué.');
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-40" aria-label={`Rôle de ${member.firstName}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
+                        <SelectItem key={r} value={r}>
+                          {ROLE_LABEL[r]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </li>
             ))}
           </ul>
         )}
       </section>
+
+      <TeamsSection />
     </div>
   );
 }

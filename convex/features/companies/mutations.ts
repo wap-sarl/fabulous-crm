@@ -4,6 +4,7 @@ import { employeeMutation } from '../../_lib/auth';
 import { COUNTRY_CODE_RE, normalizeCountryCode } from '../../_lib/validators/companyRegistry';
 import { addressValidator } from '../../schema';
 import { propertyValueValidator } from '../../_lib/validators/properties';
+import { cleanOwnerIds } from '../../lib/owners';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import {
   computeChanges,
@@ -33,6 +34,7 @@ const companyFieldArgs = {
   headcount: v.optional(v.number()),
   address: v.optional(addressValidator),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
+  ownerIds: v.optional(v.array(v.id('users'))),
 } as const;
 
 const blank = (s: string | undefined) => (s?.trim() ? s.trim() : undefined);
@@ -83,6 +85,7 @@ export const createCompany = employeeMutation({
       sector: blank(args.sector),
       headcount: args.headcount,
       address: requireValidAddress(args.address),
+      ownerIds: await cleanOwnerIds(ctx, args.ownerIds ?? []),
       customProperties: sanitizeCustomProperties(
         await loadPropertyDefsById(ctx, 'company'),
         args.customProperties,
@@ -145,6 +148,7 @@ export const updateCompany = employeeMutation({
     if (rest.sector !== undefined) updates.sector = blank(rest.sector);
     if (rest.headcount !== undefined) updates.headcount = rest.headcount;
     if (rest.address !== undefined) updates.address = requireValidAddress(rest.address);
+    if (rest.ownerIds !== undefined) updates.ownerIds = await cleanOwnerIds(ctx, rest.ownerIds);
     if (rest.customProperties !== undefined) {
       updates.customProperties = sanitizeCustomProperties(
         await loadPropertyDefsById(ctx, 'company'),

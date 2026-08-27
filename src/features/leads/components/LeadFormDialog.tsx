@@ -10,7 +10,6 @@ import {
   Input,
   Label,
   Textarea,
-  Combobox,
   Checkbox,
   Select,
   SelectTrigger,
@@ -22,6 +21,7 @@ import {
   validateEmail,
   toast,
   type AddressValue,
+  MultiSelect,
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { useLeadActions } from '../hooks/useLeadActions';
@@ -50,7 +50,7 @@ interface FormState {
   lifecycleStage: string;
   /** '' = none; on create the server may still match one from the email domain. */
   companyId: Id<'companies'> | '';
-  assignedTo: string;
+  ownerIds: string[];
   isRedFlagged: boolean;
   comment: string;
   address: AddressValue;
@@ -73,7 +73,7 @@ function emptyForm(): FormState {
     phone: '',
     lifecycleStage: '',
     companyId: '',
-    assignedTo: '',
+    ownerIds: [],
     isRedFlagged: false,
     comment: '',
     address: EMPTY_ADDRESS,
@@ -89,7 +89,7 @@ function fromLead(lead: LeadRow): FormState {
     phone: lead.phone ?? '',
     lifecycleStage: lead.lifecycleStage ?? '',
     companyId: lead.companyId ?? '',
-    assignedTo: lead.assignedTo ?? '',
+    ownerIds: lead.ownerIds,
     isRedFlagged: lead.isRedFlagged,
     comment: lead.comment ?? '',
     address: {
@@ -174,7 +174,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       phone: form.phone || undefined,
       address,
       lifecycleStage: form.lifecycleStage || undefined,
-      assignedTo: form.assignedTo ? (form.assignedTo as Id<'users'>) : undefined,
+      ownerIds: form.ownerIds as Id<'users'>[],
       isRedFlagged: form.isRedFlagged,
       comment: form.comment || undefined,
       customProperties: form.customProperties,
@@ -286,18 +286,17 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
             ) : null}
           </div>
           <div className="space-y-1">
-            <Label>Assigné à</Label>
-            <Combobox
-              items={[
-                { value: '', label: 'Non assigné' },
-                ...employees.map((e) => ({
-                  value: e._id,
-                  label: `${e.firstName} ${e.lastName}`,
-                })),
-              ]}
-              value={form.assignedTo}
-              onValueChange={(v) => setField('assignedTo', v)}
+            <Label>Propriétaires</Label>
+            <MultiSelect
+              items={employees.map((e) => ({
+                value: e._id,
+                label: `${e.firstName} ${e.lastName}`,
+              }))}
+              value={form.ownerIds}
+              onValueChange={(v) => setField('ownerIds', v)}
               placeholder="Non assigné"
+              modal
+              className="w-full"
             />
           </div>
         </div>

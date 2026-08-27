@@ -30,7 +30,7 @@ function lead(overrides: Partial<Doc<'leads'>> = {}): Doc<'leads'> {
     phone: '+33612345678',
     comment: 'Physicienne',
     lifecycleStage: 'lead',
-    assignedTo: undefined,
+    ownerIds: [],
     isRedFlagged: false,
     marketingConsent: ['email'],
     consentToken: 'tok',

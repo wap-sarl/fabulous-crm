@@ -4,7 +4,7 @@ export function serializeUser(user: {
   email: string;
   firstName: string;
   lastName: string;
-  role?: 'admin' | 'member';
+  role?: 'admin' | 'manager' | 'member';
 }) {
   return {
     _id: user._id,

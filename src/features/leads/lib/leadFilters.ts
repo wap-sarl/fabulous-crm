@@ -11,7 +11,7 @@ export const LEAD_FILTER_FIELDS: StandardFieldSpec<LeadStandardField>[] = [
   { field: 'phone', label: 'Téléphone', type: 'text' },
   { field: 'comment', label: 'Commentaire', type: 'text' },
   { field: 'lifecycleStage', label: 'Statut', type: 'lifecycle' },
-  { field: 'assignedTo', label: 'Assigné à', type: 'assignee' },
+  { field: 'ownerIds', label: 'Propriétaires', type: 'assignee' },
   { field: 'isRedFlagged', label: 'Signalé', type: 'boolean' },
   {
     field: 'marketingConsent',

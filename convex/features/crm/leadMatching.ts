@@ -27,8 +27,9 @@ export function getFieldValue(
       return lead.comment;
     case 'lifecycleStage':
       return lead.lifecycleStage;
-    case 'assignedTo':
-      return lead.assignedTo;
+    case 'ownerIds':
+      // Array value; `equals` matches when any owner is among the wanted ones.
+      return lead.ownerIds;
     case 'isRedFlagged':
       return lead.isRedFlagged;
     case 'marketingConsent':

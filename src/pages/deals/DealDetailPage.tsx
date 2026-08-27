@@ -240,7 +240,7 @@ export function DealDetailPage() {
               {deal.status === 'lost' ? (
                 <KeyValueRow label="Motif de perte">{deal.lossReason ?? '—'}</KeyValueRow>
               ) : null}
-              <KeyValueRow label="Propriétaire">{deal.ownerName ?? '—'}</KeyValueRow>
+              <KeyValueRow label="Propriétaires">{deal.ownerNames.join(', ') || '—'}</KeyValueRow>
               <KeyValueRow label="Lead">
                 {deal.leadId ? (
                   <Link to={`/leads/${deal.leadId}`} className="text-primary hover:underline">

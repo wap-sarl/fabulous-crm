@@ -25,7 +25,7 @@ import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { DUPLICATE_REASON_LABEL, DUPLICATE_REASON_TONE } from '../lib/duplicates';
 
 type Side = 'a' | 'b';
-type Enriched = { lead: Doc<'leads'>; assignedToName: string | null; companyName: string | null };
+type Enriched = { lead: Doc<'leads'>; ownerNames: string[]; companyName: string | null };
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
@@ -111,11 +111,11 @@ function MergeBody({
       },
       text('comment', 'Commentaire'),
       {
-        key: 'assignedTo',
-        label: 'Assigné à',
-        display: (s) => s.assignedToName ?? '—',
-        isSet: (s) => !!s.lead.assignedTo,
-        pick: (from) => ({ assignedTo: from.lead.assignedTo ?? null }),
+        key: 'ownerIds',
+        label: 'Propriétaires',
+        display: (s) => s.ownerNames.join(', ') || '—',
+        isSet: (s) => s.lead.ownerIds.length > 0,
+        pick: (from) => ({ ownerIds: from.lead.ownerIds }),
       },
       {
         key: 'companyId',

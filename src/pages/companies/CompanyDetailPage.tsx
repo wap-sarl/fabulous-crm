@@ -149,6 +149,9 @@ export function CompanyDetailPage() {
                   '—'
                 )}
               </KeyValueRow>
+              <KeyValueRow label="Propriétaires">
+                {company.ownerNames.join(', ') || '—'}
+              </KeyValueRow>
               <KeyValueRow label="Secteur">{company.sector ?? '—'}</KeyValueRow>
               <KeyValueRow label="Effectif" mono>
                 {company.headcount !== undefined ? String(company.headcount) : '—'}

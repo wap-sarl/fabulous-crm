@@ -213,7 +213,9 @@ function DealsList({
                     {formatMoney(deal.amount, deal.currency)}
                   </TableCell>
                   <TableCell className="text-[13px] text-soft">{deal.leadName ?? '—'}</TableCell>
-                  <TableCell className="text-[13px] text-soft">{deal.ownerName ?? '—'}</TableCell>
+                  <TableCell className="text-[13px] text-soft">
+                    {deal.ownerNames.join(', ') || '—'}
+                  </TableCell>
                   {visibleCols.map((def) => (
                     <TableCell key={def._id} className="text-[13px] text-soft">
                       {formatPropertyValue(def, deal.customProperties?.[def._id])}

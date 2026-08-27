@@ -19,7 +19,7 @@ type PageArgs = Partial<{
   sortField: 'recent' | 'lastName' | 'lifecycleStage';
   sortDirection: 'asc' | 'desc';
   lifecycleStages: string[];
-  assignedToIds: Id<'users'>[];
+  ownerIds: Id<'users'>[];
   listIds: Id<'leadLists'>[];
   search: string;
   isRedFlagged: boolean;
@@ -78,18 +78,18 @@ describe('listLeadsPaginated', () => {
   test('a single assignee (with and without a status) rides the assignee index', async () => {
     const { t, emp, as } = await setup();
     const other = await seedEmployee(t, { email: 'other@example.com' });
-    await seedLead(t, { assignedTo: emp.userId, lifecycleStage: 'lead' });
-    await seedLead(t, { assignedTo: emp.userId, lifecycleStage: 'customer' });
-    await seedLead(t, { assignedTo: other.userId, lifecycleStage: 'lead' });
+    await seedLead(t, { ownerIds: [emp.userId], lifecycleStage: 'lead' });
+    await seedLead(t, { ownerIds: [emp.userId], lifecycleStage: 'customer' });
+    await seedLead(t, { ownerIds: [other.userId], lifecycleStage: 'lead' });
     await seedLead(t, {});
 
-    const mine = await collectAllPages(as, { assignedToIds: [emp.userId] }, 10);
+    const mine = await collectAllPages(as, { ownerIds: [emp.userId] }, 10);
     expect(mine.rows).toHaveLength(2);
-    expect(mine.rows.every((r) => r.assignedTo === emp.userId)).toBe(true);
+    expect(mine.rows.every((r) => r.ownerIds.includes(emp.userId))).toBe(true);
 
     const mineNew = await collectAllPages(
       as,
-      { assignedToIds: [emp.userId], lifecycleStages: ['lead'] },
+      { ownerIds: [emp.userId], lifecycleStages: ['lead'] },
       10,
     );
     expect(mineNew.rows).toHaveLength(1);

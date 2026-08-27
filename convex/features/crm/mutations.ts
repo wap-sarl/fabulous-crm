@@ -50,6 +50,7 @@ import {
 import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators/lifecycle';
 import { requireCompany, resolveCompanyForLead } from '../../lib/companies';
 import { requireValidAddress } from '../../lib/addresses';
+import { cleanOwnerIds } from '../../lib/owners';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 
@@ -114,7 +115,7 @@ const leadRowArgs = {
   phone: v.optional(v.string()),
   address: v.optional(addressValidator),
   comment: v.optional(v.string()),
-  assignedTo: v.optional(v.id('users')),
+  ownerIds: v.optional(v.array(v.id('users'))),
   isRedFlagged: v.optional(v.boolean()),
   // A stage key from appConfig.lifecycle; defaults to the configured stage.
   lifecycleStage: v.optional(v.string()),
@@ -165,7 +166,7 @@ export const createLead = employeeMutation({
       marketingConsent: [],
       consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
       comment: args.comment,
-      assignedTo: args.assignedTo,
+      ownerIds: await cleanOwnerIds(ctx, args.ownerIds ?? []),
       companyId,
       isRedFlagged: args.isRedFlagged ?? false,
       lifecycleStage,
@@ -202,7 +203,7 @@ export const updateLead = employeeMutation({
     phone: v.optional(v.string()),
     address: v.optional(addressValidator),
     comment: v.optional(v.string()),
-    assignedTo: v.optional(v.id('users')),
+    ownerIds: v.optional(v.array(v.id('users'))),
     isRedFlagged: v.optional(v.boolean()),
     // Checked against the configured stages and the regression rule; a blocked
     // regression fails the whole update with `lifecycle_regression_blocked`.
@@ -407,7 +408,7 @@ export const importLeads = employeeMutation({
           phone: row.phone?.trim() || undefined,
           address: row.address,
           comment: row.comment,
-          assignedTo: row.assignedTo,
+          ownerIds: row.ownerIds ? await cleanOwnerIds(ctx, row.ownerIds) : undefined,
           isRedFlagged: row.isRedFlagged,
         });
 
@@ -518,7 +519,7 @@ export const importLeads = employeeMutation({
         marketingConsent: [],
         consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
         comment: row.comment,
-        assignedTo: row.assignedTo ?? ctx.userId,
+        ownerIds: row.ownerIds?.length ? await cleanOwnerIds(ctx, row.ownerIds) : [ctx.userId],
         companyId,
         isRedFlagged: row.isRedFlagged ?? false,
         lifecycleStage,

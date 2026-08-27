@@ -211,7 +211,7 @@ export function LeadsTable({
                     <StatusBadge tone="violet">{lifecycleLabel(lead.lifecycleStage)}</StatusBadge>
                   </TableCell>
                   <TableCell className="text-[13px] text-soft">
-                    {lead.assignedTo ? (employeeName.get(lead.assignedTo) ?? '—') : '—'}
+                    {lead.ownerIds.map((id) => employeeName.get(id) ?? '—').join(', ') || '—'}
                   </TableCell>
                   <TableCell>
                     {lead.marketingConsent.length > 0 ? (

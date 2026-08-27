@@ -5,7 +5,6 @@ import type { DealRow, Doc, Id, PropertyValue } from '@crm/lib/backend';
 import { DEFAULT_CURRENCY, defaultPipelineStage } from '@crm/lib/backend';
 import {
   Button,
-  Combobox,
   DatePicker,
   Dialog,
   DialogContent,
@@ -21,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
   toast,
+  MultiSelect,
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { CURRENCIES } from '../../../lib/constants';
@@ -50,7 +50,7 @@ interface FormState {
   pipelineId: string;
   stageKey: string;
   expectedCloseDate: string;
-  ownerId: string;
+  ownerIds: string[];
   leadId: Id<'leads'> | '';
   sourceCampaignId: string;
   customProperties: Record<string, PropertyValue>;
@@ -71,7 +71,7 @@ function initialForm(
       pipelineId: deal.pipelineId,
       stageKey: deal.stageKey,
       expectedCloseDate: deal.expectedCloseDate ?? '',
-      ownerId: deal.ownerId ?? '',
+      ownerIds: deal.ownerIds,
       leadId: deal.leadId ?? '',
       sourceCampaignId: deal.sourceCampaignId ?? '',
       customProperties: { ...(deal.customProperties ?? {}) },
@@ -84,7 +84,7 @@ function initialForm(
     pipelineId: pipeline?._id ?? '',
     stageKey: pipeline ? (defaultPipelineStage(pipeline)?.key ?? '') : '',
     expectedCloseDate: '',
-    ownerId: '',
+    ownerIds: [],
     leadId: defaults?.leadId ?? '',
     sourceCampaignId: '',
     customProperties: {},
@@ -165,7 +165,7 @@ function DealFormBody({
           amount: amount ?? null,
           currency: form.currency,
           expectedCloseDate: form.expectedCloseDate || null,
-          ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : null,
+          ownerIds: form.ownerIds as Id<'users'>[],
           leadId: form.leadId || null,
           sourceCampaignId: form.sourceCampaignId
             ? (form.sourceCampaignId as Id<'campaigns'>)
@@ -186,7 +186,7 @@ function DealFormBody({
           pipelineId,
           stageKey: form.stageKey || undefined,
           expectedCloseDate: form.expectedCloseDate || undefined,
-          ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : undefined,
+          ownerIds: form.ownerIds as Id<'users'>[],
           leadId: form.leadId || undefined,
           sourceCampaignId: form.sourceCampaignId
             ? (form.sourceCampaignId as Id<'campaigns'>)
@@ -297,14 +297,11 @@ function DealFormBody({
         ) : null}
 
         <div className="space-y-1">
-          <Label>Propriétaire</Label>
-          <Combobox
-            items={[
-              { value: '', label: 'Moi (par défaut)' },
-              ...employees.map((e) => ({ value: e._id, label: `${e.firstName} ${e.lastName}` })),
-            ]}
-            value={form.ownerId}
-            onValueChange={(v) => set('ownerId', v)}
+          <Label>Propriétaires</Label>
+          <MultiSelect
+            items={employees.map((e) => ({ value: e._id, label: `${e.firstName} ${e.lastName}` }))}
+            value={form.ownerIds}
+            onValueChange={(v) => set('ownerIds', v)}
             placeholder="Moi (par défaut)"
             modal
             className="w-full"

@@ -72,7 +72,7 @@ export function LeadDetailPage() {
     return <p className="p-7 text-faint">Lead introuvable.</p>;
   }
 
-  const { lead, assignedToName, company } = data;
+  const { lead, ownerNames, company } = data;
   const fullName = `${lead.firstName} ${lead.lastName}`;
 
   const copyConsentLink = async () => {
@@ -137,7 +137,7 @@ export function LeadDetailPage() {
                   '—'
                 )}
               </KeyValueRow>
-              <KeyValueRow label="Assigné à">{assignedToName ?? '—'}</KeyValueRow>
+              <KeyValueRow label="Propriétaires">{ownerNames.join(', ') || '—'}</KeyValueRow>
               <KeyValueRow label="E-mail">{lead.email ?? '—'}</KeyValueRow>
               <KeyValueRow label="Téléphone" mono>
                 {lead.phone ?? '—'}
