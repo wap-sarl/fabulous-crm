@@ -45,6 +45,15 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   optionnel), étape de workflow « Créer une tâche ». Les rappels à l'échéance
   arrivent avec le système de notifications (lot 5) ; `dueAt` en est le point
   d'accroche.
+- **Doublons** : détection des leads en double par téléphone normalisé
+  (E.164), e-mail, nom + code postal et distance de Levenshtein sur le nom
+  (clés `dedupe` estampillées par le trigger des leads, index dédiés). Analyse
+  par lots planifiés (`duplicateScans`, `leadDuplicates`), écran « Doublons
+  potentiels » avec comparaison côte à côte et fusion champ par champ : les
+  notes, activités, transactions, envois, workflows et listes du doublon sont
+  rattachés à la fiche conservée (mutation sous triggers, agrégats et recherche
+  exacts), entrée d'audit `merge`. L'import CSV prévisualise les correspondances
+  hors e-mail et peut mettre à jour la fiche existante.
 - **Historique unifié** : la fiche lead affiche notes, activités, envois et
   événements de campagne, inscriptions aux workflows, changements de statut,
   transactions et modifications de la fiche dans un seul fil chronologique,

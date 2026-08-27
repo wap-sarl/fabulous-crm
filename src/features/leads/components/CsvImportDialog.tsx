@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useConvex } from 'convex/react';
 import { Upload } from 'lucide-react';
 import {
   Dialog,
@@ -21,7 +22,9 @@ import {
   toast,
   cn,
 } from '@crm/design-system';
-import type { Id } from '@crm/lib/backend';
+import { api } from '@crm/lib/backend';
+import type { DuplicateReason, Id } from '@crm/lib/backend';
+import { DUPLICATE_REASON_LABEL } from '../lib/duplicates';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { useLeadActions } from '../hooks/useLeadActions';
@@ -48,6 +51,17 @@ interface CsvImportDialogProps {
 
 const PLACEHOLDER = `Prénom,Nom,E-mail,Téléphone,Secteur
 Jean,Dupont,jean@example.fr,0600000000,Nord`;
+
+/** A CSV row that looks like an existing lead (duplicate preview). */
+interface ImportMatch {
+  index: number;
+  line: number;
+  rowName: string;
+  leadId: Id<'leads'>;
+  leadName: string;
+  leadEmail: string | null;
+  reasons: DuplicateReason[];
+}
 
 // Radix Select forbids an empty string value; use a sentinel for "don't import".
 const IGNORE = '__ignore__';
@@ -81,6 +95,11 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
   const [raw, setRaw] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  // Duplicate preview: rows matching an existing lead by phone / name (not email),
+  // shown once before the import runs; `policy` decides what happens to them.
+  const convex = useConvex();
+  const [pending, setPending] = useState<{ matches: ImportMatch[] } | null>(null);
+  const [policy, setPolicy] = useState<'update' | 'create'>('update');
   const [summary, setSummary] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -98,6 +117,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
   // Refresh the suggested list name each time the dialog is opened.
   useEffect(() => {
     if (open) setNewListName(defaultListName());
+    setPending(null);
   }, [open]);
 
   const targetGroups = useMemo(() => buildImportTargetGroups(customDefs), [customDefs]);
@@ -130,6 +150,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
     }
     const text = await file.text();
     setRaw(text);
+    setPending(null);
     setFileName(file.name);
     setSummary(null);
   };
@@ -258,6 +279,38 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
       return;
     }
 
+    if (!pending) {
+      const found: ImportMatch[] = [];
+      for (let start = 0; start < parsedRows.length; start += IMPORT_CHUNK_SIZE) {
+        const chunk = parsedRows.slice(start, start + IMPORT_CHUNK_SIZE);
+        const matches = await convex.query(api.features.duplicates.queries.findImportMatches, {
+          rows: chunk.map((r) => ({
+            firstName: r.firstName,
+            lastName: r.lastName,
+            email: r.email,
+            phone: r.phone,
+            postalCode: r.address?.postalCode,
+          })),
+        });
+        for (const m of matches) {
+          const index = start + m.index;
+          found.push({
+            ...m,
+            index,
+            line: lineNumbers[index] ?? index + 2,
+            rowName: `${parsedRows[index].firstName} ${parsedRows[index].lastName}`,
+          });
+        }
+      }
+      if (found.length > 0) {
+        setPending({ matches: found });
+        return;
+      }
+    } else if (policy === 'update') {
+      for (const m of pending.matches) parsedRows[m.index].matchLeadId = m.leadId;
+    }
+    setPending(null);
+
     // Resolve the target list once, before the chunk loop, so every chunk adds
     // its leads to the same list.
     let listId: Id<'leadLists'> | undefined;
@@ -377,7 +430,10 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
           <Textarea
             id="csv"
             value={raw}
-            onChange={(e) => setRaw(e.target.value)}
+            onChange={(e) => {
+              setRaw(e.target.value);
+              setPending(null);
+            }}
             rows={hasData ? 4 : 10}
             placeholder={PLACEHOLDER}
             className="font-mono text-xs"
@@ -460,6 +516,36 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
             </div>
           )}
 
+          {pending && (
+            <div className="space-y-2 rounded-md border border-amber-300 bg-amber-50 p-3">
+              <p className="text-sm font-medium text-ink">
+                {pending.matches.length} ligne(s) ressemblent à des leads existants
+              </p>
+              <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-soft">
+                {pending.matches.map((m) => (
+                  <li key={m.index}>
+                    Ligne {m.line} : <span className="font-medium text-ink">{m.rowName}</span> →{' '}
+                    {m.leadName}
+                    {m.leadEmail ? ` (${m.leadEmail})` : ''} ·{' '}
+                    {m.reasons.map((r) => DUPLICATE_REASON_LABEL[r]).join(', ')}
+                  </li>
+                ))}
+              </ul>
+              <Select value={policy} onValueChange={(v) => setPolicy(v as 'update' | 'create')}>
+                <SelectTrigger className="h-9" data-testid="duplicate-policy">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="update">Mettre à jour les leads existants</SelectItem>
+                  <SelectItem value="create">Créer de nouveaux leads malgré tout</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-faint">
+                Les autres lignes sont importées normalement (un e-mail connu met toujours à jour la
+                fiche existante).
+              </p>
+            </div>
+          )}
           {progress && (
             <p className="text-xs text-muted-foreground">
               Import en cours… {progress.done}/{progress.total}
@@ -476,7 +562,7 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
             Fermer
           </Button>
           <Button onClick={handleImport} loading={submitting} disabled={!hasData}>
-            Importer
+            {pending ? 'Confirmer l’import' : 'Importer'}
           </Button>
         </DialogFooter>
       </DialogContent>

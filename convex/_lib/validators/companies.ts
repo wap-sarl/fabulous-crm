@@ -27,7 +27,6 @@ export const companyValidator = v.object({
   // by the Triggers wrapper (_lib/functions.ts) — never written by hand.
   searchText: v.optional(v.string()),
 
-  // Reserved for #32 (custom properties across entities); unused until then.
   customProperties: customPropertiesValidator,
 });
 

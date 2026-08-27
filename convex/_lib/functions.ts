@@ -10,9 +10,19 @@ import { companiesTotal, leadsByCompany } from '../lib/companyAggregates';
 import { companySearchText } from '../lib/companySearch';
 import { dealsByPipelineStatus, dealsByStage } from '../lib/dealAggregates';
 import { leadsByLifecycle, leadsByOwner } from '../lib/leadAggregates';
+import type { LeadDedupe } from './validators/duplicates';
+import { dedupeKeys } from '../lib/duplicates';
 import { leadSearchText } from '../lib/leadSearch';
 
 const triggers = new Triggers<DataModel>();
+
+/** Key-by-key equality of the dedupe objects (key order and unset keys aside). */
+const sameDedupe = (a: LeadDedupe | undefined, b: LeadDedupe): boolean =>
+  a !== undefined &&
+  a.name === b.name &&
+  a.phone === b.phone &&
+  a.block === b.block &&
+  a.postal === b.postal;
 // idempotentTrigger (not trigger): tolerates documents not registered in the
 // aggregate (rows inserted outside the wrapper, e.g. test seeds), so a patch
 // never throws on them.
@@ -23,16 +33,15 @@ triggers.register('companies', companiesTotal.idempotentTrigger());
 triggers.register('deals', dealsByStage.idempotentTrigger());
 triggers.register('deals', dealsByPipelineStatus.idempotentTrigger());
 triggers.register('activities', activitiesByOwner.idempotentTrigger());
-// Keep the denormalized searchText in step with the identity fields (#12).
-// The corrective patch re-fires the triggers once; the values then match and
-// the recursion stops.
 triggers.register('leads', async (ctx, change) => {
   if (change.operation === 'delete') return;
   const company = change.newDoc.companyId ? await ctx.db.get(change.newDoc.companyId) : null;
-  const expected = leadSearchText(change.newDoc, company?.name);
-  if (change.newDoc.searchText !== expected) {
-    await ctx.db.patch(change.id, { searchText: expected });
-  }
+  const searchText = leadSearchText(change.newDoc, company?.name);
+  const dedupe = dedupeKeys(change.newDoc);
+  const patch: { searchText?: string; dedupe?: typeof dedupe } = {};
+  if (change.newDoc.searchText !== searchText) patch.searchText = searchText;
+  if (!sameDedupe(change.newDoc.dedupe, dedupe)) patch.dedupe = dedupe;
+  if (Object.keys(patch).length > 0) await ctx.db.patch(change.id, patch);
 });
 triggers.register('companies', async (ctx, change) => {
   if (change.operation === 'delete') return;

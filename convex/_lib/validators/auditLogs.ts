@@ -21,6 +21,7 @@ export const auditLogActionValidator = v.union(
   v.literal('create'),
   v.literal('update'),
   v.literal('delete'),
+  v.literal('merge'),
 );
 
 export const auditLogValidator = v.object({
