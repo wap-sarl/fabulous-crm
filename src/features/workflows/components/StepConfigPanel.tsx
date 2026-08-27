@@ -15,6 +15,7 @@ import { TriggerConfig, type TriggerFormValue } from './config/TriggerConfig';
 import { EmailStepConfig, SmsStepConfig } from './config/MessageStepConfigs';
 import {
   CreateDealStepConfig,
+  CreateTaskStepConfig,
   DealStageStepConfig,
   LifecycleStepConfig,
   ListStepConfig,
@@ -120,6 +121,8 @@ function NodePanelBody({
           <CreateDealStepConfig value={node} onChange={setNode} />
         ) : node.type === 'update_deal_stage' ? (
           <DealStageStepConfig value={node} onChange={setNode} />
+        ) : node.type === 'create_task' ? (
+          <CreateTaskStepConfig value={node} onChange={setNode} />
         ) : node.type === 'add_to_list' || node.type === 'remove_from_list' ? (
           <ListStepConfig value={node} onChange={setNode} />
         ) : node.type === 'wait' ? (

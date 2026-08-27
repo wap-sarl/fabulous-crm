@@ -34,6 +34,7 @@ import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
 import { DealsPage } from './pages/deals/DealsPage';
 import { DealDetailPage } from './pages/deals/DealDetailPage';
 import { PipelinesPage } from './pages/settings/PipelinesPage';
+import { TasksPage } from './pages/tasks/TasksPage';
 
 function NotFoundPage() {
   const navigate = useNavigate();
@@ -75,6 +76,7 @@ function AppRoutes() {
             <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
             <Route path="/deals" element={<DealsPage />} />
             <Route path="/deals/:dealId" element={<DealDetailPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
             <Route path="/campaigns" element={<CampaignsPage />} />
             <Route path="/campaigns/new" element={<CampaignCreatePage />} />
             <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />

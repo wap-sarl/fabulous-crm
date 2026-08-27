@@ -23,7 +23,8 @@ import type {
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
 import { useLifecycleConfig } from '../../../leads/hooks/useLifecycleConfig';
 import { usePipelines } from '../../../deals/hooks/usePipelines';
-import { CURRENCIES } from '../../../../lib/constants';
+import { ACTIVITY_TYPES, CURRENCIES } from '../../../../lib/constants';
+import { useEmployees } from '../../../../lib/hooks/useEmployees';
 import type { LeadPropertyDefinitionRow } from '../../../leads/types';
 import { WAIT_UNIT_LABEL } from '../../lib/constants';
 
@@ -32,6 +33,7 @@ type ListNode = Extract<WorkflowNode, { type: 'add_to_list' | 'remove_from_list'
 type LifecycleNode = Extract<WorkflowNode, { type: 'set_lifecycle_stage' }>;
 type CreateDealNode = Extract<WorkflowNode, { type: 'create_deal' }>;
 type DealStageNode = Extract<WorkflowNode, { type: 'update_deal_stage' }>;
+type CreateTaskNode = Extract<WorkflowNode, { type: 'create_task' }>;
 type WaitNode = Extract<WorkflowNode, { type: 'wait' }>;
 type WebhookNode = Extract<WorkflowNode, { type: 'webhook' }>;
 
@@ -361,6 +363,101 @@ export function CreateDealStepConfig({
         pipelineHelper="La transaction est créée pour le lead, son entreprise et son responsable."
         stageRequired={false}
       />
+    </div>
+  );
+}
+
+const LEAD_OWNER = '__lead_owner__';
+
+export function CreateTaskStepConfig({
+  value,
+  onChange,
+}: {
+  value: CreateTaskNode;
+  onChange: (next: CreateTaskNode) => void;
+}) {
+  const { employees } = useEmployees();
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="space-y-1.5">
+        <Label>Type</Label>
+        <Select
+          value={value.activityType ?? 'task'}
+          onValueChange={(v) =>
+            onChange({ ...value, activityType: v as CreateTaskNode['activityType'] })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {ACTIVITY_TYPES.filter((t) => t.value !== 'note').map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="wf-task-title">Intitulé</Label>
+        <Input
+          id="wf-task-title"
+          value={value.title}
+          onChange={(e) => onChange({ ...value, title: e.target.value })}
+          placeholder="Rappeler {{ params.firstName }} {{ params.lastName }}"
+        />
+        <HelperText>Les {'{{ params.x }}'} du lead sont remplacés à la création.</HelperText>
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="wf-task-description">Description (optionnel)</Label>
+        <Input
+          id="wf-task-description"
+          value={value.description ?? ''}
+          onChange={(e) => onChange({ ...value, description: e.target.value || undefined })}
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="wf-task-due">Échéance (jours après l’étape)</Label>
+        <Input
+          id="wf-task-due"
+          type="number"
+          min={0}
+          max={365}
+          className="w-32"
+          value={value.dueInDays !== undefined ? String(value.dueInDays) : ''}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              dueInDays: e.target.value === '' ? undefined : Number(e.target.value),
+            })
+          }
+        />
+        <HelperText>0 = le jour même ; vide = tâche sans date.</HelperText>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Propriétaire</Label>
+        <Select
+          value={(value.ownerId as string | undefined) ?? LEAD_OWNER}
+          onValueChange={(v) =>
+            onChange({ ...value, ownerId: v === LEAD_OWNER ? undefined : (v as Id<'users'>) })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={LEAD_OWNER}>
+              Responsable du lead (sinon l’auteur du workflow)
+            </SelectItem>
+            {employees.map((e) => (
+              <SelectItem key={e._id} value={e._id}>
+                {e.firstName} {e.lastName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { ArrowRight, Handshake, Pencil, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { DEAL_STATUS_LABEL, DEAL_STATUS_TONE, formatMoney } from '../../lib/constants';
 import { DealFormDialog } from '../../features/deals/components/DealFormDialog';
+import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { useDealActions } from '../../features/deals/hooks/useDealActions';
 import { dealErrorMessage } from '../../features/deals/lib/errors';
 
@@ -265,6 +266,8 @@ export function DealDetailPage() {
         </div>
 
         <div className="flex flex-col gap-5">
+          <EntityActivitiesCard dealId={deal._id} />
+
           <Card className="p-5">
             <h2 className="mb-3 text-[15px] font-bold text-ink">Historique des stades</h2>
             {history.length === 0 ? (

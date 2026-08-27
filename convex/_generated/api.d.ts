@@ -12,6 +12,7 @@ import type * as _lib_auth from "../_lib/auth.js";
 import type * as _lib_functions from "../_lib/functions.js";
 import type * as _lib_socialProviders from "../_lib/socialProviders.js";
 import type * as _lib_softDelete from "../_lib/softDelete.js";
+import type * as _lib_validators_activities from "../_lib/validators/activities.js";
 import type * as _lib_validators_addressFormats from "../_lib/validators/addressFormats.js";
 import type * as _lib_validators_appConfig from "../_lib/validators/appConfig.js";
 import type * as _lib_validators_auditLogs from "../_lib/validators/auditLogs.js";
@@ -30,6 +31,8 @@ import type * as _lib_validators_users from "../_lib/validators/users.js";
 import type * as _lib_validators_workflows from "../_lib/validators/workflows.js";
 import type * as auth from "../auth.js";
 import type * as auth_emailTemplates from "../auth/emailTemplates.js";
+import type * as features_activities_mutations from "../features/activities/mutations.js";
+import type * as features_activities_queries from "../features/activities/queries.js";
 import type * as features_companies_actions from "../features/companies/actions.js";
 import type * as features_companies_internal from "../features/companies/internal.js";
 import type * as features_companies_mutations from "../features/companies/mutations.js";
@@ -62,6 +65,8 @@ import type * as features_workflows_mutations from "../features/workflows/mutati
 import type * as features_workflows_queries from "../features/workflows/queries.js";
 import type * as features_workflows_triggerDispatch from "../features/workflows/triggerDispatch.js";
 import type * as http from "../http.js";
+import type * as lib_activities from "../lib/activities.js";
+import type * as lib_activityAggregates from "../lib/activityAggregates.js";
 import type * as lib_addresses from "../lib/addresses.js";
 import type * as lib_appUrl from "../lib/appUrl.js";
 import type * as lib_audit from "../lib/audit.js";
@@ -102,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/functions": typeof _lib_functions;
   "_lib/socialProviders": typeof _lib_socialProviders;
   "_lib/softDelete": typeof _lib_softDelete;
+  "_lib/validators/activities": typeof _lib_validators_activities;
   "_lib/validators/addressFormats": typeof _lib_validators_addressFormats;
   "_lib/validators/appConfig": typeof _lib_validators_appConfig;
   "_lib/validators/auditLogs": typeof _lib_validators_auditLogs;
@@ -120,6 +126,8 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/workflows": typeof _lib_validators_workflows;
   auth: typeof auth;
   "auth/emailTemplates": typeof auth_emailTemplates;
+  "features/activities/mutations": typeof features_activities_mutations;
+  "features/activities/queries": typeof features_activities_queries;
   "features/companies/actions": typeof features_companies_actions;
   "features/companies/internal": typeof features_companies_internal;
   "features/companies/mutations": typeof features_companies_mutations;
@@ -152,6 +160,8 @@ declare const fullApi: ApiFromModules<{
   "features/workflows/queries": typeof features_workflows_queries;
   "features/workflows/triggerDispatch": typeof features_workflows_triggerDispatch;
   http: typeof http;
+  "lib/activities": typeof lib_activities;
+  "lib/activityAggregates": typeof lib_activityAggregates;
   "lib/addresses": typeof lib_addresses;
   "lib/appUrl": typeof lib_appUrl;
   "lib/audit": typeof lib_audit;
@@ -217,5 +227,6 @@ export declare const components: {
   leadsByCompany: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"leadsByCompany">;
   dealsByStage: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByStage">;
   dealsByPipelineStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByPipelineStatus">;
+  activitiesByOwner: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"activitiesByOwner">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

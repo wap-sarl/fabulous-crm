@@ -54,6 +54,14 @@ export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
       case 'update_deal_stage':
         if (!node.stageKey) push('choisissez un stade.');
         break;
+      case 'create_task':
+        if (!node.title.trim()) push('l’intitulé est requis.');
+        else if (
+          node.dueInDays !== undefined &&
+          (!Number.isInteger(node.dueInDays) || node.dueInDays < 0 || node.dueInDays > 365)
+        )
+          push('échéance invalide (0 à 365 jours).');
+        break;
       case 'add_to_list':
       case 'remove_from_list':
         if (!node.listId) push('choisissez une liste.');

@@ -5,6 +5,7 @@ import {
   internalMutation as rawInternalMutation,
   mutation as rawMutation,
 } from '../_generated/server';
+import { activitiesByOwner } from '../lib/activityAggregates';
 import { companiesTotal, leadsByCompany } from '../lib/companyAggregates';
 import { companySearchText } from '../lib/companySearch';
 import { dealsByPipelineStatus, dealsByStage } from '../lib/dealAggregates';
@@ -21,6 +22,7 @@ triggers.register('leads', leadsByCompany.idempotentTrigger());
 triggers.register('companies', companiesTotal.idempotentTrigger());
 triggers.register('deals', dealsByStage.idempotentTrigger());
 triggers.register('deals', dealsByPipelineStatus.idempotentTrigger());
+triggers.register('activities', activitiesByOwner.idempotentTrigger());
 // Keep the denormalized searchText in step with the identity fields (#12).
 // The corrective patch re-fires the triggers once; the values then match and
 // the recursion stops.

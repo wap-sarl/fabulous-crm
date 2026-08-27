@@ -26,6 +26,12 @@ export type {
 } from '../../convex/_lib/validators/lifecycle';
 export type { Company } from '../../convex/_lib/validators/companies';
 export type {
+  Activity,
+  ActivityType,
+  ActivityStatus,
+} from '../../convex/_lib/validators/activities';
+export type { ActivityRow } from '../../convex/features/activities/queries';
+export type {
   Deal,
   DealStatus,
   Pipeline,

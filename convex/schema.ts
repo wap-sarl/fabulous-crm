@@ -20,6 +20,7 @@ import {
   dealValidator,
   pipelineValidator,
 } from './_lib/validators/deals';
+import { activityValidator } from './_lib/validators/activities';
 import {
   workflowValidator,
   workflowRunValidator,
@@ -53,6 +54,13 @@ export type { AuditLog, AuditLogEntityType, AuditLogAction } from './_lib/valida
 
 export type { Company } from './_lib/validators/companies';
 export { companyValidator } from './_lib/validators/companies';
+
+export type { Activity, ActivityType, ActivityStatus } from './_lib/validators/activities';
+export {
+  activityValidator,
+  activityTypeValidator,
+  activityStatusValidator,
+} from './_lib/validators/activities';
 
 export type {
   Deal,
@@ -203,6 +211,12 @@ export default defineSchema({
     .index('by_owner', ['ownerId']),
 
   dealStageHistory: defineTable(dealStageHistoryValidator).index('by_deal', ['dealId']),
+
+  activities: defineTable(activityValidator)
+    .index('by_owner_status_dueAt', ['ownerId', 'status', 'dueAt'])
+    .index('by_lead', ['leadId'])
+    .index('by_company', ['companyId'])
+    .index('by_deal', ['dealId']),
 
   // Admin-defined custom property definitions for leads. Small, soft-deletable,
   // ordered table read in full (collect + isNotDeleted + sortByOrder) — no index.

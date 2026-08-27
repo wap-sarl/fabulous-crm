@@ -141,6 +141,18 @@ export const workflowNodeValidator = v.union(
   }),
   v.object({
     ...nodeBase,
+    type: v.literal('create_task'),
+    activityType: v.optional(
+      v.union(v.literal('task'), v.literal('call'), v.literal('meeting'), v.literal('email')),
+    ),
+    title: v.string(),
+    description: v.optional(v.string()),
+    dueInDays: v.optional(v.number()),
+    ownerId: v.optional(v.id('users')),
+    next: v.optional(v.string()),
+  }),
+  v.object({
+    ...nodeBase,
     type: v.literal('add_to_list'),
     // Optional so an unconfigured draft can be saved; required to activate.
     listId: v.optional(v.id('leadLists')),
