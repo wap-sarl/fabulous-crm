@@ -1,22 +1,15 @@
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
-import type { Id, LifecycleChangeSource } from '@crm/lib/backend';
+import type { Id } from '@crm/lib/backend';
 import { Card, Spinner } from '@crm/design-system';
 import { ArrowRight } from 'lucide-react';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
+import { LIFECYCLE_SOURCE_LABEL } from '../lib/lifecycle';
 
 const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
-
-const SOURCE_LABEL: Record<LifecycleChangeSource, string> = {
-  manual: 'Manuel',
-  import: 'Import CSV',
-  workflow: 'Workflow',
-  migration: 'Migration',
-  deal: 'Transaction gagnée',
-};
 
 /** Human-readable duration between two transitions ("3 j", "5 h", "12 min"). */
 function formatDuration(ms: number): string {
@@ -76,7 +69,7 @@ export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardPro
             const actor =
               row.source === 'workflow'
                 ? (row.workflowName ?? 'Workflow')
-                : (row.changedByName ?? SOURCE_LABEL[row.source]);
+                : (row.changedByName ?? LIFECYCLE_SOURCE_LABEL[row.source]);
             return (
               <li key={row._id} className="flex flex-col gap-0.5 py-2 text-sm">
                 <span className="flex items-center gap-1.5 font-medium text-ink">
@@ -94,7 +87,7 @@ export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardPro
                 <span className="text-xs text-faint">
                   {dateTimeFormat.format(row.changedAt)} · {actor}
                   {row.source !== 'workflow' && row.changedByName
-                    ? ` (${SOURCE_LABEL[row.source].toLowerCase()})`
+                    ? ` (${LIFECYCLE_SOURCE_LABEL[row.source].toLowerCase()})`
                     : ''}
                 </span>
               </li>

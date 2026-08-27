@@ -251,10 +251,12 @@ export default defineSchema({
 
   // Append-only delivery/engagement event log (see campaignEventValidator).
   // `by_campaign_eventAt` drives the campaign page's desc-ordered paginated
-  // table; `by_send` the per-recipient timeline (and webhook dedup).
+  // table; `by_send` the per-recipient timeline (and webhook dedup);
+  // `by_lead_eventAt` the lead's unified timeline (windowed on eventAt).
   campaignEvents: defineTable(campaignEventValidator)
     .index('by_campaign_eventAt', ['campaignId', 'eventAt'])
-    .index('by_send', ['sendId']),
+    .index('by_send', ['sendId'])
+    .index('by_lead_eventAt', ['leadId', 'eventAt']),
 
   // Free-text notes attached to a lead (many per lead, pinnable). See crm validators.
   leadNotes: defineTable(leadNoteValidator).index('by_lead', ['leadId']),

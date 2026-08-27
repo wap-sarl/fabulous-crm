@@ -14,10 +14,10 @@ import {
   StatusBadge,
   toast,
 } from '@crm/design-system';
-import { ChevronRight, Link2, Mail, Milestone, Pencil, Phone } from 'lucide-react';
+import { Link2, Milestone, Pencil, Phone } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { formatAddress } from '../../lib/addresses';
-import { CONSENT_CHANNEL_LABEL, SEND_STATUS_LABEL } from '../../lib/constants';
+import { CONSENT_CHANNEL_LABEL } from '../../lib/constants';
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
 import { LeadNotes } from '../../features/leads/components/LeadNotes';
 import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
@@ -26,6 +26,7 @@ import { LeadLifecycleCard } from '../../features/leads/components/LeadLifecycle
 import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { LogCallDialog } from '../../features/activities/components/ActivityDialogs';
+import { LeadTimeline } from '../../features/timeline/components/LeadTimeline';
 import { formatPropertyValue, hasPropertyValue } from '../../features/leads/lib/customProperties';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
@@ -67,7 +68,7 @@ export function LeadDetailPage() {
     return <p className="p-7 text-faint">Lead introuvable.</p>;
   }
 
-  const { lead, assignedToName, company, campaigns } = data;
+  const { lead, assignedToName, company } = data;
   const fullName = `${lead.firstName} ${lead.lastName}`;
 
   const copyConsentLink = async () => {
@@ -162,6 +163,8 @@ export function LeadDetailPage() {
               </p>
             </Card>
           )}
+
+          <LeadTimeline leadId={lead._id} />
         </div>
 
         {/* Aside column */}
@@ -202,39 +205,6 @@ export function LeadDetailPage() {
               <Link2 className="h-4 w-4" />
               Copier le lien de consentement
             </Button>
-          </Card>
-
-          <Card className="p-5">
-            <h2 className="mb-3 text-[15px] font-bold text-ink">Campagnes</h2>
-            {campaigns.length === 0 ? (
-              <p className="text-sm text-faint">Aucune campagne.</p>
-            ) : (
-              <ul className="flex flex-col">
-                {campaigns.map((c) => (
-                  <li key={`${c.campaignId}`}>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/campaigns/${c.campaignId}`)}
-                      className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-[#F7F8FA]"
-                    >
-                      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#EFEBFE] text-[#6A4BF0]">
-                        <Mail className="size-4" />
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[13px] font-semibold text-ink">
-                          {c.name}
-                        </span>
-                        <span className="block truncate text-xs text-faint">
-                          {SEND_STATUS_LABEL[c.sendStatus]}
-                          {c.sentAt ? ` · ${dateFormat.format(c.sentAt)}` : ''}
-                        </span>
-                      </span>
-                      <ChevronRight className="size-4 shrink-0 text-[#C8CCD4]" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
           </Card>
         </div>
       </div>

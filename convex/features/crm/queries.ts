@@ -167,8 +167,8 @@ export const getLead = employeeQuery({
 });
 
 /**
- * Lead detail page payload: the lead, its assignee's display name, and the
- * campaigns it was enrolled in (via campaignSends, most recent first).
+ * Lead detail page payload: the lead, its assignee's display name and its
+ * company. History lives in `features/timeline/queries.listLeadTimeline`.
  */
 export const getLeadDetail = employeeQuery({
   args: { leadId: v.id('leads') },
@@ -183,33 +183,10 @@ export const getLeadDetail = employeeQuery({
         ? { _id: companyDoc._id, name: companyDoc.name, domain: companyDoc.domain ?? null }
         : null;
 
-    const sends = await ctx.db
-      .query('campaignSends')
-      .withIndex('by_lead', (q) => q.eq('leadId', args.leadId))
-      .collect();
-    const campaigns = (
-      await Promise.all(
-        sends.map(async (send) => {
-          const campaign = await ctx.db.get(send.campaignId);
-          if (!campaign || !isNotDeleted(campaign)) return null;
-          return {
-            campaignId: campaign._id,
-            name: campaign.name,
-            campaignStatus: campaign.status,
-            sendStatus: send.status,
-            sentAt: send.sentAt,
-          };
-        }),
-      )
-    )
-      .filter((c) => c !== null)
-      .sort((a, b) => (b.sentAt ?? 0) - (a.sentAt ?? 0));
-
     return {
       lead,
       assignedToName: assignee ? `${assignee.firstName} ${assignee.lastName}` : null,
       company,
-      campaigns,
     };
   },
 });
