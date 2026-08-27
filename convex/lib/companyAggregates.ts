@@ -11,6 +11,17 @@ export const companiesTotal = new TableAggregate<{
   TableName: 'companies';
 }>(components.companiesTotal, { sortKey: aliveness });
 
+/** Company count per primary owner (namespace = ownerIds[0] or null, key = aliveness bit). */
+export const companiesByOwner = new TableAggregate<{
+  Namespace: Id<'users'> | null;
+  Key: 0 | 1;
+  DataModel: DataModel;
+  TableName: 'companies';
+}>(components.companiesByOwner, {
+  namespace: (doc: Doc<'companies'>) => doc.ownerIds[0] ?? null,
+  sortKey: aliveness,
+});
+
 /** Lead count per company (namespace = companyId or null, key = aliveness bit). */
 export const leadsByCompany = new TableAggregate<{
   Namespace: Id<'companies'> | null;
@@ -29,6 +40,14 @@ const LIVE_BOUNDS = {
 
 export async function countLiveCompanies(ctx: QueryCtx): Promise<number> {
   return await companiesTotal.count(ctx, { bounds: LIVE_BOUNDS });
+}
+
+/** Live companies whose primary owner is `owner` (null = unowned). */
+export async function countLiveCompaniesByOwner(
+  ctx: QueryCtx,
+  owner: Id<'users'> | null,
+): Promise<number> {
+  return await companiesByOwner.count(ctx, { namespace: owner, bounds: LIVE_BOUNDS });
 }
 
 /** Live leads attached to `companyId`. */

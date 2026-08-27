@@ -16,6 +16,7 @@ import type { SsoProvider } from './_lib/validators/appConfig';
 import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } from './lib';
 import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
 import { internalQuery, query } from './_generated/server';
+import { resolveRoleAccess } from './lib/roles';
 
 /**
  * Better Auth is the single session authority for this app (social OAuth +
@@ -365,7 +366,7 @@ export const getCurrentUser = query({
       .withIndex('by_authId', (q) => q.eq('authId', authUser._id))
       .first();
     if (!employee || employee.deletedAt) return null;
-    return serializeUser(employee);
+    return serializeUser(employee, await resolveRoleAccess(ctx, employee.role));
   },
 });
 

@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { adminMutation } from '../../_lib/auth';
+import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
 import { ATTACHMENT_MAX_BYTES_CEILING } from '../../_lib/validators/attachments';
 import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
@@ -23,7 +23,7 @@ const hexColorRe = /^#[0-9a-fA-F]{6}$/;
  * screen. The client POSTs the file to the returned URL and receives a
  * `storageId`, which is then passed to `updateConfig`.
  */
-export const generateUploadUrl = adminMutation({
+export const generateUploadUrl = settingsMutation({
   args: {},
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
@@ -80,7 +80,7 @@ const emailConfigInput = v.object({
  * directly; provider secrets are preserved when the input omits them. The audit
  * log records that a change happened but never the secret values themselves.
  */
-export const updateConfig = adminMutation({
+export const updateConfig = settingsMutation({
   args: {
     organizationName: v.optional(v.string()),
     appUrl: v.optional(v.string()),
@@ -226,7 +226,7 @@ export const updateConfig = adminMutation({
   },
 });
 
-export const updateLifecycleConfig = adminMutation({
+export const updateLifecycleConfig = settingsMutation({
   args: {
     stages: v.array(lifecycleStageValidator),
     defaultStage: v.string(),

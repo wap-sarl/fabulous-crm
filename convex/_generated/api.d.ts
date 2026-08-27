@@ -12,6 +12,7 @@ import type * as _lib_auth from "../_lib/auth.js";
 import type * as _lib_functions from "../_lib/functions.js";
 import type * as _lib_socialProviders from "../_lib/socialProviders.js";
 import type * as _lib_softDelete from "../_lib/softDelete.js";
+import type * as _lib_validators_access from "../_lib/validators/access.js";
 import type * as _lib_validators_activities from "../_lib/validators/activities.js";
 import type * as _lib_validators_addressFormats from "../_lib/validators/addressFormats.js";
 import type * as _lib_validators_appConfig from "../_lib/validators/appConfig.js";
@@ -28,6 +29,7 @@ import type * as _lib_validators_invitations from "../_lib/validators/invitation
 import type * as _lib_validators_leadLists from "../_lib/validators/leadLists.js";
 import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js";
 import type * as _lib_validators_properties from "../_lib/validators/properties.js";
+import type * as _lib_validators_roles from "../_lib/validators/roles.js";
 import type * as _lib_validators_shared from "../_lib/validators/shared.js";
 import type * as _lib_validators_teams from "../_lib/validators/teams.js";
 import type * as _lib_validators_timeline from "../_lib/validators/timeline.js";
@@ -66,6 +68,8 @@ import type * as features_invitations_queries from "../features/invitations/quer
 import type * as features_practitionerInfo_actions from "../features/practitionerInfo/actions.js";
 import type * as features_properties_mutations from "../features/properties/mutations.js";
 import type * as features_properties_queries from "../features/properties/queries.js";
+import type * as features_roles_mutations from "../features/roles/mutations.js";
+import type * as features_roles_queries from "../features/roles/queries.js";
 import type * as features_teams_mutations from "../features/teams/mutations.js";
 import type * as features_teams_queries from "../features/teams/queries.js";
 import type * as features_timeline_queries from "../features/timeline/queries.js";
@@ -105,6 +109,7 @@ import type * as lib_lifecycle from "../lib/lifecycle.js";
 import type * as lib_owners from "../lib/owners.js";
 import type * as lib_properties from "../lib/properties.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
+import type * as lib_roles from "../lib/roles.js";
 import type * as lib_smsUtils from "../lib/smsUtils.js";
 import type * as lib_smtpUtils from "../lib/smtpUtils.js";
 import type * as lib_timeConstants from "../lib/timeConstants.js";
@@ -127,6 +132,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/functions": typeof _lib_functions;
   "_lib/socialProviders": typeof _lib_socialProviders;
   "_lib/softDelete": typeof _lib_softDelete;
+  "_lib/validators/access": typeof _lib_validators_access;
   "_lib/validators/activities": typeof _lib_validators_activities;
   "_lib/validators/addressFormats": typeof _lib_validators_addressFormats;
   "_lib/validators/appConfig": typeof _lib_validators_appConfig;
@@ -143,6 +149,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/leadLists": typeof _lib_validators_leadLists;
   "_lib/validators/lifecycle": typeof _lib_validators_lifecycle;
   "_lib/validators/properties": typeof _lib_validators_properties;
+  "_lib/validators/roles": typeof _lib_validators_roles;
   "_lib/validators/shared": typeof _lib_validators_shared;
   "_lib/validators/teams": typeof _lib_validators_teams;
   "_lib/validators/timeline": typeof _lib_validators_timeline;
@@ -181,6 +188,8 @@ declare const fullApi: ApiFromModules<{
   "features/practitionerInfo/actions": typeof features_practitionerInfo_actions;
   "features/properties/mutations": typeof features_properties_mutations;
   "features/properties/queries": typeof features_properties_queries;
+  "features/roles/mutations": typeof features_roles_mutations;
+  "features/roles/queries": typeof features_roles_queries;
   "features/teams/mutations": typeof features_teams_mutations;
   "features/teams/queries": typeof features_teams_queries;
   "features/timeline/queries": typeof features_timeline_queries;
@@ -220,6 +229,7 @@ declare const fullApi: ApiFromModules<{
   "lib/owners": typeof lib_owners;
   "lib/properties": typeof lib_properties;
   "lib/rateLimits": typeof lib_rateLimits;
+  "lib/roles": typeof lib_roles;
   "lib/smsUtils": typeof lib_smsUtils;
   "lib/smtpUtils": typeof lib_smtpUtils;
   "lib/timeConstants": typeof lib_timeConstants;
@@ -268,5 +278,9 @@ export declare const components: {
   dealsByStage: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByStage">;
   dealsByPipelineStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByPipelineStatus">;
   activitiesByOwner: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"activitiesByOwner">;
+  activitiesByTeam: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"activitiesByTeam">;
+  companiesByOwner: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"companiesByOwner">;
+  dealsByOwnerStage: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByOwnerStage">;
+  dealsByOwnerStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByOwnerStatus">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
 };

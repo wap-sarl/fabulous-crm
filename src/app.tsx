@@ -29,6 +29,8 @@ import { EmailPage } from './pages/settings/EmailPage';
 import { PropertiesPage } from './pages/settings/PropertiesPage';
 import { DuplicatesPage } from './pages/leads/DuplicatesPage';
 import { FilesPage } from './pages/settings/FilesPage';
+import { RolesPage } from './pages/settings/RolesPage';
+import { RequireModule } from './features/access/components/RequireModule';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
 import { LifecyclePage } from './pages/settings/LifecyclePage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
@@ -72,21 +74,23 @@ function AppRoutes() {
         <Route element={<ProtectedRoute />}>
           <Route element={<DashboardShell />}>
             <Route path="/" element={<Navigate to="/leads" replace />} />
-            <Route path="/leads" element={<LeadsPage />} />
-            <Route path="/leads/duplicates" element={<DuplicatesPage />} />
-            <Route path="/leads/:leadId" element={<LeadDetailPage />} />
-            <Route path="/companies" element={<CompaniesPage />} />
-            <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
-            <Route path="/deals" element={<DealsPage />} />
-            <Route path="/deals/:dealId" element={<DealDetailPage />} />
-            <Route path="/tasks" element={<TasksPage />} />
-            <Route path="/campaigns" element={<CampaignsPage />} />
-            <Route path="/campaigns/new" element={<CampaignCreatePage />} />
-            <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
-            <Route path="/workflows" element={<WorkflowsPage />} />
-            <Route path="/workflows/new" element={<WorkflowEditorPage />} />
-            <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />
-            <Route path="/workflows/:workflowId/edit" element={<WorkflowEditorPage />} />
+            <Route element={<RequireModule />}>
+              <Route path="/leads" element={<LeadsPage />} />
+              <Route path="/leads/duplicates" element={<DuplicatesPage />} />
+              <Route path="/leads/:leadId" element={<LeadDetailPage />} />
+              <Route path="/companies" element={<CompaniesPage />} />
+              <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
+              <Route path="/deals" element={<DealsPage />} />
+              <Route path="/deals/:dealId" element={<DealDetailPage />} />
+              <Route path="/tasks" element={<TasksPage />} />
+              <Route path="/campaigns" element={<CampaignsPage />} />
+              <Route path="/campaigns/new" element={<CampaignCreatePage />} />
+              <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
+              <Route path="/workflows" element={<WorkflowsPage />} />
+              <Route path="/workflows/new" element={<WorkflowEditorPage />} />
+              <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />
+              <Route path="/workflows/:workflowId/edit" element={<WorkflowEditorPage />} />
+            </Route>
             <Route path="/settings/team" element={<TeamPage />} />
             <Route path="/settings/branding" element={<BrandingPage />} />
             <Route path="/settings/email" element={<EmailPage />} />
@@ -95,6 +99,7 @@ function AppRoutes() {
             <Route path="/settings/lifecycle" element={<LifecyclePage />} />
             <Route path="/settings/pipelines" element={<PipelinesPage />} />
             <Route path="/settings/files" element={<FilesPage />} />
+            <Route path="/settings/roles" element={<RolesPage />} />
             <Route path="/design-system" element={<DesignSystemPage />} />
           </Route>
         </Route>

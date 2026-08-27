@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
-import { employeeMutation } from '../../_lib/auth';
+import { employeeMutation, settingsMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { addressValidator } from '../../schema';
 import {
@@ -27,7 +27,7 @@ import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/trigg
 const STALE_SCAN_MS = 15 * 60 * 1000;
 
 /** Start a batched scan of the whole leads table. One at a time. */
-export const startDuplicateScan = employeeMutation({
+export const startDuplicateScan = settingsMutation({
   args: {},
   handler: async (ctx) => {
     const running = await ctx.db

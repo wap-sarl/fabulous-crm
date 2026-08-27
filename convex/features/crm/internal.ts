@@ -18,6 +18,7 @@ import { internal } from '../../_generated/api';
 import { appOrigin } from '../../lib';
 import { buildSendParams } from './mutations';
 import { loadPropertyDefsById } from '../../lib/properties';
+import { loadVisibility, scopedReader } from '../../lib/visibility';
 import { leadFilterArgs, loadListMemberIdsForLeads, matchesLeadFilters } from './leadTableFilters';
 
 const BATCH_SIZE = 50;
@@ -327,8 +328,9 @@ export const prepareCampaignBatch = internalMutation({
     const consentBase = appOrigin() || 'http://localhost:4202';
     const linkBase = process.env.CONVEX_SITE_URL;
     const lifecycle = await loadLifecycleConfig(ctx);
-
-    const page = await ctx.db
+    const creator = campaign.createdBy ? await ctx.db.get(campaign.createdBy) : null;
+    const leadsDb = creator ? scopedReader(ctx, await loadVisibility(ctx, creator)) : ctx.db;
+    const page = await leadsDb
       .query('leads')
       .paginate({ cursor: args.cursor ?? null, numItems: PREP_BATCH });
 

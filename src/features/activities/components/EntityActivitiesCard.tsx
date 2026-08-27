@@ -90,6 +90,7 @@ export function ActivityListItem({
               ? `${overdue ? 'En retard — ' : ''}${dateTimeFormat.format(activity.dueAt)}`
               : 'Sans date'}
           {activity.ownerName ? ` · ${activity.ownerName}` : ''}
+          {activity.teamName ? ` · Équipe ${activity.teamName}` : ''}
           {links ? ` · ${links}` : ''}
         </span>
         {activity.outcome ? (

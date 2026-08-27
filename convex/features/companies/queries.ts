@@ -10,7 +10,12 @@ import {
 } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
 import { evalFilter } from '../../lib/filterMatching';
-import { countLiveCompanies, countLiveLeadsByCompany } from '../../lib/companyAggregates';
+import {
+  countLiveCompanies,
+  countLiveCompaniesByOwner,
+  countLiveLeadsByCompany,
+} from '../../lib/companyAggregates';
+import { ownerNamespaces } from '../../lib/visibility';
 import { normalizeSearchText } from '../../lib/leadSearch';
 
 /** A list row: the company plus its live contact count (aggregate, O(log n)). */
@@ -83,9 +88,14 @@ export const listCompaniesPaginated = employeeQuery({
 /** Live company count for the list header. */
 export const countCompanies = employeeQuery({
   args: {},
-  handler: async (ctx) => ({
-    total: ctx.visibility.scope === 'all' ? await countLiveCompanies(ctx) : null,
-  }),
+  handler: async (ctx) => {
+    const namespaces = ownerNamespaces(ctx.visibility, 'companies');
+    if (namespaces === 'all') return { total: await countLiveCompanies(ctx) };
+    if (namespaces === 'none') return { total: 0 };
+    let total = 0;
+    for (const owner of namespaces) total += await countLiveCompaniesByOwner(ctx, owner);
+    return { total };
+  },
 });
 
 /**

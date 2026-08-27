@@ -1,4 +1,6 @@
 import { v } from 'convex/values';
+import type { Id } from '../../_generated/dataModel';
+import type { MutationCtx } from '../../_generated/server';
 import { employeeMutation } from '../../_lib/auth';
 import { activityTypeValidator } from '../../_lib/validators/activities';
 import { propertyValueValidator } from '../../_lib/validators/properties';
@@ -11,23 +13,35 @@ const activityFieldArgs = {
   title: v.string(),
   description: v.optional(v.string()),
   dueAt: v.optional(v.number()),
-  ownerId: v.optional(v.id('users')),
+  ownerId: v.optional(v.union(v.id('users'), v.null())),
+  teamId: v.optional(v.id('teams')),
   leadId: v.optional(v.id('leads')),
   companyId: v.optional(v.id('companies')),
   dealId: v.optional(v.id('deals')),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 } as const;
 
+async function requireTeam(ctx: MutationCtx, teamId: Id<'teams'> | undefined) {
+  if (!teamId) return;
+  const team = await ctx.db.get(teamId);
+  if (!team || team.deletedAt !== undefined) throw new Error('team_not_found');
+}
+
 /** Plan an activity (task, meeting, call to make…). Defaults to the caller as owner. */
 export const createActivity = employeeMutation({
   args: activityFieldArgs,
   handler: async (ctx, args) => {
     if (args.ownerId && !(await ctx.db.get(args.ownerId))) throw new Error('invalid_owner');
+    await requireTeam(ctx, args.teamId);
     return await createActivityRecord(
       ctx,
       {
         ...args,
-        ownerId: args.ownerId ?? ctx.userId,
+        // Default owner: the caller — unless the task is handed to a team or explicitly to nobody.
+        ownerId:
+          args.ownerId === null
+            ? undefined
+            : (args.ownerId ?? (args.teamId ? undefined : ctx.userId)),
         customProperties: sanitizeCustomProperties(
           await loadPropertyDefsById(ctx, 'activity'),
           args.customProperties,
@@ -88,7 +102,8 @@ export const updateActivity = employeeMutation({
     title: v.optional(v.string()),
     description: v.optional(v.union(v.string(), v.null())),
     dueAt: v.optional(v.union(v.number(), v.null())),
-    ownerId: v.optional(v.id('users')),
+    ownerId: v.optional(v.union(v.id('users'), v.null())),
+    teamId: v.optional(v.union(v.id('teams'), v.null())),
     leadId: v.optional(v.union(v.id('leads'), v.null())),
     companyId: v.optional(v.union(v.id('companies'), v.null())),
     dealId: v.optional(v.union(v.id('deals'), v.null())),
@@ -100,6 +115,7 @@ export const updateActivity = employeeMutation({
     const activity = await loadActivity(ctx, activityId);
     if (rest.title !== undefined && !rest.title.trim()) throw new Error('activity_title_required');
     if (rest.ownerId && !(await ctx.db.get(rest.ownerId))) throw new Error('invalid_owner');
+    await requireTeam(ctx, rest.teamId ?? undefined);
     await requireActivityLinks(ctx, {
       leadId: rest.leadId ?? undefined,
       companyId: rest.companyId ?? undefined,

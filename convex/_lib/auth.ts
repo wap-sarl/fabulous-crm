@@ -11,7 +11,7 @@ import { authComponent } from '../auth';
 // Trigger-wrapped base so employee/admin mutations keep the lead aggregates in
 // sync on every `leads` write (see _lib/functions.ts).
 import { mutation } from './functions';
-import { loadVisibility, scopedReader, scopedWriter, type Visibility } from '../lib/visibility';
+import { loadVisibility, scopedReader, scopedWriter } from '../lib/visibility';
 
 /**
  * Authentication seam. Better Auth owns the session (see convex/auth.ts); these
@@ -52,7 +52,6 @@ async function requireRole(
 }
 
 const isEmployee = (u: Doc<'users'>) => u.type === 'employee';
-const isAdmin = (u: Doc<'users'>) => u.type === 'employee' && u.role === 'admin';
 
 export const employeeQuery = customQuery(
   query,
@@ -63,14 +62,20 @@ export const employeeQuery = customQuery(
   }),
 );
 
-const ALL: Visibility = { scope: 'all' };
+/** Settings screens: the role's `settings` switch (admin always has it). */
+async function requireSettings(ctx: DbCtx) {
+  const session = await requireRole(ctx, isEmployee, 'employees only');
+  const visibility = await loadVisibility(ctx, session.user);
+  if (!visibility.access.settings) throw new Error('Unauthorized: settings access');
+  return { ...session, visibility };
+}
 
-export const adminQuery = customQuery(
+export const settingsQuery = customQuery(
   query,
-  customCtx(async (ctx) => ({
-    ...(await requireRole(ctx, isAdmin, 'admins only')),
-    visibility: ALL,
-  })),
+  customCtx(async (ctx) => {
+    const session = await requireSettings(ctx);
+    return { ...session, db: scopedReader(ctx, session.visibility) };
+  }),
 );
 
 export const employeeMutation = customMutation(
@@ -82,12 +87,12 @@ export const employeeMutation = customMutation(
   }),
 );
 
-export const adminMutation = customMutation(
+export const settingsMutation = customMutation(
   mutation,
-  customCtx(async (ctx) => ({
-    ...(await requireRole(ctx, isAdmin, 'admins only')),
-    visibility: ALL,
-  })),
+  customCtx(async (ctx) => {
+    const session = await requireSettings(ctx);
+    return { ...session, db: scopedWriter(ctx, session.visibility) };
+  }),
 );
 
 /**

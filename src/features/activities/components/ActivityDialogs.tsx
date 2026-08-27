@@ -28,6 +28,10 @@ import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefini
 import { ACTIVITY_TYPES, CALL_OUTCOMES } from '../../../lib/constants';
 import { activityErrorMessage, useActivityActions } from '../hooks/useActivityActions';
 import { fromDueAt, toDueAt } from '../lib/buckets';
+import { useTeams } from '../../../lib/hooks/useTeams';
+
+/** Owner picker sentinel: an explicit « nobody » (team task, or a free task for anyone). */
+const NOBODY = '__nobody__';
 
 /** The record(s) an activity is attached to. */
 export interface ActivityLinks {
@@ -52,6 +56,7 @@ interface FormState {
   date: string;
   time: string;
   ownerId: string;
+  teamId: string;
   customProperties: Record<string, PropertyValue>;
 }
 
@@ -88,6 +93,7 @@ function ActivityFormBody({
   const isEdit = !!activity;
   const { createActivity, updateActivity } = useActivityActions();
   const { employees } = useEmployees();
+  const { teams } = useTeams();
   const definitions = usePropertyDefinitions('activity');
   const [form, setForm] = useState<FormState>(() => {
     const due = fromDueAt(activity?.dueAt);
@@ -97,7 +103,8 @@ function ActivityFormBody({
       description: activity?.description ?? '',
       date: due.date,
       time: due.time,
-      ownerId: activity?.ownerId ?? '',
+      ownerId: activity ? (activity.ownerId ?? NOBODY) : '',
+      teamId: activity?.teamId ?? '',
       customProperties: { ...(activity?.customProperties ?? {}) },
     };
   });
@@ -120,7 +127,13 @@ function ActivityFormBody({
           title: form.title,
           description: form.description || null,
           dueAt: dueAt ?? null,
-          ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : undefined,
+          ownerId:
+            form.ownerId === NOBODY
+              ? null
+              : form.ownerId
+                ? (form.ownerId as Id<'users'>)
+                : undefined,
+          teamId: form.teamId ? (form.teamId as Id<'teams'>) : null,
           customProperties: form.customProperties,
         });
         toast.success('Activité mise à jour.');
@@ -130,7 +143,13 @@ function ActivityFormBody({
           title: form.title,
           description: form.description || undefined,
           dueAt,
-          ownerId: form.ownerId ? (form.ownerId as Id<'users'>) : undefined,
+          ownerId:
+            form.ownerId === NOBODY
+              ? null
+              : form.ownerId
+                ? (form.ownerId as Id<'users'>)
+                : undefined,
+          teamId: form.teamId ? (form.teamId as Id<'teams'>) : undefined,
           customProperties: form.customProperties,
           ...links,
         });
@@ -170,6 +189,7 @@ function ActivityFormBody({
           <Combobox
             items={[
               { value: '', label: 'Moi' },
+              { value: NOBODY, label: 'Personne' },
               ...employees.map((e) => ({ value: e._id, label: `${e.firstName} ${e.lastName}` })),
             ]}
             value={form.ownerId}
@@ -178,6 +198,21 @@ function ActivityFormBody({
             modal
             className="w-full"
           />
+        </div>
+        <div className="space-y-1 sm:col-span-2">
+          <Label>Équipe</Label>
+          <Combobox
+            items={[
+              { value: '', label: 'Aucune équipe' },
+              ...teams.map((t) => ({ value: t._id, label: t.name })),
+            ]}
+            value={form.teamId}
+            onValueChange={(v) => set('teamId', v)}
+            placeholder="Aucune équipe"
+            modal
+            className="w-full"
+          />
+          <HelperText>Toute l’équipe voit la tâche, avec ou sans propriétaire.</HelperText>
         </div>
         <div className="space-y-1 sm:col-span-2">
           <Label htmlFor="activity-title">Intitulé *</Label>

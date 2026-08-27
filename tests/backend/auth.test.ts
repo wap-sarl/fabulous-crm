@@ -55,7 +55,7 @@ describe('adminQuery / adminMutation', () => {
     const member = await seedEmployee(t, { email: 'member@example.com', role: 'member' });
     await expect(
       asIdentity(t, member.identity).query(api.features.invitations.queries.listInvitations, {}),
-    ).rejects.toThrow('Unauthorized: admins only');
+    ).rejects.toThrow('settings access');
     await expect(
       asIdentity(t, member.identity).mutation(api.features.properties.mutations.createDefinition, {
         entityType: 'lead',
@@ -63,7 +63,7 @@ describe('adminQuery / adminMutation', () => {
         type: 'text',
         showInTable: false,
       }),
-    ).rejects.toThrow('Unauthorized: admins only');
+    ).rejects.toThrow('settings access');
   });
 
   test('accepts an admin on the same routes', async () => {

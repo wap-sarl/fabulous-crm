@@ -20,24 +20,13 @@ import {
 import { Mail, RotateCw, Trash2, UserPlus } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { TeamsSection } from '../../features/teams/components/TeamsSection';
+import { useRoles } from '../../lib/hooks/useRoles';
 
 const INVITE_ERRORS: Record<string, string> = {
   invalid_email: 'Adresse e-mail invalide.',
   already_member: 'Cette personne est déjà membre.',
   already_invited: 'Une invitation est déjà en attente pour cette adresse.',
 };
-
-type Role = 'member' | 'manager' | 'admin';
-
-const ROLE_LABEL: Record<Role, string> = {
-  admin: 'Administrateur',
-  manager: 'Manager',
-  member: 'Membre',
-};
-
-function roleLabel(role: string): string {
-  return ROLE_LABEL[role as Role] ?? 'Membre';
-}
 
 function TeamManager() {
   const employees = useQuery(api.features.users.queries.listEmployees, {});
@@ -47,9 +36,10 @@ function TeamManager() {
   const resendInvitation = useMutation(api.features.invitations.mutations.resendInvitation);
   const setEmployeeRole = useMutation(api.features.users.mutations.setEmployeeRole);
   const { user: me } = useAuth();
+  const { roles, labelOf: roleLabel } = useRoles();
 
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<Role>('member');
+  const [role, setRole] = useState<string>('member');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -129,14 +119,16 @@ function TeamManager() {
           </div>
           <div className="space-y-2 sm:w-48">
             <Label className="text-[12.5px] font-semibold text-soft">Rôle</Label>
-            <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+            <Select value={role} onValueChange={setRole}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="member">Membre</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="admin">Administrateur</SelectItem>
+                {roles.map((r) => (
+                  <SelectItem key={r.key} value={r.key}>
+                    {r.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -220,7 +212,7 @@ function TeamManager() {
                     value={member.role ?? 'member'}
                     onValueChange={async (v) => {
                       try {
-                        await setEmployeeRole({ userId: member._id, role: v as Role });
+                        await setEmployeeRole({ userId: member._id, role: v });
                       } catch {
                         setError('Le changement de rôle a échoué.');
                       }
@@ -230,9 +222,9 @@ function TeamManager() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {ROLE_LABEL[r]}
+                      {roles.map((r) => (
+                        <SelectItem key={r.key} value={r.key}>
+                          {r.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -258,7 +250,7 @@ export function TeamPage() {
     <div className="mx-auto w-full max-w-3xl px-6 py-8">
       <PageHeader title="Équipe" subtitle="Gérez les membres et les invitations" />
       <div className="mt-6">
-        {user?.role === 'admin' ? (
+        {user?.access.settings ? (
           <TeamManager />
         ) : (
           <p className="text-sm text-soft">Cette page est réservée aux administrateurs.</p>

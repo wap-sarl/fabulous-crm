@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
-import { adminMutation, employeeMutation } from '../../_lib/auth';
+import { settingsMutation, employeeMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { cleanOwnerIds } from '../../lib/owners';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
@@ -39,7 +39,7 @@ export const ensureDefaultPipeline = employeeMutation({
   handler: async (ctx) => await ensureDefault(ctx, ctx.userId),
 });
 
-export const createPipeline = adminMutation({
+export const createPipeline = settingsMutation({
   args: {
     name: v.string(),
     stages: v.array(pipelineStageValidator),
@@ -73,7 +73,7 @@ export const createPipeline = adminMutation({
   },
 });
 
-export const updatePipeline = adminMutation({
+export const updatePipeline = settingsMutation({
   args: {
     pipelineId: v.id('pipelines'),
     name: v.optional(v.string()),
@@ -125,7 +125,7 @@ export const updatePipeline = adminMutation({
 });
 
 /** Soft-delete an empty pipeline (no live deal in any status). */
-export const deletePipeline = adminMutation({
+export const deletePipeline = settingsMutation({
   args: { pipelineId: v.id('pipelines') },
   handler: async (ctx, args) => {
     const pipeline = await loadPipeline(ctx, args.pipelineId);

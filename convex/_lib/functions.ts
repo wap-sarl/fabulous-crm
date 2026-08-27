@@ -5,10 +5,15 @@ import {
   internalMutation as rawInternalMutation,
   mutation as rawMutation,
 } from '../_generated/server';
-import { activitiesByOwner } from '../lib/activityAggregates';
-import { companiesTotal, leadsByCompany } from '../lib/companyAggregates';
+import { activitiesByOwner, activitiesByTeam } from '../lib/activityAggregates';
+import { companiesByOwner, companiesTotal, leadsByCompany } from '../lib/companyAggregates';
 import { companySearchText } from '../lib/companySearch';
-import { dealsByPipelineStatus, dealsByStage } from '../lib/dealAggregates';
+import {
+  dealsByOwnerStage,
+  dealsByOwnerStatus,
+  dealsByPipelineStatus,
+  dealsByStage,
+} from '../lib/dealAggregates';
 import { leadsByLifecycle, leadsByOwner } from '../lib/leadAggregates';
 import type { LeadDedupe } from './validators/duplicates';
 import { dedupeKeys } from '../lib/duplicates';
@@ -33,6 +38,10 @@ triggers.register('companies', companiesTotal.idempotentTrigger());
 triggers.register('deals', dealsByStage.idempotentTrigger());
 triggers.register('deals', dealsByPipelineStatus.idempotentTrigger());
 triggers.register('activities', activitiesByOwner.idempotentTrigger());
+triggers.register('activities', activitiesByTeam.idempotentTrigger());
+triggers.register('companies', companiesByOwner.idempotentTrigger());
+triggers.register('deals', dealsByOwnerStage.idempotentTrigger());
+triggers.register('deals', dealsByOwnerStatus.idempotentTrigger());
 triggers.register('leads', async (ctx, change) => {
   if (change.operation === 'delete') return;
   const company = change.newDoc.companyId ? await ctx.db.get(change.newDoc.companyId) : null;

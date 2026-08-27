@@ -12,11 +12,7 @@ export const invitationStatusValidator = v.union(
   v.literal('revoked'),
 );
 
-export const invitationRoleValidator = v.union(
-  v.literal('admin'),
-  v.literal('manager'),
-  v.literal('member'),
-);
+export const invitationRoleValidator = v.string();
 
 export const invitationValidator = v.object({
   email: v.string(), // stored lowercased/trimmed; matched against the verified provider email

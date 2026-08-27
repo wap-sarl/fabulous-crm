@@ -574,7 +574,7 @@ export function PropertiesPage() {
           value={entityType}
           onChange={(v) => setSearchParams(v === 'lead' ? {} : { entity: v }, { replace: true })}
         />
-        {user?.role === 'admin' ? (
+        {user?.access.settings ? (
           <PropertiesManager entityType={entityType} />
         ) : (
           <p className="text-sm text-soft">Cette page est réservée aux administrateurs.</p>

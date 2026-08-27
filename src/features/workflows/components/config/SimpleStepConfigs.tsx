@@ -25,6 +25,7 @@ import { useLifecycleConfig } from '../../../leads/hooks/useLifecycleConfig';
 import { usePipelines } from '../../../deals/hooks/usePipelines';
 import { ACTIVITY_TYPES, CURRENCIES } from '../../../../lib/constants';
 import { useEmployees } from '../../../../lib/hooks/useEmployees';
+import { useTeams } from '../../../../lib/hooks/useTeams';
 import type { PropertyDefinitionRow } from '../../../properties/types';
 import { WAIT_UNIT_LABEL } from '../../lib/constants';
 
@@ -368,6 +369,7 @@ export function CreateDealStepConfig({
 }
 
 const LEAD_OWNER = '__lead_owner__';
+const NO_TEAM = '__no_team__';
 
 export function CreateTaskStepConfig({
   value,
@@ -377,6 +379,7 @@ export function CreateTaskStepConfig({
   onChange: (next: CreateTaskNode) => void;
 }) {
   const { employees } = useEmployees();
+  const { teams } = useTeams();
   return (
     <div className="flex flex-col gap-4">
       <div className="space-y-1.5">
@@ -457,6 +460,28 @@ export function CreateTaskStepConfig({
             ))}
           </SelectContent>
         </Select>
+      </div>
+      <div className="space-y-1.5">
+        <Label>Équipe</Label>
+        <Select
+          value={(value.teamId as string | undefined) ?? NO_TEAM}
+          onValueChange={(v) =>
+            onChange({ ...value, teamId: v === NO_TEAM ? undefined : (v as Id<'teams'>) })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NO_TEAM}>Aucune équipe</SelectItem>
+            {teams.map((t) => (
+              <SelectItem key={t._id} value={t._id}>
+                {t.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <HelperText>Une tâche confiée à une équipe est visible par tous ses membres.</HelperText>
       </div>
     </div>
   );
