@@ -23,6 +23,7 @@ import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfi
 import { countryName } from '../../lib/countries';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
+import { EntityAttachmentsCard } from '../../features/attachments/components/EntityAttachmentsCard';
 import { useCompanyActions } from '../../features/companies/hooks/useCompanyActions';
 import { companyErrorMessage } from '../../features/companies/lib/errors';
 import { CustomPropertyRows } from '../../features/properties/components/CustomPropertyRows';
@@ -228,6 +229,8 @@ export function CompanyDetailPage() {
 
         <div className="flex flex-col gap-5">
           <EntityActivitiesCard companyId={company._id} />
+
+          <EntityAttachmentsCard entityType="company" entityId={company._id} />
 
           <Card className="p-5">
             <h2 className="mb-3 flex items-center gap-2 text-[15px] font-bold text-ink">

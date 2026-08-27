@@ -27,6 +27,7 @@ import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { LogCallDialog } from '../../features/activities/components/ActivityDialogs';
 import { LeadTimeline } from '../../features/timeline/components/LeadTimeline';
+import { EntityAttachmentsCard } from '../../features/attachments/components/EntityAttachmentsCard';
 import {
   formatPropertyValue,
   hasPropertyValue,
@@ -179,6 +180,8 @@ export function LeadDetailPage() {
           <EntityDealsCard leadId={lead._id} leadName={fullName} />
 
           <LeadNotes leadId={lead._id} />
+
+          <EntityAttachmentsCard entityType="lead" entityId={lead._id} />
 
           <Card className="p-5">
             <h2 className="mb-2 text-[15px] font-bold text-ink">Consentement marketing</h2>

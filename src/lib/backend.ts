@@ -40,6 +40,12 @@ export type {
   DuplicateScan,
 } from '../../convex/_lib/validators/duplicates';
 export type { DuplicateLeadSummary } from '../../convex/features/duplicates/queries';
+export type { Attachment, AttachmentEntityType } from '../../convex/_lib/validators/attachments';
+export {
+  ATTACHMENT_MAX_BYTES_CEILING,
+  DEFAULT_ATTACHMENT_MAX_BYTES,
+} from '../../convex/_lib/validators/attachments';
+export type { AttachmentRow } from '../../convex/features/attachments/queries';
 export type {
   Deal,
   DealStatus,

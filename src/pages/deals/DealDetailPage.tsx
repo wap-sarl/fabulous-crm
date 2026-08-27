@@ -27,6 +27,7 @@ import { usePageTitle } from '../../layouts/DashboardShell';
 import { DEAL_STATUS_LABEL, DEAL_STATUS_TONE, formatMoney } from '../../lib/constants';
 import { DealFormDialog } from '../../features/deals/components/DealFormDialog';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
+import { EntityAttachmentsCard } from '../../features/attachments/components/EntityAttachmentsCard';
 import { useDealActions } from '../../features/deals/hooks/useDealActions';
 import { dealErrorMessage } from '../../features/deals/lib/errors';
 import { CustomPropertyRows } from '../../features/properties/components/CustomPropertyRows';
@@ -271,6 +272,8 @@ export function DealDetailPage() {
 
         <div className="flex flex-col gap-5">
           <EntityActivitiesCard dealId={deal._id} />
+
+          <EntityAttachmentsCard entityType="deal" entityId={deal._id} />
 
           <Card className="p-5">
             <h2 className="mb-3 text-[15px] font-bold text-ink">Historique des stades</h2>

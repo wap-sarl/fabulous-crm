@@ -1,4 +1,5 @@
 import { type Infer, v } from 'convex/values';
+import { attachmentsConfigValidator } from './attachments';
 import { lifecycleConfigValidator } from './lifecycle';
 
 /**
@@ -106,6 +107,7 @@ export const appConfigValidator = v.object({
   // readers fall back to env vars when absent (see emailConfigValidator).
   email: v.optional(emailConfigValidator),
   lifecycle: v.optional(lifecycleConfigValidator),
+  attachments: v.optional(attachmentsConfigValidator),
   updatedAt: v.number(),
   updatedBy: v.optional(v.id('users')),
 });
