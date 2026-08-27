@@ -10,11 +10,11 @@ import {
   isNotDeleted,
   logAudit,
 } from '../../lib';
-import { advancedFilterValidator } from '../../_lib/validators/leadFilters';
+import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { workflowNodeValidator, workflowTriggerValidator } from '../../_lib/validators/workflows';
-import { evalAdvancedFilter } from '../crm/leadMatching';
 import { lightValidateGraph, validateWorkflowGraph } from './lib';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
+import { loadPropertyDefinitions } from '../../lib/properties';
 import { enrollLead } from './triggerDispatch';
 
 /**
@@ -36,7 +36,7 @@ async function getExistingWorkflow(
 
 const structuralArgs = {
   trigger: workflowTriggerValidator,
-  enrollmentCriteria: v.optional(advancedFilterValidator),
+  enrollmentCriteria: v.optional(leadAdvancedFilterValidator),
   allowReEnrollment: v.boolean(),
   nodes: v.array(workflowNodeValidator),
   startNodeId: v.optional(v.string()),
@@ -150,7 +150,7 @@ export const setWorkflowStatus = employeeMutation({
     if (workflow.status === args.status) return;
 
     if (args.status === 'active') {
-      const defs = (await ctx.db.query('leadPropertyDefinitions').collect()).filter(isNotDeleted);
+      const defs = await loadPropertyDefinitions(ctx, 'lead');
       const defsById = new Map(defs.map((d) => [d._id as string, d]));
       const lists = await ctx.db.query('leadLists').collect();
       const listIds = new Set<string>(lists.map((l) => l._id as string));

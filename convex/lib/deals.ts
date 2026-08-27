@@ -1,4 +1,5 @@
 import type { Doc, Id } from '../_generated/dataModel';
+import type { PropertyValue } from '../_lib/validators/properties';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import {
   DEFAULT_CURRENCY,
@@ -127,6 +128,7 @@ export type NewDeal = {
   ownerId?: Id<'users'>;
   leadId?: Id<'leads'>;
   sourceCampaignId?: Id<'campaigns'>;
+  customProperties?: Record<string, PropertyValue>;
 };
 
 /**
@@ -160,6 +162,7 @@ export async function createDealRecord(
     ownerId: data.ownerId,
     leadId: data.leadId,
     sourceCampaignId: data.sourceCampaignId,
+    customProperties: data.customProperties,
     updatedAt: now,
     createdBy: meta.changedBy,
     updatedBy: meta.changedBy,

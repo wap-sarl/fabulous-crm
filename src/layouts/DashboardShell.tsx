@@ -29,7 +29,7 @@ const BRANDING_NAV_ITEM: NavItem = {
 const PROPERTIES_NAV_ITEM: NavItem = {
   label: 'Propriétés',
   icon: <SlidersHorizontal />,
-  path: '/settings/lead-properties',
+  path: '/settings/properties',
   position: 'bottom',
 };
 

@@ -9,7 +9,7 @@ import {
   campaignEventValidator,
   leadNoteValidator,
 } from './_lib/validators/crm';
-import { leadPropertyDefinitionValidator } from './_lib/validators/leadProperties';
+import { propertyDefinitionValidator } from './_lib/validators/properties';
 import { leadListValidator, leadListMemberValidator } from './_lib/validators/leadLists';
 import { appConfigValidator } from './_lib/validators/appConfig';
 import { invitationValidator } from './_lib/validators/invitations';
@@ -147,23 +147,27 @@ export {
 } from './_lib/validators/workflows';
 
 export type {
-  LeadPropertyType,
-  LeadPropertyOption,
-  LeadPropertyValue,
-  LeadPropertyValidation,
-  LeadPropertyDefinition,
-} from './_lib/validators/leadProperties';
+  PropertyEntityType,
+  PropertyType,
+  PropertyOption,
+  PropertyValue,
+  PropertyValidation,
+  PropertyDefinition,
+} from './_lib/validators/properties';
 export {
-  leadPropertyTypeValidator,
-  leadPropertyOptionValidator,
-  leadPropertyValueValidator,
-  leadPropertyValidationValidator,
-  leadPropertyDefinitionValidator,
-  validateLeadPropertyValue,
+  propertyTypeValidator,
+  propertyOptionValidator,
+  propertyValueValidator,
+  propertyValidationValidator,
+  propertyDefinitionValidator,
+  PROPERTY_ENTITY_TYPES,
+  propertyEntityTypeValidator,
+  customPropertiesValidator,
+  validatePropertyValue,
   customPropertyParamKey,
-  formatLeadPropertyParamValue,
+  formatPropertyParamValue,
   OPTION_BASED_TYPES,
-} from './_lib/validators/leadProperties';
+} from './_lib/validators/properties';
 
 export default defineSchema({
   // Sessions/accounts/verification live inside the Better Auth component
@@ -218,9 +222,9 @@ export default defineSchema({
     .index('by_company', ['companyId'])
     .index('by_deal', ['dealId']),
 
-  // Admin-defined custom property definitions for leads. Small, soft-deletable,
-  // ordered table read in full (collect + isNotDeleted + sortByOrder) — no index.
-  leadPropertyDefinitions: defineTable(leadPropertyDefinitionValidator),
+  propertyDefinitions: defineTable(propertyDefinitionValidator).index('by_entityType', [
+    'entityType',
+  ]),
 
   // Named lead groupings (typically CSV imports). Few rows, read in full.
   leadLists: defineTable(leadListValidator),

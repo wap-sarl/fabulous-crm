@@ -7,9 +7,9 @@ import type {
 } from '../../_lib/validators/workflows';
 import {
   isActiveRule,
-  type AdvancedFilter,
+  type LeadAdvancedFilter,
   type FilterField,
-} from '../../_lib/validators/leadFilters';
+} from '../../_lib/validators/filters';
 import { validateLeadTargetValue } from '../crm/leadTargets';
 
 /**
@@ -41,7 +41,7 @@ export function nodeChildIds(node: WorkflowNode): string[] {
   return node.next !== undefined ? [node.next] : [];
 }
 
-const countActiveRules = (filter: AdvancedFilter) =>
+const countActiveRules = (filter: LeadAdvancedFilter) =>
   filter.groups.reduce((n, g) => n + g.rules.filter(isActiveRule).length, 0);
 
 /**
@@ -92,7 +92,7 @@ const NODE_TYPE_LABELS: Record<WorkflowNode['type'], string> = {
 export function validateWorkflowGraph(
   nodes: WorkflowNode[],
   startNodeId: string | undefined,
-  defsById: Map<string, Doc<'leadPropertyDefinitions'>>,
+  defsById: Map<string, Doc<'propertyDefinitions'>>,
   listIds: Set<string>,
   lifecycleStageKeys: Set<string>,
   pipelines: Map<string, Doc<'pipelines'>>,

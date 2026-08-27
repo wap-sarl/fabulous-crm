@@ -1,16 +1,7 @@
-import { type Infer, v } from 'convex/values';
+import { type Infer, v, type Validator } from 'convex/values';
 
-/**
- * The advanced-filter model for the leads list. A two-level boolean tree:
- * an {@link AdvancedFilter} combines its {@link FilterGroup}s with AND/OR, and
- * each group combines its {@link FilterRule}s with AND/OR. Each rule targets a
- * standard lead column or a custom-property definition with a type-aware
- * operator. Shared verbatim by the Convex query args (server-side matching) and
- * the frontend builder UI, so there is a single source of truth for the shape.
- */
-
-/** Standard (built-in) lead columns that can be filtered in the builder. */
-export const standardFieldValidator = v.union(
+/** Built-in lead columns that can be filtered in the builder. */
+export const leadStandardFieldValidator = v.union(
   v.literal('firstName'),
   v.literal('lastName'),
   v.literal('email'),
@@ -22,10 +13,25 @@ export const standardFieldValidator = v.union(
   v.literal('marketingConsent'),
 );
 
-/** A rule's target: either a standard column or a custom-property definition. */
-export const filterFieldValidator = v.union(
-  v.object({ kind: v.literal('standard'), field: standardFieldValidator }),
-  v.object({ kind: v.literal('custom'), definitionId: v.string() }),
+/** Built-in company columns that can be filtered in the builder. */
+export const companyStandardFieldValidator = v.union(
+  v.literal('name'),
+  v.literal('domain'),
+  v.literal('country'),
+  v.literal('website'),
+  v.literal('sector'),
+  v.literal('headcount'),
+);
+
+/** Built-in deal columns that can be filtered in the builder. */
+export const dealStandardFieldValidator = v.union(
+  v.literal('title'),
+  v.literal('amount'),
+  v.literal('currency'),
+  v.literal('status'),
+  v.literal('stageKey'),
+  v.literal('ownerId'),
+  v.literal('expectedCloseDate'),
 );
 
 /**
@@ -62,38 +68,79 @@ export const filterRuleValueValidator = v.union(
   filterRangeValidator,
 );
 
-export const filterRuleValidator = v.object({
-  field: filterFieldValidator,
-  operator: filterOperatorValidator,
-  value: v.optional(filterRuleValueValidator),
-});
-
 export const filterCombinatorValidator = v.union(v.literal('and'), v.literal('or'));
 
-export const filterGroupValidator = v.object({
-  combinator: filterCombinatorValidator,
-  rules: v.array(filterRuleValidator),
-});
+/** The rule/group/filter validators for one entity's standard-field union. */
+export function advancedFilterValidators<F extends Validator<string, 'required', never>>(
+  standardField: F,
+) {
+  const filterField = v.union(
+    v.object({ kind: v.literal('standard'), field: standardField }),
+    v.object({ kind: v.literal('custom'), definitionId: v.string() }),
+  );
+  const filterRule = v.object({
+    field: filterField,
+    operator: filterOperatorValidator,
+    value: v.optional(filterRuleValueValidator),
+  });
+  const filterGroup = v.object({
+    combinator: filterCombinatorValidator,
+    rules: v.array(filterRule),
+  });
+  const advancedFilter = v.object({
+    combinator: filterCombinatorValidator,
+    groups: v.array(filterGroup),
+  });
+  return { filterField, filterRule, filterGroup, advancedFilter };
+}
 
-export const advancedFilterValidator = v.object({
-  combinator: filterCombinatorValidator,
-  groups: v.array(filterGroupValidator),
-});
+export const leadFilterValidators = advancedFilterValidators(leadStandardFieldValidator);
+export const companyFilterValidators = advancedFilterValidators(companyStandardFieldValidator);
+export const dealFilterValidators = advancedFilterValidators(dealStandardFieldValidator);
 
-export type StandardField = Infer<typeof standardFieldValidator>;
-export type FilterField = Infer<typeof filterFieldValidator>;
+export const leadAdvancedFilterValidator = leadFilterValidators.advancedFilter;
+export const companyAdvancedFilterValidator = companyFilterValidators.advancedFilter;
+export const dealAdvancedFilterValidator = dealFilterValidators.advancedFilter;
+
+export type LeadStandardField = Infer<typeof leadStandardFieldValidator>;
+export type CompanyStandardField = Infer<typeof companyStandardFieldValidator>;
+export type DealStandardField = Infer<typeof dealStandardFieldValidator>;
 export type FilterOperator = Infer<typeof filterOperatorValidator>;
 export type FilterRange = Infer<typeof filterRangeValidator>;
 export type FilterRuleValue = Infer<typeof filterRuleValueValidator>;
-export type FilterRule = Infer<typeof filterRuleValidator>;
 export type FilterCombinator = Infer<typeof filterCombinatorValidator>;
-export type FilterGroup = Infer<typeof filterGroupValidator>;
-export type AdvancedFilter = Infer<typeof advancedFilterValidator>;
+
+/** A rule's target: either a standard column or a custom-property definition. */
+export type FilterField<F extends string = string> =
+  | { kind: 'standard'; field: F }
+  | { kind: 'custom'; definitionId: string };
+
+export interface FilterRule<F extends string = string> {
+  field: FilterField<F>;
+  operator: FilterOperator;
+  value?: FilterRuleValue;
+}
+
+export interface FilterGroup<F extends string = string> {
+  combinator: FilterCombinator;
+  rules: FilterRule<F>[];
+}
+
+export interface AdvancedFilter<F extends string = string> {
+  combinator: FilterCombinator;
+  groups: FilterGroup<F>[];
+}
+
+export type LeadAdvancedFilter = AdvancedFilter<LeadStandardField>;
+export type CompanyAdvancedFilter = AdvancedFilter<CompanyStandardField>;
+export type DealAdvancedFilter = AdvancedFilter<DealStandardField>;
 
 /**
  * Unified "type" a rule's field resolves to, spanning custom-property types and
  * the special standard fields (`lifecycle`, `assignee`). Drives which operators and
- * which value input the builder shows. `select` covers both select and radio.
+ * which value input the builder shows. `select` covers both select and radio,
+ * and every standard field whose values come from a fixed list (deal status,
+ * pipeline stage, country…).
  */
 export type FilterFieldType =
   | 'text'
@@ -133,13 +180,6 @@ export function operatorsForType(type: FilterFieldType): FilterOperator[] {
   }
 }
 
-/**
- * Whether a rule is "complete" enough to affect matching. Incomplete rules
- * (operator that needs a value but has none) are ignored during evaluation so a
- * half-built builder never hides every row, and are excluded from the active
- * count shown in the UI. `isEmpty`/`isNotEmpty` need no value and are always
- * active. Pure & shared by the server matcher and the UI counter.
- */
 export function isActiveRule(rule: FilterRule): boolean {
   switch (rule.operator) {
     case 'isEmpty':

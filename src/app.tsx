@@ -26,7 +26,7 @@ import { SetupWizardPage } from './pages/setup/SetupWizardPage';
 import { TeamPage } from './pages/settings/TeamPage';
 import { BrandingPage } from './pages/settings/BrandingPage';
 import { EmailPage } from './pages/settings/EmailPage';
-import { LeadPropertiesPage } from './pages/settings/LeadPropertiesPage';
+import { PropertiesPage } from './pages/settings/PropertiesPage';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
 import { LifecyclePage } from './pages/settings/LifecyclePage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
@@ -87,7 +87,7 @@ function AppRoutes() {
             <Route path="/settings/team" element={<TeamPage />} />
             <Route path="/settings/branding" element={<BrandingPage />} />
             <Route path="/settings/email" element={<EmailPage />} />
-            <Route path="/settings/lead-properties" element={<LeadPropertiesPage />} />
+            <Route path="/settings/properties" element={<PropertiesPage />} />
             <Route path="/settings/lists" element={<LeadListsPage />} />
             <Route path="/settings/lifecycle" element={<LifecyclePage />} />
             <Route path="/settings/pipelines" element={<PipelinesPage />} />

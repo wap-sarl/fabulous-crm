@@ -1,7 +1,7 @@
 import { useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import type { AdvancedFilter, Id } from '@crm/lib/backend';
-import { parseAdvancedFilter, serializeAdvancedFilter } from '../lib/advancedFilter';
+import type { LeadAdvancedFilter, Id } from '@crm/lib/backend';
+import { parseAdvancedFilter, serializeAdvancedFilter } from '../../filters/lib/advancedFilter';
 
 export type LeadSortField = 'recent' | 'lastName' | 'lifecycleStage';
 export type SortDirection = 'asc' | 'desc';
@@ -25,7 +25,7 @@ export interface LeadFilters {
    */
   customProperties: Record<string, (string | boolean)[]>;
   /** Advanced group-based filter (JSON-serialized in the `af` URL param). */
-  advancedFilter: AdvancedFilter | undefined;
+  advancedFilter: LeadAdvancedFilter | undefined;
   sortField: LeadSortField;
   sortDirection: SortDirection;
 }
@@ -99,7 +99,7 @@ export function useLeadFilters() {
   );
 
   const setAdvancedFilter = useCallback(
-    (next: AdvancedFilter | undefined) => {
+    (next: LeadAdvancedFilter | undefined) => {
       const serialized = serializeAdvancedFilter(next);
       setSearchParams(
         (prev) => {

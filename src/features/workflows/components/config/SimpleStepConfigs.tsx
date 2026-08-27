@@ -14,7 +14,7 @@ import {
 } from '@crm/design-system';
 import type {
   Id,
-  LeadPropertyValue,
+  PropertyValue,
   TrackedLinkStandardField,
   WorkflowLeadTarget,
   WorkflowNode,
@@ -25,7 +25,7 @@ import { useLifecycleConfig } from '../../../leads/hooks/useLifecycleConfig';
 import { usePipelines } from '../../../deals/hooks/usePipelines';
 import { ACTIVITY_TYPES, CURRENCIES } from '../../../../lib/constants';
 import { useEmployees } from '../../../../lib/hooks/useEmployees';
-import type { LeadPropertyDefinitionRow } from '../../../leads/types';
+import type { PropertyDefinitionRow } from '../../../properties/types';
 import { WAIT_UNIT_LABEL } from '../../lib/constants';
 
 type PropertyNode = Extract<WorkflowNode, { type: 'update_property' }>;
@@ -53,7 +53,7 @@ const encodeTarget = (t: WorkflowLeadTarget) =>
 interface PropertyStepConfigProps {
   value: PropertyNode;
   onChange: (next: PropertyNode) => void;
-  definitions: LeadPropertyDefinitionRow[];
+  definitions: PropertyDefinitionRow[];
 }
 
 export function PropertyStepConfig({ value, onChange, definitions }: PropertyStepConfigProps) {
@@ -67,10 +67,10 @@ export function PropertyStepConfig({ value, onChange, definitions }: PropertySte
 
   const handleTargetChange = (key: string) => {
     const target: WorkflowLeadTarget = key.startsWith('cp:')
-      ? { kind: 'custom', propertyDefId: key.slice(3) as Id<'leadPropertyDefinitions'> }
+      ? { kind: 'custom', propertyDefId: key.slice(3) as Id<'propertyDefinitions'> }
       : { kind: 'standard', field: key.slice(4) as TrackedLinkStandardField };
     // Reset the value to a type-appropriate default when the target changes.
-    const defaultValue: LeadPropertyValue =
+    const defaultValue: PropertyValue =
       target.kind === 'standard' && target.field === 'isRedFlagged' ? true : '';
     onChange({ ...value, target, value: defaultValue });
   };
@@ -108,9 +108,9 @@ function PropertyValueInput({
   onChange,
 }: {
   target: WorkflowLeadTarget;
-  value: LeadPropertyValue;
-  definitions: LeadPropertyDefinitionRow[];
-  onChange: (v: LeadPropertyValue) => void;
+  value: PropertyValue;
+  definitions: PropertyDefinitionRow[];
+  onChange: (v: PropertyValue) => void;
 }) {
   const def =
     target.kind === 'custom' ? definitions.find((d) => d._id === target.propertyDefId) : undefined;

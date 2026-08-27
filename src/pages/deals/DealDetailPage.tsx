@@ -29,6 +29,8 @@ import { DealFormDialog } from '../../features/deals/components/DealFormDialog';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { useDealActions } from '../../features/deals/hooks/useDealActions';
 import { dealErrorMessage } from '../../features/deals/lib/errors';
+import { CustomPropertyRows } from '../../features/properties/components/CustomPropertyRows';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
@@ -102,6 +104,7 @@ export function DealDetailPage() {
     dealId ? { dealId: dealId as Id<'deals'> } : 'skip',
   );
   const { moveDealStage, deleteDeal } = useDealActions();
+  const definitions = usePropertyDefinitions('deal');
   const [editOpen, setEditOpen] = useState(false);
   const [lossStage, setLossStage] = useState<PipelineStage | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -258,6 +261,7 @@ export function DealDetailPage() {
                   '—'
                 )}
               </KeyValueRow>
+              <CustomPropertyRows definitions={definitions} values={deal.customProperties} />
               <KeyValueRow label="Créée le" mono>
                 {dateFormat.format(deal._creationTime)}
               </KeyValueRow>

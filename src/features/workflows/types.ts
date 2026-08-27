@@ -1,4 +1,4 @@
-import type { AdvancedFilter, Workflow, WorkflowNode, WorkflowTrigger } from '@crm/lib/backend';
+import type { LeadAdvancedFilter, Workflow, WorkflowNode, WorkflowTrigger } from '@crm/lib/backend';
 
 /**
  * The editor's local working copy of a workflow (draft-then-commit, like the
@@ -9,7 +9,7 @@ export interface WorkflowDraft {
   name: string;
   description?: string;
   trigger: WorkflowTrigger | null;
-  enrollmentCriteria?: AdvancedFilter;
+  enrollmentCriteria?: LeadAdvancedFilter;
   allowReEnrollment: boolean;
   nodes: Record<string, WorkflowNode>;
   startNodeId: string | null;

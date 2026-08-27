@@ -9,7 +9,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { cn } from '@crm/design-system';
-import { countActiveRules } from '../../leads/lib/advancedFilter';
+import { countActiveRules } from '../../filters/lib/advancedFilter';
 import type { WorkflowDraft } from '../types';
 import { layoutWorkflow, type AddNodeData } from '../lib/layout';
 import { CanvasContext, type CanvasHandlers } from './canvasContext';

@@ -24,7 +24,7 @@ import type {
   WorkflowWaitUnit,
 } from '@crm/lib/backend';
 import type { StatusTone } from '@crm/design-system';
-import { STANDARD_FILTER_FIELDS } from '../../leads/lib/advancedFilter';
+import { LEAD_FIELD_LABEL } from '../../leads/lib/leadFilters';
 
 /** French copy and per-type metadata of the workflow feature. */
 
@@ -310,8 +310,6 @@ export const WAIT_UNIT_LABEL: Record<WorkflowWaitUnit, { singular: string; plura
   days: { singular: 'jour', plural: 'jours' },
 };
 
-const STANDARD_FIELD_LABEL = new Map(STANDARD_FILTER_FIELDS.map((f) => [f.field, f.label]));
-
 /** One-line card subtitle describing a node's configuration. */
 export function nodeSummary(
   node: WorkflowNode,
@@ -331,7 +329,7 @@ export function nodeSummary(
     case 'update_property': {
       const label =
         node.target.kind === 'standard'
-          ? (STANDARD_FIELD_LABEL.get(node.target.field) ?? node.target.field)
+          ? (LEAD_FIELD_LABEL[node.target.field] ?? node.target.field)
           : (ctx.definitionLabelById.get(node.target.propertyDefId) ?? 'Propriété supprimée');
       return `${label} → ${formatValue(node.value)}`;
     }

@@ -2,7 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
-import type { DealRow, DealStatus, Id, PipelineStage } from '@crm/lib/backend';
+import type {
+  DealAdvancedFilter,
+  DealRow,
+  DealStandardField,
+  DealStatus,
+  Id,
+  PipelineStage,
+} from '@crm/lib/backend';
 import {
   Button,
   Input,
@@ -33,6 +40,14 @@ import { DealKanban } from '../../features/deals/components/DealKanban';
 import { useDealActions } from '../../features/deals/hooks/useDealActions';
 import { usePipelines } from '../../features/deals/hooks/usePipelines';
 import { dealErrorMessage } from '../../features/deals/lib/errors';
+import { dealFieldCatalog } from '../../features/deals/lib/dealFilters';
+import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
+import {
+  parseAdvancedFilter,
+  serializeAdvancedFilter,
+} from '../../features/filters/lib/advancedFilter';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
+import { formatPropertyValue } from '../../features/properties/lib/customProperties';
 
 const ALL = '__all__';
 const LIST_PAGE = 30;
@@ -53,6 +68,15 @@ function DealsList({
   const owner = searchParams.get('owner') ?? '';
   const [searchInput, setSearchInput] = useState(search);
   const { employees } = useEmployees();
+  const { pipelines } = usePipelines();
+  const definitions = usePropertyDefinitions('deal');
+  const visibleCols = definitions.filter((d) => d.showInTable);
+  const advancedFilter = useMemo(
+    () => parseAdvancedFilter<DealStandardField>(searchParams.get('af')),
+    [searchParams],
+  );
+  const setAdvancedFilter = (next: DealAdvancedFilter | undefined) =>
+    setParam('af', serializeAdvancedFilter(next) ?? '');
 
   useEffect(() => setSearchInput(search), [search]);
   const setParam = (key: string, value: string) =>
@@ -92,9 +116,11 @@ function DealsList({
       statuses: status ? [status as DealStatus] : undefined,
       ownerIds: owner ? [owner as Id<'users'>] : undefined,
       search: search || undefined,
+      advancedFilter,
     },
     { initialNumItems: LIST_PAGE },
   );
+  const colSpan = 7 + visibleCols.length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -131,6 +157,11 @@ function DealsList({
             ))}
           </SelectContent>
         </Select>
+        <AdvancedFilterBuilder
+          filter={advancedFilter}
+          onChange={setAdvancedFilter}
+          catalog={dealFieldCatalog(pipelines, definitions)}
+        />
       </div>
 
       <div className="rounded-xl border bg-card shadow-card">
@@ -142,6 +173,9 @@ function DealsList({
               <TableHead>Montant</TableHead>
               <TableHead>Lead</TableHead>
               <TableHead>Propriétaire</TableHead>
+              {visibleCols.map((def) => (
+                <TableHead key={def._id}>{def.label}</TableHead>
+              ))}
               <TableHead>Clôture</TableHead>
               <TableHead className="w-10" aria-label="Ouvrir" />
             </TableRow>
@@ -150,14 +184,14 @@ function DealsList({
             {loadStatus === 'LoadingFirstPage' ? (
               SKELETON_ROWS.map((row) => (
                 <TableRow key={row} className="hover:bg-transparent">
-                  <TableCell colSpan={7} className="py-3">
+                  <TableCell colSpan={colSpan} className="py-3">
                     <Skeleton className="h-9 w-full" />
                   </TableCell>
                 </TableRow>
               ))
             ) : results.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="py-10 text-center text-faint">
+                <TableCell colSpan={colSpan} className="py-10 text-center text-faint">
                   Aucune transaction.
                 </TableCell>
               </TableRow>
@@ -180,6 +214,11 @@ function DealsList({
                   </TableCell>
                   <TableCell className="text-[13px] text-soft">{deal.leadName ?? '—'}</TableCell>
                   <TableCell className="text-[13px] text-soft">{deal.ownerName ?? '—'}</TableCell>
+                  {visibleCols.map((def) => (
+                    <TableCell key={def._id} className="text-[13px] text-soft">
+                      {formatPropertyValue(def, deal.customProperties?.[def._id])}
+                    </TableCell>
+                  ))}
                   <TableCell className="whitespace-nowrap font-mono text-[12.5px] text-soft">
                     {deal.expectedCloseDate
                       ? dateFormat.format(new Date(deal.expectedCloseDate))

@@ -1,6 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import { addressValidator, logsValidator, softDeleteValidator } from './shared';
-import { leadPropertyValueValidator } from './leadProperties';
+import { customPropertiesValidator } from './properties';
 
 export const companyValidator = v.object({
   ...logsValidator.fields,
@@ -28,7 +28,7 @@ export const companyValidator = v.object({
   searchText: v.optional(v.string()),
 
   // Reserved for #32 (custom properties across entities); unused until then.
-  customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
+  customProperties: customPropertiesValidator,
 });
 
 export type Company = Infer<typeof companyValidator>;

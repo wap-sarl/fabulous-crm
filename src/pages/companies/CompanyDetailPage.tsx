@@ -25,6 +25,8 @@ import { CompanyFormDialog } from '../../features/companies/components/CompanyFo
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { useCompanyActions } from '../../features/companies/hooks/useCompanyActions';
 import { companyErrorMessage } from '../../features/companies/lib/errors';
+import { CustomPropertyRows } from '../../features/properties/components/CustomPropertyRows';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
@@ -59,6 +61,7 @@ export function CompanyDetailPage() {
   );
   const { deleteCompany } = useCompanyActions();
   const lifecycle = useLifecycleConfig();
+  const definitions = usePropertyDefinitions('company');
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
@@ -152,6 +155,7 @@ export function CompanyDetailPage() {
               <KeyValueRow label="Adresse">
                 {company.address ? formatAddress(company.address) : '—'}
               </KeyValueRow>
+              <CustomPropertyRows definitions={definitions} values={company.customProperties} />
               <KeyValueRow label="Créée le" mono>
                 {dateFormat.format(company._creationTime)}
               </KeyValueRow>

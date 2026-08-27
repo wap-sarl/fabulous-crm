@@ -18,7 +18,7 @@ import {
 } from '@crm/design-system';
 import { ArrowLeft, Pause, Play, RefreshCw, Save } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
-import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { useLeadLists } from '../../features/leads/hooks/useLeadLists';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { usePipelines } from '../../features/deals/hooks/usePipelines';
@@ -43,7 +43,7 @@ export function WorkflowEditorPage() {
   usePageTitle(isEdit ? 'Modifier le workflow' : 'Nouveau workflow');
   const navigate = useNavigate();
 
-  const definitions = useLeadPropertyDefinitions();
+  const definitions = usePropertyDefinitions('lead');
   const lists = useLeadLists();
   const existing = useAuthQuery(
     api.features.workflows.queries.getWorkflow,

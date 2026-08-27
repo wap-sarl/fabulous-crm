@@ -8,26 +8,22 @@ import {
   logAudit,
   isNotDeleted,
 } from '../../lib';
+import { loadPropertyDefinitions } from '../../lib/properties';
 import {
-  leadPropertyTypeValidator,
-  leadPropertyOptionValidator,
-  leadPropertyValidationValidator,
+  propertyEntityTypeValidator,
+  propertyTypeValidator,
+  propertyOptionValidator,
+  propertyValidationValidator,
   OPTION_BASED_TYPES,
-  type LeadPropertyOption,
-  type LeadPropertyType,
-  type LeadPropertyValidation,
-} from '../../_lib/validators/leadProperties';
+  type PropertyOption,
+  type PropertyType,
+  type PropertyValidation,
+} from '../../_lib/validators/properties';
 
-/**
- * Validate the options array for an option-based property (select/radio/checkbox):
- * at least one option, each with a non-empty value, and no duplicate values
- * (values are stored on leads, so they must be unique + stable). Other types must
- * not carry options. Returns the cleaned options (trimmed) or undefined.
- */
 function validateOptions(
-  type: LeadPropertyType,
-  options: LeadPropertyOption[] | undefined,
-): LeadPropertyOption[] | undefined {
+  type: PropertyType,
+  options: PropertyOption[] | undefined,
+): PropertyOption[] | undefined {
   if (!OPTION_BASED_TYPES.includes(type)) return undefined;
   const cleaned = (options ?? [])
     .map((o) => ({ value: o.value.trim(), label: o.label.trim() }))
@@ -44,11 +40,11 @@ function validateOptions(
  * carries no rules or none were provided.
  */
 function validateValidation(
-  type: LeadPropertyType,
-  validation: LeadPropertyValidation | undefined,
-): LeadPropertyValidation | undefined {
+  type: PropertyType,
+  validation: PropertyValidation | undefined,
+): PropertyValidation | undefined {
   if (!validation) return undefined;
-  let cleaned: LeadPropertyValidation | undefined;
+  let cleaned: PropertyValidation | undefined;
   if (type === 'number') {
     const { min, max } = validation;
     if (min !== undefined && max !== undefined && min > max) throw new Error('invalid_range');
@@ -72,11 +68,14 @@ function validateValidation(
 }
 
 export const createDefinition = adminMutation({
+  // `computed` is not accepted: computed definitions belong to the engine that
+  // maintains them (see propertyDefinitionValidator).
   args: {
+    entityType: propertyEntityTypeValidator,
     label: v.string(),
-    type: leadPropertyTypeValidator,
-    options: v.optional(v.array(leadPropertyOptionValidator)),
-    validation: v.optional(leadPropertyValidationValidator),
+    type: propertyTypeValidator,
+    options: v.optional(v.array(propertyOptionValidator)),
+    validation: v.optional(propertyValidationValidator),
     showInTable: v.boolean(),
   },
   handler: async (ctx, args) => {
@@ -85,13 +84,12 @@ export const createDefinition = adminMutation({
     const options = validateOptions(args.type, args.options);
     const validation = validateValidation(args.type, args.validation);
 
-    // Append after the current max order so new definitions land last.
-    const existing = await ctx.db.query('leadPropertyDefinitions').collect();
-    const maxOrder = existing
-      .filter(isNotDeleted)
-      .reduce((max, d) => Math.max(max, d.order ?? 0), 0);
+    // Append after the entity's current max order so new definitions land last.
+    const existing = await loadPropertyDefinitions(ctx, args.entityType);
+    const maxOrder = existing.reduce((max, d) => Math.max(max, d.order ?? 0), 0);
 
-    const definitionId = await ctx.db.insert('leadPropertyDefinitions', {
+    const definitionId = await ctx.db.insert('propertyDefinitions', {
+      entityType: args.entityType,
       label,
       type: args.type,
       options,
@@ -104,7 +102,7 @@ export const createDefinition = adminMutation({
     await logAudit({
       ctx,
       userId: ctx.userId,
-      entityType: 'leadPropertyDefinition',
+      entityType: 'propertyDefinition',
       entityId: definitionId,
       action: 'create',
     });
@@ -114,13 +112,13 @@ export const createDefinition = adminMutation({
 });
 
 export const updateDefinition = adminMutation({
-  // `type` is intentionally NOT accepted — it is immutable once values may exist.
-  // To change a property's type, delete it and create a new one.
+  // `type` and `entityType` are intentionally NOT accepted — they are immutable
+  // once values may exist. To change them, delete the property and create a new one.
   args: {
-    definitionId: v.id('leadPropertyDefinitions'),
+    definitionId: v.id('propertyDefinitions'),
     label: v.optional(v.string()),
-    options: v.optional(v.array(leadPropertyOptionValidator)),
-    validation: v.optional(leadPropertyValidationValidator),
+    options: v.optional(v.array(propertyOptionValidator)),
+    validation: v.optional(propertyValidationValidator),
     showInTable: v.optional(v.boolean()),
     order: v.optional(v.number()),
   },
@@ -154,7 +152,7 @@ export const updateDefinition = adminMutation({
       await logAudit({
         ctx,
         userId: ctx.userId,
-        entityType: 'leadPropertyDefinition',
+        entityType: 'propertyDefinition',
         entityId: definitionId,
         action: 'update',
         metadata: { changes },
@@ -166,12 +164,12 @@ export const updateDefinition = adminMutation({
 });
 
 export const deleteDefinition = adminMutation({
-  args: { definitionId: v.id('leadPropertyDefinitions') },
+  args: { definitionId: v.id('propertyDefinitions') },
   handler: async (ctx, args) => {
     const def = await ctx.db.get(args.definitionId);
     if (!def || !isNotDeleted(def)) throw new Error('definition_not_found');
 
-    // Soft delete: stored lead values remain untouched (and revive if the
+    // Soft delete: stored values remain untouched (and revive if the
     // definition is un-deleted). Every consumer iterates active definitions only.
     await ctx.db.patch(args.definitionId, {
       deletedAt: Date.now(),
@@ -181,15 +179,16 @@ export const deleteDefinition = adminMutation({
     await logAudit({
       ctx,
       userId: ctx.userId,
-      entityType: 'leadPropertyDefinition',
+      entityType: 'propertyDefinition',
       entityId: args.definitionId,
       action: 'delete',
     });
   },
 });
 
+/** Reorder the definitions of one entity type (ids in their new display order). */
 export const reorderDefinitions = adminMutation({
-  args: { definitionIds: v.array(v.id('leadPropertyDefinitions')) },
+  args: { definitionIds: v.array(v.id('propertyDefinitions')) },
   handler: async (ctx, args) => {
     let position = 0;
     for (const definitionId of args.definitionIds) {
@@ -203,7 +202,7 @@ export const reorderDefinitions = adminMutation({
     await logAudit({
       ctx,
       userId: ctx.userId,
-      entityType: 'leadPropertyDefinition',
+      entityType: 'propertyDefinition',
       entityId: 'reorder',
       action: 'update',
       metadata: { order: args.definitionIds },

@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
-import type { DealRow, Doc, Id } from '@crm/lib/backend';
+import type { DealRow, Doc, Id, PropertyValue } from '@crm/lib/backend';
 import { DEFAULT_CURRENCY, defaultPipelineStage } from '@crm/lib/backend';
 import {
   Button,
@@ -24,6 +24,8 @@ import {
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { CURRENCIES } from '../../../lib/constants';
+import { CustomPropertyFields } from '../../properties/components/CustomPropertyFields';
+import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { useDealActions } from '../hooks/useDealActions';
 import { usePipelines } from '../hooks/usePipelines';
 import { dealErrorMessage } from '../lib/errors';
@@ -51,6 +53,7 @@ interface FormState {
   ownerId: string;
   leadId: Id<'leads'> | '';
   sourceCampaignId: string;
+  customProperties: Record<string, PropertyValue>;
 }
 
 const NONE = '__none__';
@@ -71,6 +74,7 @@ function initialForm(
       ownerId: deal.ownerId ?? '',
       leadId: deal.leadId ?? '',
       sourceCampaignId: deal.sourceCampaignId ?? '',
+      customProperties: { ...(deal.customProperties ?? {}) },
     };
   }
   return {
@@ -83,6 +87,7 @@ function initialForm(
     ownerId: '',
     leadId: defaults?.leadId ?? '',
     sourceCampaignId: '',
+    customProperties: {},
   };
 }
 
@@ -120,6 +125,7 @@ function DealFormBody({
   const { createDeal, updateDeal } = useDealActions();
   const { pipelines, defaultPipeline, byId } = usePipelines();
   const { employees } = useEmployees();
+  const definitions = usePropertyDefinitions('deal');
   const campaigns = useAuthQuery(api.features.crm.queries.listCampaigns, {}) ?? [];
   const [form, setForm] = useState<FormState>(() =>
     initialForm(
@@ -164,6 +170,7 @@ function DealFormBody({
           sourceCampaignId: form.sourceCampaignId
             ? (form.sourceCampaignId as Id<'campaigns'>)
             : null,
+          customProperties: form.customProperties,
         });
         toast.success('Transaction mise à jour.');
       } else {
@@ -184,6 +191,7 @@ function DealFormBody({
           sourceCampaignId: form.sourceCampaignId
             ? (form.sourceCampaignId as Id<'campaigns'>)
             : undefined,
+          customProperties: form.customProperties,
         });
         toast.success('Transaction créée.');
         onCreated?.(id);
@@ -337,6 +345,19 @@ function DealFormBody({
           </HelperText>
         </div>
       </div>
+
+      <CustomPropertyFields
+        definitions={definitions}
+        values={form.customProperties}
+        onChange={(id, value) =>
+          setForm((prev) => {
+            const next = { ...prev.customProperties };
+            if (value === undefined) delete next[id];
+            else next[id] = value;
+            return { ...prev, customProperties: next };
+          })
+        }
+      />
 
       <DialogFooter>
         <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>

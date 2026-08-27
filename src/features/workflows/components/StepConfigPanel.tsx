@@ -9,7 +9,7 @@ import {
   SheetTitle,
 } from '@crm/design-system';
 import type { WorkflowNode } from '@crm/lib/backend';
-import type { LeadPropertyDefinitionRow } from '../../leads/types';
+import type { PropertyDefinitionRow } from '../../properties/types';
 import { STEP_TYPE_META } from '../lib/constants';
 import { TriggerConfig, type TriggerFormValue } from './config/TriggerConfig';
 import { EmailStepConfig, SmsStepConfig } from './config/MessageStepConfigs';
@@ -32,7 +32,7 @@ export type PanelSelection =
 
 interface StepConfigPanelProps {
   selection: PanelSelection;
-  definitions: LeadPropertyDefinitionRow[];
+  definitions: PropertyDefinitionRow[];
   readOnly?: boolean;
   onClose: () => void;
   onApplyNode: (node: WorkflowNode) => void;

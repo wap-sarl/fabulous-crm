@@ -3,6 +3,13 @@ import { paginationOptsValidator } from 'convex/server';
 import type { Doc } from '../../_generated/dataModel';
 import { employeeQuery } from '../../_lib/auth';
 import { isNotDeleted } from '../../_lib/softDelete';
+import {
+  type CompanyStandardField,
+  type FilterField,
+  companyAdvancedFilterValidator,
+} from '../../_lib/validators/filters';
+import type { PropertyValue } from '../../_lib/validators/properties';
+import { evalFilter } from '../../lib/filterMatching';
 import { countLiveCompanies, countLiveLeadsByCompany } from '../../lib/companyAggregates';
 import { normalizeSearchText } from '../../lib/leadSearch';
 
@@ -14,12 +21,38 @@ async function withContactCount(
   return { ...company, contactCount: await countLiveLeadsByCompany(ctx, company._id) };
 }
 
+export function getCompanyFieldValue(
+  company: Doc<'companies'>,
+  field: FilterField<CompanyStandardField>,
+): PropertyValue | undefined {
+  if (field.kind === 'custom') return company.customProperties?.[field.definitionId];
+  switch (field.field) {
+    case 'name':
+      return company.name;
+    case 'domain':
+      return company.domain;
+    case 'country':
+      return company.country;
+    case 'website':
+      return company.website;
+    case 'sector':
+      return company.sector;
+    case 'headcount':
+      return company.headcount;
+  }
+}
+
 /**
  * Companies list, cursor-paginated: the search index when a term is given,
- * else name order. Soft-deleted rows are filtered per page.
+ * else name order. Soft-deleted rows and rows outside the advanced filter are
+ * filtered per page.
  */
 export const listCompaniesPaginated = employeeQuery({
-  args: { paginationOpts: paginationOptsValidator, search: v.optional(v.string()) },
+  args: {
+    paginationOpts: paginationOptsValidator,
+    search: v.optional(v.string()),
+    advancedFilter: v.optional(companyAdvancedFilterValidator),
+  },
   handler: async (ctx, args) => {
     const term = args.search ? normalizeSearchText(args.search) : '';
     const result = term
@@ -34,7 +67,14 @@ export const listCompaniesPaginated = employeeQuery({
           .paginate(args.paginationOpts);
     const page = [];
     for (const company of result.page) {
-      if (isNotDeleted(company)) page.push(await withContactCount(ctx, company));
+      if (!isNotDeleted(company)) continue;
+      if (
+        args.advancedFilter &&
+        !evalFilter((field) => getCompanyFieldValue(company, field), args.advancedFilter)
+      ) {
+        continue;
+      }
+      page.push(await withContactCount(ctx, company));
     }
     return { ...result, page };
   },

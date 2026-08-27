@@ -20,14 +20,17 @@ import { formatAddress } from '../../lib/addresses';
 import { CONSENT_CHANNEL_LABEL } from '../../lib/constants';
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
 import { LeadNotes } from '../../features/leads/components/LeadNotes';
-import { useLeadPropertyDefinitions } from '../../features/leads/hooks/useLeadPropertyDefinitions';
+import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { LeadLifecycleCard } from '../../features/leads/components/LeadLifecycleCard';
 import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { LogCallDialog } from '../../features/activities/components/ActivityDialogs';
 import { LeadTimeline } from '../../features/timeline/components/LeadTimeline';
-import { formatPropertyValue, hasPropertyValue } from '../../features/leads/lib/customProperties';
+import {
+  formatPropertyValue,
+  hasPropertyValue,
+} from '../../features/properties/lib/customProperties';
 
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
@@ -53,7 +56,7 @@ export function LeadDetailPage() {
 
   const [editOpen, setEditOpen] = useState(false);
   const [callOpen, setCallOpen] = useState(false);
-  const propertyDefinitions = useLeadPropertyDefinitions();
+  const propertyDefinitions = usePropertyDefinitions('lead');
   const lifecycle = useLifecycleConfig();
 
   if (data === undefined) {

@@ -31,6 +31,9 @@ import {
   type CompanyRegistrationContext,
   type CompanyVatContext,
 } from '../../../lib/countryInputs';
+import type { PropertyValue } from '@crm/lib/backend';
+import { CustomPropertyFields } from '../../properties/components/CustomPropertyFields';
+import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { useCompanyActions } from '../hooks/useCompanyActions';
 import { companyErrorMessage } from '../lib/errors';
 
@@ -52,6 +55,7 @@ interface FormState {
   sector: string;
   headcount: string;
   address: AddressValue;
+  customProperties: Record<string, PropertyValue>;
 }
 
 const emptyAddress = (country: string): AddressValue => ({
@@ -73,6 +77,7 @@ function emptyForm(): FormState {
     sector: '',
     headcount: '',
     address: emptyAddress(DEFAULT_COUNTRY),
+    customProperties: {},
   };
 }
 
@@ -86,6 +91,7 @@ function fromCompany(company: Doc<'companies'>): FormState {
     website: company.website ?? '',
     sector: company.sector ?? '',
     headcount: company.headcount !== undefined ? String(company.headcount) : '',
+    customProperties: { ...(company.customProperties ?? {}) },
     address: {
       country: company.address?.country ?? company.country,
       streetNumber: company.address?.streetNumber ?? '',
@@ -115,6 +121,7 @@ export function CompanyFormDialog({
 }: CompanyFormDialogProps) {
   const isEdit = !!company;
   const { createCompany, updateCompany } = useCompanyActions();
+  const definitions = usePropertyDefinitions('company');
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -229,6 +236,7 @@ export function CompanyFormDialog({
       sector: form.sector,
       headcount,
       address,
+      customProperties: form.customProperties,
     };
 
     setSubmitting(true);
@@ -392,6 +400,19 @@ export function CompanyFormDialog({
             label={`Adresse (${countryName(form.country)})`}
           />
         </fieldset>
+
+        <CustomPropertyFields
+          definitions={definitions}
+          values={form.customProperties}
+          onChange={(id, value) =>
+            setForm((prev) => {
+              const next = { ...prev.customProperties };
+              if (value === undefined) delete next[id];
+              else next[id] = value;
+              return { ...prev, customProperties: next };
+            })
+          }
+        />
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>

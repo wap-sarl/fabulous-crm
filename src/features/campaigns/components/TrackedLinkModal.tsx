@@ -18,18 +18,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@crm/design-system';
-import { validateLeadPropertyValue } from '@crm/lib/backend';
+import { validatePropertyValue } from '@crm/lib/backend';
 import type {
   CampaignTrackedLink,
-  LeadPropertyValue,
+  PropertyValue,
   TrackedLinkStandardField,
 } from '@crm/lib/backend';
-import type { LeadPropertyDefinitionRow } from '../../leads/types';
+import type { PropertyDefinitionRow } from '../../properties/types';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  definitions: LeadPropertyDefinitionRow[];
+  definitions: PropertyDefinitionRow[];
   /** Links already on the campaign — used to pick the next free key (lienN). */
   existingLinks: CampaignTrackedLink[];
   onCreate: (link: CampaignTrackedLink) => void;
@@ -60,14 +60,14 @@ const STANDARD_TARGETS: { field: TrackedLinkStandardField; label: string }[] = [
 /** Mirror of the server-side value check (createCampaign) for inline errors. */
 function standardValueError(
   field: TrackedLinkStandardField,
-  value: LeadPropertyValue | undefined,
+  value: PropertyValue | undefined,
 ): string | null {
   if (value === undefined) return null; // "missing" is handled by canSubmit
   switch (field) {
     case 'isRedFlagged':
       return typeof value === 'boolean' ? null : 'Valeur oui/non requise.';
     case 'email':
-      return validateLeadPropertyValue({ type: 'email' }, value);
+      return validatePropertyValue({ type: 'email' }, value);
     default:
       return typeof value === 'string' ? null : 'Texte requis.';
   }
@@ -90,7 +90,7 @@ export function TrackedLinkModal({
   const [label, setLabel] = useState('');
   // 'std:<field>' or 'custom:<definitionId>' (same encoding as the lead filters).
   const [targetKey, setTargetKey] = useState('');
-  const [value, setValue] = useState<LeadPropertyValue | undefined>(undefined);
+  const [value, setValue] = useState<PropertyValue | undefined>(undefined);
   const [redirectUrl, setRedirectUrl] = useState('');
 
   // Fresh form on every open.
@@ -115,7 +115,7 @@ export function TrackedLinkModal({
   );
 
   const valueError = selectedDef
-    ? validateLeadPropertyValue(selectedDef, value)
+    ? validatePropertyValue(selectedDef, value)
     : standardField
       ? standardValueError(standardField, value)
       : null;
@@ -246,8 +246,8 @@ function StandardValueInput({
   onChange,
 }: {
   field: TrackedLinkStandardField;
-  value: LeadPropertyValue | undefined;
-  onChange: (value: LeadPropertyValue | undefined) => void;
+  value: PropertyValue | undefined;
+  onChange: (value: PropertyValue | undefined) => void;
 }) {
   switch (field) {
     case 'isRedFlagged':
@@ -281,7 +281,7 @@ function StandardValueInput({
 
 /**
  * Type-driven input for the value the click writes. Compact variant of the
- * lead form's LeadCustomPropertyFields (single definition, no RPPS
+ * lead form's CustomPropertyFields (single definition, no RPPS
  * verification — the value is authored by an employee, not a practitioner).
  */
 function LinkValueInput({
@@ -289,9 +289,9 @@ function LinkValueInput({
   value,
   onChange,
 }: {
-  def: LeadPropertyDefinitionRow;
-  value: LeadPropertyValue | undefined;
-  onChange: (value: LeadPropertyValue | undefined) => void;
+  def: PropertyDefinitionRow;
+  value: PropertyValue | undefined;
+  onChange: (value: PropertyValue | undefined) => void;
 }) {
   switch (def.type) {
     case 'boolean':

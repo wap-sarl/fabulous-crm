@@ -15,15 +15,16 @@ import {
 import { ChevronUp, ChevronDown, ChevronRight, Pencil, Trash2, Flag } from 'lucide-react';
 import { CONSENT_CHANNEL_LABEL } from '../../../lib/constants';
 import type { LeadSortField, SortDirection } from '../hooks/useLeadFilters';
-import type { LeadRow, LeadPropertyDefinitionRow } from '../types';
-import { formatPropertyValue } from '../lib/customProperties';
+import type { LeadRow } from '../types';
+import type { PropertyDefinitionRow } from '../../properties/types';
+import { formatPropertyValue } from '../../properties/lib/customProperties';
 
 interface LeadsTableProps {
   leads: LeadRow[];
   /** Show placeholder rows instead of the empty state while the first page loads. */
   isLoading?: boolean;
   /** Active custom property definitions; those with showInTable get a column. */
-  definitions: LeadPropertyDefinitionRow[];
+  definitions: PropertyDefinitionRow[];
   employeeName: Map<string, string>;
   /** Label of a lifecycle stage key (useLifecycleConfig().labelOf). */
   lifecycleLabel: (key: string | undefined) => string;

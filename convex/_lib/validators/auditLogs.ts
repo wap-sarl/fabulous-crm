@@ -10,7 +10,7 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('campaign'),
   v.literal('appConfig'),
   v.literal('invitation'),
-  v.literal('leadPropertyDefinition'),
+  v.literal('propertyDefinition'),
   v.literal('leadNote'),
   v.literal('leadList'),
   v.literal('workflow'),

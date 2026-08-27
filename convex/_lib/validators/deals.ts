@@ -1,6 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
-import { leadPropertyValueValidator } from './leadProperties';
+import { customPropertiesValidator } from './properties';
 
 export const dealStatusValidator = v.union(v.literal('open'), v.literal('won'), v.literal('lost'));
 export type DealStatus = Infer<typeof dealStatusValidator>;
@@ -43,7 +43,7 @@ export const dealValidator = v.object({
   lossReason: v.optional(v.string()),
   // Campaign that originated the deal — the hook for revenue attribution.
   sourceCampaignId: v.optional(v.id('campaigns')),
-  customProperties: v.optional(v.record(v.string(), leadPropertyValueValidator)),
+  customProperties: customPropertiesValidator,
 });
 export type Deal = Infer<typeof dealValidator>;
 

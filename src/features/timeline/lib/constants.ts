@@ -1,5 +1,5 @@
 import type { TimelineKind } from '@crm/lib/backend';
-import { STANDARD_FILTER_FIELDS } from '../../leads/lib/advancedFilter';
+import { LEAD_FIELD_LABEL as LEAD_STANDARD_LABEL } from '../../leads/lib/leadFilters';
 
 /** Timeline filter chips: one entry may cover several event kinds. */
 export interface TimelineFilter {
@@ -22,7 +22,7 @@ export const TIMELINE_FILTERS: TimelineFilter[] = [
 
 /** French labels of the lead fields an audit entry can list. */
 export const LEAD_FIELD_LABEL: Record<string, string> = {
-  ...Object.fromEntries(STANDARD_FILTER_FIELDS.map((f) => [f.field, f.label])),
+  ...LEAD_STANDARD_LABEL,
   address: 'Adresse',
   companyId: 'Entreprise',
   customProperties: 'Propriétés personnalisées',
