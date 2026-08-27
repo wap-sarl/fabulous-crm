@@ -9,6 +9,7 @@ import {
   Eye,
   Handshake,
   Mail,
+  Merge,
   MessageSquare,
   Milestone,
   MousePointerClick,
@@ -199,6 +200,14 @@ function present(event: TimelineEvent, lifecycleLabel: (key: string) => string):
         ]),
       };
     case 'audit':
+      if (event.action === 'merge') {
+        return {
+          Icon: Merge,
+          tone: 'violet',
+          title: `Fiche fusionnée avec ${event.absorbedLeadName ?? 'un doublon'}`,
+          detail: event.userName,
+        };
+      }
       return event.action === 'create'
         ? {
             Icon: UserPlus,

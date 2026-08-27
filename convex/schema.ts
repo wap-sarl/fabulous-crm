@@ -21,6 +21,7 @@ import {
   pipelineValidator,
 } from './_lib/validators/deals';
 import { activityValidator } from './_lib/validators/activities';
+import { duplicateScanValidator, leadDuplicateValidator } from './_lib/validators/duplicates';
 import {
   workflowValidator,
   workflowRunValidator,
@@ -54,6 +55,19 @@ export type { AuditLog, AuditLogEntityType, AuditLogAction } from './_lib/valida
 
 export type { Company } from './_lib/validators/companies';
 export { companyValidator } from './_lib/validators/companies';
+
+export type {
+  LeadDedupe,
+  DuplicateReason,
+  LeadDuplicate,
+  DuplicateScan,
+} from './_lib/validators/duplicates';
+export {
+  leadDedupeValidator,
+  duplicateReasonValidator,
+  leadDuplicateValidator,
+  duplicateScanValidator,
+} from './_lib/validators/duplicates';
 
 export type { Activity, ActivityType, ActivityStatus } from './_lib/validators/activities';
 export {
@@ -197,7 +211,21 @@ export default defineSchema({
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
     .index('by_email', ['email'])
+    // Duplicate detection candidates (lib/duplicates.ts): same phone / name block.
+    .index('by_dedupe_phone', ['dedupe.phone'])
+    .index('by_dedupe_block', ['dedupe.block'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
+
+  // Potential duplicate pairs found by a scan (see leadDuplicateValidator).
+  // `by_pair` dedupes upserts; `by_leadA`/`by_leadB` clear a merged lead's pairs.
+  leadDuplicates: defineTable(leadDuplicateValidator)
+    .index('by_pair', ['leadAId', 'leadBId'])
+    // [status, score]: the open list reads strongest pairs first (desc).
+    .index('by_status_score', ['status', 'score'])
+    .index('by_leadA', ['leadAId'])
+    .index('by_leadB', ['leadBId']),
+
+  duplicateScans: defineTable(duplicateScanValidator).index('by_status', ['status']),
 
   companies: defineTable(companyValidator)
     .index('by_domain', ['domain'])

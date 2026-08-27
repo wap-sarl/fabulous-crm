@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
-import { Button, ConfirmDialog, PageHeader, toast } from '@crm/design-system';
-import { Plus, Upload, Trash2 } from 'lucide-react';
+import { Badge, Button, ConfirmDialog, PageHeader, toast } from '@crm/design-system';
+import { Copy, Plus, Trash2, Upload } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useEmployees } from '../../lib/hooks/useEmployees';
 import { useLeadFilters } from '../../features/leads/hooks/useLeadFilters';
@@ -27,6 +27,7 @@ export function LeadsPage() {
   const { filters, setParam, setAdvancedFilter, toggleSort } = useLeadFilters();
   const { results, isLoading, hasMore, loadMore } = useLeadsPaginated(filters);
   const counts = useAuthQuery(api.features.crm.queries.countLeadsByLifecycleStage, {});
+  const duplicates = useAuthQuery(api.features.duplicates.queries.countOpenDuplicates, {});
   const lifecycle = useLifecycleConfig();
   const { employees } = useEmployees();
   const { deleteLead, deleteLeads } = useLeadActions();
@@ -120,6 +121,19 @@ export function LeadsPage() {
                 Supprimer ({selectedIds.size})
               </Button>
             )}
+            <Button
+              variant="outline"
+              onClick={() => navigate('/leads/duplicates')}
+              data-testid="duplicates"
+            >
+              <Copy className="h-4 w-4" />
+              Doublons
+              {duplicates && duplicates.count > 0 ? (
+                <Badge className="ml-1" variant="secondary">
+                  {duplicates.capped ? '100+' : duplicates.count}
+                </Badge>
+              ) : null}
+            </Button>
             <Button variant="outline" onClick={() => setImportOpen(true)}>
               <Upload className="h-4 w-4" />
               Importer CSV

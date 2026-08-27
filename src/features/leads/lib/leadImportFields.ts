@@ -28,6 +28,8 @@ export interface LeadImportRow {
   };
   /** Custom-property values, keyed by definition id (see propertyDefinitions). */
   customProperties?: Record<string, PropertyValue>;
+  /** Existing lead this row updates, picked from the duplicate preview. */
+  matchLeadId?: Id<'leads'>;
   /** Company columns: matched (registration number, domain) or created (name). */
   company?: {
     name?: string;

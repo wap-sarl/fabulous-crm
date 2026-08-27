@@ -356,6 +356,7 @@ export const importLeads = employeeMutation({
       v.object({
         ...leadRowArgs,
         customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
+        matchLeadId: v.optional(v.id('leads')),
       }),
     ),
     // Optional list every imported (created OR updated) lead is added to.
@@ -387,12 +388,15 @@ export const importLeads = employeeMutation({
         continue;
       }
 
-      const existing = email
-        ? await ctx.db
-            .query('leads')
-            .withIndex('by_email', (q) => q.eq('email', email))
-            .first()
-        : null;
+      const matched = row.matchLeadId ? await ctx.db.get(row.matchLeadId) : null;
+      const existing =
+        matched ??
+        (email
+          ? await ctx.db
+              .query('leads')
+              .withIndex('by_email', (q) => q.eq('email', email))
+              .first()
+          : null);
 
       if (existing) {
         // Upsert: only patch columns the CSV provided (filterUndefined drops the

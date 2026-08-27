@@ -35,6 +35,12 @@ export type { TimelineKind } from '../../convex/_lib/validators/timeline';
 export { TIMELINE_KINDS } from '../../convex/_lib/validators/timeline';
 export type { TimelineEvent } from '../../convex/features/timeline/queries';
 export type {
+  DuplicateReason,
+  LeadDuplicate,
+  DuplicateScan,
+} from '../../convex/_lib/validators/duplicates';
+export type { DuplicateLeadSummary } from '../../convex/features/duplicates/queries';
+export type {
   Deal,
   DealStatus,
   Pipeline,

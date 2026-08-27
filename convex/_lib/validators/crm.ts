@@ -6,6 +6,7 @@ import {
   softDeleteValidator,
 } from './shared';
 import { customPropertiesValidator, propertyValueValidator } from './properties';
+import { leadDedupeValidator } from './duplicates';
 
 /** Marketing consent channels a lead can opt into. */
 export const marketingConsentChannelValidator = v.union(
@@ -51,6 +52,7 @@ export const leadValidator = v.object({
   // company name) serving the by_searchText search index. Stamped by the
   // Triggers wrapper (_lib/functions.ts) on every write — never write it by hand.
   searchText: v.optional(v.string()),
+  dedupe: v.optional(leadDedupeValidator),
 
   // Admin-defined custom property values, keyed by propertyDefinitions._id.
   // Optional so leads written before any property existed stay valid.

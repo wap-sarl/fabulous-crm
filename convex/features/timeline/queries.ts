@@ -99,6 +99,8 @@ export type TimelineEvent =
       userName: string | null;
       /** Lead fields touched by an update. */
       fields: string[];
+      /** The lead absorbed by a merge. */
+      absorbedLeadName: string | null;
     });
 
 /** Memoized point reads shared by every event built for one page. */
@@ -360,20 +362,21 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
       );
       return rows.map((log) => ({
         at: log._creationTime,
-        build: async () =>
-          log.action === 'delete'
-            ? null
-            : {
-                kind: 'audit',
-                id: log._id,
-                at: log._creationTime,
-                action: log.action,
-                userName: await userName(log.userId),
-                fields: Object.keys(
-                  (log.metadata as { changes?: Record<string, unknown> } | undefined)?.changes ??
-                    {},
-                ),
-              },
+        build: async () => {
+          if (log.action === 'delete') return null;
+          const metadata = log.metadata as
+            | { changes?: Record<string, unknown>; absorbedLeadName?: string }
+            | undefined;
+          return {
+            kind: 'audit',
+            id: log._id,
+            at: log._creationTime,
+            action: log.action,
+            userName: await userName(log.userId),
+            fields: Object.keys(metadata?.changes ?? {}),
+            absorbedLeadName: metadata?.absorbedLeadName ?? null,
+          };
+        },
       }));
     },
   }),

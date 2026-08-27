@@ -27,6 +27,7 @@ import { TeamPage } from './pages/settings/TeamPage';
 import { BrandingPage } from './pages/settings/BrandingPage';
 import { EmailPage } from './pages/settings/EmailPage';
 import { PropertiesPage } from './pages/settings/PropertiesPage';
+import { DuplicatesPage } from './pages/leads/DuplicatesPage';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
 import { LifecyclePage } from './pages/settings/LifecyclePage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
@@ -71,6 +72,7 @@ function AppRoutes() {
           <Route element={<DashboardShell />}>
             <Route path="/" element={<Navigate to="/leads" replace />} />
             <Route path="/leads" element={<LeadsPage />} />
+            <Route path="/leads/duplicates" element={<DuplicatesPage />} />
             <Route path="/leads/:leadId" element={<LeadDetailPage />} />
             <Route path="/companies" element={<CompaniesPage />} />
             <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
