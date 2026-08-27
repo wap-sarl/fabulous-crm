@@ -12,7 +12,7 @@ export interface LeadFilters {
   lifecycleStages: string[];
   /** Companies a lead must belong to one of (OR). URL param `company`. */
   companyIds: Id<'companies'>[];
-  assignedToIds: Id<'users'>[];
+  ownerIds: Id<'users'>[];
   /** Lead lists to filter by; a lead matches if it belongs to any (OR). */
   listIds: Id<'leadLists'>[];
   /** undefined = all leads, true = only flagged, false = only non-flagged */
@@ -69,7 +69,7 @@ export function useLeadFilters() {
       search: searchParams.get('q') ?? '',
       lifecycleStages: csv(searchParams.get('status')),
       companyIds: csv(searchParams.get('company')) as Id<'companies'>[],
-      assignedToIds: csv(searchParams.get('assigned')) as Id<'users'>[],
+      ownerIds: csv(searchParams.get('owners')) as Id<'users'>[],
       listIds: csv(searchParams.get('lists')) as Id<'leadLists'>[],
       flagged: flaggedParam === 'true' ? true : flaggedParam === 'false' ? false : undefined,
       customProperties,

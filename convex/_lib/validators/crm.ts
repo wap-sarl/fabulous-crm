@@ -41,7 +41,7 @@ export const leadValidator = v.object({
   consentToken: v.string(),
 
   comment: v.optional(v.string()),
-  assignedTo: v.optional(v.id('users')),
+  ownerIds: v.array(v.id('users')),
   companyId: v.optional(v.id('companies')),
 
   isRedFlagged: v.boolean(),

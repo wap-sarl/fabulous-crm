@@ -46,6 +46,8 @@ export {
   DEFAULT_ATTACHMENT_MAX_BYTES,
 } from '../../convex/_lib/validators/attachments';
 export type { AttachmentRow } from '../../convex/features/attachments/queries';
+export type { Team } from '../../convex/_lib/validators/teams';
+export type { EmployeeRole } from '../../convex/_lib/validators/employees';
 export type {
   Deal,
   DealStatus,

@@ -22,6 +22,6 @@ export type SessionUser = {
   _id: string;
   email: string;
   type: 'employee';
-  role: 'admin' | 'member';
+  role: 'admin' | 'manager' | 'member';
   name: string;
 };

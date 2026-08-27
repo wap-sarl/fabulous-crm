@@ -6,12 +6,20 @@ import {
   softDeleteValidator,
 } from './shared';
 
+/** admin: everything; manager: their team's records (lib/visibility.ts); member: the whole CRM, no settings. */
+export const employeeRoleValidator = v.union(
+  v.literal('admin'),
+  v.literal('manager'),
+  v.literal('member'),
+);
+export type EmployeeRole = Infer<typeof employeeRoleValidator>;
+
 export const employeeValidator = v.object({
   ...firstAndLastNameValidator.fields,
   ...logsValidator.fields,
   ...softDeleteValidator.fields,
   type: v.literal('employee'),
-  role: v.optional(v.union(v.literal('admin'), v.literal('member'))),
+  role: v.optional(employeeRoleValidator),
   // Link to the Better Auth user (component-owned `user._id`). Optional so
   // pre-migration/seed rows remain valid; set by the auth onCreate trigger.
   authId: v.optional(v.string()),

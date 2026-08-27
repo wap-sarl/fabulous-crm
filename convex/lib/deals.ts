@@ -125,7 +125,7 @@ export type NewDeal = {
   pipelineId?: Id<'pipelines'>;
   stageKey?: string;
   expectedCloseDate?: string;
-  ownerId?: Id<'users'>;
+  ownerIds?: Id<'users'>[];
   leadId?: Id<'leads'>;
   sourceCampaignId?: Id<'campaigns'>;
   customProperties?: Record<string, PropertyValue>;
@@ -159,7 +159,7 @@ export async function createDealRecord(
     status: stage.kind,
     expectedCloseDate: data.expectedCloseDate,
     closedAt: stage.kind === 'open' ? undefined : now,
-    ownerId: data.ownerId,
+    ownerIds: data.ownerIds ?? [],
     leadId: data.leadId,
     sourceCampaignId: data.sourceCampaignId,
     customProperties: data.customProperties,

@@ -38,7 +38,7 @@ export const dealValidator = v.object({
   expectedCloseDate: v.optional(v.string()),
   // Stamped when the deal enters a won/lost stage, cleared when it reopens.
   closedAt: v.optional(v.number()),
-  ownerId: v.optional(v.id('users')),
+  ownerIds: v.array(v.id('users')),
   leadId: v.optional(v.id('leads')),
   lossReason: v.optional(v.string()),
   // Campaign that originated the deal — the hook for revenue attribution.

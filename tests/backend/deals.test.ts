@@ -113,7 +113,7 @@ describe('deals', () => {
       pipelineId,
       stageKey: 'new',
       status: 'open',
-      ownerId: emp.userId,
+      ownerIds: [emp.userId],
       leadId,
     });
     const history = await historyOf(t, dealId);
@@ -226,7 +226,7 @@ describe('deals', () => {
     expect(column.page.map((d) => d.title)).toEqual(['Beta']);
     expect(column.page[0]).toMatchObject({
       stageLabel: 'Qualifiée',
-      ownerName: 'Test User',
+      ownerNames: ['Test User'],
     });
 
     const open = await as.query(api.features.deals.queries.listDealsPaginated, {
@@ -370,7 +370,7 @@ describe('workflow deal steps', () => {
       firstName: 'Jean',
       lastName: 'Dupont',
       email: 'jean@acme.fr',
-      assignedTo: emp.userId,
+      ownerIds: [emp.userId],
     });
     const workflowId = await activeWorkflow(t, emp, {
       type: 'create_deal',
@@ -387,7 +387,7 @@ describe('workflow deal steps', () => {
       amount: 500,
       pipelineId,
       stageKey: 'qualified',
-      ownerId: emp.userId,
+      ownerIds: [emp.userId],
     });
     expect((await historyOf(t, deals[0]._id))[0]).toMatchObject({ source: 'workflow', workflowId });
   });

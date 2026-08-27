@@ -96,7 +96,7 @@ export async function seedEmployee(
   t: T,
   opts: {
     email: string;
-    role?: 'admin' | 'member';
+    role?: 'admin' | 'manager' | 'member';
     firstName?: string;
     lastName?: string;
     deletedAt?: number;
@@ -176,6 +176,7 @@ export async function seedLead(
       marketingConsent: fields.marketingConsent ?? [],
       consentToken: fields.consentToken ?? `test-consent-${Math.random().toString(36).slice(2)}`,
       isRedFlagged: fields.isRedFlagged ?? false,
+      ownerIds: fields.ownerIds ?? [],
       updatedAt: Date.now(),
       ...fields,
     } as Doc<'leads'>;

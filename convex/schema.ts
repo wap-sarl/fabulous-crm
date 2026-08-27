@@ -22,6 +22,7 @@ import {
 } from './_lib/validators/deals';
 import { activityValidator } from './_lib/validators/activities';
 import { attachmentValidator } from './_lib/validators/attachments';
+import { teamValidator } from './_lib/validators/teams';
 import { duplicateScanValidator, leadDuplicateValidator } from './_lib/validators/duplicates';
 import {
   workflowValidator,
@@ -34,6 +35,10 @@ export type { Address } from './_lib/validators/shared';
 export { addressValidator } from './_lib/validators/shared';
 
 export type { User } from './_lib/validators/users';
+export type { EmployeeRole } from './_lib/validators/employees';
+export { employeeRoleValidator } from './_lib/validators/employees';
+export type { Team } from './_lib/validators/teams';
+export { teamValidator, MAX_TEAM_NAME_LENGTH } from './_lib/validators/teams';
 export { userValidator } from './_lib/validators/users';
 
 export type { AppConfig, SsoProvider } from './_lib/validators/appConfig';
@@ -219,8 +224,6 @@ export default defineSchema({
     .index('by_timestamp', ['timestamp']),
 
   leads: defineTable(leadValidator)
-    // [assignedTo, _creationTime]: single-assignee filter under the default sort.
-    .index('by_assignedTo', ['assignedTo'])
     // [lifecycleStage, _creationTime]: single-stage filter under the default sort.
     .index('by_lifecycleStage', ['lifecycleStage'])
     .index('by_company', ['companyId'])
@@ -245,6 +248,8 @@ export default defineSchema({
 
   attachments: defineTable(attachmentValidator).index('by_entity', ['entityType', 'entityId']),
 
+  teams: defineTable(teamValidator),
+
   companies: defineTable(companyValidator)
     .index('by_domain', ['domain'])
     .index('by_country_registrationNumber', ['country', 'registrationNumber'])
@@ -257,8 +262,7 @@ export default defineSchema({
   deals: defineTable(dealValidator)
     .index('by_pipeline_stage', ['pipelineId', 'stageKey'])
     .index('by_pipeline_status', ['pipelineId', 'status'])
-    .index('by_lead', ['leadId'])
-    .index('by_owner', ['ownerId']),
+    .index('by_lead', ['leadId']),
 
   dealStageHistory: defineTable(dealStageHistoryValidator).index('by_deal', ['dealId']),
 

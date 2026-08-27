@@ -18,6 +18,7 @@ import {
 import { requireValidAddress } from '../../lib/addresses';
 import { requireCompany } from '../../lib/companies';
 import { repointLeadRows } from '../../lib/duplicates';
+import { cleanOwnerIds } from '../../lib/owners';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
@@ -81,7 +82,7 @@ const mergeFieldArgs = {
   phone: v.optional(v.union(v.string(), v.null())),
   address: v.optional(v.union(addressValidator, v.null())),
   comment: v.optional(v.union(v.string(), v.null())),
-  assignedTo: v.optional(v.union(v.id('users'), v.null())),
+  ownerIds: v.optional(v.array(v.id('users'))),
   companyId: v.optional(v.union(v.id('companies'), v.null())),
   lifecycleStage: v.optional(v.string()),
   isRedFlagged: v.optional(v.boolean()),
@@ -117,11 +118,7 @@ export const mergeLeads = employeeMutation({
       updates.address = fields.address ? requireValidAddress(fields.address) : undefined;
     }
     if (fields.comment !== undefined) updates.comment = fields.comment?.trim() || undefined;
-    if (fields.assignedTo !== undefined) {
-      if (fields.assignedTo && !(await ctx.db.get(fields.assignedTo)))
-        throw new Error('invalid_assignee');
-      updates.assignedTo = fields.assignedTo ?? undefined;
-    }
+    if (fields.ownerIds !== undefined) updates.ownerIds = await cleanOwnerIds(ctx, fields.ownerIds);
     if (fields.companyId !== undefined) {
       if (fields.companyId) await requireCompany(ctx, fields.companyId);
       updates.companyId = fields.companyId ?? undefined;

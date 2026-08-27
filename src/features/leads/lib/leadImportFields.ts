@@ -16,7 +16,7 @@ export interface LeadImportRow {
   lifecycleStage?: string;
   comment?: string;
   isRedFlagged?: boolean;
-  assignedTo?: Id<'users'>;
+  ownerIds?: Id<'users'>[];
   address?: {
     country: string;
     streetNumber: string;
@@ -189,12 +189,18 @@ export const IMPORT_FIELDS: ImportFieldDef[] = [
   },
   {
     header: 'assignedto',
-    label: 'Assigné à',
-    // Unknown (or absent) user is left unset; the import mutation defaults it
-    // to the importing employee.
-    parse: (raw, ctx) => ({ value: ctx.userByEmail.get(raw.toLowerCase()) }),
+    label: 'Propriétaires',
+    // Employee emails separated by `;`. Unknown users are skipped; an empty
+    // result is left unset and the import mutation defaults it to the importer.
+    parse: (raw, ctx) => ({
+      value: raw
+        .split(';')
+        .map((e) => ctx.userByEmail.get(e.trim().toLowerCase()))
+        .filter((id): id is Id<'users'> => !!id),
+    }),
     apply: (row, value) => {
-      if (value) row.assignedTo = value as Id<'users'>;
+      const ids = value as Id<'users'>[];
+      if (ids.length > 0) row.ownerIds = ids;
     },
   },
   {

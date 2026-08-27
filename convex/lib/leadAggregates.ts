@@ -5,15 +5,14 @@ import type { QueryCtx } from '../_generated/server';
 
 const aliveness = (doc: Doc<'leads'>): 0 | 1 => (doc.deletedAt != null ? 1 : 0);
 
-/** Lead count per owner (namespace = assignedTo or null, key = aliveness bit). */
 export const leadsByOwner = new TableAggregate<{
   Namespace: Id<'users'> | null;
-  Key: 0 | 1;
+  Key: [0 | 1, string];
   DataModel: DataModel;
   TableName: 'leads';
 }>(components.leadsByOwner, {
-  namespace: (doc) => doc.assignedTo ?? null,
-  sortKey: aliveness,
+  namespace: (doc) => doc.ownerIds[0] ?? null,
+  sortKey: (doc) => [aliveness(doc), doc.lifecycleStage ?? ''],
 });
 
 export const leadsByLifecycle = new TableAggregate<{
@@ -36,13 +35,23 @@ export async function countLiveLeadsByLifecycleStage(
   });
 }
 
-/** Count the live (non-soft-deleted) leads assigned to `owner` (null = unassigned). */
+/**
+ * Count the live leads whose primary owner is `owner` (null = unowned), in
+ * one stage ('' = unset) or in any when `stage` is omitted.
+ */
 export async function countLiveLeadsByOwner(
   ctx: QueryCtx,
   owner: Id<'users'> | null,
+  stage?: string,
 ): Promise<number> {
   return await leadsByOwner.count(ctx, {
     namespace: owner,
-    bounds: { lower: { key: 0, inclusive: true }, upper: { key: 0, inclusive: true } },
+    bounds:
+      stage === undefined
+        ? { prefix: [0] }
+        : {
+            lower: { key: [0, stage], inclusive: true },
+            upper: { key: [0, stage], inclusive: true },
+          },
   });
 }

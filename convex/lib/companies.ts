@@ -138,6 +138,7 @@ export async function resolveCompanyForLead(
     vatNumber,
     domain,
     website: domain ? websiteOfDomain(domain) : undefined,
+    ownerIds: [],
     ...createAuditFields(userId),
   });
   await logAudit({

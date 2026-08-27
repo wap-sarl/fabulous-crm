@@ -83,7 +83,9 @@ export const listCompaniesPaginated = employeeQuery({
 /** Live company count for the list header. */
 export const countCompanies = employeeQuery({
   args: {},
-  handler: async (ctx) => ({ total: await countLiveCompanies(ctx) }),
+  handler: async (ctx) => ({
+    total: ctx.visibility.scope === 'all' ? await countLiveCompanies(ctx) : null,
+  }),
 });
 
 /**
@@ -112,7 +114,12 @@ export const getCompany = employeeQuery({
   handler: async (ctx, args) => {
     const company = await ctx.db.get(args.companyId);
     if (!company || !isNotDeleted(company)) return null;
-    return await withContactCount(ctx, company);
+    const ownerNames: string[] = [];
+    for (const id of company.ownerIds) {
+      const owner = await ctx.db.get(id);
+      if (owner) ownerNames.push(`${owner.firstName} ${owner.lastName}`);
+    }
+    return { ...(await withContactCount(ctx, company)), ownerNames };
   },
 });
 

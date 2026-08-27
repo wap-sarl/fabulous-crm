@@ -26,6 +26,7 @@ export const listPipelines = employeeQuery({
 export const getPipelineStats = employeeQuery({
   args: { pipelineId: v.id('pipelines') },
   handler: async (ctx, args) => {
+    if (ctx.visibility.scope !== 'all') return null;
     const pipeline = await ctx.db.get(args.pipelineId);
     if (!pipeline || !isNotDeleted(pipeline)) return null;
     const stages = [];
@@ -46,7 +47,7 @@ export const getPipelineStats = employeeQuery({
 
 export type DealRow = Doc<'deals'> & {
   leadName: string | null;
-  ownerName: string | null;
+  ownerNames: string[];
   stageLabel: string;
 };
 
@@ -77,9 +78,11 @@ async function withRelations(ctx: QueryCtx, deals: Doc<'deals'>[]): Promise<Deal
       leadName: deal.leadId
         ? await nameOf(leads, deal.leadId, (l) => `${l.firstName} ${l.lastName}`)
         : null,
-      ownerName: deal.ownerId
-        ? await nameOf(users, deal.ownerId, (u) => `${u.firstName} ${u.lastName}`)
-        : null,
+      ownerNames: (
+        await Promise.all(
+          deal.ownerIds.map((id) => nameOf(users, id, (u) => `${u.firstName} ${u.lastName}`)),
+        )
+      ).filter((n): n is string => n !== null),
       stageLabel: stage?.label ?? deal.stageKey,
     });
   }
@@ -142,8 +145,8 @@ export function getDealFieldValue(
       return deal.status;
     case 'stageKey':
       return deal.stageKey;
-    case 'ownerId':
-      return deal.ownerId;
+    case 'ownerIds':
+      return deal.ownerIds;
     case 'expectedCloseDate':
       return deal.expectedCloseDate;
   }
@@ -154,7 +157,7 @@ function matchesDealFilters(deal: Doc<'deals'>, f: DealFilters): boolean {
   if (f.pipelineId && deal.pipelineId !== f.pipelineId) return false;
   if (f.stageKeys?.length && !f.stageKeys.includes(deal.stageKey)) return false;
   if (f.statuses?.length && !f.statuses.includes(deal.status)) return false;
-  if (f.ownerIds?.length && (!deal.ownerId || !f.ownerIds.includes(deal.ownerId))) return false;
+  if (f.ownerIds?.length && !deal.ownerIds.some((id) => f.ownerIds?.includes(id))) return false;
   if (f.leadIds?.length && (!deal.leadId || !f.leadIds.includes(deal.leadId))) return false;
   const search = f.search ? normalizeSearchText(f.search) : '';
   if (search && !normalizeSearchText(deal.title).includes(search)) return false;
@@ -168,7 +171,6 @@ export const listDealsPaginated = employeeQuery({
   handler: async (ctx, args) => {
     const one = <T>(list: T[] | undefined) => (list?.length === 1 ? list[0] : undefined);
     const lead = one(args.leadIds);
-    const owner = one(args.ownerIds);
     const stage = one(args.stageKeys);
     const status = one(args.statuses);
     const pipelineId = args.pipelineId;
@@ -176,19 +178,17 @@ export const listDealsPaginated = employeeQuery({
     const cursor =
       lead !== undefined
         ? base.withIndex('by_lead', (q) => q.eq('leadId', lead))
-        : owner !== undefined
-          ? base.withIndex('by_owner', (q) => q.eq('ownerId', owner))
-          : pipelineId !== undefined && stage !== undefined
-            ? base.withIndex('by_pipeline_stage', (q) =>
-                q.eq('pipelineId', pipelineId).eq('stageKey', stage),
+        : pipelineId !== undefined && stage !== undefined
+          ? base.withIndex('by_pipeline_stage', (q) =>
+              q.eq('pipelineId', pipelineId).eq('stageKey', stage),
+            )
+          : pipelineId !== undefined && status !== undefined
+            ? base.withIndex('by_pipeline_status', (q) =>
+                q.eq('pipelineId', pipelineId).eq('status', status),
               )
-            : pipelineId !== undefined && status !== undefined
-              ? base.withIndex('by_pipeline_status', (q) =>
-                  q.eq('pipelineId', pipelineId).eq('status', status),
-                )
-              : pipelineId !== undefined
-                ? base.withIndex('by_pipeline_stage', (q) => q.eq('pipelineId', pipelineId))
-                : base;
+            : pipelineId !== undefined
+              ? base.withIndex('by_pipeline_stage', (q) => q.eq('pipelineId', pipelineId))
+              : base;
     const result = await cursor.order('desc').paginate(args.paginationOpts);
     return {
       ...result,

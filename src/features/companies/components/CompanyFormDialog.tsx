@@ -20,6 +20,7 @@ import {
   toast,
   type AddressValue,
   type SiretCompanyData,
+  MultiSelect,
 } from '@crm/design-system';
 import { COUNTRIES, countryName } from '../../../lib/countries';
 import {
@@ -34,6 +35,7 @@ import {
 import type { PropertyValue } from '@crm/lib/backend';
 import { CustomPropertyFields } from '../../properties/components/CustomPropertyFields';
 import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
+import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { useCompanyActions } from '../hooks/useCompanyActions';
 import { companyErrorMessage } from '../lib/errors';
 
@@ -56,6 +58,7 @@ interface FormState {
   headcount: string;
   address: AddressValue;
   customProperties: Record<string, PropertyValue>;
+  ownerIds: string[];
 }
 
 const emptyAddress = (country: string): AddressValue => ({
@@ -78,6 +81,7 @@ function emptyForm(): FormState {
     headcount: '',
     address: emptyAddress(DEFAULT_COUNTRY),
     customProperties: {},
+    ownerIds: [],
   };
 }
 
@@ -92,6 +96,7 @@ function fromCompany(company: Doc<'companies'>): FormState {
     sector: company.sector ?? '',
     headcount: company.headcount !== undefined ? String(company.headcount) : '',
     customProperties: { ...(company.customProperties ?? {}) },
+    ownerIds: company.ownerIds,
     address: {
       country: company.address?.country ?? company.country,
       streetNumber: company.address?.streetNumber ?? '',
@@ -122,6 +127,7 @@ export function CompanyFormDialog({
   const isEdit = !!company;
   const { createCompany, updateCompany } = useCompanyActions();
   const definitions = usePropertyDefinitions('company');
+  const { employees } = useEmployees();
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -237,6 +243,7 @@ export function CompanyFormDialog({
       headcount,
       address,
       customProperties: form.customProperties,
+      ownerIds: form.ownerIds as Id<'users'>[],
     };
 
     setSubmitting(true);
@@ -400,6 +407,18 @@ export function CompanyFormDialog({
             label={`Adresse (${countryName(form.country)})`}
           />
         </fieldset>
+
+        <div className="space-y-1">
+          <Label>Propriétaires</Label>
+          <MultiSelect
+            items={employees.map((e) => ({ value: e._id, label: `${e.firstName} ${e.lastName}` }))}
+            value={form.ownerIds}
+            onValueChange={(v) => setField('ownerIds', v)}
+            placeholder="Aucun"
+            modal
+            className="w-full"
+          />
+        </div>
 
         <CustomPropertyFields
           definitions={definitions}

@@ -32,7 +32,7 @@ export function dealFilterFields(
       options: DEAL_STATUSES.map((s) => ({ value: s.value, label: s.label })),
     },
     { field: 'stageKey', label: 'Stade', type: 'select', options: stages },
-    { field: 'ownerId', label: 'Propriétaire', type: 'assignee' },
+    { field: 'ownerIds', label: 'Propriétaires', type: 'assignee' },
     { field: 'expectedCloseDate', label: 'Clôture prévue', type: 'date' },
   ];
 }

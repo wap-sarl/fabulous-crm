@@ -293,7 +293,7 @@ export const executeStep = internalMutation({
               currency: node.currency,
               pipelineId: node.pipelineId,
               stageKey: node.stageKey,
-              ownerId: lead.assignedTo,
+              ownerIds: lead.ownerIds,
               leadId: lead._id,
             },
             { source: 'workflow', workflowId: workflow._id, runSource: source },
@@ -317,7 +317,8 @@ export const executeStep = internalMutation({
           appOrigin() || 'http://localhost:4202',
           await loadLifecycleConfig(ctx),
         );
-        const ownerId = node.ownerId ?? lead.assignedTo ?? workflow.createdBy ?? workflow.updatedBy;
+        const ownerId =
+          node.ownerId ?? lead.ownerIds[0] ?? workflow.createdBy ?? workflow.updatedBy;
         if (!ownerId || !(await ctx.db.get(ownerId))) {
           await logStep(ctx, run, node, 'skipped', { detail: 'aucun propriétaire' });
         } else {

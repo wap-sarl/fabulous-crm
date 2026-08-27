@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { leadsByOwner } from '../../convex/lib/leadAggregates';
+import { countLiveLeadsByOwner } from '../../convex/lib/leadAggregates';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 async function setup() {
@@ -12,12 +12,7 @@ async function setup() {
 }
 
 async function countByOwner(t: T, owner: Id<'users'> | null) {
-  return await t.run(async (ctx) => {
-    return await leadsByOwner.count(ctx, {
-      namespace: owner,
-      bounds: { lower: { key: 0, inclusive: true }, upper: { key: 0, inclusive: true } },
-    });
-  });
+  return await t.run((ctx) => countLiveLeadsByOwner(ctx, owner));
 }
 
 describe('countLeadsByLifecycleStage (aggregate-backed)', () => {
@@ -108,7 +103,7 @@ describe('leadsByOwner aggregate', () => {
 
     await as.mutation(api.features.crm.mutations.updateLead, {
       leadId,
-      assignedTo: emp.userId,
+      ownerIds: [emp.userId],
     });
     expect(await countByOwner(t, null)).toBe(0);
     expect(await countByOwner(t, emp.userId)).toBe(1);

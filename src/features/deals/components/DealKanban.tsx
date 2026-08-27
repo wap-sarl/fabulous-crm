@@ -58,7 +58,7 @@ function DealCardBody({ deal, dragging }: { deal: DealRow; dragging?: boolean })
         ) : (
           <span />
         )}
-        {deal.ownerName ? <InitialsAvatar name={deal.ownerName} size={22} /> : null}
+        {deal.ownerNames[0] ? <InitialsAvatar name={deal.ownerNames[0]} size={22} /> : null}
       </div>
     </div>
   );

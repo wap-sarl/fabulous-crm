@@ -3,10 +3,11 @@ import { paginationOptsValidator } from 'convex/server';
 import { query } from '../../_generated/server';
 import { employeeQuery } from '../../_lib/auth';
 import type { QueryCtx } from '../../_generated/server';
+import type { Id } from '../../_generated/dataModel';
 import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
-import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
+import { countLiveLeadsByLifecycleStage, countLiveLeadsByOwner } from '../../lib/leadAggregates';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import { normalizeSearchText } from '../../lib/leadSearch';
 import { leadListMemberCounts } from '../../lib/leadListMembers';
@@ -76,7 +77,6 @@ export const listLeadsPaginated = employeeQuery({
 
     // Indexable prefix: only single-value selections can ride an index range
     // (a multi-select would need a union of ranges, which one cursor can't do).
-    const singleAssignee = args.assignedToIds?.length === 1 ? args.assignedToIds[0] : undefined;
     const singleStage = args.lifecycleStages?.length === 1 ? args.lifecycleStages[0] : undefined;
     const singleCompany = args.companyIds?.length === 1 ? args.companyIds[0] : undefined;
 
@@ -85,22 +85,17 @@ export const listLeadsPaginated = employeeQuery({
         ? ctx.db.query('leads').withIndex('by_lastName').order(direction)
         : sortField === 'lifecycleStage'
           ? ctx.db.query('leads').withIndex('by_lifecycleStage').order(direction)
-          : singleAssignee !== undefined
+          : singleCompany !== undefined
             ? ctx.db
                 .query('leads')
-                .withIndex('by_assignedTo', (q) => q.eq('assignedTo', singleAssignee))
+                .withIndex('by_company', (q) => q.eq('companyId', singleCompany))
                 .order(direction)
-            : singleCompany !== undefined
+            : singleStage !== undefined
               ? ctx.db
                   .query('leads')
-                  .withIndex('by_company', (q) => q.eq('companyId', singleCompany))
+                  .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
                   .order(direction)
-              : singleStage !== undefined
-                ? ctx.db
-                    .query('leads')
-                    .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
-                    .order(direction)
-                : ctx.db.query('leads').order(direction);
+              : ctx.db.query('leads').order(direction);
 
     const result = await cursor.paginate(args.paginationOpts);
 
@@ -176,7 +171,11 @@ export const getLeadDetail = employeeQuery({
     const lead = await ctx.db.get(args.leadId);
     if (!lead || !isNotDeleted(lead)) return null;
 
-    const assignee = lead.assignedTo ? await ctx.db.get(lead.assignedTo) : null;
+    const ownerNames: string[] = [];
+    for (const id of lead.ownerIds) {
+      const owner = await ctx.db.get(id);
+      if (owner) ownerNames.push(`${owner.firstName} ${owner.lastName}`);
+    }
     const companyDoc = lead.companyId ? await ctx.db.get(lead.companyId) : null;
     const company =
       companyDoc && isNotDeleted(companyDoc)
@@ -185,7 +184,7 @@ export const getLeadDetail = employeeQuery({
 
     return {
       lead,
-      assignedToName: assignee ? `${assignee.firstName} ${assignee.lastName}` : null,
+      ownerNames,
       company,
     };
   },
@@ -235,10 +234,24 @@ export const countLeadsByLifecycleStage = employeeQuery({
   handler: async (ctx) => {
     const config = await loadLifecycleConfig(ctx);
     const byStage: Record<string, number> = {};
-    for (const stage of config.stages) {
-      byStage[stage.key] = await countLiveLeadsByLifecycleStage(ctx, stage.key);
+    let unset = 0;
+    if (ctx.visibility.scope === 'all') {
+      for (const stage of config.stages) {
+        byStage[stage.key] = await countLiveLeadsByLifecycleStage(ctx, stage.key);
+      }
+      unset = await countLiveLeadsByLifecycleStage(ctx, null);
+    } else {
+      const namespaces: (Id<'users'> | null)[] = [
+        ...([...ctx.visibility.userIds] as Id<'users'>[]),
+        null,
+      ];
+      for (const stage of config.stages) {
+        let n = 0;
+        for (const owner of namespaces) n += await countLiveLeadsByOwner(ctx, owner, stage.key);
+        byStage[stage.key] = n;
+      }
+      for (const owner of namespaces) unset += await countLiveLeadsByOwner(ctx, owner, '');
     }
-    const unset = await countLiveLeadsByLifecycleStage(ctx, null);
     const total = Object.values(byStage).reduce((a, b) => a + b, 0) + unset;
     return { byStage, unset, total };
   },
