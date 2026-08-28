@@ -56,7 +56,13 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   l'activation d'un workflow vérifie l'étape « Changer le stade » quand le
   déclencheur fixe le stade de départ. Vue Kanban
   (glisser-déposer) et vue liste ; historique des stades (`dealStageHistory`) ;
-  compteurs et montants par stade via agrégats. Déclencheurs de workflow
+  compteurs et montants par stade via agrégats. Chaque stade peut porter des
+  **étiquettes** (`stages[].tags`, clés stables ; sur « Perdue » ce sont les
+  motifs de perte) : entrer dans un stade étiqueté propose les étiquettes (au
+  moins une exigée si le stade l'impose, `tagsRequired`) et un commentaire, stockés sur la transaction (`stageTags`, `stageComment`) et dans
+  la ligne d'historique, affichés sur la fiche, la carte Kanban et le fil du
+  lead, filtrables (« Étiquettes de stade ») ; l'étape de workflow « Changer le
+  stade » peut poser des étiquettes fixes. Déclencheurs de workflow
   `deal_created` / `deal_stage_changed` / `deal_won` / `deal_lost` et étapes
   « Créer une transaction » / « Changer le stade d'une transaction ». Une transaction
   gagnée fait passer son lead au statut « Client ».

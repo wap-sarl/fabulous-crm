@@ -13,7 +13,7 @@ import {
 import { useAuthPaginatedQuery } from '@crm/widgets';
 import { api, isTransitionAllowed } from '@crm/lib/backend';
 import type { DealRow, Doc, PipelineStage } from '@crm/lib/backend';
-import { Button, InitialsAvatar, Skeleton, cn } from '@crm/design-system';
+import { Button, InitialsAvatar, Skeleton, StatusBadge, cn } from '@crm/design-system';
 import { User } from 'lucide-react';
 import { formatMoney } from '../../../lib/constants';
 
@@ -44,6 +44,20 @@ function DealCardBody({ deal, dragging }: { deal: DealRow; dragging?: boolean })
       <div className="mt-1 font-mono text-[12px] text-soft">
         {formatMoney(deal.amount, deal.currency)}
       </div>
+      {deal.stageTagLabels.length > 0 || deal.stageComment ? (
+        <div className="mt-1.5 flex flex-wrap items-center gap-1" data-testid="deal-card-tags">
+          {deal.stageTagLabels.map((label) => (
+            <StatusBadge key={label} tone={deal.status === 'lost' ? 'red' : 'gray'}>
+              {label}
+            </StatusBadge>
+          ))}
+          {deal.stageComment ? (
+            <span className="truncate text-[11.5px] text-faint" title={deal.stageComment}>
+              {deal.stageComment}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {deal.leadName && (
         <div className="mt-1.5 flex items-center gap-1.5 truncate text-[12px] text-faint">
           <User className="size-3 shrink-0" aria-hidden />

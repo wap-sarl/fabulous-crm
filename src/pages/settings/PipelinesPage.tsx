@@ -1,9 +1,17 @@
 import { useEffect, useState } from 'react';
 import { api } from '@crm/lib/backend';
-import type { Doc, Id, PipelineLayout, PipelineStage, PipelineTransition } from '@crm/lib/backend';
+import type {
+  Doc,
+  Id,
+  PipelineLayout,
+  PipelineStage,
+  PipelineStageTag,
+  PipelineTransition,
+} from '@crm/lib/backend';
 import {
   DEFAULT_PIPELINE_STAGES,
   MAX_PIPELINE_STAGES,
+  MAX_STAGE_TAGS,
   fullTransitions,
   isFullTransitions,
   pruneTransitions,
@@ -25,6 +33,11 @@ import {
   Input,
   Label,
   PageHeader,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   SortableList,
   Spinner,
   StatusBadge,
@@ -75,6 +88,8 @@ function PipelineEditDialog({
   );
   const [layout, setLayout] = useState<PipelineLayout | undefined>(pipeline.layout);
   const [newLabel, setNewLabel] = useState('');
+  const [tagStageKey, setTagStageKey] = useState('');
+  const [newTagLabel, setNewTagLabel] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const countOf = (key: string) => stageStats.find((s) => s.key === key)?.count ?? 0;
@@ -87,8 +102,39 @@ function PipelineEditDialog({
     setTransitions(pipeline.transitions);
     setLayout(pipeline.layout);
     setNewLabel('');
+    setTagStageKey(pipeline.stages.find((s) => s.kind === 'lost')?.key ?? '');
+    setNewTagLabel('');
     setDirty(false);
   }, [open, pipeline]);
+  const tagStage = stages.find((s) => s.key === tagStageKey) ?? stages[stages.length - 1];
+  const tagsOf = (stage: PipelineStage | undefined) => stage?.tags ?? [];
+  const setTags = (tags: PipelineStageTag[]) => {
+    if (!tagStage) return;
+    // The first tag makes them required by default; no tags, no requirement.
+    const tagsRequired =
+      tags.length === 0 ? undefined : tagStage.tags?.length ? tagStage.tagsRequired : true;
+    touch(
+      stages.map((s) =>
+        s.key === tagStage.key ? { ...s, tags: tags.length ? tags : undefined, tagsRequired } : s,
+      ),
+    );
+  };
+  const setTagsRequired = (required: boolean) => {
+    if (!tagStage) return;
+    touch(stages.map((s) => (s.key === tagStage.key ? { ...s, tagsRequired: required } : s)));
+  };
+  const addTag = () => {
+    const label = newTagLabel.trim();
+    if (!label || !tagStage) return;
+    const current = tagsOf(tagStage);
+    if (current.length >= MAX_STAGE_TAGS) {
+      toast.error(DEAL_ERROR_MESSAGES.pipeline_too_many_tags);
+      return;
+    }
+    const key = keyFromLabel(label, new Set(current.map((t) => t.key)));
+    setTags([...current, { key, label }]);
+    setNewTagLabel('');
+  };
 
   const touch = (next: PipelineStage[]) => {
     setTransitions((prev) =>
@@ -247,6 +293,98 @@ function PipelineEditDialog({
                 Les stades gagnée / perdue terminent le pipeline ; un stade qui contient des
                 transactions ne peut pas être supprimé.
               </HelperText>
+            </div>
+            <div className="space-y-2 border-t pt-4" data-testid="stage-tags-editor">
+              <Label>Étiquettes par étape</Label>
+              <Select value={tagStage?.key} onValueChange={setTagStageKey}>
+                <SelectTrigger data-testid="stage-tags-stage">
+                  <SelectValue placeholder="Choisir un stade…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stages.map((s) => (
+                    <SelectItem key={s.key} value={s.key}>
+                      {s.label}
+                      {s.tags?.length ? ` (${s.tags.length})` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {tagStage ? (
+                <>
+                  <SortableList
+                    items={tagsOf(tagStage)}
+                    getId={(tag) => tag.key}
+                    onReorder={setTags}
+                    itemClassName="flex items-center gap-2"
+                    renderItem={(tag, index, handle) => (
+                      <>
+                        {handle}
+                        <Input
+                          value={tag.label}
+                          onChange={(e) =>
+                            setTags(
+                              tagsOf(tagStage).map((t, i) =>
+                                i === index ? { ...t, label: e.target.value } : t,
+                              ),
+                            )
+                          }
+                          aria-label={`Libellé de l’étiquette ${index + 1}`}
+                          className="flex-1"
+                          data-testid="stage-tag"
+                        />
+                        <IconButton
+                          variant="secondary"
+                          size="sm"
+                          aria-label={`Supprimer l’étiquette ${tag.label}`}
+                          onClick={() => setTags(tagsOf(tagStage).filter((_, i) => i !== index))}
+                        >
+                          <Trash2 className="size-4" />
+                        </IconButton>
+                      </>
+                    )}
+                  />
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={newTagLabel}
+                      onChange={(e) => setNewTagLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          addTag();
+                        }
+                      }}
+                      placeholder={
+                        tagStage.kind === 'lost' ? 'Nouveau motif de perte…' : 'Nouvelle étiquette…'
+                      }
+                      aria-label="Libellé de la nouvelle étiquette"
+                      className="flex-1"
+                      data-testid="new-stage-tag"
+                    />
+                    <Button
+                      variant="outline"
+                      onClick={addTag}
+                      disabled={!newTagLabel.trim()}
+                      data-testid="add-stage-tag"
+                    >
+                      <Plus className="size-4" />
+                      Ajouter
+                    </Button>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm">
+                    <Switch
+                      checked={!!tagStage.tagsRequired && tagsOf(tagStage).length > 0}
+                      disabled={tagsOf(tagStage).length === 0}
+                      onCheckedChange={setTagsRequired}
+                      data-testid="stage-tags-required"
+                    />
+                    Au moins une étiquette obligatoire pour entrer dans ce stade
+                  </label>
+                  <HelperText>
+                    Proposées quand une transaction entre dans ce stade (les motifs de perte sur «
+                    Perdue ») ; elles se comptent et se filtrent.
+                  </HelperText>
+                </>
+              ) : null}
             </div>
           </div>
           <div className="flex min-h-0 flex-col gap-2 p-6 lg:col-span-2">

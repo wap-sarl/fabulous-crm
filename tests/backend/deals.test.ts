@@ -109,6 +109,108 @@ describe('pipelines', () => {
   });
 });
 
+describe('pipeline stage tags', () => {
+  test('stage tags are validated; deals can be filtered on a tag', async () => {
+    const { t, as, pipelineId } = await setup();
+    const withTags = (tags: { key: string; label: string }[], tagsRequired = true) =>
+      DEFAULT_PIPELINE_STAGES.map((s) => (s.key === 'lost' ? { ...s, tags, tagsRequired } : s));
+    await expect(
+      as.mutation(api.features.deals.mutations.updatePipeline, {
+        pipelineId,
+        stages: withTags([{ key: 'Bad Key', label: 'x' }]),
+      }),
+    ).rejects.toThrow('pipeline_invalid_tag_key');
+    await expect(
+      as.mutation(api.features.deals.mutations.updatePipeline, {
+        pipelineId,
+        stages: withTags([
+          { key: 'a', label: 'A' },
+          { key: 'a', label: 'B' },
+        ]),
+      }),
+    ).rejects.toThrow('pipeline_duplicate_tag');
+    await expect(
+      as.mutation(api.features.deals.mutations.updatePipeline, {
+        pipelineId,
+        stages: withTags([{ key: 'a', label: ' ' }]),
+      }),
+    ).rejects.toThrow('pipeline_empty_tag_label');
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      stages: withTags([
+        { key: 'too_expensive', label: 'Trop cher' },
+        { key: 'competitor', label: 'Concurrent' },
+      ]),
+    });
+
+    const a = await as.mutation(api.features.deals.mutations.createDeal, { title: 'A' });
+    const b = await as.mutation(api.features.deals.mutations.createDeal, { title: 'B' });
+    await as.mutation(api.features.deals.mutations.createDeal, { title: 'C' });
+    await as.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId: a,
+      stageKey: 'lost',
+      tags: ['competitor'],
+    });
+    await as.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId: b,
+      stageKey: 'lost',
+      tags: ['too_expensive'],
+      comment: 'Devis trop haut',
+    });
+    const filtered = await as.query(api.features.deals.queries.listDealsPaginated, {
+      pipelineId,
+      advancedFilter: {
+        combinator: 'and',
+        groups: [
+          {
+            combinator: 'and',
+            rules: [
+              {
+                field: { kind: 'standard', field: 'stageTags' },
+                operator: 'contains',
+                value: ['competitor'],
+              },
+            ],
+          },
+        ],
+      },
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(filtered.page.map((d) => d.title)).toEqual(['A']);
+    // Creating a deal directly in a tagged stage takes tags (at least one) and a comment too.
+    await expect(
+      as.mutation(api.features.deals.mutations.createDeal, { title: 'D', stageKey: 'lost' }),
+    ).rejects.toThrow('stage_tag_required');
+    const d = await as.mutation(api.features.deals.mutations.createDeal, {
+      title: 'D',
+      stageKey: 'lost',
+      stageTags: ['competitor'],
+      stageComment: 'Perdu d’entrée',
+    });
+    const created = (await as.query(api.features.deals.queries.getDeal, { dealId: d }))!;
+    expect(created.deal.stageTagLabels).toEqual(['Concurrent']);
+    expect(created.history[0]).toMatchObject({ tags: ['Concurrent'], comment: 'Perdu d’entrée' });
+
+    // With the requirement switched off, the tags stay optional.
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      stages: withTags(
+        [
+          { key: 'too_expensive', label: 'Trop cher' },
+          { key: 'competitor', label: 'Concurrent' },
+        ],
+        false,
+      ),
+    });
+    const e = await as.mutation(api.features.deals.mutations.createDeal, {
+      title: 'E',
+      stageKey: 'lost',
+      stageComment: 'Sans motif',
+    });
+    expect((await dealOf(t, e)).stageTags).toBeUndefined();
+  });
+});
+
 describe('deals', () => {
   test('creation lands in the default pipeline/stage, logs history, audits, links the lead', async () => {
     const { t, as, emp, pipelineId } = await setup();
@@ -153,8 +255,24 @@ describe('deals', () => {
     ).rejects.toThrow('unknown_stage');
   });
 
-  test('stage moves record history, stamp closedAt/lossReason, and reopen cleanly', async () => {
-    const { t, as } = await setup();
+  test('stage moves record history, stamp closedAt, tags and comment, and reopen cleanly', async () => {
+    const { t, as, pipelineId } = await setup();
+    // Loss reasons live on the lost stage as tags.
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      stages: DEFAULT_PIPELINE_STAGES.map((s) =>
+        s.key === 'lost'
+          ? {
+              ...s,
+              tags: [
+                { key: 'too_expensive', label: 'Trop cher' },
+                { key: 'competitor', label: 'Concurrent' },
+              ],
+              tagsRequired: true,
+            }
+          : s,
+      ),
+    });
     const dealId = await as.mutation(api.features.deals.mutations.createDeal, {
       title: 'Deal',
     });
@@ -171,15 +289,40 @@ describe('deals', () => {
       }),
     ).toBe('unchanged');
 
+    // A tag that is not one of the stage's is refused; a tagged stage needs at least one.
+    await expect(
+      as.mutation(api.features.deals.mutations.moveDealStage, {
+        dealId,
+        stageKey: 'lost',
+        tags: ['nope'],
+      }),
+    ).rejects.toThrow('unknown_stage_tag');
+    await expect(
+      as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'lost' }),
+    ).rejects.toThrow('stage_tag_required');
+    // Won has no tags: nothing is required there.
+    await as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'won' });
+    await as.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId,
+      stageKey: 'proposal',
+    });
     await as.mutation(api.features.deals.mutations.moveDealStage, {
       dealId,
       stageKey: 'lost',
-      lossReason: 'Trop cher',
+      tags: ['too_expensive', 'competitor', 'too_expensive'],
+      comment: '  Budget gelé  ',
     });
     let deal = await dealOf(t, dealId);
-    expect(deal).toMatchObject({ status: 'lost', lossReason: 'Trop cher' });
+    expect(deal).toMatchObject({
+      status: 'lost',
+      stageTags: ['too_expensive', 'competitor'],
+      stageComment: 'Budget gelé',
+    });
     expect(deal.closedAt).toBeDefined();
+    const page = await as.query(api.features.deals.queries.getDeal, { dealId });
+    expect(page?.deal.stageTagLabels).toEqual(['Trop cher', 'Concurrent']);
 
+    // Reopening clears the deal's stage tags; the history keeps them.
     await as.mutation(api.features.deals.mutations.moveDealStage, {
       dealId,
       stageKey: 'negotiation',
@@ -187,14 +330,25 @@ describe('deals', () => {
     deal = await dealOf(t, dealId);
     expect(deal).toMatchObject({ status: 'open', stageKey: 'negotiation' });
     expect(deal.closedAt).toBeUndefined();
-    expect(deal.lossReason).toBeUndefined();
+    expect(deal.stageTags).toBeUndefined();
+    expect(deal.stageComment).toBeUndefined();
 
-    expect((await historyOf(t, dealId)).map((h) => h.to)).toEqual([
+    const history = await historyOf(t, dealId);
+    expect(history.map((h) => h.to)).toEqual([
       'new',
+      'proposal',
+      'won',
       'proposal',
       'lost',
       'negotiation',
     ]);
+    expect(history[4]).toMatchObject({
+      tags: ['too_expensive', 'competitor'],
+      comment: 'Budget gelé',
+    });
+    expect(history[5].tags).toBeUndefined();
+    const rows = (await as.query(api.features.deals.queries.getDeal, { dealId }))?.history ?? [];
+    expect(rows[4]).toMatchObject({ tags: ['Trop cher', 'Concurrent'], comment: 'Budget gelé' });
     await expect(
       as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'nope' }),
     ).rejects.toThrow('unknown_stage');
@@ -504,6 +658,53 @@ describe('workflow deal steps', () => {
     expect(step.status).toBe('skipped');
     expect(step.detail).toContain('transition interdite');
     expect((await dealOf(t, dealId)).stageKey).toBe('new');
+  });
+
+  test('update_deal_stage sets its fixed tags; activation refuses a tag the stage lacks', async () => {
+    const { t, as, emp, pipelineId } = await setup();
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      stages: DEFAULT_PIPELINE_STAGES.map((s) =>
+        s.key === 'lost'
+          ? { ...s, tags: [{ key: 'no_answer', label: 'Sans réponse' }], tagsRequired: true }
+          : s,
+      ),
+    });
+    const activate = (workflowId: Id<'workflows'>) =>
+      as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+        workflowId,
+        status: 'active',
+      });
+    const draft = (tags?: string[]) =>
+      as.mutation(api.features.workflows.mutations.createWorkflow, {
+        name: 'Tags',
+        trigger: { type: 'consent_updated' },
+        allowReEnrollment: false,
+        nodes: [{ id: 'n1', type: 'update_deal_stage', stageKey: 'lost', tags }],
+        startNodeId: 'n1',
+      });
+    await expect(activate(await draft(['nope']))).rejects.toThrow('étiquette introuvable');
+    await expect(activate(await draft())).rejects.toThrow('choisissez au moins une étiquette');
+
+    const workflowId = await activeWorkflow(t, emp, {
+      type: 'update_deal_stage',
+      stageKey: 'lost',
+      tags: ['no_answer'],
+    });
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'A',
+      lastName: 'A',
+    });
+    const dealId = await as.mutation(api.features.deals.mutations.createDeal, {
+      title: 'Silent',
+      leadId,
+    });
+    expect((await runStep(t, workflowId, leadId)).status).toBe('success');
+    expect(await dealOf(t, dealId)).toMatchObject({ status: 'lost', stageTags: ['no_answer'] });
+    expect((await historyOf(t, dealId)).at(-1)).toMatchObject({
+      tags: ['no_answer'],
+      source: 'workflow',
+    });
   });
 });
 

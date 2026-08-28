@@ -30,6 +30,7 @@ export const dealStandardFieldValidator = v.union(
   v.literal('currency'),
   v.literal('status'),
   v.literal('stageKey'),
+  v.literal('stageTags'),
   v.literal('ownerIds'),
   v.literal('expectedCloseDate'),
 );

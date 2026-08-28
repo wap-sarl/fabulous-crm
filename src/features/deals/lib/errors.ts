@@ -27,6 +27,12 @@ export const DEAL_ERROR_MESSAGES: Record<string, string> = {
   pipeline_transition_from_closed:
     'Un stade gagnée / perdue ne peut mener qu’à un stade en cours (réouverture).',
   deal_transition_forbidden: 'Cette transition n’est pas autorisée par le pipeline.',
+  pipeline_too_many_tags: 'Trop d’étiquettes sur un stade (20 max).',
+  pipeline_invalid_tag_key: 'Identifiant d’étiquette invalide.',
+  pipeline_duplicate_tag: 'Deux étiquettes d’un même stade partagent le même identifiant.',
+  pipeline_empty_tag_label: 'Chaque étiquette doit avoir un libellé.',
+  unknown_stage_tag: 'Étiquette introuvable sur ce stade.',
+  stage_tag_required: 'Choisissez au moins une étiquette pour ce stade.',
 };
 
 export function dealErrorMessage(e: unknown, fallback: string): string {
