@@ -10,11 +10,15 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   pagination, import CSV avec upsert (clé de matching : email), assignation à
   un employé.
 - **Entreprises** : organisations rattachées aux leads (`companies`,
-  `leads.companyId`). Rattachement automatique: par numéro
-  d'immatriculation, par numéro de TVA, puis par domaine de l'e-mail
-  (`x@acme.fr` → entreprise **existante** de domaine `acme.fr` ; un lead n'a
-  pas forcément d'entreprise, aucune n'est créée à partir d'un e-mail ; les
-  messageries grand public sont exclues). Le numéro d'immatriculation dépend du pays de l'entreprise
+  `leads.companyId`). Rattachement : par numéro d'immatriculation, par
+  numéro de TVA (données d'entreprise explicites), puis par domaine de
+  l'e-mail (`x@acme.fr` → entreprise **existante** de domaine `acme.fr` ; un
+  lead n'a pas forcément d'entreprise, aucune n'est créée à partir d'un
+  e-mail ; les messageries grand public sont exclues). Dans le formulaire de
+  lead, la correspondance par domaine est **proposée** à l'enregistrement
+  (« Rattacher ce lead à cette entreprise ? » Oui / Non) et jamais appliquée
+  sans réponse ; seul l'import CSV rattache par domaine automatiquement. Le
+  numéro d'immatriculation dépend du pays de l'entreprise
   (SIRET vérifié dans la base Sirene pour la France, texte libre ailleurs) via
   un registre d'inputs par pays extensible (`src/lib/countryInputs`).
 - **Adresses par pays** : l'adresse (objet imbriqué partagé par leads,

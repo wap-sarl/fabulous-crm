@@ -152,9 +152,10 @@ export const createLead = employeeMutation({
     const email = normalizeEmail(args.email);
     let companyId = args.companyId;
     if (companyId) await requireCompany(ctx, companyId);
-    else
+    else if (args.company) {
       companyId =
-        (await resolveCompanyForLead(ctx, args.company ?? {}, email, ctx.userId)) ?? undefined;
+        (await resolveCompanyForLead(ctx, args.company, undefined, ctx.userId)) ?? undefined;
+    }
 
     const leadId = await ctx.db.insert('leads', {
       firstName: args.firstName.trim(),
@@ -225,19 +226,12 @@ export const updateLead = employeeMutation({
     if (email !== undefined) {
       updates.email = normalizeEmail(email);
     }
+    // The company only changes on an explicit pick (the form's answer to the
+    // domain-match prompt included); a new business email never attaches by itself.
     if (companyId !== undefined) {
       if (companyId) await requireCompany(ctx, companyId);
       // filterUndefined keeps null; patching null clears the field below.
       updates.companyId = companyId;
-    } else if (!lead.companyId && email !== undefined && updates.email !== lead.email) {
-      // A new business email on a company-less lead: match like at creation.
-      const matched = await resolveCompanyForLead(
-        ctx,
-        {},
-        updates.email as string | undefined,
-        ctx.userId,
-      );
-      if (matched) updates.companyId = matched;
     }
     if (customProperties !== undefined) {
       updates.customProperties = sanitizeCustomProperties(

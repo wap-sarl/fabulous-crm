@@ -364,7 +364,8 @@ export function CompanyFormDialog({
               placeholder="acme.fr"
             />
             <HelperText>
-              Les leads dont l’e-mail porte ce domaine sont rattachés automatiquement.
+              Les leads dont l’e-mail porte ce domaine se voient proposer le rattachement à la
+              saisie, et sont rattachés automatiquement à l’import CSV.
             </HelperText>
           </div>
           <div className="space-y-1">

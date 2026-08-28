@@ -425,7 +425,8 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
             <span className="font-mono">{REQUIRED_TARGETS.map((t) => t.label).join(', ')}</span>.
             Les lignes avec un <span className="font-mono">e-mail</span> déjà connu mettent à jour
             le lead existant. Séparez par <span className="font-mono">;</span> les valeurs multiples
-            (choix multiple).
+            (choix multiple). Un lead sans entreprise dont l’e-mail porte le domaine d’une
+            entreprise existante lui est rattaché automatiquement, sans confirmation.
           </p>
           <Textarea
             id="csv"

@@ -16,8 +16,8 @@ interface CompanyPickerProps {
 
 /**
  * Searchable company selector backed by `searchCompanies` (search index, 10
- * rows). The empty item detaches; leaving it empty on a new lead lets the
- * server match the company from the email domain.
+ * rows). The empty item detaches; the lead form then proposes the company
+ * matching the email's domain, if any, before saving.
  */
 export function CompanyPicker({
   value,

@@ -17,6 +17,8 @@ import {
 } from '../../lib/companyAggregates';
 import { ownerNamespaces } from '../../lib/visibility';
 import { normalizeSearchText } from '../../lib/leadSearch';
+import { findCompanyByDomain } from '../../lib/companies';
+import { companyDomainOfEmail } from '../../lib/companyDomains';
 
 /** A list row: the company plus its live contact count (aggregate, O(log n)). */
 async function withContactCount(
@@ -116,6 +118,16 @@ export const searchCompanies = employeeQuery({
       .filter(isNotDeleted)
       .slice(0, 10)
       .map((c) => ({ _id: c._id, name: c.name, domain: c.domain ?? null }));
+  },
+});
+
+export const findCompanyByEmailDomain = employeeQuery({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const domain = companyDomainOfEmail(args.email);
+    if (!domain) return null;
+    const company = await findCompanyByDomain(ctx, domain);
+    return company ? { _id: company._id, name: company.name, domain } : null;
   },
 });
 

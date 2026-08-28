@@ -116,61 +116,71 @@ describe('company mutations', () => {
   });
 });
 
-describe('automatic lead ↔ company matching', () => {
-  test('a lead with a business email attaches to the existing domain company', async () => {
+describe('lead ↔ company matching', () => {
+  test('the form is offered the domain company and attaches only on an explicit pick', async () => {
     const { t, as } = await setup();
     const companyId = await as.mutation(api.features.companies.mutations.createCompany, {
-      name: 'Acme',
+      name: 'Initech',
       domain: 'acme.fr',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    // The prompt's query names the company…
+    expect(
+      await as.query(api.features.companies.queries.findCompanyByEmailDomain, {
+        email: 'jean@ACME.fr',
+      }),
+    ).toEqual({ _id: companyId, name: 'Initech', domain: 'acme.fr' });
+    // …but nothing is attached without its answer.
+    const detached = await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
       email: 'jean@ACME.fr',
+    });
+    expect((await leadOf(t, detached)).companyId).toBeUndefined();
+    // « Oui » sends the company id.
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Jean',
+      lastName: 'Dupont',
+      email: 'jean2@ACME.fr',
+      companyId,
     });
     expect((await leadOf(t, leadId)).companyId).toBe(companyId);
 
     const company = await as.query(api.features.companies.queries.getCompany, { companyId });
     expect(company?.contactCount).toBe(1);
-    // The company name is folded into the lead's search text.
+    // The company name is folded into the attached lead's search text only.
     const found = await as.query(api.features.crm.queries.listLeadsPaginated, {
-      search: 'acme',
+      search: 'initech',
       paginationOpts: { numItems: 10, cursor: null },
     });
     expect(found.page.map((l) => l._id)).toEqual([leadId]);
-    expect(found.page[0].companyName).toBe('Acme');
+    expect(found.page[0].companyName).toBe('Initech');
   });
 
-  test('an unknown business domain creates nothing — a lead may have no company', async () => {
+  test('an unknown business domain or a consumer mailbox proposes nothing', async () => {
     const { t, as } = await setup();
+    const find = (email: string) =>
+      as.query(api.features.companies.queries.findCompanyByEmailDomain, { email });
+    expect(await find('a@newco.io')).toBeNull();
+    expect(await find('b@gmail.com')).toBeNull();
+    expect(await find('not-an-email')).toBeNull();
     const leadId = await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@newco.io',
     });
     expect((await leadOf(t, leadId)).companyId).toBeUndefined();
-    const gmailLead = await as.mutation(api.features.crm.mutations.createLead, {
-      firstName: 'B',
-      lastName: 'B',
-      email: 'b@gmail.com',
-    });
-    expect((await leadOf(t, gmailLead)).companyId).toBeUndefined();
     expect((await as.query(api.features.companies.queries.countCompanies, {})).total).toBe(0);
 
-    // Once the company exists, the same domain matches.
+    // Once the company exists, the same domain is proposed; gmail still isn't.
     const newco = await as.mutation(api.features.companies.mutations.createCompany, {
       name: 'Newco',
       domain: 'newco.io',
     });
-    const later = await as.mutation(api.features.crm.mutations.createLead, {
-      firstName: 'C',
-      lastName: 'C',
-      email: 'c@newco.io',
-    });
-    expect((await leadOf(t, later)).companyId).toBe(newco);
+    expect((await find('c@newco.io'))?._id).toBe(newco);
+    expect(await find('b@gmail.com')).toBeNull();
   });
 
-  test('an explicit company wins; a new business email on a company-less lead matches', async () => {
+  test('a new business email on a company-less lead never attaches by itself', async () => {
     const { t, as } = await setup();
     const acme = await as.mutation(api.features.companies.mutations.createCompany, {
       name: 'Acme',
@@ -187,11 +197,75 @@ describe('automatic lead ↔ company matching', () => {
     });
     expect((await leadOf(t, leadId)).companyId).toBe(other);
 
-    // Detach, then change the email: the domain match kicks in again.
+    // Detach, then change the email: still detached until the form's « Oui ».
     await as.mutation(api.features.crm.mutations.updateLead, { leadId, companyId: null });
     expect((await leadOf(t, leadId)).companyId).toBeUndefined();
     await as.mutation(api.features.crm.mutations.updateLead, { leadId, email: 'a2@acme.fr' });
+    expect((await leadOf(t, leadId)).companyId).toBeUndefined();
+    await as.mutation(api.features.crm.mutations.updateLead, { leadId, companyId: acme });
     expect((await leadOf(t, leadId)).companyId).toBe(acme);
+  });
+
+  test('a soft-deleted company sharing the identifiers does not hide the live one', async () => {
+    const { t, as } = await setup();
+    const dead = await as.mutation(api.features.companies.mutations.createCompany, {
+      name: 'Acme (old)',
+      country: 'FR',
+      registrationNumber: SIRET,
+      vatNumber: 'FR40303265045',
+      domain: 'acme.fr',
+    });
+    await as.mutation(api.features.companies.mutations.deleteCompany, { companyId: dead });
+    // The identifiers are free again for a new company…
+    const acme = await as.mutation(api.features.companies.mutations.createCompany, {
+      name: 'Acme',
+      country: 'FR',
+      registrationNumber: SIRET,
+      vatNumber: 'FR40303265045',
+      domain: 'acme.fr',
+    });
+    // …and every lookup lands on the live row, not the older deleted one.
+    expect(
+      (
+        await as.query(api.features.companies.queries.findCompanyByEmailDomain, {
+          email: 'jean@acme.fr',
+        })
+      )?._id,
+    ).toBe(acme);
+    const res = await as.mutation(api.features.crm.mutations.importLeads, {
+      rows: [
+        { firstName: 'A', lastName: 'A', email: 'a@acme.fr' },
+        {
+          firstName: 'B',
+          lastName: 'B',
+          email: 'b@gmail.com',
+          company: { registrationNumber: SIRET },
+        },
+        {
+          firstName: 'C',
+          lastName: 'C',
+          email: 'c@gmail.com',
+          company: { vatNumber: 'FR40303265045' },
+        },
+      ],
+    });
+    expect(res.errors).toEqual([]);
+    const leads = await t.run((ctx) => ctx.db.query('leads').collect());
+    expect(leads.map((l) => l.companyId)).toEqual([acme, acme, acme]);
+    // Uniqueness among live companies is enforced past the deleted row.
+    await expect(
+      as.mutation(api.features.companies.mutations.createCompany, {
+        name: 'Acme ter',
+        domain: 'acme.fr',
+      }),
+    ).rejects.toThrow('company_domain_exists');
+    await expect(
+      as.mutation(api.features.companies.mutations.createCompany, {
+        name: 'Acme ter',
+        country: 'FR',
+        registrationNumber: SIRET,
+      }),
+    ).rejects.toThrow('company_registration_exists');
   });
 
   test('CSV import attaches by registration number, then domain, else creates from the name', async () => {
@@ -259,6 +333,7 @@ describe('company lifecycle side effects', () => {
       firstName: 'A',
       lastName: 'A',
       email: 'a@acme.fr',
+      companyId,
     });
     await as.mutation(api.features.companies.mutations.updateCompany, {
       companyId,
@@ -281,6 +356,7 @@ describe('company lifecycle side effects', () => {
       firstName: 'A',
       lastName: 'A',
       email: 'a@acme.fr',
+      companyId,
     });
     await as.mutation(api.features.companies.mutations.deleteCompany, { companyId });
     await t.mutation(internal.features.companies.internal.detachCompanyLeads, { companyId });
@@ -306,6 +382,7 @@ describe('company lifecycle side effects', () => {
       firstName: 'A',
       lastName: 'A',
       email: 'a@acme.fr',
+      companyId: acme,
     });
     await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'B',
