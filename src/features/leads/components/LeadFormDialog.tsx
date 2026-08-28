@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { useConvex } from 'convex/react';
+import { api } from '@crm/lib/backend';
 import type { Id, PropertyValue } from '@crm/lib/backend';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -48,7 +51,7 @@ interface FormState {
   phone: string;
   /** '' = the configured default stage (create only). */
   lifecycleStage: string;
-  /** '' = none; on create the server may still match one from the email domain. */
+  /** '' = none. The server never fills it in: a domain match is proposed, not applied. */
   companyId: Id<'companies'> | '';
   ownerIds: string[];
   isRedFlagged: boolean;
@@ -105,8 +108,11 @@ function fromLead(lead: LeadRow): FormState {
   };
 }
 
+type DomainMatch = { _id: Id<'companies'>; name: string };
+
 export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
   const isEdit = !!lead;
+  const convex = useConvex();
   const { employees } = useEmployees();
   const { createLead, updateLead } = useLeadActions();
   const propertyDefinitions = usePropertyDefinitions('lead');
@@ -115,9 +121,17 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  /** Company matched by the email's domain, awaiting the « rattacher ? » answer. */
+  const [domainMatch, setDomainMatch] = useState<DomainMatch | null>(null);
+  /** Name of the company picked through the prompt (not in the picker's search results). */
+  const [pickedCompanyName, setPickedCompanyName] = useState<string | null>(null);
 
   useEffect(() => {
-    if (open) setForm(lead ? fromLead(lead) : emptyForm());
+    if (open) {
+      setForm(lead ? fromLead(lead) : emptyForm());
+      setDomainMatch(null);
+      setPickedCompanyName(null);
+    }
   }, [open, lead]);
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
@@ -131,10 +145,11 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       return { ...prev, customProperties: next };
     });
 
-  const handleSubmit = async () => {
+  /** Validate the form and shape the mutation payload; null (with a toast) when invalid. */
+  const buildPayload = () => {
     if (!form.firstName.trim() || !form.lastName.trim()) {
       toast.error('Le prénom et le nom sont requis.');
-      return;
+      return null;
     }
 
     // Block on any invalid custom-property value (email/number/text rules).
@@ -143,7 +158,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     );
     if (invalid) {
       toast.error('Certaines propriétés personnalisées sont invalides.');
-      return;
+      return null;
     }
 
     const a = form.address;
@@ -163,11 +178,11 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       const addressError = validateAddress(address);
       if (addressError) {
         toast.error(`Adresse : ${addressError}`);
-        return;
+        return null;
       }
     }
 
-    const payload = {
+    return {
       firstName: form.firstName,
       lastName: form.lastName,
       email: form.email || undefined,
@@ -179,24 +194,70 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       comment: form.comment || undefined,
       customProperties: form.customProperties,
     };
+  };
 
+  const save = async (
+    payload: NonNullable<ReturnType<typeof buildPayload>>,
+    companyId: Id<'companies'> | null,
+  ) => {
+    if (isEdit && lead) {
+      await updateLead({ leadId: lead._id, ...payload, companyId });
+      toast.success('Lead mis à jour.');
+    } else {
+      await createLead({ ...payload, companyId: companyId ?? undefined });
+      toast.success('Lead créé.');
+    }
+    onOpenChange(false);
+  };
+
+  const reportError = (e: unknown) => {
+    const message = e instanceof Error ? e.message : '';
+    toast.error(
+      message.includes('lifecycle_regression_blocked')
+        ? 'Le retour à un statut antérieur est désactivé (Paramètres → Statuts).'
+        : 'Une erreur est survenue.',
+    );
+  };
+
+  const handleSubmit = async () => {
+    const payload = buildPayload();
+    if (!payload) return;
     setSubmitting(true);
     try {
-      if (isEdit && lead) {
-        await updateLead({ leadId: lead._id, ...payload, companyId: form.companyId || null });
-        toast.success('Lead mis à jour.');
-      } else {
-        await createLead({ ...payload, companyId: form.companyId || undefined });
-        toast.success('Lead créé.');
+      // No company picked: an email on a known company domain is *proposed*,
+      // never attached on its own — the save waits for the answer.
+      if (!form.companyId && payload.email) {
+        const match = await convex.query(api.features.companies.queries.findCompanyByEmailDomain, {
+          email: payload.email,
+        });
+        if (match) {
+          setDomainMatch(match);
+          return;
+        }
       }
-      onOpenChange(false);
+      await save(payload, form.companyId || null);
     } catch (e) {
-      const message = e instanceof Error ? e.message : '';
-      toast.error(
-        message.includes('lifecycle_regression_blocked')
-          ? 'Le retour à un statut antérieur est désactivé (Paramètres → Statuts).'
-          : 'Une erreur est survenue.',
-      );
+      reportError(e);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  /** Oui / Non on the domain prompt. Closing it without answering saves nothing. */
+  const answerDomainMatch = async (attach: boolean) => {
+    const match = domainMatch;
+    setDomainMatch(null);
+    const payload = buildPayload();
+    if (!match || !payload) return;
+    if (attach) {
+      setField('companyId', match._id);
+      setPickedCompanyName(match.name);
+    }
+    setSubmitting(true);
+    try {
+      await save(payload, attach ? match._id : null);
+    } catch (e) {
+      reportError(e);
     } finally {
       setSubmitting(false);
     }
@@ -274,14 +335,17 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
             <Label>Entreprise</Label>
             <CompanyPicker
               value={form.companyId}
-              onChange={(v) => setField('companyId', v)}
-              selectedName={lead?.companyName ?? null}
+              onChange={(v) => {
+                setField('companyId', v);
+                setPickedCompanyName(null);
+              }}
+              selectedName={pickedCompanyName ?? lead?.companyName ?? null}
               modal
             />
-            {!isEdit && !form.companyId ? (
+            {!form.companyId ? (
               <HelperText>
-                Laissez vide pour rattacher automatiquement une entreprise existante portant le
-                domaine de l’e-mail.
+                Si l’e-mail porte le domaine d’une entreprise existante, le rattachement vous sera
+                proposé à l’enregistrement.
               </HelperText>
             ) : null}
           </div>
@@ -344,6 +408,36 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <Dialog open={domainMatch !== null} onOpenChange={(next) => !next && setDomainMatch(null)}>
+        <DialogContent className="sm:max-w-md" data-testid="domain-match-dialog">
+          <DialogHeader>
+            <DialogTitle>Rattacher à une entreprise ?</DialogTitle>
+            <DialogDescription>
+              Une entreprise avec le même domaine existe :{' '}
+              <span className="font-medium text-ink">{domainMatch?.name}</span>. Rattacher ce lead à
+              cette entreprise ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => answerDomainMatch(false)}
+              disabled={submitting}
+              data-testid="domain-match-no"
+            >
+              Non
+            </Button>
+            <Button
+              onClick={() => answerDomainMatch(true)}
+              loading={submitting}
+              data-testid="domain-match-yes"
+            >
+              Oui
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
