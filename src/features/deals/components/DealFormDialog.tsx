@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { DealRow, Doc, Id, PropertyValue } from '@crm/lib/backend';
-import { DEFAULT_CURRENCY, defaultPipelineStage } from '@crm/lib/backend';
+import { DEFAULT_CURRENCY, defaultPipelineStage, stageRequiresTag } from '@crm/lib/backend';
 import {
   Button,
   DatePicker,
@@ -28,7 +28,7 @@ import { CustomPropertyFields } from '../../properties/components/CustomProperty
 import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { useDealActions } from '../hooks/useDealActions';
 import { usePipelines } from '../hooks/usePipelines';
-import { dealErrorMessage } from '../lib/errors';
+import { DEAL_ERROR_MESSAGES, dealErrorMessage } from '../lib/errors';
 import { LeadPicker } from './LeadPicker';
 
 interface DealFormDialogProps {
@@ -49,6 +49,8 @@ interface FormState {
   currency: string;
   pipelineId: string;
   stageKey: string;
+  stageTags: string[];
+  stageComment: string;
   expectedCloseDate: string;
   ownerIds: string[];
   leadId: Id<'leads'> | '';
@@ -70,6 +72,8 @@ function initialForm(
       currency: deal.currency,
       pipelineId: deal.pipelineId,
       stageKey: deal.stageKey,
+      stageTags: [],
+      stageComment: '',
       expectedCloseDate: deal.expectedCloseDate ?? '',
       ownerIds: deal.ownerIds,
       leadId: deal.leadId ?? '',
@@ -83,6 +87,8 @@ function initialForm(
     currency: DEFAULT_CURRENCY,
     pipelineId: pipeline?._id ?? '',
     stageKey: pipeline ? (defaultPipelineStage(pipeline)?.key ?? '') : '',
+    stageTags: [],
+    stageComment: '',
     expectedCloseDate: '',
     ownerIds: [],
     leadId: defaults?.leadId ?? '',
@@ -142,6 +148,9 @@ function DealFormBody({
     () => (pipeline?.stages ?? []).map((s) => ({ value: s.key, label: s.label })),
     [pipeline],
   );
+  const formStage = pipeline?.stages.find((s) => s.key === form.stageKey);
+  const stageTags = formStage?.tags ?? [];
+  const stageTagRequired = formStage ? stageRequiresTag(formStage) : false;
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -154,6 +163,10 @@ function DealFormBody({
     const amount = form.amount.trim() === '' ? undefined : Number(form.amount);
     if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
       toast.error('Montant invalide.');
+      return;
+    }
+    if (!isEdit && stageTagRequired && form.stageTags.length === 0) {
+      toast.error(DEAL_ERROR_MESSAGES.stage_tag_required);
       return;
     }
     setSubmitting(true);
@@ -185,6 +198,8 @@ function DealFormBody({
           currency: form.currency,
           pipelineId,
           stageKey: form.stageKey || undefined,
+          stageTags: stageTags.length ? form.stageTags : undefined,
+          stageComment: stageTags.length ? form.stageComment || undefined : undefined,
           expectedCloseDate: form.expectedCloseDate || undefined,
           ownerIds: form.ownerIds as Id<'users'>[],
           leadId: form.leadId || undefined,
@@ -280,7 +295,10 @@ function DealFormBody({
             </div>
             <div className="space-y-1">
               <Label>Stade</Label>
-              <Select value={form.stageKey || undefined} onValueChange={(v) => set('stageKey', v)}>
+              <Select
+                value={form.stageKey || undefined}
+                onValueChange={(v) => setForm((prev) => ({ ...prev, stageKey: v, stageTags: [] }))}
+              >
                 <SelectTrigger data-testid="deal-stage">
                   <SelectValue placeholder="Choisir…" />
                 </SelectTrigger>
@@ -293,6 +311,29 @@ function DealFormBody({
                 </SelectContent>
               </Select>
             </div>
+            {stageTags.length > 0 ? (
+              <>
+                <div className="space-y-1">
+                  <Label>Étiquettes du stade{stageTagRequired ? ' *' : ''}</Label>
+                  <MultiSelect
+                    items={stageTags.map((t) => ({ value: t.key, label: t.label }))}
+                    value={form.stageTags}
+                    onValueChange={(v) => set('stageTags', v)}
+                    placeholder="Aucune étiquette"
+                    modal
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="deal-stage-comment">Commentaire du stade</Label>
+                  <Input
+                    id="deal-stage-comment"
+                    value={form.stageComment}
+                    onChange={(e) => set('stageComment', e.target.value)}
+                  />
+                </div>
+              </>
+            ) : null}
           </>
         ) : null}
 

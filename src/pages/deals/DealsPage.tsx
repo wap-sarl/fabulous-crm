@@ -29,7 +29,6 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  toast,
 } from '@crm/design-system';
 import { ChevronRight, Plus, Search } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
@@ -37,11 +36,10 @@ import { useEmployees } from '../../lib/hooks/useEmployees';
 import { DEAL_STATUSES, DEAL_STATUS_TONE, formatMoney } from '../../lib/constants';
 import { DealFormDialog } from '../../features/deals/components/DealFormDialog';
 import { DealKanban } from '../../features/deals/components/DealKanban';
-import { useDealActions } from '../../features/deals/hooks/useDealActions';
 import { usePipelines } from '../../features/deals/hooks/usePipelines';
-import { dealErrorMessage } from '../../features/deals/lib/errors';
 import { dealFieldCatalog } from '../../features/deals/lib/dealFilters';
 import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
+import { useStageMove } from '../../features/deals/components/StageMoveDialog';
 import {
   parseAdvancedFilter,
   serializeAdvancedFilter,
@@ -251,7 +249,6 @@ export function DealsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { pipelines, isLoading, byId, defaultPipeline } = usePipelines();
-  const { moveDealStage } = useDealActions();
   const [formOpen, setFormOpen] = useState(false);
 
   const view = searchParams.get('view') === 'list' ? 'list' : 'kanban';
@@ -281,13 +278,8 @@ export function DealsPage() {
       { replace: true },
     );
 
-  const handleMove = async (deal: DealRow, stage: PipelineStage) => {
-    try {
-      await moveDealStage({ dealId: deal._id, stageKey: stage.key });
-    } catch (e) {
-      toast.error(dealErrorMessage(e, 'Impossible de déplacer la transaction.'));
-    }
-  };
+  const { requestMove, dialog: stageMoveDialog } = useStageMove();
+  const handleMove = async (deal: DealRow, stage: PipelineStage) => requestMove(deal, stage);
 
   return (
     <div className="flex flex-col">
@@ -352,6 +344,7 @@ export function DealsPage() {
         )}
       </div>
 
+      {stageMoveDialog}
       <DealFormDialog
         open={formOpen}
         onOpenChange={setFormOpen}

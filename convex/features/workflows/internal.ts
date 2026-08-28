@@ -354,13 +354,19 @@ export const executeStep = internalMutation({
         if (!deal || !node.stageKey) {
           await logStep(ctx, run, node, 'skipped', { detail: 'aucune transaction ouverte' });
         } else {
-          const move = await moveDealToStage(ctx, deal, node.stageKey, {
-            source: 'workflow',
-            workflowId: workflow._id,
-            runSource: source,
-          });
+          const move = await moveDealToStage(
+            ctx,
+            deal,
+            node.stageKey,
+            { source: 'workflow', workflowId: workflow._id, runSource: source },
+            { tags: node.tags },
+          );
           if (move.kind === 'unknown_stage') {
             await logStep(ctx, run, node, 'skipped', { detail: 'stade introuvable' });
+          } else if (move.kind === 'unknown_tag') {
+            await logStep(ctx, run, node, 'skipped', { detail: 'étiquette introuvable' });
+          } else if (move.kind === 'tag_required') {
+            await logStep(ctx, run, node, 'skipped', { detail: 'étiquette requise' });
           } else if (move.kind === 'forbidden') {
             await logStep(ctx, run, node, 'skipped', {
               detail: `transition interdite depuis « ${deal.stageKey} »`,

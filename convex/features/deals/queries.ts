@@ -3,7 +3,7 @@ import { paginationOptsValidator } from 'convex/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
 import { employeeQuery } from '../../_lib/auth';
-import { dealStatusValidator, pipelineStage } from '../../_lib/validators/deals';
+import { dealStatusValidator, pipelineStage, stageTagLabels } from '../../_lib/validators/deals';
 import {
   type DealAdvancedFilter,
   type DealStandardField,
@@ -65,6 +65,7 @@ export type DealRow = Doc<'deals'> & {
   leadName: string | null;
   ownerNames: string[];
   stageLabel: string;
+  stageTagLabels: string[];
 };
 
 /** Attach the names a card/row displays (memoized point reads per page). */
@@ -100,6 +101,7 @@ async function withRelations(ctx: QueryCtx, deals: Doc<'deals'>[]): Promise<Deal
         )
       ).filter((n): n is string => n !== null),
       stageLabel: stage?.label ?? deal.stageKey,
+      stageTagLabels: stageTagLabels(stage, deal.stageTags),
     });
   }
   return out;
@@ -161,6 +163,8 @@ export function getDealFieldValue(
       return deal.status;
     case 'stageKey':
       return deal.stageKey;
+    case 'stageTags':
+      return deal.stageTags ?? [];
     case 'ownerIds':
       return deal.ownerIds;
     case 'expectedCloseDate':
@@ -248,6 +252,8 @@ export const getDeal = employeeQuery({
           : (h.from ?? null),
         to: h.to,
         toLabel: pipeline ? (pipelineStage(pipeline, h.to)?.label ?? h.to) : h.to,
+        tags: stageTagLabels(pipeline ? pipelineStage(pipeline, h.to) : undefined, h.tags),
+        comment: h.comment ?? null,
         source: h.source,
         changedAt: h._creationTime,
         changedByName: h.changedBy ? (users.get(h.changedBy) ?? null) : null,

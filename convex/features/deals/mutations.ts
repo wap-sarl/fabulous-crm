@@ -34,7 +34,13 @@ import {
 } from '../../lib/deals';
 
 function normalizeStages(stages: PipelineStage[]): PipelineStage[] {
-  const normalized = stages.map((s) => ({ key: s.key, label: s.label.trim(), kind: s.kind }));
+  const normalized = stages.map((s) => ({
+    key: s.key,
+    label: s.label.trim(),
+    kind: s.kind,
+    tags: s.tags?.length ? s.tags.map((t) => ({ key: t.key, label: t.label.trim() })) : undefined,
+    tagsRequired: s.tags?.length && s.tagsRequired ? true : undefined,
+  }));
   const error = validatePipelineStages(normalized);
   if (error) throw new Error(error);
   return normalized;
@@ -248,6 +254,8 @@ export const createDeal = employeeMutation({
     ...dealFieldArgs,
     pipelineId: v.optional(v.id('pipelines')),
     stageKey: v.optional(v.string()),
+    stageTags: v.optional(v.array(v.string())),
+    stageComment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     await validateDealFields(ctx, args);
@@ -277,7 +285,6 @@ export const updateDeal = employeeMutation({
     sourceCampaignId: v.optional(v.union(v.id('campaigns'), v.null())),
     expectedCloseDate: v.optional(v.union(v.string(), v.null())),
     amount: v.optional(v.union(v.number(), v.null())),
-    lossReason: v.optional(v.union(v.string(), v.null())),
   },
   handler: async (ctx, args) => {
     const { dealId, customProperties, ...rest } = args;
@@ -296,8 +303,6 @@ export const updateDeal = employeeMutation({
     }
     if (typeof updates.title === 'string') updates.title = updates.title.trim();
     if (typeof updates.currency === 'string') updates.currency = updates.currency.toUpperCase();
-    if (typeof updates.lossReason === 'string')
-      updates.lossReason = updates.lossReason.trim() || undefined;
     if (customProperties !== undefined) {
       updates.customProperties = sanitizeCustomProperties(
         await loadPropertyDefsById(ctx, 'deal'),
@@ -323,7 +328,12 @@ export const updateDeal = employeeMutation({
 
 /** Move a deal to a stage of its pipeline (Kanban drop, stage stepper, won/lost buttons). */
 export const moveDealStage = employeeMutation({
-  args: { dealId: v.id('deals'), stageKey: v.string(), lossReason: v.optional(v.string()) },
+  args: {
+    dealId: v.id('deals'),
+    stageKey: v.string(),
+    tags: v.optional(v.array(v.string())),
+    comment: v.optional(v.string()),
+  },
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
     if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
@@ -332,9 +342,11 @@ export const moveDealStage = employeeMutation({
       deal,
       args.stageKey,
       { source: 'manual', changedBy: ctx.userId },
-      { lossReason: args.lossReason },
+      { tags: args.tags, comment: args.comment },
     );
     if (move.kind === 'unknown_stage') throw new Error('unknown_stage');
+    if (move.kind === 'unknown_tag') throw new Error('unknown_stage_tag');
+    if (move.kind === 'tag_required') throw new Error('stage_tag_required');
     if (move.kind === 'forbidden') throw new Error('deal_transition_forbidden');
     return move.kind;
   },

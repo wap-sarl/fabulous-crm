@@ -8,6 +8,8 @@ import {
   defaultPipelineStage,
   isTransitionAllowed,
   pipelineStage,
+  stageRequiresTag,
+  validateStageTags,
   type PipelineStage,
 } from '../_lib/validators/deals';
 import { dispatchWorkflowTrigger } from '../features/workflows/triggerDispatch';
@@ -71,12 +73,16 @@ export type DealChangeMeta = {
   runSource?: { runId: Id<'workflowRuns'>; workflowId: Id<'workflows'> };
 };
 
+/** Tags and comment given when entering a stage. */
+export type StageEntry = { tags?: string[]; comment?: string };
+
 async function insertHistory(
   ctx: MutationCtx,
   deal: Pick<Doc<'deals'>, '_id' | 'pipelineId'>,
   from: string | undefined,
   to: string,
   meta: DealChangeMeta,
+  entry: StageEntry,
 ): Promise<void> {
   await ctx.db.insert('dealStageHistory', {
     dealId: deal._id,
@@ -86,7 +92,20 @@ async function insertHistory(
     source: meta.source,
     changedBy: meta.changedBy,
     workflowId: meta.workflowId,
+    tags: entry.tags?.length ? entry.tags : undefined,
+    comment: entry.comment,
   });
+}
+
+/** The stage entry to store, or the reason it can't be (unknown tag, or a required tag missing). */
+function stageEntryFor(
+  stage: PipelineStage,
+  opts: StageEntry,
+): { entry: StageEntry } | { error: 'unknown_tag' | 'tag_required' } {
+  const tags = validateStageTags(stage, opts.tags);
+  if (!tags) return { error: 'unknown_tag' };
+  if (stageRequiresTag(stage) && tags.length === 0) return { error: 'tag_required' };
+  return { entry: { tags, comment: opts.comment?.trim() || undefined } };
 }
 
 /** Fire a deal event for the deal's lead (deals without a lead enroll nobody). */
@@ -130,6 +149,8 @@ export type NewDeal = {
   leadId?: Id<'leads'>;
   sourceCampaignId?: Id<'campaigns'>;
   customProperties?: Record<string, PropertyValue>;
+  stageTags?: string[];
+  stageComment?: string;
 };
 
 /**
@@ -150,6 +171,11 @@ export async function createDealRecord(
     ? pipelineStage(pipeline, data.stageKey)
     : defaultPipelineStage(pipeline);
   if (!stage) throw new Error('unknown_stage');
+  const checked = stageEntryFor(stage, { tags: data.stageTags, comment: data.stageComment });
+  if ('error' in checked) {
+    throw new Error(checked.error === 'tag_required' ? 'stage_tag_required' : 'unknown_stage_tag');
+  }
+  const entry = checked.entry;
   const now = Date.now();
   const dealId = await ctx.db.insert('deals', {
     title: data.title.trim(),
@@ -164,12 +190,14 @@ export async function createDealRecord(
     leadId: data.leadId,
     sourceCampaignId: data.sourceCampaignId,
     customProperties: data.customProperties,
+    stageTags: entry.tags?.length ? entry.tags : undefined,
+    stageComment: entry.comment,
     updatedAt: now,
     createdBy: meta.changedBy,
     updatedBy: meta.changedBy,
   });
   const deal = (await ctx.db.get(dealId))!;
-  await insertHistory(ctx, deal, undefined, stage.key, meta);
+  await insertHistory(ctx, deal, undefined, stage.key, meta, entry);
   if (meta.changedBy) {
     await logAudit({
       ctx,
@@ -188,6 +216,10 @@ export async function createDealRecord(
 export type StageMove =
   | { kind: 'unchanged' }
   | { kind: 'unknown_stage' }
+  /** A given tag is not one of the target stage's. */
+  | { kind: 'unknown_tag'; stage: PipelineStage }
+  /** The target stage has tags and none was given. */
+  | { kind: 'tag_required'; stage: PipelineStage }
   /** The pipeline's transition graph has no arrow for this move. */
   | { kind: 'forbidden'; stage: PipelineStage }
   | { kind: 'moved'; stage: PipelineStage };
@@ -198,24 +230,28 @@ export async function moveDealToStage(
   deal: Doc<'deals'>,
   stageKey: string,
   meta: DealChangeMeta,
-  opts: { lossReason?: string } = {},
+  opts: StageEntry = {},
 ): Promise<StageMove> {
   const pipeline = await loadPipeline(ctx, deal.pipelineId);
   const stage = pipelineStage(pipeline, stageKey);
   if (!stage) return { kind: 'unknown_stage' };
   if (deal.stageKey === stage.key) return { kind: 'unchanged' };
   if (!isTransitionAllowed(pipeline, deal.stageKey, stage.key)) return { kind: 'forbidden', stage };
+  const checked = stageEntryFor(stage, opts);
+  if ('error' in checked) return { kind: checked.error, stage };
+  const entry = checked.entry;
   const now = Date.now();
   const closed = stage.kind !== 'open';
   await ctx.db.patch(deal._id, {
     stageKey: stage.key,
     status: stage.kind,
     closedAt: closed ? now : undefined,
-    lossReason: stage.kind === 'lost' ? opts.lossReason?.trim() || deal.lossReason : undefined,
+    stageTags: entry.tags?.length ? entry.tags : undefined,
+    stageComment: entry.comment,
     updatedAt: now,
     updatedBy: meta.changedBy ?? deal.updatedBy,
   });
-  await insertHistory(ctx, deal, deal.stageKey, stage.key, meta);
+  await insertHistory(ctx, deal, deal.stageKey, stage.key, meta, entry);
   if (meta.changedBy) {
     await logAudit({
       ctx,

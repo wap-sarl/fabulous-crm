@@ -197,6 +197,8 @@ function present(event: TimelineEvent, lifecycleLabel: (key: string) => string):
           event.pipelineName,
           event.stageLabel,
           event.amount !== null && formatMoney(event.amount, event.currency),
+          event.stageTags.length > 0 && event.stageTags.join(', '),
+          event.stageComment,
         ]),
       };
     case 'audit':

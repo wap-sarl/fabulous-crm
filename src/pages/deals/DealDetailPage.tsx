@@ -2,23 +2,16 @@ import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthQuery } from '@crm/widgets';
 import { api, isTransitionAllowed } from '@crm/lib/backend';
-import type { Id, PipelineStage } from '@crm/lib/backend';
+import type { Id } from '@crm/lib/backend';
 import {
   Button,
   Card,
   ConfirmDialog,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   KeyValueList,
   KeyValueRow,
-  Label,
   PageHeader,
   Spinner,
   StatusBadge,
-  Textarea,
   cn,
   toast,
 } from '@crm/design-system';
@@ -30,6 +23,7 @@ import { EntityActivitiesCard } from '../../features/activities/components/Entit
 import { EntityAttachmentsCard } from '../../features/attachments/components/EntityAttachmentsCard';
 import { useDealActions } from '../../features/deals/hooks/useDealActions';
 import { dealErrorMessage } from '../../features/deals/lib/errors';
+import { useStageMove } from '../../features/deals/components/StageMoveDialog';
 import { CustomPropertyRows } from '../../features/properties/components/CustomPropertyRows';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 
@@ -44,58 +38,6 @@ const SOURCE_LABEL: Record<string, string> = {
   workflow: 'Workflow',
 };
 
-function LossReasonDialog({
-  stage,
-  onConfirm,
-  onClose,
-}: {
-  stage: PipelineStage;
-  onConfirm: (reason: string) => Promise<void>;
-  onClose: () => void;
-}) {
-  const [reason, setReason] = useState('');
-  const [busy, setBusy] = useState(false);
-  return (
-    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Marquer comme « {stage.label} »</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-1">
-          <Label htmlFor="loss-reason">Motif de perte</Label>
-          <Textarea
-            id="loss-reason"
-            rows={3}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Annuler
-          </Button>
-          <Button
-            variant="fill"
-            color="destructive"
-            loading={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await onConfirm(reason);
-              } finally {
-                setBusy(false);
-              }
-            }}
-            data-testid="confirm-loss"
-          >
-            Confirmer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export function DealDetailPage() {
   usePageTitle('Transaction');
   const navigate = useNavigate();
@@ -104,11 +46,11 @@ export function DealDetailPage() {
     api.features.deals.queries.getDeal,
     dealId ? { dealId: dealId as Id<'deals'> } : 'skip',
   );
-  const { moveDealStage, deleteDeal } = useDealActions();
+  const { deleteDeal } = useDealActions();
   const definitions = usePropertyDefinitions('deal');
   const [editOpen, setEditOpen] = useState(false);
-  const [lossStage, setLossStage] = useState<PipelineStage | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const { requestMove, dialog: stageMoveDialog } = useStageMove();
 
   if (data === undefined) {
     return (
@@ -121,20 +63,6 @@ export function DealDetailPage() {
   const { deal, pipeline, history, sourceCampaignName } = data;
   const currentIndex = pipeline?.stages.findIndex((s) => s.key === deal.stageKey) ?? -1;
 
-  const move = async (stage: PipelineStage, lossReason?: string) => {
-    try {
-      await moveDealStage({ dealId: deal._id, stageKey: stage.key, lossReason });
-      toast.success(`Transaction passée en « ${stage.label} ».`);
-      setLossStage(null);
-    } catch (e) {
-      toast.error(dealErrorMessage(e, 'Impossible de changer de stade.'));
-    }
-  };
-  const requestMove = (stage: PipelineStage) => {
-    if (stage.key === deal.stageKey) return;
-    if (stage.kind === 'lost') setLossStage(stage);
-    else void move(stage);
-  };
   const handleDelete = async () => {
     try {
       await deleteDeal({ dealId: deal._id });
@@ -199,7 +127,7 @@ export function DealDetailPage() {
                     <li key={stage.key}>
                       <button
                         type="button"
-                        onClick={() => requestMove(stage)}
+                        onClick={() => requestMove(deal, stage)}
                         disabled={!allowed}
                         title={
                           allowed ? undefined : 'Transition non autorisée depuis le stade actuel'
@@ -246,9 +174,6 @@ export function DealDetailPage() {
               <KeyValueRow label="Clôturée le" mono>
                 {deal.closedAt ? dateTimeFormat.format(deal.closedAt) : '—'}
               </KeyValueRow>
-              {deal.status === 'lost' ? (
-                <KeyValueRow label="Motif de perte">{deal.lossReason ?? '—'}</KeyValueRow>
-              ) : null}
               <KeyValueRow label="Propriétaires">{deal.ownerNames.join(', ') || '—'}</KeyValueRow>
               <KeyValueRow label="Lead">
                 {deal.leadId ? (
@@ -307,6 +232,16 @@ export function DealDetailPage() {
                         ? (row.workflowName ?? 'Workflow')
                         : (row.changedByName ?? SOURCE_LABEL[row.source])}
                     </span>
+                    {row.tags.length > 0 || row.comment ? (
+                      <span className="flex flex-wrap items-center gap-1 text-xs">
+                        {row.tags.map((label) => (
+                          <StatusBadge key={label} tone="gray">
+                            {label}
+                          </StatusBadge>
+                        ))}
+                        {row.comment ? <span className="text-soft">{row.comment}</span> : null}
+                      </span>
+                    ) : null}
                   </li>
                 ))}
               </ul>
@@ -327,13 +262,7 @@ export function DealDetailPage() {
         destructive
         onConfirm={handleDelete}
       />
-      {lossStage ? (
-        <LossReasonDialog
-          stage={lossStage}
-          onConfirm={(reason) => move(lossStage, reason)}
-          onClose={() => setLossStage(null)}
-        />
-      ) : null}
+      {stageMoveDialog}
     </div>
   );
 }

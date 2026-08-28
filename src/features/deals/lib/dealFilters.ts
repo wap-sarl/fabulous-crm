@@ -16,6 +16,16 @@ export function dealFilterFields(
       label: pipelines.length > 1 ? `${p.name} · ${s.label}` : s.label,
     })),
   );
+  // One option per stage tag; the same key on several stages is one option.
+  const tags = new Map<string, string>();
+  for (const p of pipelines) {
+    for (const s of p.stages) {
+      for (const t of s.tags ?? []) {
+        const prefix = pipelines.length > 1 ? `${p.name} · ${s.label}` : s.label;
+        if (!tags.has(t.key)) tags.set(t.key, `${prefix} · ${t.label}`);
+      }
+    }
+  }
   return [
     { field: 'title', label: 'Intitulé', type: 'text' },
     { field: 'amount', label: 'Montant', type: 'number' },
@@ -32,6 +42,12 @@ export function dealFilterFields(
       options: DEAL_STATUSES.map((s) => ({ value: s.value, label: s.label })),
     },
     { field: 'stageKey', label: 'Stade', type: 'select', options: stages },
+    {
+      field: 'stageTags',
+      label: 'Étiquettes de stade',
+      type: 'checkbox',
+      options: [...tags].map(([value, label]) => ({ value, label })),
+    },
     { field: 'ownerIds', label: 'Propriétaires', type: 'assignee' },
     { field: 'expectedCloseDate', label: 'Clôture prévue', type: 'date' },
   ];

@@ -10,7 +10,7 @@ import type {
   CampaignEventType,
   CampaignSendStatus,
 } from '../../_lib/validators/crm';
-import type { DealStatus } from '../../_lib/validators/deals';
+import { type DealStatus, stageTagLabels } from '../../_lib/validators/deals';
 import type { LifecycleChangeSource } from '../../_lib/validators/lifecycle';
 import {
   TIMELINE_KINDS,
@@ -92,6 +92,8 @@ export type TimelineEvent =
       currency: string;
       status: DealStatus;
       stageLabel: string | null;
+      stageTags: string[];
+      stageComment: string | null;
       pipelineName: string | null;
     })
   | (TimelineEventBase<'audit'> & {
@@ -331,6 +333,7 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
         build: async () => {
           if (!isNotDeleted(deal)) return null;
           const pipeline = await get(deal.pipelineId);
+          const stage = pipeline?.stages.find((s) => s.key === deal.stageKey);
           return {
             kind: 'deal',
             id: deal._id,
@@ -340,7 +343,9 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
             amount: deal.amount ?? null,
             currency: deal.currency,
             status: deal.status,
-            stageLabel: pipeline?.stages.find((s) => s.key === deal.stageKey)?.label ?? null,
+            stageLabel: stage?.label ?? null,
+            stageTags: stageTagLabels(stage, deal.stageTags),
+            stageComment: deal.stageComment ?? null,
             pipelineName: pipeline?.name ?? null,
           };
         },

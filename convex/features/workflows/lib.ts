@@ -10,7 +10,12 @@ import {
   type LeadAdvancedFilter,
   type FilterField,
 } from '../../_lib/validators/filters';
-import { isTransitionAllowed, pipelineStage } from '../../_lib/validators/deals';
+import {
+  isTransitionAllowed,
+  pipelineStage,
+  stageRequiresTag,
+  validateStageTags,
+} from '../../_lib/validators/deals';
 import { validateLeadTargetValue } from '../crm/leadTargets';
 
 /**
@@ -163,6 +168,7 @@ export function validateWorkflowGraph(
         if (!node.stageKey) return `${label} : choisissez un stade.`;
         const error =
           validatePipelineStageRef(node, pipelines) ??
+          validateStageTagsRef(node, pipelines) ??
           validateStageTransitionFromTrigger(node, trigger, pipelines);
         if (error) return `${label} : ${error}`;
         break;
@@ -210,6 +216,24 @@ function validatePipelineStageRef(
       : [...pipelines.values()];
     if (!candidates.some((p) => p.stages.some((s) => s.key === node.stageKey))) {
       return 'stade introuvable.';
+    }
+  }
+  return null;
+}
+
+/** A stage requiring tags needs at least one; given tags must exist on the target stage. */
+function validateStageTagsRef(
+  node: { pipelineId?: Id<'pipelines'>; stageKey?: string; tags?: string[] },
+  pipelines: Map<string, Doc<'pipelines'>>,
+): string | null {
+  if (!node.stageKey) return null;
+  const candidates = node.pipelineId ? [pipelines.get(node.pipelineId)!] : [...pipelines.values()];
+  for (const pipeline of candidates) {
+    const stage = pipelineStage(pipeline, node.stageKey);
+    if (!stage) continue;
+    if (stageRequiresTag(stage) && !node.tags?.length) return 'choisissez au moins une étiquette.';
+    if (node.tags?.length && validateStageTags(stage, node.tags) === null) {
+      return 'étiquette introuvable.';
     }
   }
   return null;

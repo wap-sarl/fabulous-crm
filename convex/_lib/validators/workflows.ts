@@ -137,6 +137,7 @@ export const workflowNodeValidator = v.union(
     type: v.literal('update_deal_stage'),
     pipelineId: v.optional(v.id('pipelines')),
     stageKey: v.optional(v.string()),
+    tags: v.optional(v.array(v.string())),
     next: v.optional(v.string()),
   }),
   v.object({

@@ -5,12 +5,24 @@ import { customPropertiesValidator } from './properties';
 export const dealStatusValidator = v.union(v.literal('open'), v.literal('won'), v.literal('lost'));
 export type DealStatus = Infer<typeof dealStatusValidator>;
 
+/** A stage tag (a loss reason on the lost stage, for instance); the key is stable like a property option's. */
+export const pipelineStageTagValidator = v.object({ key: v.string(), label: v.string() });
+export type PipelineStageTag = Infer<typeof pipelineStageTagValidator>;
+
 export const pipelineStageValidator = v.object({
   key: v.string(),
   label: v.string(),
   kind: dealStatusValidator,
+  tags: v.optional(v.array(pipelineStageTagValidator)),
+  // At least one tag is required to enter the stage (only meaningful with tags).
+  tagsRequired: v.optional(v.boolean()),
 });
 export type PipelineStage = Infer<typeof pipelineStageValidator>;
+
+/** Whether entering the stage needs at least one of its tags. */
+export function stageRequiresTag(stage: Pick<PipelineStage, 'tags' | 'tagsRequired'>): boolean {
+  return stage.tagsRequired === true && (stage.tags?.length ?? 0) > 0;
+}
 
 /** One allowed stage move, by stage keys. */
 export const pipelineTransitionValidator = v.object({ from: v.string(), to: v.string() });
@@ -53,7 +65,9 @@ export const dealValidator = v.object({
   closedAt: v.optional(v.number()),
   ownerIds: v.array(v.id('users')),
   leadId: v.optional(v.id('leads')),
-  lossReason: v.optional(v.string()),
+  // Tags and comment given when the deal entered its current stage.
+  stageTags: v.optional(v.array(v.string())),
+  stageComment: v.optional(v.string()),
   // Campaign that originated the deal — the hook for revenue attribution.
   sourceCampaignId: v.optional(v.id('campaigns')),
   customProperties: customPropertiesValidator,
@@ -75,11 +89,15 @@ export const dealStageHistoryValidator = v.object({
   source: dealStageChangeSourceValidator,
   changedBy: v.optional(v.id('users')),
   workflowId: v.optional(v.id('workflows')),
+  // Tags and comment given at this move; kept after the deal moves on.
+  tags: v.optional(v.array(v.string())),
+  comment: v.optional(v.string()),
 });
 export type DealStageHistory = Infer<typeof dealStageHistoryValidator>;
 
 export const DEFAULT_CURRENCY = 'EUR';
 export const MAX_PIPELINE_STAGES = 20;
+export const MAX_STAGE_TAGS = 20;
 export const PIPELINE_STAGE_KEY_RE = /^[a-z0-9_]{1,32}$/;
 
 /** The pipeline every instance starts with (ensureDefaultPipeline). */
@@ -107,6 +125,44 @@ export function defaultPipelineStage(
   return pipeline.stages.find((s) => s.kind === 'open') ?? pipeline.stages[0];
 }
 
+function validateStageTagList(tags: readonly PipelineStageTag[] | undefined): string | null {
+  if (!tags) return null;
+  if (tags.length > MAX_STAGE_TAGS) return 'pipeline_too_many_tags';
+  const keys = new Set<string>();
+  for (const tag of tags) {
+    if (!PIPELINE_STAGE_KEY_RE.test(tag.key)) return 'pipeline_invalid_tag_key';
+    if (keys.has(tag.key)) return 'pipeline_duplicate_tag';
+    if (!tag.label.trim()) return 'pipeline_empty_tag_label';
+    keys.add(tag.key);
+  }
+  return null;
+}
+
+/** The given tag keys, deduplicated, or null when one is not a tag of the stage. */
+export function validateStageTags(
+  stage: Pick<PipelineStage, 'tags'>,
+  keys: readonly string[] | undefined,
+): string[] | null {
+  if (!keys || keys.length === 0) return [];
+  const known = new Set((stage.tags ?? []).map((t) => t.key));
+  const out: string[] = [];
+  for (const key of keys) {
+    if (!known.has(key)) return null;
+    if (!out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
+/** Labels of tag keys on a stage (the key itself when the tag was removed since). */
+export function stageTagLabels(
+  stage: Pick<PipelineStage, 'tags'> | undefined,
+  keys: readonly string[] | undefined,
+): string[] {
+  if (!keys) return [];
+  const labels = new Map((stage?.tags ?? []).map((t) => [t.key, t.label]));
+  return keys.map((k) => labels.get(k) ?? k);
+}
+
 export function validatePipelineStages(stages: PipelineStage[]): string | null {
   if (stages.length === 0) return 'pipeline_no_stages';
   if (stages.length > MAX_PIPELINE_STAGES) return 'pipeline_too_many_stages';
@@ -116,6 +172,8 @@ export function validatePipelineStages(stages: PipelineStage[]): string | null {
     if (keys.has(stage.key)) return 'pipeline_duplicate_key';
     if (!stage.label.trim()) return 'pipeline_empty_label';
     keys.add(stage.key);
+    const tagError = validateStageTagList(stage.tags);
+    if (tagError) return tagError;
   }
   if (stages.length < 3) return 'pipeline_no_open_stage';
   const open = stages.slice(0, -2);

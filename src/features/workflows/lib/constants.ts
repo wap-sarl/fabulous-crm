@@ -347,7 +347,7 @@ export function nodeSummary(
         : 'Intitulé à définir';
     case 'update_deal_stage':
       return node.stageKey
-        ? `Stade : ${ctx.stageLabel(node.pipelineId, node.stageKey)}`
+        ? `Stade : ${ctx.stageLabel(node.pipelineId, node.stageKey)}${node.tags?.length ? ` · ${node.tags.length} étiquette(s)` : ''}`
         : 'Stade à choisir';
     case 'add_to_list':
     case 'remove_from_list':
