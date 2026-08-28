@@ -10,6 +10,7 @@ import {
   type LeadAdvancedFilter,
   type FilterField,
 } from '../../_lib/validators/filters';
+import { isTransitionAllowed, pipelineStage } from '../../_lib/validators/deals';
 import { validateLeadTargetValue } from '../crm/leadTargets';
 
 /**
@@ -96,6 +97,7 @@ export function validateWorkflowGraph(
   listIds: Set<string>,
   lifecycleStageKeys: Set<string>,
   pipelines: Map<string, Doc<'pipelines'>>,
+  trigger?: WorkflowTrigger,
 ): string | null {
   const lightError = lightValidateGraph(nodes, startNodeId);
   if (lightError) return lightError;
@@ -159,7 +161,9 @@ export function validateWorkflowGraph(
         break;
       case 'update_deal_stage': {
         if (!node.stageKey) return `${label} : choisissez un stade.`;
-        const error = validatePipelineStageRef(node, pipelines);
+        const error =
+          validatePipelineStageRef(node, pipelines) ??
+          validateStageTransitionFromTrigger(node, trigger, pipelines);
         if (error) return `${label} : ${error}`;
         break;
       }
@@ -209,6 +213,22 @@ function validatePipelineStageRef(
     }
   }
   return null;
+}
+
+function validateStageTransitionFromTrigger(
+  node: { pipelineId?: Id<'pipelines'>; stageKey?: string },
+  trigger: WorkflowTrigger | undefined,
+  pipelines: Map<string, Doc<'pipelines'>>,
+): string | null {
+  if (trigger?.type !== 'deal_stage_changed' || !trigger.pipelineId || !trigger.stageKey) {
+    return null;
+  }
+  if (node.pipelineId !== undefined && node.pipelineId !== trigger.pipelineId) return null;
+  const pipeline = pipelines.get(trigger.pipelineId);
+  if (!pipeline || !node.stageKey) return null;
+  if (isTransitionAllowed(pipeline, trigger.stageKey, node.stageKey)) return null;
+  const labelOf = (key: string) => pipelineStage(pipeline, key)?.label ?? key;
+  return `transition interdite de « ${labelOf(trigger.stageKey)} » vers « ${labelOf(node.stageKey)} » dans ce pipeline.`;
 }
 
 /**

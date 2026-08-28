@@ -11,7 +11,7 @@ import {
   type DragStartEvent,
 } from '@dnd-kit/core';
 import { useAuthPaginatedQuery } from '@crm/widgets';
-import { api } from '@crm/lib/backend';
+import { api, isTransitionAllowed } from '@crm/lib/backend';
 import type { DealRow, Doc, PipelineStage } from '@crm/lib/backend';
 import { Button, InitialsAvatar, Skeleton, cn } from '@crm/design-system';
 import { User } from 'lucide-react';
@@ -88,14 +88,20 @@ function StageColumn({
   pipeline,
   stage,
   totals,
+  blocked,
   onOpen,
 }: {
   pipeline: Doc<'pipelines'>;
   stage: PipelineStage;
   totals: StageTotals | undefined;
+  blocked: boolean;
   onOpen: (deal: DealRow) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: stage.key, data: { stage } });
+  const { setNodeRef, isOver } = useDroppable({
+    id: stage.key,
+    data: { stage },
+    disabled: blocked,
+  });
   const { results, status, loadMore } = useAuthPaginatedQuery(
     api.features.deals.queries.listStageDeals,
     { pipelineId: pipeline._id, stageKey: stage.key },
@@ -105,12 +111,15 @@ function StageColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex w-72 shrink-0 flex-col rounded-xl border bg-[#F7F8FA] transition-colors',
-        isOver && 'border-primary bg-primary/5',
+        'flex w-72 shrink-0 flex-col rounded-xl border bg-[#F7F8FA] transition-all',
+        isOver && !blocked && 'border-primary bg-primary/5',
+        blocked && 'opacity-40 grayscale',
         stage.kind === 'won' && 'border-t-4 border-t-green-500',
         stage.kind === 'lost' && 'border-t-4 border-t-red-400',
       )}
+      title={blocked ? 'Transition non autorisée depuis le stade actuel' : undefined}
       data-testid={`kanban-column-${stage.key}`}
+      data-blocked={blocked ? 'true' : undefined}
     >
       <div className="flex items-baseline justify-between gap-2 px-3 pt-3">
         <span className="truncate text-[13px] font-bold text-ink">{stage.label}</span>
@@ -145,6 +154,7 @@ export function DealKanban({ pipeline, totals, onOpen, onMove }: DealKanbanProps
     const stage = (event.over?.data.current as { stage: PipelineStage } | undefined)?.stage;
     setActive(null);
     if (!deal || !stage || stage.key === deal.stageKey) return;
+    if (!isTransitionAllowed(pipeline, deal.stageKey, stage.key)) return;
     await onMove(deal, stage);
   };
 
@@ -157,6 +167,11 @@ export function DealKanban({ pipeline, totals, onOpen, onMove }: DealKanbanProps
             pipeline={pipeline}
             stage={stage}
             totals={totals[stage.key]}
+            blocked={
+              active !== null &&
+              stage.key !== active.stageKey &&
+              !isTransitionAllowed(pipeline, active.stageKey, stage.key)
+            }
             onOpen={onOpen}
           />
         ))}

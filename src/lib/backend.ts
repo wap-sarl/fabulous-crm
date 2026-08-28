@@ -74,6 +74,9 @@ export type {
   DealStatus,
   Pipeline,
   PipelineStage,
+  PipelineTransition,
+  PipelineLayout,
+  PipelineGraphIssue,
   DealStageHistory,
 } from '../../convex/_lib/validators/deals';
 export {
@@ -81,9 +84,20 @@ export {
   DEFAULT_PIPELINE_STAGES,
   MAX_PIPELINE_STAGES,
   PIPELINE_STAGE_KEY_RE,
+  allowedTargets,
+  analyzePipelineGraph,
   defaultPipelineStage,
+  defaultTransitions,
+  effectiveTransitions,
+  fullTransitions,
+  isFullTransitions,
+  isTransitionAllowed,
+  normalizeTransitions,
   pipelineStage,
+  pruneLayout,
+  pruneTransitions,
   validatePipelineStages,
+  validatePipelineTransitions,
 } from '../../convex/_lib/validators/deals';
 export type { DealRow } from '../../convex/features/deals/queries';
 export type { RegistrationScheme } from '../../convex/_lib/validators/companyRegistry';

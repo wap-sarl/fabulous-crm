@@ -6,9 +6,16 @@ import { propertyValueValidator } from '../../_lib/validators/properties';
 import { cleanOwnerIds } from '../../lib/owners';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import {
+  normalizeTransitions,
+  pipelineLayoutValidator,
   pipelineStageValidator,
+  pipelineTransitionValidator,
+  pruneLayout,
+  pruneTransitions,
   validatePipelineStages,
+  validatePipelineTransitions,
   type PipelineStage,
+  type PipelineTransition,
 } from '../../_lib/validators/deals';
 import {
   computeChanges,
@@ -33,6 +40,16 @@ function normalizeStages(stages: PipelineStage[]): PipelineStage[] {
   return normalized;
 }
 
+/** Structural check of a graph against its stages; returns the value to store. */
+function checkTransitions(
+  stages: PipelineStage[],
+  transitions: PipelineTransition[] | undefined,
+): PipelineTransition[] | undefined {
+  const error = validatePipelineTransitions(stages, transitions);
+  if (error) throw new Error(error);
+  return normalizeTransitions(stages, transitions);
+}
+
 /** Idempotent: creates the stock pipeline when the instance has none. */
 export const ensureDefaultPipeline = employeeMutation({
   args: {},
@@ -43,12 +60,14 @@ export const createPipeline = settingsMutation({
   args: {
     name: v.string(),
     stages: v.array(pipelineStageValidator),
+    transitions: v.optional(v.array(pipelineTransitionValidator)),
     isDefault: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw new Error('pipeline_name_required');
     const stages = normalizeStages(args.stages);
+    const transitions = checkTransitions(stages, args.transitions);
     const others = (await ctx.db.query('pipelines').collect()).filter(isNotDeleted);
     const isDefault = args.isDefault || others.length === 0;
     if (isDefault) {
@@ -59,6 +78,7 @@ export const createPipeline = settingsMutation({
     const pipelineId = await ctx.db.insert('pipelines', {
       name,
       stages,
+      transitions,
       isDefault: isDefault || undefined,
       ...createAuditFields(ctx.userId),
     });
@@ -78,6 +98,9 @@ export const updatePipeline = settingsMutation({
     pipelineId: v.id('pipelines'),
     name: v.optional(v.string()),
     stages: v.optional(v.array(pipelineStageValidator)),
+    // null clears the graph (everything allowed again).
+    transitions: v.optional(v.union(v.array(pipelineTransitionValidator), v.null())),
+    layout: v.optional(v.union(pipelineLayoutValidator, v.null())),
     isDefault: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
@@ -99,6 +122,22 @@ export const updatePipeline = settingsMutation({
       }
       updates.stages = stages;
     }
+    // The graph is validated against the stages being saved; keys survive a
+    // rename or reorder, and a removed stage takes its arrows along.
+    const stages = updates.stages ?? pipeline.stages;
+    if (args.transitions !== undefined) {
+      updates.transitions = checkTransitions(stages, args.transitions ?? undefined);
+    } else if (updates.stages) {
+      updates.transitions = checkTransitions(
+        stages,
+        pruneTransitions(pipeline.transitions, stages),
+      );
+    }
+    if (args.layout !== undefined) {
+      updates.layout = pruneLayout(args.layout ?? undefined, stages);
+    } else if (updates.stages) {
+      updates.layout = pruneLayout(pipeline.layout, stages);
+    }
     if (args.isDefault) {
       const others = (await ctx.db.query('pipelines').collect()).filter(isNotDeleted);
       for (const other of others) {
@@ -109,8 +148,16 @@ export const updatePipeline = settingsMutation({
       updates.isDefault = true;
     }
     const changes = computeChanges(pipeline, filterUndefined(updates));
+    // `computeChanges` ignores undefined values, so a cleared graph (stored as
+    // an absent field — patching `undefined` removes it) is tracked here.
+    const graphChanged =
+      ('transitions' in updates &&
+        JSON.stringify(updates.transitions ?? null) !==
+          JSON.stringify(pipeline.transitions ?? null)) ||
+      ('layout' in updates &&
+        JSON.stringify(updates.layout ?? null) !== JSON.stringify(pipeline.layout ?? null));
     await ctx.db.patch(pipeline._id, { ...updates, ...updateAuditFields(ctx.userId) });
-    if (changes) {
+    if (changes || graphChanged) {
       await logAudit({
         ctx,
         userId: ctx.userId,
@@ -288,6 +335,7 @@ export const moveDealStage = employeeMutation({
       { lossReason: args.lossReason },
     );
     if (move.kind === 'unknown_stage') throw new Error('unknown_stage');
+    if (move.kind === 'forbidden') throw new Error('deal_transition_forbidden');
     return move.kind;
   },
 });

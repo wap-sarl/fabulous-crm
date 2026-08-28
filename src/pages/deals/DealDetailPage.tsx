@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthQuery } from '@crm/widgets';
-import { api } from '@crm/lib/backend';
+import { api, isTransitionAllowed } from '@crm/lib/backend';
 import type { Id, PipelineStage } from '@crm/lib/backend';
 import {
   Button,
@@ -193,14 +193,22 @@ export function DealDetailPage() {
                 {pipeline.stages.map((stage, index) => {
                   const current = stage.key === deal.stageKey;
                   const reached = index <= currentIndex && deal.status === 'open';
+                  const allowed =
+                    current || isTransitionAllowed(pipeline, deal.stageKey, stage.key);
                   return (
                     <li key={stage.key}>
                       <button
                         type="button"
                         onClick={() => requestMove(stage)}
+                        disabled={!allowed}
+                        title={
+                          allowed ? undefined : 'Transition non autorisée depuis le stade actuel'
+                        }
                         aria-current={current ? 'step' : undefined}
+                        data-testid={`deal-stage-${stage.key}`}
                         className={cn(
                           'cursor-pointer rounded-md px-2.5 py-1.5 text-xs font-semibold transition-colors',
+                          !allowed && 'cursor-not-allowed opacity-40',
                           current
                             ? stage.kind === 'won'
                               ? 'bg-green-600 text-white'
@@ -219,7 +227,8 @@ export function DealDetailPage() {
                 })}
               </ol>
               <p className="mt-3 text-xs text-faint">
-                Cliquez sur un stade pour y déplacer la transaction.
+                Cliquez sur un stade pour y déplacer la transaction (les stades grisés ne sont pas
+                atteignables depuis le stade actuel).
               </p>
             </Card>
           ) : null}
