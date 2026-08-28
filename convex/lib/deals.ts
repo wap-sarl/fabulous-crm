@@ -6,6 +6,7 @@ import {
   DEFAULT_PIPELINE_NAME,
   DEFAULT_PIPELINE_STAGES,
   defaultPipelineStage,
+  isTransitionAllowed,
   pipelineStage,
   type PipelineStage,
 } from '../_lib/validators/deals';
@@ -187,13 +188,11 @@ export async function createDealRecord(
 export type StageMove =
   | { kind: 'unchanged' }
   | { kind: 'unknown_stage' }
+  /** The pipeline's transition graph has no arrow for this move. */
+  | { kind: 'forbidden'; stage: PipelineStage }
   | { kind: 'moved'; stage: PipelineStage };
 
-/**
- * Move a deal to another stage of its pipeline. Entering a closed stage
- * stamps `closedAt` (and the loss reason for lost stages); reopening clears
- * them. Records the history row and fires the stage/won/lost triggers.
- */
+/** The single path every stage move goes through; the transition graph is enforced here. */
 export async function moveDealToStage(
   ctx: MutationCtx,
   deal: Doc<'deals'>,
@@ -205,6 +204,7 @@ export async function moveDealToStage(
   const stage = pipelineStage(pipeline, stageKey);
   if (!stage) return { kind: 'unknown_stage' };
   if (deal.stageKey === stage.key) return { kind: 'unchanged' };
+  if (!isTransitionAllowed(pipeline, deal.stageKey, stage.key)) return { kind: 'forbidden', stage };
   const now = Date.now();
   const closed = stage.kind !== 'open';
   await ctx.db.patch(deal._id, {

@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { api } from '@crm/lib/backend';
-import type { Doc, Id, PipelineStage } from '@crm/lib/backend';
+import type { Doc, Id, PipelineLayout, PipelineStage, PipelineTransition } from '@crm/lib/backend';
 import {
   DEFAULT_PIPELINE_STAGES,
   MAX_PIPELINE_STAGES,
+  fullTransitions,
+  isFullTransitions,
+  pruneTransitions,
   validatePipelineStages,
+  validatePipelineTransitions,
 } from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
 import {
@@ -27,11 +31,12 @@ import {
   Switch,
   toast,
 } from '@crm/design-system';
-import { Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { formatMoney } from '../../lib/constants';
 import { useDealActions } from '../../features/deals/hooks/useDealActions';
 import { usePipelines } from '../../features/deals/hooks/usePipelines';
+import { PipelineGraphEditor } from '../../features/deals/components/PipelineGraphEditor';
 import { DEAL_ERROR_MESSAGES, dealErrorMessage } from '../../features/deals/lib/errors';
 
 function keyFromLabel(label: string, taken: Set<string>): string {
@@ -48,34 +53,60 @@ function keyFromLabel(label: string, taken: Set<string>): string {
   return key;
 }
 
-function PipelineEditor({
+type StageStats = { key: string; count: number }[];
+
+/** Full-screen editor: pipeline info and stages on the left, the transition graph on the right. */
+function PipelineEditDialog({
   pipeline,
-  onDeleted,
+  stageStats,
+  open,
+  onOpenChange,
 }: {
   pipeline: Doc<'pipelines'>;
-  onDeleted: () => void;
+  stageStats: StageStats;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
-  const { updatePipeline, deletePipeline } = useDealActions();
-  const stats = useAuthQuery(api.features.deals.queries.getPipelineStats, {
-    pipelineId: pipeline._id,
-  });
+  const { updatePipeline } = useDealActions();
   const [name, setName] = useState(pipeline.name);
   const [stages, setStages] = useState<PipelineStage[]>(pipeline.stages);
+  const [transitions, setTransitions] = useState<PipelineTransition[] | undefined>(
+    pipeline.transitions,
+  );
+  const [layout, setLayout] = useState<PipelineLayout | undefined>(pipeline.layout);
   const [newLabel, setNewLabel] = useState('');
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const countOf = (key: string) => stats?.stages.find((s) => s.key === key)?.count ?? 0;
+  const countOf = (key: string) => stageStats.find((s) => s.key === key)?.count ?? 0;
   const openCount = stages.filter((s) => s.kind === 'open').length;
 
   useEffect(() => {
-    if (dirty) return;
+    if (!open) return;
     setName(pipeline.name);
     setStages(pipeline.stages);
-  }, [pipeline, dirty]);
+    setTransitions(pipeline.transitions);
+    setLayout(pipeline.layout);
+    setNewLabel('');
+    setDirty(false);
+  }, [open, pipeline]);
 
   const touch = (next: PipelineStage[]) => {
+    setTransitions((prev) =>
+      prev === undefined
+        ? undefined
+        : isFullTransitions(stages, prev)
+          ? fullTransitions(next)
+          : pruneTransitions(prev, next),
+    );
     setStages(next);
+    setDirty(true);
+  };
+  const setGraph = (next: PipelineTransition[] | undefined) => {
+    setTransitions(next);
+    setDirty(true);
+  };
+  const setPlacement = (next: PipelineLayout) => {
+    setLayout(next);
     setDirty(true);
   };
   const patch = (index: number, p: Partial<PipelineStage>) =>
@@ -91,58 +122,183 @@ function PipelineEditor({
     // New stages go before the closed ones so the funnel stays readable.
     const firstClosed = stages.findIndex((s) => s.kind !== 'open');
     const next = [...stages];
-    next.splice(firstClosed === -1 ? next.length : firstClosed, 0, {
-      key,
-      label,
-      kind: 'open',
-    });
+    next.splice(firstClosed === -1 ? next.length : firstClosed, 0, { key, label, kind: 'open' });
     touch(next);
     setNewLabel('');
   };
   const save = async () => {
-    const error = validatePipelineStages(stages);
+    const error =
+      validatePipelineStages(stages) ?? validatePipelineTransitions(stages, transitions);
     if (error) {
       toast.error(DEAL_ERROR_MESSAGES[error] ?? error);
       return;
     }
     setSaving(true);
     try {
-      await updatePipeline({ pipelineId: pipeline._id, name, stages });
-      setDirty(false);
+      // null restores the default graph server-side.
+      await updatePipeline({
+        pipelineId: pipeline._id,
+        name,
+        stages,
+        transitions: transitions ?? null,
+        layout: layout ?? null,
+      });
       toast.success('Pipeline enregistré.');
+      onOpenChange(false);
     } catch (e) {
       toast.error(dealErrorMessage(e, 'Échec de l’enregistrement.'));
     } finally {
       setSaving(false);
     }
   };
+
+  return (
+    <Dialog open={open} onOpenChange={(next) => !saving && onOpenChange(next)}>
+      <DialogContent
+        className="left-0 top-0 flex h-screen w-screen max-w-none max-h-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:rounded-none"
+        data-testid="pipeline-edit-dialog"
+      >
+        <DialogHeader className="flex flex-row items-center justify-between gap-3 border-b px-6 py-4 pr-14">
+          <DialogTitle>Modifier le pipeline « {pipeline.name} »</DialogTitle>
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+              Annuler
+            </Button>
+            <Button onClick={save} loading={saving} disabled={!dirty} data-testid="pipeline-save">
+              Enregistrer
+            </Button>
+          </div>
+        </DialogHeader>
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-3">
+          <div className="flex min-h-0 flex-col gap-4 overflow-y-auto border-b p-6 lg:border-b-0 lg:border-r">
+            <div className="space-y-1.5">
+              <Label htmlFor={`pipeline-name-${pipeline._id}`}>Nom du pipeline</Label>
+              <Input
+                id={`pipeline-name-${pipeline._id}`}
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setDirty(true);
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Stades</Label>
+              <SortableList
+                items={stages}
+                getId={(stage) => stage.key}
+                onReorder={touch}
+                isLocked={(stage) => stage.kind !== 'open'}
+                itemClassName="flex flex-wrap items-center gap-2"
+                renderItem={(stage, index, handle) => (
+                  <>
+                    {handle}
+                    <span className="w-5 text-right font-mono text-xs text-faint">{index + 1}</span>
+                    <Input
+                      value={stage.label}
+                      onChange={(e) => patch(index, { label: e.target.value })}
+                      aria-label={`Libellé du stade ${index + 1}`}
+                      className="min-w-32 flex-1"
+                      data-testid="pipeline-stage"
+                    />
+                    {stage.kind !== 'open' ? (
+                      <StatusBadge tone={stage.kind === 'won' ? 'green' : 'red'}>
+                        {stage.kind === 'won' ? 'Gagnée' : 'Perdue'}
+                      </StatusBadge>
+                    ) : null}
+                    <span
+                      className="w-8 text-right font-mono text-xs text-faint"
+                      title="Transactions dans ce stade"
+                    >
+                      {countOf(stage.key)}
+                    </span>
+                    <IconButton
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Supprimer le stade ${stage.label}`}
+                      disabled={stage.kind !== 'open' || openCount <= 1 || countOf(stage.key) > 0}
+                      onClick={() => touch(stages.filter((_, i) => i !== index))}
+                    >
+                      <Trash2 className="size-4" />
+                    </IconButton>
+                  </>
+                )}
+              />
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newLabel}
+                  onChange={(e) => setNewLabel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      add();
+                    }
+                  }}
+                  placeholder="Nouveau stade…"
+                  aria-label="Libellé du nouveau stade"
+                  className="flex-1"
+                />
+                <Button variant="outline" onClick={add} disabled={!newLabel.trim()}>
+                  <Plus className="size-4" />
+                  Ajouter
+                </Button>
+              </div>
+              <HelperText>
+                Les stades gagnée / perdue terminent le pipeline ; un stade qui contient des
+                transactions ne peut pas être supprimé.
+              </HelperText>
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-col gap-2 p-6 lg:col-span-2">
+            <h3 className="text-[13px] font-bold text-ink">Transitions autorisées</h3>
+            <PipelineGraphEditor
+              stages={stages}
+              transitions={transitions}
+              onChange={setGraph}
+              layout={layout}
+              onLayoutChange={setPlacement}
+              fill
+            />
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function PipelineCard({ pipeline }: { pipeline: Doc<'pipelines'> }) {
+  const { updatePipeline, deletePipeline } = useDealActions();
+  const stats = useAuthQuery(api.features.deals.queries.getPipelineStats, {
+    pipelineId: pipeline._id,
+  });
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const countOf = (key: string) => stats?.stages.find((s) => s.key === key)?.count ?? 0;
+  const total = stats ? stats.open.count + stats.won.count + stats.lost.count : 0;
+
   const remove = async () => {
     try {
       await deletePipeline({ pipelineId: pipeline._id });
       toast.success('Pipeline supprimé.');
-      onDeleted();
     } catch (e) {
       toast.error(dealErrorMessage(e, 'Échec de la suppression.'));
       setDeleteOpen(false);
     }
   };
-  const total = stats ? stats.open.count + stats.won.count + stats.lost.count : 0;
 
   return (
     <Card className="flex flex-col gap-4 p-5" data-testid="pipeline-editor">
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="flex-1 space-y-1.5">
-          <Label htmlFor={`pipeline-name-${pipeline._id}`}>Nom du pipeline</Label>
-          <Input
-            id={`pipeline-name-${pipeline._id}`}
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setDirty(true);
-            }}
-          />
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate text-[15px] font-bold text-ink">{pipeline.name}</h2>
+          {stats ? (
+            <p className="text-xs text-faint">
+              {stats.open.count} transaction(s) en cours ({formatMoney(stats.open.amount, 'EUR')}) ·{' '}
+              {stats.won.count} gagnée(s) · {stats.lost.count} perdue(s)
+            </p>
+          ) : null}
         </div>
-        <label className="flex items-center gap-2 pb-2 text-sm">
+        <label className="flex items-center gap-2 text-sm">
           <Switch
             checked={!!pipeline.isDefault}
             disabled={!!pipeline.isDefault}
@@ -157,8 +313,9 @@ function PipelineEditor({
           />
           Pipeline par défaut
         </label>
-        <Button onClick={save} loading={saving} disabled={!dirty}>
-          Enregistrer
+        <Button variant="outline" onClick={() => setEditOpen(true)} data-testid="pipeline-edit">
+          <Pencil className="size-4" />
+          Modifier
         </Button>
         <IconButton
           variant="secondary"
@@ -167,89 +324,61 @@ function PipelineEditor({
         >
           <Trash2 className="size-4" />
         </IconButton>
-        <ConfirmDialog
-          open={deleteOpen}
-          onOpenChange={setDeleteOpen}
-          title={`Supprimer le pipeline « ${pipeline.name} » ?`}
-          description={
-            total > 0
-              ? `Ce pipeline contient ${total} transaction(s) : déplacez-les ou supprimez-les d’abord.`
-              : 'Ses stades disparaissent ; cette action est irréversible.'
-          }
-          confirmLabel="Supprimer le pipeline"
-          destructive
-          onConfirm={remove}
-        />
       </div>
 
-      {stats ? (
-        <p className="text-xs text-faint">
-          {stats.open.count} transaction(s) en cours ({formatMoney(stats.open.amount, 'EUR')}) ·{' '}
-          {stats.won.count} gagnée(s) · {stats.lost.count} perdue(s)
-        </p>
-      ) : null}
-
-      <SortableList
-        items={stages}
-        getId={(stage) => stage.key}
-        onReorder={touch}
-        isLocked={(stage) => stage.kind !== 'open'}
-        itemClassName="flex flex-wrap items-center gap-2"
-        renderItem={(stage, index, handle) => (
-          <>
-            {handle}
-            <span className="w-6 text-right font-mono text-xs text-faint">{index + 1}</span>
-            <Input
-              value={stage.label}
-              onChange={(e) => patch(index, { label: e.target.value })}
-              aria-label={`Libellé du stade ${index + 1}`}
-              className="min-w-40 flex-1"
-              data-testid="pipeline-stage"
-            />
-            {stage.kind !== 'open' ? (
-              <StatusBadge tone={stage.kind === 'won' ? 'green' : 'red'}>
-                {stage.kind === 'won' ? 'Gagnée' : 'Perdue'}
-              </StatusBadge>
-            ) : null}
+      <ol className="flex flex-wrap items-center gap-1.5" aria-label="Stades">
+        {pipeline.stages.map((stage, index) => (
+          <li key={stage.key} className="flex items-center gap-1.5">
+            {index > 0 ? <span className="text-faint">→</span> : null}
             <span
-              className="w-10 text-right font-mono text-xs text-faint"
-              title="Transactions dans ce stade"
+              className={cnStage(stage)}
+              data-testid="pipeline-stage-chip"
+              title={`${countOf(stage.key)} transaction(s)`}
             >
-              {countOf(stage.key)}
+              {stage.label}
+              <span className="ml-1.5 font-mono text-[10.5px] opacity-70">
+                {countOf(stage.key)}
+              </span>
             </span>
-            <IconButton
-              variant="secondary"
-              size="sm"
-              aria-label={`Supprimer le stade ${stage.label}`}
-              disabled={stage.kind !== 'open' || openCount <= 1 || countOf(stage.key) > 0}
-              onClick={() => touch(stages.filter((_, i) => i !== index))}
-            >
-              <Trash2 className="size-4" />
-            </IconButton>
-          </>
-        )}
+          </li>
+        ))}
+      </ol>
+
+      <PipelineGraphEditor
+        stages={pipeline.stages}
+        transitions={pipeline.transitions}
+        layout={pipeline.layout}
+        readOnly
       />
-      <div className="flex items-center gap-2">
-        <Input
-          value={newLabel}
-          onChange={(e) => setNewLabel(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              add();
-            }
-          }}
-          placeholder="Nouveau stade…"
-          aria-label="Libellé du nouveau stade"
-          className="flex-1"
-        />
-        <Button variant="outline" onClick={add} disabled={!newLabel.trim()}>
-          <Plus className="size-4" />
-          Ajouter
-        </Button>
-      </div>
+
+      <PipelineEditDialog
+        pipeline={pipeline}
+        stageStats={stats?.stages ?? []}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+      />
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={setDeleteOpen}
+        title={`Supprimer le pipeline « ${pipeline.name} » ?`}
+        description={
+          total > 0
+            ? `Ce pipeline contient ${total} transaction(s) : déplacez-les ou supprimez-les d’abord.`
+            : 'Ses stades disparaissent ; cette action est irréversible.'
+        }
+        confirmLabel="Supprimer le pipeline"
+        destructive
+        onConfirm={remove}
+      />
     </Card>
   );
+}
+
+function cnStage(stage: PipelineStage): string {
+  const base = 'rounded-md px-2 py-1 text-xs font-semibold';
+  if (stage.kind === 'won') return `${base} bg-green-100 text-green-700`;
+  if (stage.kind === 'lost') return `${base} bg-red-100 text-red-600`;
+  return `${base} bg-[#F2F3F5] text-ink`;
 }
 
 export function PipelinesPage() {
@@ -283,7 +412,7 @@ export function PipelinesPage() {
     <div className="mx-auto w-full max-w-4xl px-6 py-8">
       <PageHeader
         title="Pipelines"
-        subtitle="Stades des transactions (les stades gagnée / perdue terminent chaque pipeline) et pipeline par défaut"
+        subtitle="Stades des transactions, transitions autorisées entre stades (linéaires par défaut) et pipeline par défaut"
         actions={
           <Button onClick={() => setCreateOpen(true)} data-testid="new-pipeline">
             <Plus className="size-4" />
@@ -312,7 +441,8 @@ export function PipelinesPage() {
               autoFocus
             />
             <HelperText>
-              Le pipeline démarre avec les stades standard, modifiables ensuite.
+              Le pipeline démarre avec les stades standard et des transitions linéaires, modifiables
+              ensuite.
             </HelperText>
           </div>
           <DialogFooter>
@@ -329,13 +459,7 @@ export function PipelinesPage() {
         {isLoading ? (
           <Spinner size="sm" />
         ) : (
-          pipelines.map((p) => (
-            <PipelineEditor
-              key={p._id as Id<'pipelines'>}
-              pipeline={p}
-              onDeleted={() => undefined}
-            />
-          ))
+          pipelines.map((p) => <PipelineCard key={p._id as Id<'pipelines'>} pipeline={p} />)
         )}
       </div>
     </div>

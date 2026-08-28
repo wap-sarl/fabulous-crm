@@ -35,7 +35,26 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
 - **Transactions et pipelines** : transactions (montant, devise, date de
   clôture, propriétaire, lead, campagne d'origine) dans des
   pipelines configurables (*Paramètres → Pipelines* : stades ordonnés,
-  stades gagné/perdu, plusieurs pipelines). Vue Kanban
+  stades gagné/perdu, plusieurs pipelines). Les **transitions** autorisées
+  entre stades forment un graphe (`pipelines.transitions`) : par défaut
+  (liste absente) chaque stade mène au suivant et peut revenir au précédent,
+  le dernier stade en cours ↔ gagné / perdu (`defaultTransitions`). La fiche
+  d'un pipeline en montre un aperçu ; « Modifier » ouvre un éditeur plein
+  écran (infos et stades à gauche, graphe `@xyflow/react` à droite) : un nœud
+  par stade, une flèche par transition dans les deux sens, « × » sur une
+  flèche pour l'interdire, glisser un stade sur un autre pour en ajouter une,
+  « Tout autoriser » (graphe complet) et « Transitions linéaires » (retour au
+  défaut) ; stades et flèches se déplacent à la souris et la disposition est
+  enregistrée avec le pipeline (`pipelines.layout`), l'aperçu la reprend telle
+  quelle ; les stades gagné/perdu sont des puits sauf flèches de
+  réouverture. Un validateur pur (`analyzePipelineGraph`) tourne à chaque
+  modification, côté éditeur et côté serveur : stade inaccessible et impasse
+  (aucun chemin vers gagné/perdu) sont signalés en avertissement. Chaque
+  déplacement passe par `moveDealToStage`, qui refuse une flèche absente
+  (`deal_transition_forbidden`) ; le Kanban grise les colonnes inaccessibles
+  pendant le glisser, le stepper désactive les stades interdits, et
+  l'activation d'un workflow vérifie l'étape « Changer le stade » quand le
+  déclencheur fixe le stade de départ. Vue Kanban
   (glisser-déposer) et vue liste ; historique des stades (`dealStageHistory`) ;
   compteurs et montants par stade via agrégats. Déclencheurs de workflow
   `deal_created` / `deal_stage_changed` / `deal_won` / `deal_lost` et étapes

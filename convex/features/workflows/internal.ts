@@ -361,6 +361,10 @@ export const executeStep = internalMutation({
           });
           if (move.kind === 'unknown_stage') {
             await logStep(ctx, run, node, 'skipped', { detail: 'stade introuvable' });
+          } else if (move.kind === 'forbidden') {
+            await logStep(ctx, run, node, 'skipped', {
+              detail: `transition interdite depuis « ${deal.stageKey} »`,
+            });
           } else if (move.kind === 'unchanged') {
             await logStep(ctx, run, node, 'success', { detail: 'déjà à ce stade' });
           } else {

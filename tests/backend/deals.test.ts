@@ -1,14 +1,32 @@
 import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { DEFAULT_PIPELINE_STAGES } from '../../convex/_lib/validators/deals';
+import {
+  DEFAULT_PIPELINE_STAGES,
+  defaultTransitions,
+  fullTransitions,
+} from '../../convex/_lib/validators/deals';
 import { asIdentity, createTestConvex, seedEmployee, type SeededEmployee, type T } from './helpers';
+
+// The stock funnel, one arrow per step; won and lost from the last open stage.
+const LINEAR = [
+  { from: 'new', to: 'qualified' },
+  { from: 'qualified', to: 'proposal' },
+  { from: 'proposal', to: 'negotiation' },
+  { from: 'negotiation', to: 'won' },
+  { from: 'negotiation', to: 'lost' },
+];
 
 async function setup(role: 'admin' | 'member' = 'admin') {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com', role });
   const as = asIdentity(t, emp.identity);
   const pipelineId = await as.mutation(api.features.deals.mutations.ensureDefaultPipeline, {});
+  // The default graph is linear; most scenarios move deals freely, so allow everything.
+  await as.mutation(api.features.deals.mutations.updatePipeline, {
+    pipelineId,
+    transitions: fullTransitions([...DEFAULT_PIPELINE_STAGES]),
+  });
   return { t, emp, as, pipelineId };
 }
 
@@ -436,5 +454,213 @@ describe('workflow deal steps', () => {
         status: 'active',
       }),
     ).rejects.toThrow('stade introuvable');
+  });
+
+  test('activation refuses a step whose move is not an arrow of the pipeline graph', async () => {
+    const { as, pipelineId } = await setup();
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: LINEAR,
+    });
+    const make = (stageKey: string) =>
+      as.mutation(api.features.workflows.mutations.createWorkflow, {
+        name: 'Jump',
+        // The trigger pins the source stage: « Nouvelle » deals entering the pipeline.
+        trigger: { type: 'deal_stage_changed', pipelineId, stageKey: 'new' },
+        allowReEnrollment: false,
+        nodes: [{ id: 'n1', type: 'update_deal_stage', pipelineId, stageKey }],
+        startNodeId: 'n1',
+      });
+    const bad = await make('won');
+    await expect(
+      as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+        workflowId: bad,
+        status: 'active',
+      }),
+    ).rejects.toThrow('transition interdite de « Nouvelle » vers « Gagnée »');
+    const good = await make('qualified');
+    await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+      workflowId: good,
+      status: 'active',
+    });
+  });
+
+  test('a forbidden move at run time skips the step instead of failing the run', async () => {
+    const { t, as, emp, pipelineId } = await setup();
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: LINEAR,
+    });
+    const workflowId = await activeWorkflow(t, emp, { type: 'update_deal_stage', stageKey: 'won' });
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'A',
+      lastName: 'A',
+    });
+    const dealId = await as.mutation(api.features.deals.mutations.createDeal, {
+      title: 'New',
+      leadId,
+    });
+    const step = await runStep(t, workflowId, leadId);
+    expect(step.status).toBe('skipped');
+    expect(step.detail).toContain('transition interdite');
+    expect((await dealOf(t, dealId)).stageKey).toBe('new');
+  });
+});
+
+describe('pipeline transition graph', () => {
+  const linear = LINEAR;
+
+  test('the saved layout is stored, pruned to the stages, and cleared with null', async () => {
+    const { t, as, pipelineId } = await setup();
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      layout: {
+        nodes: [
+          { key: 'new', x: 10, y: 20 },
+          { key: 'ghost', x: 0, y: 0 },
+        ],
+        arrows: [
+          { from: 'new', to: 'qualified', x: 5, y: -5 },
+          { from: 'new', to: 'ghost', x: 1, y: 1 },
+        ],
+      },
+    });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.layout).toEqual({
+      nodes: [{ key: 'new', x: 10, y: 20 }],
+      arrows: [{ from: 'new', to: 'qualified', x: 5, y: -5 }],
+    });
+    // Removing a stage drops its node and arrows from the layout too.
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      layout: {
+        nodes: [
+          { key: 'new', x: 1, y: 1 },
+          { key: 'proposal', x: 2, y: 2 },
+        ],
+        arrows: [{ from: 'proposal', to: 'negotiation', x: 0, y: 0 }],
+      },
+    });
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      stages: DEFAULT_PIPELINE_STAGES.filter((s) => s.key !== 'proposal'),
+    });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.layout).toEqual({
+      nodes: [{ key: 'new', x: 1, y: 1 }],
+      arrows: [],
+    });
+    await as.mutation(api.features.deals.mutations.updatePipeline, { pipelineId, layout: null });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.layout).toBeUndefined();
+  });
+
+  test('moves follow the graph; without one the default (linear, one step back) applies', async () => {
+    const { t, as, pipelineId } = await setup();
+    const dealId = await as.mutation(api.features.deals.mutations.createDeal, { title: 'D' });
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: null,
+    });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.transitions).toBeUndefined();
+    await expect(
+      as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'won' }),
+    ).rejects.toThrow('deal_transition_forbidden');
+    await as.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId,
+      stageKey: 'qualified',
+    });
+    // One step back is part of the default graph.
+    await as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'new' });
+
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: linear,
+    });
+    const [pipeline] = await as.query(api.features.deals.queries.listPipelines, {});
+    expect(pipeline.transitions).toEqual(linear);
+
+    await expect(
+      as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'proposal' }),
+    ).rejects.toThrow('deal_transition_forbidden');
+    await as.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId,
+      stageKey: 'qualified',
+    });
+    await as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'proposal' });
+    await as.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId,
+      stageKey: 'negotiation',
+    });
+    // No going back from « Négociation » to « Qualifiée »…
+    await expect(
+      as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'qualified' }),
+    ).rejects.toThrow('deal_transition_forbidden');
+    expect((await dealOf(t, dealId)).stageKey).toBe('negotiation');
+    // …until the admin draws the arrow back.
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: [...linear, { from: 'negotiation', to: 'qualified' }],
+    });
+    await as.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId,
+      stageKey: 'qualified',
+    });
+    expect((await dealOf(t, dealId)).stageKey).toBe('qualified');
+
+    // The complete graph is stored explicitly and allows everything.
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: fullTransitions([...DEFAULT_PIPELINE_STAGES]),
+    });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.transitions).toHaveLength(28);
+    await as.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey: 'won' });
+  });
+
+  test('bad arrows are refused; a removed stage drops its arrows', async () => {
+    const { t, as, pipelineId } = await setup();
+    await expect(
+      as.mutation(api.features.deals.mutations.updatePipeline, {
+        pipelineId,
+        transitions: [{ from: 'won', to: 'lost' }],
+      }),
+    ).rejects.toThrow('pipeline_transition_from_closed');
+    await expect(
+      as.mutation(api.features.deals.mutations.updatePipeline, {
+        pipelineId,
+        transitions: [{ from: 'new', to: 'nope' }],
+      }),
+    ).rejects.toThrow('pipeline_transition_unknown_stage');
+
+    // Backward arrows are ordinary transitions; warnings (unreachable, dead end) never block the save.
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: linear.filter((t) => !(t.from === 'proposal' && t.to === 'negotiation')),
+    });
+
+    // Removing « Proposition » (no deal in it) takes its arrows along and keeps the rest.
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: linear,
+    });
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      stages: DEFAULT_PIPELINE_STAGES.filter((s) => s.key !== 'proposal'),
+    });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.transitions).toEqual([
+      { from: 'new', to: 'qualified' },
+      { from: 'negotiation', to: 'won' },
+      { from: 'negotiation', to: 'lost' },
+    ]);
+
+    // The default graph is stored as absent; the complete one explicitly.
+    const stages = DEFAULT_PIPELINE_STAGES.filter((s) => s.key !== 'proposal');
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: defaultTransitions(stages),
+    });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.transitions).toBeUndefined();
+    await as.mutation(api.features.deals.mutations.updatePipeline, {
+      pipelineId,
+      transitions: fullTransitions(stages),
+    });
+    expect((await t.run((ctx) => ctx.db.get(pipelineId)))?.transitions).toHaveLength(3 * 4 + 2 * 3);
   });
 });

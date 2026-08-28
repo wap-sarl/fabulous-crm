@@ -168,6 +168,7 @@ export const setWorkflowStatus = employeeMutation({
         listIds,
         stageKeys,
         pipelines,
+        workflow.trigger,
       );
       if (error) throw new Error(error);
     }

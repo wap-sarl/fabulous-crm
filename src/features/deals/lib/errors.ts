@@ -21,6 +21,12 @@ export const DEAL_ERROR_MESSAGES: Record<string, string> = {
   pipeline_closed_stage_misplaced: 'Les stades gagnée / perdue doivent rester en fin de pipeline.',
   pipeline_stage_in_use: 'Impossible de supprimer un stade qui contient encore des transactions.',
   pipeline_in_use: 'Impossible de supprimer un pipeline qui contient des transactions.',
+  pipeline_transition_unknown_stage: 'Une transition référence un stade inconnu.',
+  pipeline_transition_self_loop: 'Un stade ne peut pas mener à lui-même.',
+  pipeline_transition_duplicate: 'Une transition est déclarée deux fois.',
+  pipeline_transition_from_closed:
+    'Un stade gagnée / perdue ne peut mener qu’à un stade en cours (réouverture).',
+  deal_transition_forbidden: 'Cette transition n’est pas autorisée par le pipeline.',
 };
 
 export function dealErrorMessage(e: unknown, fallback: string): string {
