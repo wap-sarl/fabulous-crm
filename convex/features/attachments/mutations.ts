@@ -10,10 +10,13 @@ import { createAuditFields, isNotDeleted, logAudit, updateAuditFields } from '..
 import {
   attachmentKey,
   attachmentMaxBytes,
+  attachmentRetentionDays,
   fileStore,
   normalizeFileName,
   normalizeFolder,
 } from '../../lib/fileStorage';
+import { attachmentPurgeAt } from '../../_lib/validators/attachments';
+import { internal } from '../../_generated/api';
 
 /** The live record a file is attached to; throws `<entity>_not_found`. */
 async function requireEntity(
@@ -32,11 +35,27 @@ function assertSize(size: number, max: number): void {
   if (size > max) throw new Error(`attachment_too_large:${max}`);
 }
 
+/** A live (not trashed) attachment, or throw. */
 async function requireAttachment(ctx: MutationCtx, id: Doc<'attachments'>['_id']) {
   const attachment = await ctx.db.get(id);
-  if (!attachment) throw new Error('attachment_not_found');
+  if (!attachment || attachment.deletedAt !== undefined) throw new Error('attachment_not_found');
   return attachment;
 }
+
+/** A trashed attachment, or throw (`attachment_not_found` once purged, `attachment_not_deleted` if live). */
+async function requireTrashed(ctx: MutationCtx, id: Doc<'attachments'>['_id']) {
+  const attachment = await ctx.db.get(id);
+  if (!attachment) throw new Error('attachment_not_found');
+  if (attachment.deletedAt === undefined) throw new Error('attachment_not_deleted');
+  return attachment;
+}
+
+const auditMeta = (attachment: Doc<'attachments'>) => ({
+  entityType: attachment.entityType,
+  entityId: attachment.entityId,
+  name: attachment.name,
+  key: attachment.key,
+});
 
 /**
  * Step 1 of an upload: the browser declares the file, the server checks the
@@ -140,11 +159,62 @@ export const updateAttachment = employeeMutation({
   },
 });
 
-/** Hard delete: the row and its blob go together. */
+/** Soft delete: the row goes to the trash (blob kept) and its purge is scheduled for `purgeAt`. */
 export const deleteAttachment = employeeMutation({
   args: { attachmentId: v.id('attachments') },
   handler: async (ctx, args) => {
     const attachment = await requireAttachment(ctx, args.attachmentId);
+    const deletedAt = Date.now();
+    const purgeAt = attachmentPurgeAt(deletedAt, await attachmentRetentionDays(ctx));
+    await ctx.db.patch(args.attachmentId, {
+      deletedAt,
+      deletedBy: ctx.userId,
+      purgeAt,
+      ...updateAuditFields(ctx.userId),
+    });
+    await ctx.scheduler.runAt(purgeAt, internal.features.attachments.internal.purgeAttachmentAt, {
+      attachmentId: args.attachmentId,
+      purgeAt,
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'attachment',
+      entityId: args.attachmentId,
+      action: 'delete',
+      metadata: auditMeta(attachment),
+    });
+  },
+});
+
+/** Put a trashed file back where it was (same key, same blob); refused once purged. */
+export const restoreAttachment = employeeMutation({
+  args: { attachmentId: v.id('attachments') },
+  handler: async (ctx, args) => {
+    const attachment = await requireTrashed(ctx, args.attachmentId);
+    // The scheduled purge finds another purgeAt (or a live row) and does nothing.
+    await ctx.db.patch(args.attachmentId, {
+      deletedAt: undefined,
+      deletedBy: undefined,
+      purgeAt: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'attachment',
+      entityId: args.attachmentId,
+      action: 'update',
+      metadata: { ...auditMeta(attachment), restored: true },
+    });
+  },
+});
+
+/** « Supprimer définitivement » from the trash: the row and its blob go together. */
+export const purgeAttachment = employeeMutation({
+  args: { attachmentId: v.id('attachments') },
+  handler: async (ctx, args) => {
+    const attachment = await requireTrashed(ctx, args.attachmentId);
     await fileStore(attachment.provider).delete(ctx, attachment);
     await ctx.db.delete(args.attachmentId);
     await logAudit({
@@ -153,12 +223,7 @@ export const deleteAttachment = employeeMutation({
       entityType: 'attachment',
       entityId: args.attachmentId,
       action: 'delete',
-      metadata: {
-        entityType: attachment.entityType,
-        entityId: attachment.entityId,
-        name: attachment.name,
-        key: attachment.key,
-      },
+      metadata: { ...auditMeta(attachment), purged: true },
     });
   },
 });

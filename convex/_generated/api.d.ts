@@ -40,6 +40,7 @@ import type * as auth from "../auth.js";
 import type * as auth_emailTemplates from "../auth/emailTemplates.js";
 import type * as features_activities_mutations from "../features/activities/mutations.js";
 import type * as features_activities_queries from "../features/activities/queries.js";
+import type * as features_attachments_internal from "../features/attachments/internal.js";
 import type * as features_attachments_mutations from "../features/attachments/mutations.js";
 import type * as features_attachments_queries from "../features/attachments/queries.js";
 import type * as features_companies_actions from "../features/companies/actions.js";
@@ -161,6 +162,7 @@ declare const fullApi: ApiFromModules<{
   "auth/emailTemplates": typeof auth_emailTemplates;
   "features/activities/mutations": typeof features_activities_mutations;
   "features/activities/queries": typeof features_activities_queries;
+  "features/attachments/internal": typeof features_attachments_internal;
   "features/attachments/mutations": typeof features_attachments_mutations;
   "features/attachments/queries": typeof features_attachments_queries;
   "features/companies/actions": typeof features_companies_actions;

@@ -11,6 +11,8 @@ export function useAttachmentActions() {
   const createAttachment = useAuthMutation(api.features.attachments.mutations.createAttachment);
   const updateAttachment = useAuthMutation(api.features.attachments.mutations.updateAttachment);
   const deleteAttachment = useAuthMutation(api.features.attachments.mutations.deleteAttachment);
+  const restoreAttachment = useAuthMutation(api.features.attachments.mutations.restoreAttachment);
+  const purgeAttachment = useAuthMutation(api.features.attachments.mutations.purgeAttachment);
 
   const uploadFile = async (
     entityType: AttachmentEntityType,
@@ -40,7 +42,7 @@ export function useAttachmentActions() {
     return result.attachmentId;
   };
 
-  return { uploadFile, updateAttachment, deleteAttachment };
+  return { uploadFile, updateAttachment, deleteAttachment, restoreAttachment, purgeAttachment };
 }
 
 export function attachmentErrorMessage(e: unknown, fallback: string): string {
@@ -49,6 +51,7 @@ export function attachmentErrorMessage(e: unknown, fallback: string): string {
   if (tooLarge) return `Fichier trop volumineux (maximum ${formatFileSize(Number(tooLarge[1]))}).`;
   if (message.includes('invalid_folder')) return 'Nom de dossier invalide.';
   if (message.includes('invalid_file_name')) return 'Nom de fichier invalide.';
+  if (message.includes('attachment_not_deleted')) return 'Ce fichier n’est pas dans la corbeille.';
   if (message.includes('_not_found')) return 'La fiche ou le fichier n’existe plus.';
   if (message.includes('upload_failed')) return 'L’envoi du fichier a échoué.';
   return fallback;

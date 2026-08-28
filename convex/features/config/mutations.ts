@@ -1,7 +1,12 @@
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
-import { ATTACHMENT_MAX_BYTES_CEILING } from '../../_lib/validators/attachments';
+import {
+  ATTACHMENT_MAX_BYTES_CEILING,
+  ATTACHMENT_RETENTION_MAX_DAYS,
+  ATTACHMENT_RETENTION_MIN_DAYS,
+  DEFAULT_ATTACHMENT_MAX_BYTES,
+} from '../../_lib/validators/attachments';
 import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
@@ -94,6 +99,7 @@ export const updateConfig = settingsMutation({
     primaryColor: v.optional(v.string()),
     email: v.optional(emailConfigInput),
     attachmentsMaxSizeBytes: v.optional(v.number()),
+    attachmentsRetentionDays: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
@@ -109,6 +115,14 @@ export const updateConfig = settingsMutation({
         args.attachmentsMaxSizeBytes > ATTACHMENT_MAX_BYTES_CEILING)
     ) {
       throw new Error('invalid_attachment_max_size');
+    }
+    if (
+      args.attachmentsRetentionDays !== undefined &&
+      (!Number.isInteger(args.attachmentsRetentionDays) ||
+        args.attachmentsRetentionDays < ATTACHMENT_RETENTION_MIN_DAYS ||
+        args.attachmentsRetentionDays > ATTACHMENT_RETENTION_MAX_DAYS)
+    ) {
+      throw new Error('invalid_attachment_retention');
     }
 
     // Replacing a branding asset: drop the previous blob so it doesn't orphan.
@@ -194,8 +208,15 @@ export const updateConfig = settingsMutation({
         socialProviders: mergedSocial ?? cfg.auth.socialProviders,
       },
       ...(mergedEmail !== undefined && { email: mergedEmail }),
-      ...(args.attachmentsMaxSizeBytes !== undefined && {
-        attachments: { maxSizeBytes: args.attachmentsMaxSizeBytes },
+      ...((args.attachmentsMaxSizeBytes !== undefined ||
+        args.attachmentsRetentionDays !== undefined) && {
+        attachments: {
+          maxSizeBytes:
+            args.attachmentsMaxSizeBytes ??
+            cfg.attachments?.maxSizeBytes ??
+            DEFAULT_ATTACHMENT_MAX_BYTES,
+          retentionDays: args.attachmentsRetentionDays ?? cfg.attachments?.retentionDays,
+        },
       }),
       updatedAt: Date.now(),
       updatedBy: ctx.userId,

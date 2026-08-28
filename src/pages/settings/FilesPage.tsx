@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@crm/lib/backend';
-import { ATTACHMENT_MAX_BYTES_CEILING } from '@crm/lib/backend';
+import {
+  ATTACHMENT_MAX_BYTES_CEILING,
+  ATTACHMENT_RETENTION_MAX_DAYS,
+  ATTACHMENT_RETENTION_MIN_DAYS,
+} from '@crm/lib/backend';
 import { useAuth } from '@crm/widgets';
 import {
   Button,
@@ -21,10 +25,14 @@ function FilesManager() {
   const config = useQuery(api.features.config.queries.getAdminConfig);
   const updateConfig = useMutation(api.features.config.mutations.updateConfig);
   const [maxMb, setMaxMb] = useState('');
+  const [retention, setRetention] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (config) setMaxMb(String(Math.round(config.attachments.maxSizeBytes / MB)));
+    if (config) {
+      setMaxMb(String(Math.round(config.attachments.maxSizeBytes / MB)));
+      setRetention(String(config.attachments.retentionDays));
+    }
   }, [config]);
 
   if (!config) return <Spinner size="sm" />;
@@ -35,9 +43,20 @@ function FilesManager() {
       toast.error(`Indiquez une taille entre 1 et ${ATTACHMENT_MAX_BYTES_CEILING / MB} Mo.`);
       return;
     }
+    const days = Number(retention);
+    if (
+      !Number.isInteger(days) ||
+      days < ATTACHMENT_RETENTION_MIN_DAYS ||
+      days > ATTACHMENT_RETENTION_MAX_DAYS
+    ) {
+      toast.error(
+        `Indiquez une durée entre ${ATTACHMENT_RETENTION_MIN_DAYS} et ${ATTACHMENT_RETENTION_MAX_DAYS} jours.`,
+      );
+      return;
+    }
     setBusy(true);
     try {
-      await updateConfig({ attachmentsMaxSizeBytes: mb * MB });
+      await updateConfig({ attachmentsMaxSizeBytes: mb * MB, attachmentsRetentionDays: days });
       toast.success('Paramètres enregistrés.');
     } catch {
       toast.error("L'enregistrement a échoué.");
@@ -62,6 +81,25 @@ function FilesManager() {
         <HelperText>
           Appliquée à chaque fichier joint aux leads, entreprises et transactions, côté serveur au
           moment de l’envoi.
+        </HelperText>
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor="attachments-retention">
+          Durée de conservation dans la corbeille (jours)
+        </Label>
+        <Input
+          id="attachments-retention"
+          type="number"
+          min={ATTACHMENT_RETENTION_MIN_DAYS}
+          max={ATTACHMENT_RETENTION_MAX_DAYS}
+          value={retention}
+          onChange={(e) => setRetention(e.target.value)}
+          className="w-40"
+          data-testid="attachments-retention"
+        />
+        <HelperText>
+          Un fichier supprimé reste restaurable pendant {retention || '…'} jours, puis est effacé
+          définitivement (ligne et contenu) par une tâche quotidienne.
         </HelperText>
       </div>
       <p className="text-xs text-faint">

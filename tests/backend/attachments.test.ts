@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { api } from '../../convex/_generated/api';
+import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { attachmentKey, normalizeFolder } from '../../convex/lib/fileStorage';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
@@ -85,9 +85,50 @@ describe('attachments', () => {
       `lead/${leadId}/Devis/Signés/devis 2026.pdf`,
     );
 
+    // Deleting moves the file to the trash: hidden from the card, blob and key untouched.
     await as.mutation(api.features.attachments.mutations.deleteAttachment, { attachmentId });
+    const list = (entityId: string) =>
+      as.query(api.features.attachments.queries.listAttachments, { entityType: 'lead', entityId });
+    const trash = (entityId: string) =>
+      as.query(api.features.attachments.queries.listDeletedAttachments, {
+        entityType: 'lead',
+        entityId,
+      });
+    expect(await list(leadId)).toEqual([]);
+    const trashed = await trash(leadId);
+    expect(trashed).toHaveLength(1);
+    expect(trashed[0]).toMatchObject({
+      _id: attachmentId,
+      key: `lead/${leadId}/Devis/Signés/devis 2026.pdf`,
+      deletedByName: 'Test User',
+      daysLeft: 30,
+    });
+    expect(trashed[0].url).toContain('http');
+    expect(await t.run((ctx) => ctx.db.system.get(storageId))).not.toBeNull();
+    await expect(
+      as.mutation(api.features.attachments.mutations.updateAttachment, {
+        attachmentId,
+        name: 'x.pdf',
+      }),
+    ).rejects.toThrow('attachment_not_found');
+    await as.mutation(api.features.attachments.mutations.restoreAttachment, { attachmentId });
+    const back = await list(leadId);
+    expect(back).toHaveLength(1);
+    expect(back[0]).toMatchObject({ _id: attachmentId, folder: 'Devis/Signés' });
+    expect((await t.run((ctx) => ctx.db.get(attachmentId)))?.deletedAt).toBeUndefined();
+    expect(await trash(leadId)).toEqual([]);
+    await expect(
+      as.mutation(api.features.attachments.mutations.restoreAttachment, { attachmentId }),
+    ).rejects.toThrow('attachment_not_deleted');
+
+    // « Supprimer définitivement » from the trash: row and blob go together.
+    await as.mutation(api.features.attachments.mutations.deleteAttachment, { attachmentId });
+    await as.mutation(api.features.attachments.mutations.purgeAttachment, { attachmentId });
     expect(await t.run((ctx) => ctx.db.get(attachmentId))).toBeNull();
     expect(await t.run((ctx) => ctx.db.system.get(storageId))).toBeNull();
+    await expect(
+      as.mutation(api.features.attachments.mutations.restoreAttachment, { attachmentId }),
+    ).rejects.toThrow('attachment_not_found');
     const audit = await t.run((ctx) =>
       ctx.db
         .query('auditLogs')
@@ -96,7 +137,93 @@ describe('attachments', () => {
         )
         .collect(),
     );
-    expect(audit.map((a) => a.action)).toEqual(['create', 'update', 'delete']);
+    expect(audit.map((a) => a.action)).toEqual([
+      'create',
+      'update',
+      'delete',
+      'update',
+      'delete',
+      'delete',
+    ]);
+    expect(audit[3].metadata).toMatchObject({ restored: true });
+    expect(audit[5].metadata).toMatchObject({ purged: true });
+  });
+
+  test('a delete schedules its own purge; restore and re-delete leave the old job inert', async () => {
+    const { t, as, leadId } = await setup();
+    const DAY = 24 * 60 * 60 * 1000;
+    const storageId = await storeBlob(t, 10);
+    const created = await as.mutation(api.features.attachments.mutations.createAttachment, {
+      entityType: 'lead',
+      entityId: leadId,
+      storageId,
+      name: 'old.pdf',
+    });
+    if (created.status !== 'ok') throw new Error('expected ok');
+    const { attachmentId } = created;
+    const jobs = () =>
+      t.run((ctx) =>
+        ctx.db.system
+          .query('_scheduled_functions')
+          .collect()
+          .then((rows) => rows.filter((r) => r.name.includes('purgeAttachmentAt'))),
+      );
+    const purge = (purgeAt: number) =>
+      t.mutation(internal.features.attachments.internal.purgeAttachmentAt, {
+        attachmentId,
+        purgeAt,
+      });
+
+    await as.mutation(api.features.attachments.mutations.deleteAttachment, { attachmentId });
+    const first = (await t.run((ctx) => ctx.db.get(attachmentId)))!;
+    expect(first.purgeAt).toBeCloseTo(first.deletedAt! + 30 * DAY, -3);
+    const scheduled = await jobs();
+    expect(scheduled).toHaveLength(1);
+    expect(scheduled[0].args[0]).toMatchObject({ attachmentId, purgeAt: first.purgeAt });
+    expect(scheduled[0].scheduledTime).toBe(first.purgeAt!);
+
+    // The job runs at purgeAt; a different date (an older job) is ignored.
+    expect(await purge(first.purgeAt! - 1)).toBe('skipped');
+    expect(await t.run((ctx) => ctx.db.get(attachmentId))).not.toBeNull();
+
+    // Restore, then delete again: the first job's purgeAt no longer matches.
+    await as.mutation(api.features.attachments.mutations.restoreAttachment, { attachmentId });
+    expect(await purge(first.purgeAt!)).toBe('skipped');
+    expect((await t.run((ctx) => ctx.db.get(attachmentId)))?.purgeAt).toBeUndefined();
+    await as.mutation(api.features.config.mutations.updateConfig, { attachmentsRetentionDays: 1 });
+    await as.mutation(api.features.attachments.mutations.deleteAttachment, { attachmentId });
+    const second = (await t.run((ctx) => ctx.db.get(attachmentId)))!;
+    expect(second.purgeAt).toBeCloseTo(second.deletedAt! + DAY, -3);
+    expect(second.purgeAt).not.toBe(first.purgeAt);
+    expect(await jobs()).toHaveLength(2);
+    expect(await purge(first.purgeAt!)).toBe('skipped');
+    expect(await t.run((ctx) => ctx.db.get(attachmentId))).not.toBeNull();
+    const trashed = await as.query(api.features.attachments.queries.listDeletedAttachments, {
+      entityType: 'lead',
+      entityId: leadId,
+    });
+    expect(trashed[0]).toMatchObject({ purgeAt: second.purgeAt, daysLeft: 1 });
+
+    // The matching job purges row and blob; running it again is a no-op.
+    expect(await purge(second.purgeAt!)).toBe('purged');
+    expect(await t.run((ctx) => ctx.db.get(attachmentId))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.system.get(storageId))).toBeNull();
+    expect(await purge(second.purgeAt!)).toBe('skipped');
+
+    // The retention setting is validated; the size cap survives a retention-only update.
+    expect(
+      (await as.query(api.features.attachments.queries.getAttachmentLimits, {})).retentionDays,
+    ).toBe(1);
+    for (const bad of [0, 366, 1.5]) {
+      await expect(
+        as.mutation(api.features.config.mutations.updateConfig, {
+          attachmentsRetentionDays: bad,
+        }),
+      ).rejects.toThrow('invalid_attachment_retention');
+    }
+    expect(
+      (await as.query(api.features.attachments.queries.getAttachmentLimits, {})).maxSizeBytes,
+    ).toBe(1024);
   });
 
   test('an oversized file is refused before the upload and again on the stored blob', async () => {

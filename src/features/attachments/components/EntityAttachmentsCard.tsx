@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
-import type { AttachmentEntityType, AttachmentRow } from '@crm/lib/backend';
+import type { AttachmentEntityType, AttachmentRow, TrashedAttachmentRow } from '@crm/lib/backend';
 import {
   Button,
   Card,
@@ -29,6 +29,7 @@ import {
   toast,
 } from '@crm/design-system';
 import {
+  ArchiveRestore,
   ChevronRight,
   Download,
   Eye,
@@ -68,9 +69,16 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
     entityType,
     entityId,
   });
+  const trash = useAuthQuery(api.features.attachments.queries.listDeletedAttachments, {
+    entityType,
+    entityId,
+  });
   const limits = useAuthQuery(api.features.attachments.queries.getAttachmentLimits, {});
-  const { uploadFile, updateAttachment, deleteAttachment } = useAttachmentActions();
+  const { uploadFile, updateAttachment, deleteAttachment, restoreAttachment, purgeAttachment } =
+    useAttachmentActions();
   const [folder, setFolder] = useState('');
+  const [showTrash, setShowTrash] = useState(false);
+  const [purging, setPurging] = useState<TrashedAttachmentRow | null>(null);
   // Folders exist only through their files; a freshly created one lives here until a file lands in it.
   const [draftFolders, setDraftFolders] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
@@ -123,33 +131,77 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
     if (!deleting) return;
     try {
       await deleteAttachment({ attachmentId: deleting._id });
-      toast.success('Fichier supprimé.');
+      toast.success('Fichier placé dans la corbeille.');
     } catch (e) {
       toast.error(attachmentErrorMessage(e, 'Échec de la suppression.'));
     } finally {
       setDeleting(null);
     }
   };
+  const restore = async (file: TrashedAttachmentRow) => {
+    try {
+      await restoreAttachment({ attachmentId: file._id });
+      toast.success(`« ${file.name} » restauré dans ${file.folder || ROOT_LABEL}.`);
+    } catch (e) {
+      toast.error(attachmentErrorMessage(e, 'Échec de la restauration.'));
+    }
+  };
+  const purge = async () => {
+    if (!purging) return;
+    try {
+      await purgeAttachment({ attachmentId: purging._id });
+      toast.success('Fichier supprimé définitivement.');
+    } catch (e) {
+      toast.error(attachmentErrorMessage(e, 'Échec de la suppression.'));
+    } finally {
+      setPurging(null);
+    }
+  };
+  const trashCount = trash?.length ?? 0;
 
   return (
     <Card className="p-5" data-testid="entity-attachments-card">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-bold text-ink">Fichiers</h2>
+        <h2 className="text-[15px] font-bold text-ink">
+          {showTrash ? `Corbeille (${trashCount})` : 'Fichiers'}
+        </h2>
         <div className="flex gap-1">
-          <Button variant="ghost" size="sm" onClick={() => setNewFolderOpen(true)}>
-            <FolderPlus className="size-4" />
-            Dossier
-          </Button>
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading !== null}
-            data-testid="add-attachment"
+            onClick={() => setShowTrash((v) => !v)}
+            data-testid="attachments-trash-toggle"
           >
-            <Upload className="size-4" />
-            Ajouter
+            {showTrash ? (
+              <>
+                <Folder className="size-4" />
+                Fichiers
+              </>
+            ) : (
+              <>
+                <Trash2 className="size-4" />
+                Corbeille{trashCount > 0 ? ` (${trashCount})` : ''}
+              </>
+            )}
           </Button>
+          {!showTrash ? (
+            <>
+              <Button variant="ghost" size="sm" onClick={() => setNewFolderOpen(true)}>
+                <FolderPlus className="size-4" />
+                Dossier
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => inputRef.current?.click()}
+                disabled={uploading !== null}
+                data-testid="add-attachment"
+              >
+                <Upload className="size-4" />
+                Ajouter
+              </Button>
+            </>
+          ) : null}
           <input
             ref={inputRef}
             type="file"
@@ -163,8 +215,76 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
         </div>
       </div>
 
+      {showTrash ? (
+        <section aria-label="Corbeille" data-testid="attachments-trash">
+          {trash === undefined ? (
+            <Spinner size="sm" />
+          ) : trash.length === 0 ? (
+            <p className="py-4 text-center text-sm text-faint">La corbeille est vide.</p>
+          ) : (
+            <ul className="flex flex-col divide-y divide-border">
+              {trash.map((file) => {
+                const Icon = fileIconOf(file.mimeType);
+                return (
+                  <li
+                    key={file._id}
+                    className="flex items-center gap-3 px-1 py-2"
+                    data-testid="trashed-attachment-item"
+                  >
+                    <Icon className="size-4 shrink-0 text-soft" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span
+                        className="block truncate text-[13px] font-semibold text-ink"
+                        title={file.name}
+                      >
+                        {file.name}
+                      </span>
+                      <span className="block truncate text-xs text-faint">
+                        {file.folder || ROOT_LABEL} · supprimé le{' '}
+                        {dateFormat.format(file.deletedAt)}
+                        {file.deletedByName ? ` par ${file.deletedByName}` : ''} ·{' '}
+                        {file.daysLeft > 0
+                          ? `effacé dans ${file.daysLeft} jour${file.daysLeft > 1 ? 's' : ''}`
+                          : 'effacement imminent'}
+                      </span>
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => restore(file)}
+                      data-testid="restore-attachment"
+                    >
+                      <ArchiveRestore className="size-4" />
+                      Restaurer
+                    </Button>
+                    <IconButton
+                      variant="secondary"
+                      size="sm"
+                      aria-label={`Supprimer définitivement ${file.name}`}
+                      onClick={() => setPurging(file)}
+                      data-testid="purge-attachment"
+                    >
+                      <Trash2 className="size-4" />
+                    </IconButton>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          {limits ? (
+            <p className="mt-2 text-xs text-faint">
+              Un fichier supprimé reste restaurable pendant {limits.retentionDays} jour
+              {limits.retentionDays > 1 ? 's' : ''}, puis est effacé définitivement.
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       <nav
-        className="mb-2 flex flex-wrap items-center gap-1 text-xs text-faint"
+        className={cn(
+          'mb-2 flex flex-wrap items-center gap-1 text-xs text-faint',
+          showTrash && 'hidden',
+        )}
         aria-label="Dossier"
       >
         <button
@@ -203,6 +323,7 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
         className={cn(
           'rounded-md border border-dashed p-2 transition-colors',
           dragOver ? 'border-primary bg-primary/5' : 'border-border',
+          showTrash && 'hidden',
         )}
         data-testid="attachments-dropzone"
       >
@@ -333,10 +454,19 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
         title={`Supprimer « ${deleting?.name ?? ''} » ?`}
-        description="Le fichier est définitivement supprimé."
+        description={`Le fichier est placé dans la corbeille et reste restaurable pendant ${limits?.retentionDays ?? 30} jours, puis est effacé définitivement.`}
         confirmLabel="Supprimer"
         destructive
         onConfirm={remove}
+      />
+      <ConfirmDialog
+        open={purging !== null}
+        onOpenChange={(o) => !o && setPurging(null)}
+        title={`Supprimer définitivement « ${purging?.name ?? ''} » ?`}
+        description="Le fichier et son contenu sont effacés pour de bon ; il n’y a pas de retour possible."
+        confirmLabel="Supprimer définitivement"
+        destructive
+        onConfirm={purge}
       />
     </Card>
   );
