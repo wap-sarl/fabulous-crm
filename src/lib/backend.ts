@@ -43,9 +43,16 @@ export type { DuplicateLeadSummary } from '../../convex/features/duplicates/quer
 export type { Attachment, AttachmentEntityType } from '../../convex/_lib/validators/attachments';
 export {
   ATTACHMENT_MAX_BYTES_CEILING,
+  ATTACHMENT_RETENTION_MAX_DAYS,
+  ATTACHMENT_RETENTION_MIN_DAYS,
   DEFAULT_ATTACHMENT_MAX_BYTES,
+  DEFAULT_ATTACHMENT_RETENTION_DAYS,
+  attachmentDaysLeft,
 } from '../../convex/_lib/validators/attachments';
-export type { AttachmentRow } from '../../convex/features/attachments/queries';
+export type {
+  AttachmentRow,
+  TrashedAttachmentRow,
+} from '../../convex/features/attachments/queries';
 export type { Team } from '../../convex/_lib/validators/teams';
 export type { EmployeeRole } from '../../convex/_lib/validators/employees';
 export type {

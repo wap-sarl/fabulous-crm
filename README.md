@@ -93,10 +93,18 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   destinataires d'une campagne sont résolus dans le périmètre de son auteur.
 - **Fichiers joints** : devis, scans, contrats… déposés (glisser-déposer) sur
   une fiche lead, entreprise ou transaction (`attachments`), rangés dans une
-  arborescence de dossiers par fiche, aperçu des images et PDF, téléchargement,
-  suppression définitive (ligne + blob). Taille maximale configurable dans
-  *Paramètres → Fichiers* (`appConfig.attachments.maxSizeBytes`), appliquée
-  côté serveur à la demande d'URL d'envoi puis sur le blob stocké. Les octets
+  arborescence de dossiers par fiche, aperçu des images et PDF, téléchargement.
+  La suppression n'est pas définitive : le fichier passe dans la **corbeille** de la fiche
+  (`deletedAt` / `deletedBy` / `purgeAt`, clé et blob inchangés), d'où il se
+  restaure tel quel ou s'efface définitivement ; la suppression planifie sa
+  propre purge (`ctx.scheduler.runAt(purgeAt)`, première rétention de
+  l'application), qui n'efface ligne et blob que si le fichier est toujours
+  dans la corbeille pour cette même date — une restauration puis une nouvelle
+  suppression laissent l'ancienne tâche sans effet. Taille maximale et durée
+  de rétention (30 jours par
+  défaut, 1 à 365) configurables dans *Paramètres → Fichiers*
+  (`appConfig.attachments.maxSizeBytes` / `retentionDays`), la taille étant
+  appliquée côté serveur à la demande d'URL d'envoi puis sur le blob stocké. Les octets
   vivent dans Convex Storage derrière l'interface `FileStore`
   (`convex/lib/fileStorage.ts`) ; chaque ligne porte déjà la clé
   `type/identifiant/dossier/nom` d'un stockage objet, pour migrer vers S3 en

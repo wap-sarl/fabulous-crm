@@ -3,6 +3,7 @@ import type { MutationCtx, QueryCtx } from '../_generated/server';
 import {
   type AttachmentEntityType,
   DEFAULT_ATTACHMENT_MAX_BYTES,
+  DEFAULT_ATTACHMENT_RETENTION_DAYS,
   type StorageProvider,
 } from '../_lib/validators/attachments';
 
@@ -87,4 +88,10 @@ export function attachmentKey(
 export async function attachmentMaxBytes(ctx: QueryCtx | MutationCtx): Promise<number> {
   const cfg = await ctx.db.query('appConfig').first();
   return cfg?.attachments?.maxSizeBytes ?? DEFAULT_ATTACHMENT_MAX_BYTES;
+}
+
+/** Days a deleted attachment stays in the trash. */
+export async function attachmentRetentionDays(ctx: QueryCtx | MutationCtx): Promise<number> {
+  const cfg = await ctx.db.query('appConfig').first();
+  return cfg?.attachments?.retentionDays ?? DEFAULT_ATTACHMENT_RETENTION_DAYS;
 }

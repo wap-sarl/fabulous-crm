@@ -4,7 +4,10 @@ import { isSetupComplete } from '../../setup/helpers';
 import { SOCIAL_PROVIDERS } from '../../_lib/socialProviders';
 import { resolveBrevo, resolveEmailProvider, isEmailProviderConfigured } from '../../lib';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
-import { DEFAULT_ATTACHMENT_MAX_BYTES } from '../../_lib/validators/attachments';
+import {
+  DEFAULT_ATTACHMENT_MAX_BYTES,
+  DEFAULT_ATTACHMENT_RETENTION_DAYS,
+} from '../../_lib/validators/attachments';
 
 /**
  * Public, pre-auth config the login page and setup gate rely on. Returns an
@@ -78,6 +81,7 @@ export const getAdminConfig = settingsQuery({
       primaryColor: cfg.primaryColor ?? null,
       attachments: {
         maxSizeBytes: cfg.attachments?.maxSizeBytes ?? DEFAULT_ATTACHMENT_MAX_BYTES,
+        retentionDays: cfg.attachments?.retentionDays ?? DEFAULT_ATTACHMENT_RETENTION_DAYS,
       },
       auth: {
         magicLinkEnabled: cfg.auth.magicLinkEnabled,
