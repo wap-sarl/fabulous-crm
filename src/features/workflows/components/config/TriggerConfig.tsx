@@ -23,7 +23,8 @@ import type {
 import { useAuthQuery } from '@crm/widgets';
 import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterBuilder';
 import { countActiveRules, emptyAdvancedFilter } from '../../../filters/lib/advancedFilter';
-import { LEAD_FILTER_FIELDS, leadFieldCatalog } from '../../../leads/lib/leadFilters';
+import { LEAD_FILTER_FIELDS } from '../../../leads/lib/leadFilters';
+import { useLeadFieldCatalog } from '../../../leads/hooks/useLeadFieldCatalog';
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
 import { usePipelines } from '../../../deals/hooks/usePipelines';
 import type { PropertyDefinitionRow } from '../../../properties/types';
@@ -57,6 +58,7 @@ const decodeField = (key: string): FilterField<LeadStandardField> =>
  */
 export function TriggerConfig({ value, onChange, definitions }: TriggerConfigProps) {
   const lists = useLeadLists();
+  const leadCatalog = useLeadFieldCatalog(definitions);
   const { pipelines, byId: pipelineById } = usePipelines();
   const campaigns = useAuthQuery(api.features.crm.queries.listCampaigns, {}) ?? [];
   const { trigger } = value;
@@ -269,7 +271,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
                 enrollmentCriteria: countActiveRules(next) > 0 ? next : undefined,
               });
             }}
-            catalog={leadFieldCatalog(definitions)}
+            catalog={leadCatalog}
           />
         </div>
       </div>

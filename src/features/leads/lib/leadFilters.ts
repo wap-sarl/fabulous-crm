@@ -3,7 +3,11 @@ import { CONSENT_CHANNELS } from '../../../lib/constants';
 import type { FieldCatalog, StandardFieldSpec } from '../../filters/lib/advancedFilter';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
-/** Built-in lead columns exposed in the builder, with French label + filter type. */
+/**
+ * Lead columns writable through the CRM forms, with French label + filter
+ * type. Also the pickable fields of the « propriété modifiée » trigger — the
+ * behavioural/derived columns below never go through updateLead.
+ */
 export const LEAD_FILTER_FIELDS: StandardFieldSpec<LeadStandardField>[] = [
   { field: 'firstName', label: 'Prénom', type: 'text' },
   { field: 'lastName', label: 'Nom', type: 'text' },
@@ -19,17 +23,65 @@ export const LEAD_FILTER_FIELDS: StandardFieldSpec<LeadStandardField>[] = [
     type: 'checkbox',
     options: CONSENT_CHANNELS.map((c) => ({ value: c.value, label: c.label })),
   },
+  { field: 'companyId', label: 'Entreprise', type: 'select' },
 ];
 
+/** Live options the full catalog needs: companies and lead lists. */
+export interface LeadCatalogOptions {
+  companies?: { _id: string; name: string }[];
+  lists?: { _id: string; name: string }[];
+}
+
+const BEHAVIOUR = 'Comportement';
+
+/** Every lead column the advanced filter offers, behavioural signals included. */
+export function leadFilterFields(
+  opts: LeadCatalogOptions = {},
+): StandardFieldSpec<LeadStandardField>[] {
+  const companies = (opts.companies ?? []).map((c) => ({ value: c._id, label: c.name }));
+  const lists = (opts.lists ?? []).map((l) => ({ value: l._id, label: l.name }));
+  return [
+    ...LEAD_FILTER_FIELDS.map((f) => (f.field === 'companyId' ? { ...f, options: companies } : f)),
+    { field: 'createdAt', label: 'Date de création', type: 'timestamp' },
+    { field: 'leadScore', label: 'Score', type: 'number' },
+    { field: 'lastActivityAt', label: 'Dernière activité', type: 'timestamp', group: BEHAVIOUR },
+    { field: 'lastEmailOpenAt', label: 'A ouvert un e-mail', type: 'timestamp', group: BEHAVIOUR },
+    {
+      field: 'emailOpenCount',
+      label: "Ouvertures d'e-mail (nombre)",
+      type: 'number',
+      group: BEHAVIOUR,
+    },
+    { field: 'lastEmailClickAt', label: 'A cliqué un lien', type: 'timestamp', group: BEHAVIOUR },
+    { field: 'emailClickCount', label: 'Clics de lien (nombre)', type: 'number', group: BEHAVIOUR },
+    {
+      field: 'lastFormSubmissionAt',
+      label: 'A soumis un formulaire',
+      type: 'timestamp',
+      group: BEHAVIOUR,
+    },
+    {
+      field: 'formSubmissionCount',
+      label: 'Formulaires soumis (nombre)',
+      type: 'number',
+      group: BEHAVIOUR,
+    },
+    { field: 'lastPageViewAt', label: 'A visité une page', type: 'timestamp', group: BEHAVIOUR },
+    { field: 'pageViewCount', label: 'Pages vues (nombre)', type: 'number', group: BEHAVIOUR },
+    { field: 'listIds', label: 'Listes', type: 'list', options: lists, group: BEHAVIOUR },
+  ];
+}
+
 export const LEAD_FIELD_LABEL: Record<LeadStandardField, string> = Object.fromEntries(
-  LEAD_FILTER_FIELDS.map((f) => [f.field, f.label]),
+  leadFilterFields().map((f) => [f.field, f.label]),
 ) as Record<LeadStandardField, string>;
 
 /** The lead catalog for the builder: built-in columns + the lead definitions. */
 export function leadFieldCatalog(
   definitions: PropertyDefinitionRow[],
+  opts: LeadCatalogOptions = {},
 ): FieldCatalog<LeadStandardField> {
-  return { standard: LEAD_FILTER_FIELDS, definitions };
+  return { standard: leadFilterFields(opts), definitions };
 }
 
 /** The `marketingConsent` value auto-seeded for a given campaign channel. */

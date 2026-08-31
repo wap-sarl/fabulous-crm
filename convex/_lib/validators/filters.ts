@@ -11,6 +11,20 @@ export const leadStandardFieldValidator = v.union(
   v.literal('ownerIds'),
   v.literal('isRedFlagged'),
   v.literal('marketingConsent'),
+  v.literal('companyId'),
+  v.literal('createdAt'),
+  v.literal('leadScore'),
+  v.literal('lastActivityAt'),
+  v.literal('lastEmailOpenAt'),
+  v.literal('emailOpenCount'),
+  v.literal('lastEmailClickAt'),
+  v.literal('emailClickCount'),
+  v.literal('lastFormSubmissionAt'),
+  v.literal('formSubmissionCount'),
+  v.literal('lastPageViewAt'),
+  v.literal('pageViewCount'),
+  // List membership, resolved through the by_list_lead index at eval time.
+  v.literal('listIds'),
 );
 
 /** Built-in company columns that can be filtered in the builder. */
@@ -21,6 +35,7 @@ export const companyStandardFieldValidator = v.union(
   v.literal('website'),
   v.literal('sector'),
   v.literal('headcount'),
+  v.literal('createdAt'),
 );
 
 /** Built-in deal columns that can be filtered in the builder. */
@@ -33,21 +48,27 @@ export const dealStandardFieldValidator = v.union(
   v.literal('stageTags'),
   v.literal('ownerIds'),
   v.literal('expectedCloseDate'),
+  v.literal('createdAt'),
 );
 
 /**
- * Comparison operator. `equals`/`contains` cover text & option membership;
- * `isEmpty`/`isNotEmpty` test presence; `gt`/`lt`/`between` order numbers &
- * dates. Which operators a field offers is decided by {@link operatorsForType}.
+ * Comparison operator. `equals`/`notEquals`/`contains` cover text & option
+ * membership; `isEmpty`/`isNotEmpty` test presence; `gt`/`lt`/`between` order
+ * numbers & dates; `inLastDays`/`inNextDays`/`moreThanDaysAgo` compare a date
+ * to now (value = whole days). Offered per type by {@link operatorsForType}.
  */
 export const filterOperatorValidator = v.union(
   v.literal('equals'),
+  v.literal('notEquals'),
   v.literal('contains'),
   v.literal('isEmpty'),
   v.literal('isNotEmpty'),
   v.literal('gt'),
   v.literal('lt'),
   v.literal('between'),
+  v.literal('inLastDays'),
+  v.literal('inNextDays'),
+  v.literal('moreThanDaysAgo'),
 );
 
 /** Inclusive bounds for the `between` operator (numbers or ISO date strings). */
@@ -148,11 +169,13 @@ export type FilterFieldType =
   | 'number'
   | 'email'
   | 'date'
+  | 'timestamp'
   | 'select'
   | 'checkbox'
   | 'boolean'
   | 'lifecycle'
-  | 'assignee';
+  | 'assignee'
+  | 'list';
 
 /**
  * The operators offered for a field type. Pure and dependency-free so the UI
@@ -167,18 +190,47 @@ export function operatorsForType(type: FilterFieldType): FilterOperator[] {
     case 'number':
       return ['equals', 'gt', 'lt', 'between', 'isEmpty', 'isNotEmpty'];
     case 'date':
-      return ['equals', 'gt', 'lt', 'between', 'isEmpty', 'isNotEmpty'];
+      return [
+        'equals',
+        'inLastDays',
+        'inNextDays',
+        'moreThanDaysAgo',
+        'gt',
+        'lt',
+        'between',
+        'isEmpty',
+        'isNotEmpty',
+      ];
+    // Epoch-ms columns (creation, behavioural signals): always past-dated.
+    case 'timestamp':
+      return ['inLastDays', 'moreThanDaysAgo', 'gt', 'lt', 'between', 'isEmpty', 'isNotEmpty'];
     case 'select':
-      return ['equals', 'isEmpty', 'isNotEmpty'];
+      return ['equals', 'notEquals', 'isEmpty', 'isNotEmpty'];
     case 'checkbox':
       return ['contains', 'isEmpty', 'isNotEmpty'];
     case 'boolean':
       return ['equals'];
     case 'lifecycle':
-      return ['equals', 'isEmpty', 'isNotEmpty'];
+      return ['equals', 'notEquals', 'isEmpty', 'isNotEmpty'];
     case 'assignee':
-      return ['equals', 'isEmpty', 'isNotEmpty'];
+      return ['equals', 'notEquals', 'isEmpty', 'isNotEmpty'];
+    case 'list':
+      return ['equals', 'notEquals'];
   }
+}
+
+/** List ids referenced by `listIds` rules — the lists membership must be resolved for. */
+export function advancedFilterListIds(filter: AdvancedFilter | undefined): string[] {
+  if (!filter) return [];
+  const ids = new Set<string>();
+  for (const group of filter.groups) {
+    for (const rule of group.rules) {
+      if (rule.field.kind !== 'standard' || rule.field.field !== 'listIds') continue;
+      if (typeof rule.value === 'string') ids.add(rule.value);
+      else if (Array.isArray(rule.value)) for (const id of rule.value) ids.add(id);
+    }
+  }
+  return [...ids];
 }
 
 export function isActiveRule(rule: FilterRule): boolean {

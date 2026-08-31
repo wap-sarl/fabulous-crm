@@ -16,6 +16,7 @@ export const COMPANY_FILTER_FIELDS: StandardFieldSpec<CompanyStandardField>[] = 
   { field: 'website', label: 'Site web', type: 'text' },
   { field: 'sector', label: 'Secteur', type: 'text' },
   { field: 'headcount', label: 'Effectif', type: 'number' },
+  { field: 'createdAt', label: 'Date de création', type: 'timestamp' },
 ];
 
 /** The company catalog for the builder: built-in columns + the company definitions. */

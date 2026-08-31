@@ -107,6 +107,7 @@ import type * as lib_index from "../lib/index.js";
 import type * as lib_leadAggregates from "../lib/leadAggregates.js";
 import type * as lib_leadListMembers from "../lib/leadListMembers.js";
 import type * as lib_leadSearch from "../lib/leadSearch.js";
+import type * as lib_leadSignals from "../lib/leadSignals.js";
 import type * as lib_lifecycle from "../lib/lifecycle.js";
 import type * as lib_owners from "../lib/owners.js";
 import type * as lib_properties from "../lib/properties.js";
@@ -229,6 +230,7 @@ declare const fullApi: ApiFromModules<{
   "lib/leadAggregates": typeof lib_leadAggregates;
   "lib/leadListMembers": typeof lib_leadListMembers;
   "lib/leadSearch": typeof lib_leadSearch;
+  "lib/leadSignals": typeof lib_leadSignals;
   "lib/lifecycle": typeof lib_lifecycle;
   "lib/owners": typeof lib_owners;
   "lib/properties": typeof lib_properties;

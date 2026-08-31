@@ -13,6 +13,7 @@ import { normalizeSearchText } from '../../lib/leadSearch';
 import { leadListMemberCounts } from '../../lib/leadListMembers';
 import {
   leadFilterArgs,
+  loadAdvancedListMembers,
   loadListMemberIds,
   loadListMemberIdsForLeads,
   matchesLeadFilters,
@@ -59,17 +60,20 @@ export const listLeadsPaginated = employeeQuery({
         .query('leads')
         .withSearchIndex('by_searchText', (q) => q.search('searchText', searchTerm))
         .paginate(args.paginationOpts);
-      const listMemberIds = await loadListMemberIdsForLeads(
-        ctx,
-        args.listIds,
-        result.page.map((lead) => lead._id),
-      );
+      const pageIds = result.page.map((lead) => lead._id);
+      const listMemberIds = await loadListMemberIdsForLeads(ctx, args.listIds, pageIds);
+      const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter, pageIds);
       return {
         ...result,
         page: await withCompanyNames(
           ctx,
           result.page.filter((lead) =>
-            matchesLeadFilters(lead, { ...args, search: undefined, listMemberIds }),
+            matchesLeadFilters(lead, {
+              ...args,
+              search: undefined,
+              listMemberIds,
+              advancedListMembers,
+            }),
           ),
         ),
       };
@@ -103,16 +107,16 @@ export const listLeadsPaginated = employeeQuery({
     // the page's leads only (indexed point reads — a full member-set load is
     // unbounded on large lists). Re-checking the indexed predicates is
     // harmless: the index range only narrowed what was read.
-    const listMemberIds = await loadListMemberIdsForLeads(
-      ctx,
-      args.listIds,
-      result.page.map((lead) => lead._id),
-    );
+    const pageIds = result.page.map((lead) => lead._id);
+    const listMemberIds = await loadListMemberIdsForLeads(ctx, args.listIds, pageIds);
+    const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter, pageIds);
     return {
       ...result,
       page: await withCompanyNames(
         ctx,
-        result.page.filter((lead) => matchesLeadFilters(lead, { ...args, listMemberIds })),
+        result.page.filter((lead) =>
+          matchesLeadFilters(lead, { ...args, listMemberIds, advancedListMembers }),
+        ),
       ),
     };
   },
@@ -299,8 +303,11 @@ export const listMatchingLeadIds = employeeQuery({
   args: { ...leadFilterArgs },
   handler: async (ctx, args) => {
     const listMemberIds = await loadListMemberIds(ctx, args.listIds);
+    const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter);
     const all = await ctx.db.query('leads').collect();
-    const matching = all.filter((lead) => matchesLeadFilters(lead, { ...args, listMemberIds }));
+    const matching = all.filter((lead) =>
+      matchesLeadFilters(lead, { ...args, listMemberIds, advancedListMembers }),
+    );
     return {
       leadIds: matching.map((lead) => lead._id),
       total: matching.length,

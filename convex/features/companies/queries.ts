@@ -46,6 +46,8 @@ export function getCompanyFieldValue(
       return company.sector;
     case 'headcount':
       return company.headcount;
+    case 'createdAt':
+      return company._creationTime;
   }
 }
 
@@ -97,6 +99,15 @@ export const countCompanies = employeeQuery({
     let total = 0;
     for (const owner of namespaces) total += await countLiveCompaniesByOwner(ctx, owner);
     return { total };
+  },
+});
+
+/** Live companies as filter options (id + name), name order — feeds the « Entreprise » field. */
+export const listCompanyOptions = employeeQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query('companies').withIndex('by_name').order('asc').collect();
+    return rows.filter(isNotDeleted).map((c) => ({ _id: c._id, name: c.name }));
   },
 });
 

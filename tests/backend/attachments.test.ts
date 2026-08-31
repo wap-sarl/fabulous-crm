@@ -174,9 +174,12 @@ describe('attachments', () => {
         purgeAt,
       });
 
+    await as.mutation(api.features.config.mutations.updateConfig, {
+      attachmentsRetentionDays: 20,
+    });
     await as.mutation(api.features.attachments.mutations.deleteAttachment, { attachmentId });
     const first = (await t.run((ctx) => ctx.db.get(attachmentId)))!;
-    expect(first.purgeAt).toBeCloseTo(first.deletedAt! + 30 * DAY, -3);
+    expect(first.purgeAt).toBeCloseTo(first.deletedAt! + 20 * DAY, -3);
     const scheduled = await jobs();
     expect(scheduled).toHaveLength(1);
     expect(scheduled[0].args[0]).toMatchObject({ attachmentId, purgeAt: first.purgeAt });

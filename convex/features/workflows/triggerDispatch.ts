@@ -3,6 +3,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import { isNotDeleted } from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
+import { loadLeadFilterExtras } from '../crm/leadTableFilters';
 import { matchesTrigger, MAX_ENROLLMENTS_PER_LEAD_PER_DAY, type WorkflowTriggerEvent } from './lib';
 
 /**
@@ -87,8 +88,9 @@ export async function dispatchWorkflowTrigger(
       // A workflow's own actions (property writes, list moves) never re-enroll it.
       if (opts?.source?.workflowId === workflow._id) continue;
 
-      if (workflow.enrollmentCriteria && !evalAdvancedFilter(lead, workflow.enrollmentCriteria)) {
-        continue;
+      if (workflow.enrollmentCriteria) {
+        const extras = await loadLeadFilterExtras(ctx, leadId, workflow.enrollmentCriteria);
+        if (!evalAdvancedFilter(lead, workflow.enrollmentCriteria, extras)) continue;
       }
 
       const runs = await ctx.db

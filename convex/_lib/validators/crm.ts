@@ -48,6 +48,18 @@ export const leadValidator = v.object({
 
   lifecycleStage: v.optional(v.string()),
 
+  lastActivityAt: v.optional(v.number()),
+  lastEmailOpenAt: v.optional(v.number()),
+  emailOpenCount: v.optional(v.number()),
+  lastEmailClickAt: v.optional(v.number()),
+  emailClickCount: v.optional(v.number()),
+  lastFormSubmissionAt: v.optional(v.number()),
+  formSubmissionCount: v.optional(v.number()),
+  lastPageViewAt: v.optional(v.number()),
+  pageViewCount: v.optional(v.number()),
+  // Computed score; written by the scoring engine (#61).
+  leadScore: v.optional(v.number()),
+
   // Denormalized, normalized identity text (first/last name, email, phone,
   // company name) serving the by_searchText search index. Stamped by the
   // Triggers wrapper (_lib/functions.ts) on every write — never write it by hand.

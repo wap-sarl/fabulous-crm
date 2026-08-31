@@ -7,7 +7,7 @@ import type {
   FilterRule,
   PropertyType,
 } from '@crm/lib/backend';
-import { isActiveRule } from '@crm/lib/backend';
+import { isActiveRule, operatorsForType } from '@crm/lib/backend';
 import { PROPERTY_TYPE_UI } from '../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
@@ -20,6 +20,8 @@ export interface StandardFieldSpec<F extends string = string> {
   label: string;
   type: FilterFieldType;
   options?: { value: string; label: string }[];
+  /** Section heading in the field picker (e.g. « Comportement »). */
+  group?: string;
 }
 
 /** Everything the builder needs to know about an entity's filterable fields. */
@@ -31,13 +33,29 @@ export interface FieldCatalog<F extends string = string> {
 /** French labels for each operator (shown in the operator dropdown). */
 export const OPERATOR_LABEL: Record<FilterOperator, string> = {
   equals: 'Égal à',
+  notEquals: 'Différent de',
   contains: 'Contient',
   isEmpty: 'Est vide',
   isNotEmpty: "N'est pas vide",
   gt: 'Supérieur à',
   lt: 'Inférieur à',
   between: 'Entre',
+  inLastDays: 'Dans les derniers… (jours)',
+  inNextDays: 'Dans les prochains… (jours)',
+  moreThanDaysAgo: 'Il y a plus de… (jours)',
 };
+
+/** List membership reads as membership, not equality. */
+const LIST_OPERATOR_LABEL: Partial<Record<FilterOperator, string>> = {
+  equals: 'Est membre de',
+  notEquals: "N'est pas membre de",
+};
+
+/** The operator's label in context: the field type can override the generic wording. */
+export function operatorLabel(type: FilterFieldType, operator: FilterOperator): string {
+  if (type === 'list') return LIST_OPERATOR_LABEL[operator] ?? OPERATOR_LABEL[operator];
+  return OPERATOR_LABEL[operator];
+}
 
 /** A custom property's unified filter-field type comes from the type registry. */
 function customPropertyType(type: PropertyType): FilterFieldType {
@@ -96,15 +114,17 @@ export function fieldOptionsOf<F extends string>(
 /** Every field the builder offers, in a flat picker-ready list. */
 export function fieldItemsOf<F extends string>(
   catalog: FieldCatalog<F>,
-): { value: string; label: string }[] {
+): { value: string; label: string; group?: string }[] {
   return [
     ...catalog.standard.map((f) => ({
       value: encodeField({ kind: 'standard', field: f.field }),
       label: f.label,
+      group: f.group,
     })),
     ...catalog.definitions.map((d) => ({
       value: encodeField({ kind: 'custom', definitionId: d._id }),
       label: d.label,
+      group: 'Propriétés personnalisées',
     })),
   ];
 }
@@ -123,7 +143,7 @@ export function emptyRule<F extends string>(fields: StandardFieldSpec<F>[]): Fil
   const first = fields[0];
   return {
     field: { kind: 'standard', field: first.field },
-    operator: first.type === 'text' || first.type === 'email' ? 'contains' : 'equals',
+    operator: operatorsForType(first.type)[0],
     value: undefined,
   };
 }

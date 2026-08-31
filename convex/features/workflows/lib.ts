@@ -344,6 +344,7 @@ const FILTERABLE_STANDARD_FIELDS = [
   'ownerIds',
   'isRedFlagged',
   'marketingConsent',
+  'companyId',
 ] as const;
 
 /**

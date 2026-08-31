@@ -169,6 +169,8 @@ export function getDealFieldValue(
       return deal.ownerIds;
     case 'expectedCloseDate':
       return deal.expectedCloseDate;
+    case 'createdAt':
+      return deal._creationTime;
   }
 }
 

@@ -18,7 +18,7 @@ import { LeadsTable } from '../../features/leads/components/LeadsTable';
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
 import { CsvImportDialog } from '../../features/leads/components/CsvImportDialog';
 import type { LeadRow } from '../../features/leads/types';
-import { leadFieldCatalog } from '../../features/leads/lib/leadFilters';
+import { useLeadFieldCatalog } from '../../features/leads/hooks/useLeadFieldCatalog';
 
 export function LeadsPage() {
   usePageTitle('Leads');
@@ -32,6 +32,7 @@ export function LeadsPage() {
   const { employees } = useEmployees();
   const { deleteLead, deleteLeads } = useLeadActions();
   const propertyDefinitions = usePropertyDefinitions('lead');
+  const leadCatalog = useLeadFieldCatalog(propertyDefinitions);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen] = useState(false);
@@ -156,7 +157,7 @@ export function LeadsPage() {
           <AdvancedFilterBuilder
             filter={filters.advancedFilter}
             onChange={setAdvancedFilter}
-            catalog={leadFieldCatalog(propertyDefinitions)}
+            catalog={leadCatalog}
           />
         </div>
 
