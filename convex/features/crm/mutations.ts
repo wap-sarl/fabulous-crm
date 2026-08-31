@@ -680,6 +680,8 @@ export const deleteLeadList = employeeMutation({
 
     let deletedLeads = 0;
     for (const member of members) {
+      // Junction row first: the soft-delete trigger below would otherwise delete it too.
+      await deleteListMember(ctx, member);
       if (args.deleteLeads) {
         const lead = await ctx.db.get(member.leadId);
         if (lead && lead.deletedAt == null) {
@@ -697,7 +699,6 @@ export const deleteLeadList = employeeMutation({
           deletedLeads++;
         }
       }
-      await deleteListMember(ctx, member);
     }
 
     // More members remain — signal the client to call again.

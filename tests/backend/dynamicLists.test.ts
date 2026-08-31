@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { describe, expect, jest, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { LeadAdvancedFilter } from '../../convex/_lib/validators/filters';
@@ -63,6 +63,16 @@ async function settleRecalc(t: T, listId: Id<'leadLists'>) {
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
   throw new Error('recalc did not settle');
+}
+
+/** Drive fake timers + microtasks until `done` reports true (jest.useFakeTimers active). */
+async function pumpUntil(done: () => Promise<boolean>) {
+  for (let i = 0; i < 200; i++) {
+    jest.runAllTimers();
+    for (let j = 0; j < 50; j++) await Promise.resolve();
+    if (await done()) return;
+  }
+  throw new Error('condition not reached under fake timers');
 }
 
 const memberRow = (t: T, listId: Id<'leadLists'>, leadId: Id<'leads'>) =>
@@ -184,6 +194,33 @@ describe('dynamic lists', () => {
     expect(runs[0]).toMatchObject({ workflowId, leadId, triggerType: 'list_membership_changed' });
   });
 
+  test('deleting a dynamic list together with its leads deletes each membership once', async () => {
+    const { t, as } = await setup();
+    const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+      name: 'MQL',
+      kind: 'dynamic',
+      criteria: stageIs('mql'),
+    });
+    await settleRecalc(t, listId);
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Alan',
+      lastName: 'Turing',
+      lifecycleStage: 'mql',
+    });
+    expect(await memberRow(t, listId, leadId)).not.toBeNull();
+
+    // The soft-delete trigger also drops the membership — the loop must not delete it twice.
+    const result = await as.mutation(api.features.crm.mutations.deleteLeadList, {
+      listId,
+      deleteLeads: true,
+    });
+    expect(result).toMatchObject({ done: true, deletedLeads: 1 });
+    const lead = await t.run((ctx) => ctx.db.get(leadId));
+    expect(lead?.deletedAt).toBeDefined();
+    expect(await memberRow(t, listId, leadId)).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(listId))).toBeNull();
+  });
+
   test('no manual membership: CSV import into a dynamic list is refused', async () => {
     const { as } = await setup();
     const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
@@ -279,5 +316,56 @@ describe('dynamic lists', () => {
     await as.mutation(api.features.crm.mutations.deleteLeadList, { listId, deleteLeads: false });
     const after = await t.run((ctx) => list?.nextRecalcId && ctx.db.system.get(list.nextRecalcId));
     expect(after?.state.kind).toBe('canceled');
+  });
+
+  test('the drift job reruns the recalculation without cancelling itself', async () => {
+    const { t, as } = await setup();
+    await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Nikola',
+      lastName: 'Tesla',
+      lifecycleStage: 'mql',
+    });
+    jest.useFakeTimers();
+    try {
+      const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+        name: 'Ouvreurs 30 j',
+        kind: 'dynamic',
+        criteria: {
+          combinator: 'and',
+          groups: [
+            {
+              combinator: 'and',
+              rules: [
+                {
+                  field: { kind: 'standard', field: 'lastEmailOpenAt' },
+                  operator: 'inLastDays',
+                  value: 30,
+                },
+              ],
+            },
+          ],
+        },
+      });
+      const listDoc = () => t.run((ctx) => ctx.db.get(listId));
+      await pumpUntil(async () => (await listDoc())?.recalc === undefined);
+      const before = await listDoc();
+      const driftId = before?.nextRecalcId;
+      if (!driftId) throw new Error('no drift job booked');
+
+      // Advance 24h: the drift job must run to completion, not cancel itself.
+      await pumpUntil(async () => {
+        const job = await t.run((ctx) => ctx.db.system.get(driftId));
+        const settled = job?.state.kind === 'success' || job?.state.kind === 'canceled';
+        return settled && (await listDoc())?.recalc === undefined;
+      });
+      const job = await t.run((ctx) => ctx.db.system.get(driftId));
+      expect(job?.state.kind).toBe('success');
+      const after = await listDoc();
+      expect(after?.lastRecalcAt).toBeGreaterThan(before?.lastRecalcAt ?? 0);
+      expect(after?.nextRecalcId).toBeDefined();
+      expect(after?.nextRecalcId).not.toBe(driftId);
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

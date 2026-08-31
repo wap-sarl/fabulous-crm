@@ -97,7 +97,11 @@ export async function startDynamicListRecalc(
   list: Doc<'leadLists'>,
 ): Promise<void> {
   const stamp = Date.now();
-  if (list.nextRecalcId) await ctx.scheduler.cancel(list.nextRecalcId);
+  if (list.nextRecalcId) {
+    // Only cancel a still-pending job — cancelling the drift job running us would kill the page job below.
+    const pending = await ctx.db.system.get(list.nextRecalcId);
+    if (pending?.state.kind === 'pending') await ctx.scheduler.cancel(list.nextRecalcId);
+  }
   await ctx.db.patch(list._id, { recalc: { stamp, processed: 0 }, nextRecalcId: undefined });
   await ctx.scheduler.runAfter(0, internal.features.crm.internal.recalcDynamicListPage, {
     listId: list._id,
