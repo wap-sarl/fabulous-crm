@@ -7,6 +7,7 @@ import {
   ATTACHMENT_RETENTION_MIN_DAYS,
   DEFAULT_ATTACHMENT_MAX_BYTES,
 } from '../../_lib/validators/attachments';
+import { MAX_DYNAMIC_LISTS_CEILING } from '../../_lib/validators/leadLists';
 import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
@@ -100,6 +101,7 @@ export const updateConfig = settingsMutation({
     email: v.optional(emailConfigInput),
     attachmentsMaxSizeBytes: v.optional(v.number()),
     attachmentsRetentionDays: v.optional(v.number()),
+    listsMaxDynamicLists: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
@@ -123,6 +125,14 @@ export const updateConfig = settingsMutation({
         args.attachmentsRetentionDays > ATTACHMENT_RETENTION_MAX_DAYS)
     ) {
       throw new Error('invalid_attachment_retention');
+    }
+    if (
+      args.listsMaxDynamicLists !== undefined &&
+      (!Number.isInteger(args.listsMaxDynamicLists) ||
+        args.listsMaxDynamicLists < 1 ||
+        args.listsMaxDynamicLists > MAX_DYNAMIC_LISTS_CEILING)
+    ) {
+      throw new Error('invalid_max_dynamic_lists');
     }
 
     // Replacing a branding asset: drop the previous blob so it doesn't orphan.
@@ -217,6 +227,9 @@ export const updateConfig = settingsMutation({
             DEFAULT_ATTACHMENT_MAX_BYTES,
           retentionDays: args.attachmentsRetentionDays ?? cfg.attachments?.retentionDays,
         },
+      }),
+      ...(args.listsMaxDynamicLists !== undefined && {
+        lists: { ...cfg.lists, maxDynamicLists: args.listsMaxDynamicLists },
       }),
       updatedAt: Date.now(),
       updatedBy: ctx.userId,

@@ -162,7 +162,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
               <SelectItem value={ANY}>Toutes les listes</SelectItem>
               {lists.map((l) => (
                 <SelectItem key={l._id} value={l._id}>
-                  {l.name}
+                  {l.kind === 'dynamic' ? `${l.name} (dynamique)` : l.name}
                 </SelectItem>
               ))}
             </SelectContent>
