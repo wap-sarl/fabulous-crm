@@ -158,9 +158,137 @@ describe('gt / lt / between', () => {
     expect(at(39, { min: 40, max: 45 })).toBe(false);
   });
 
-  test('a non-orderable stored value degrades to permissive (matches)', () => {
-    // Booleans have no ordering: the evaluator deliberately returns true.
-    expect(evalRule(lead({ isRedFlagged: true }), rule(std('isRedFlagged'), 'gt', 0))).toBe(true);
+  test('configured but incomparable values fail closed', () => {
+    // Booleans have no ordering: the rule must exclude, never match by accident.
+    expect(evalRule(lead({ isRedFlagged: true }), rule(std('isRedFlagged'), 'gt', 0))).toBe(false);
+    // A number column against a non-date string is not a comparison.
+    expect(evalRule(lead(), rule(custom(DEF_NUM), 'gt', 'abc'))).toBe(false);
+    // A timestamp against a non-date string neither.
+    expect(
+      evalRule(lead({ lastEmailOpenAt: 1000 }), rule(std('lastEmailOpenAt'), 'gt', '42')),
+    ).toBe(false);
+    // A between value that isn't a range is malformed.
+    expect(evalRule(lead(), rule(custom(DEF_NUM), 'between', 10))).toBe(false);
+    expect(
+      evalRule(
+        lead({ lastEmailOpenAt: 1000 }),
+        rule(std('lastEmailOpenAt'), 'between', { min: 'abc' }),
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('notEquals', () => {
+  test('inverts equals, and an absent value counts as different', () => {
+    expect(evalRule(lead(), rule(std('lifecycleStage'), 'notEquals', ['mql']))).toBe(true);
+    expect(evalRule(lead(), rule(std('lifecycleStage'), 'notEquals', ['lead']))).toBe(false);
+    expect(evalRule(lead(), rule(std('lifecycleStage'), 'notEquals', ['lead', 'mql']))).toBe(false);
+    // No status at all ⇒ « différent de MQL » holds.
+    expect(
+      evalRule(
+        lead({ lifecycleStage: undefined }),
+        rule(std('lifecycleStage'), 'notEquals', ['mql']),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('relative date operators', () => {
+  const NOW = Date.UTC(2026, 7, 31, 12);
+  const DAY = 24 * 60 * 60 * 1000;
+  const at = (l: Doc<'leads'>, r: FilterRule) => evalRule(l, r, { now: NOW });
+
+  test('epoch-ms timestamps: in the last N days / more than N days ago', () => {
+    const l = lead({ lastEmailOpenAt: NOW - 10 * DAY });
+    expect(at(l, rule(std('lastEmailOpenAt'), 'inLastDays', 30))).toBe(true);
+    expect(at(l, rule(std('lastEmailOpenAt'), 'inLastDays', 5))).toBe(false);
+    expect(at(l, rule(std('lastEmailOpenAt'), 'moreThanDaysAgo', 5))).toBe(true);
+    expect(at(l, rule(std('lastEmailOpenAt'), 'moreThanDaysAgo', 30))).toBe(false);
+    // Never opened: no relative window can match.
+    const never = lead({ lastEmailOpenAt: undefined });
+    expect(at(never, rule(std('lastEmailOpenAt'), 'inLastDays', 30))).toBe(false);
+    expect(at(never, rule(std('lastEmailOpenAt'), 'moreThanDaysAgo', 5))).toBe(false);
+  });
+
+  test('invalid stored values or day counts fail closed', () => {
+    expect(at(lead({ isRedFlagged: true }), rule(std('isRedFlagged'), 'inLastDays', 30))).toBe(
+      false,
+    );
+    const opened = lead({ lastEmailOpenAt: NOW - DAY });
+    expect(at(opened, rule(std('lastEmailOpenAt'), 'inLastDays', 'abc'))).toBe(false);
+    expect(at(opened, rule(std('lastEmailOpenAt'), 'moreThanDaysAgo', 'abc'))).toBe(false);
+  });
+
+  test('createdAt reads _creationTime', () => {
+    const l = { ...lead(), _creationTime: NOW - 100 * DAY } as Doc<'leads'>;
+    expect(at(l, rule(std('createdAt'), 'moreThanDaysAgo', 90))).toBe(true);
+    expect(at(l, rule(std('createdAt'), 'inLastDays', 90))).toBe(false);
+  });
+
+  test('ISO date strings (custom props) parse for relative and mixed comparisons', () => {
+    const past = lead({ customProperties: { [DEF_TEXT]: '2026-08-21' } });
+    expect(at(past, rule(custom(DEF_TEXT), 'inLastDays', 30))).toBe(true);
+    expect(at(past, rule(custom(DEF_TEXT), 'moreThanDaysAgo', 30))).toBe(false);
+    const future = lead({ customProperties: { [DEF_TEXT]: '2026-09-05' } });
+    expect(at(future, rule(custom(DEF_TEXT), 'inNextDays', 10))).toBe(true);
+    expect(at(future, rule(custom(DEF_TEXT), 'inNextDays', 2))).toBe(false);
+    expect(at(future, rule(custom(DEF_TEXT), 'inLastDays', 30))).toBe(false);
+  });
+
+  test('a timestamp column orders against an ISO date input (gt/lt/between)', () => {
+    const l = lead({ lastEmailOpenAt: Date.UTC(2026, 7, 20) });
+    expect(evalRule(l, rule(std('lastEmailOpenAt'), 'gt', '2026-08-01'))).toBe(true);
+    expect(evalRule(l, rule(std('lastEmailOpenAt'), 'lt', '2026-08-01'))).toBe(false);
+    expect(
+      evalRule(
+        l,
+        rule(std('lastEmailOpenAt'), 'between', { min: '2026-08-01', max: '2026-08-31' }),
+      ),
+    ).toBe(true);
+    expect(
+      evalRule(
+        l,
+        rule(std('lastEmailOpenAt'), 'between', { min: '2026-08-21', max: '2026-08-31' }),
+      ),
+    ).toBe(false);
+  });
+
+  test('a date-only bound covers its whole day against a timestamp column', () => {
+    // Opened at 15:00 on the range's last day: still inside the range.
+    const afternoon = lead({ lastEmailOpenAt: Date.UTC(2026, 7, 31, 15) });
+    const between = (min: string, max: string) =>
+      evalRule(afternoon, rule(std('lastEmailOpenAt'), 'between', { min, max }));
+    expect(between('2026-08-01', '2026-08-31')).toBe(true);
+    expect(between('2026-08-31', '2026-08-31')).toBe(true);
+    expect(between('2026-08-01', '2026-08-30')).toBe(false);
+    // « après le 31/08 » excludes the whole day, « avant » stops at its start…
+    expect(evalRule(afternoon, rule(std('lastEmailOpenAt'), 'gt', '2026-08-31'))).toBe(false);
+    expect(evalRule(afternoon, rule(std('lastEmailOpenAt'), 'lt', '2026-08-31'))).toBe(false);
+    expect(evalRule(afternoon, rule(std('lastEmailOpenAt'), 'gt', '2026-08-30'))).toBe(true);
+    // …while an explicit datetime bound stays exact.
+    expect(evalRule(afternoon, rule(std('lastEmailOpenAt'), 'gt', '2026-08-31T14:00Z'))).toBe(true);
+  });
+});
+
+describe('behavioural counts and list membership', () => {
+  test('counters default to 0 when the lead never got the signal', () => {
+    expect(evalRule(lead(), rule(std('emailOpenCount'), 'equals', 0))).toBe(true);
+    expect(evalRule(lead(), rule(std('emailOpenCount'), 'gt', 0))).toBe(false);
+    expect(evalRule(lead({ emailOpenCount: 3 }), rule(std('emailOpenCount'), 'gt', 2))).toBe(true);
+  });
+
+  test('listIds evaluates against the resolved membership extras', () => {
+    const member = { memberListIds: ['listA'] };
+    const outsider = { memberListIds: [] as string[] };
+    const isIn = rule(std('listIds'), 'equals', ['listA']);
+    const isNotIn = rule(std('listIds'), 'notEquals', ['listA']);
+    expect(evalRule(lead(), isIn, member)).toBe(true);
+    expect(evalRule(lead(), isIn, outsider)).toBe(false);
+    expect(evalRule(lead(), isNotIn, member)).toBe(false);
+    expect(evalRule(lead(), isNotIn, outsider)).toBe(true);
+    // No extras at all behaves like « member of nothing ».
+    expect(evalRule(lead(), isIn)).toBe(false);
+    expect(evalRule(lead(), isNotIn)).toBe(true);
   });
 });
 

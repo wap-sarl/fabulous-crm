@@ -4,6 +4,7 @@ import type { ActivityStatus, ActivityType } from '../_lib/validators/activities
 import type { PropertyValue } from '../_lib/validators/properties';
 import { logAudit } from './audit';
 import { isNotDeleted } from './dbHelpers';
+import { stampLeadSignal } from './leadSignals';
 
 export type NewActivity = {
   type: ActivityType;
@@ -81,6 +82,7 @@ export async function createActivityRecord(
       metadata: { type: data.type, status, workflowId: meta.workflowId },
     });
   }
+  if (data.leadId) await stampLeadSignal(ctx, data.leadId, 'activity', now);
   return activityId;
 }
 

@@ -174,6 +174,29 @@ describe('email events', () => {
     expect(send?.openedAt).toBe(5_000);
   });
 
+  test('opens and clicks stamp the lead behavioural signals, replays do not', async () => {
+    const { t, emp } = await setup();
+    const { leadId } = await seedEmailSend(t, emp, 'msg-sig');
+
+    const post = (event: string, ts: number) =>
+      t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
+        method: 'POST',
+        body: JSON.stringify({ event, 'message-id': 'msg-sig', ts_epoch: ts }),
+      });
+    await post('opened', 5_000);
+    await post('opened', 5_000); // Brevo retry: no double count
+    await post('opened', 9_000);
+    await post('opened', 7_000); // out of order: counted, but the last-open stamp stays put
+    await post('click', 8_000);
+
+    const lead = await t.run((ctx) => ctx.db.get(leadId));
+    expect(lead?.emailOpenCount).toBe(3);
+    expect(lead?.lastEmailOpenAt).toBe(9_000);
+    expect(lead?.emailClickCount).toBe(1);
+    expect(lead?.lastEmailClickAt).toBe(8_000);
+    expect(lead?.lastActivityAt).toBe(9_000);
+  });
+
   test('an unknown message id is acknowledged without writing', async () => {
     const { t } = await setup();
     const res = await t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {

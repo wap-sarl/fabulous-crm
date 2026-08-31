@@ -2,12 +2,12 @@ import { v } from 'convex/values';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { isNotDeleted } from '../../_lib/softDelete';
-import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
+import { advancedFilterListIds, leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
 import { propertyValueValidator } from '../../schema';
 import { normalizeSearchText } from '../../lib/leadSearch';
-import { evalAdvancedFilter } from './leadMatching';
+import { evalAdvancedFilter, type LeadFilterExtras } from './leadMatching';
 
 /** Filter arguments shared by the paginated table, the campaign-resolver query
  * and the batched campaign-recipient resolution. */
@@ -43,6 +43,7 @@ export type LeadFilters = {
   // Resolved membership for `listIds`, computed once per query (not a raw arg).
   listMemberIds?: Set<string>;
   advancedFilter?: LeadAdvancedFilter;
+  advancedListMembers?: Map<string, Set<string>>;
 };
 
 /**
@@ -93,6 +94,53 @@ export async function loadListMemberIdsForLeads(
   return ids;
 }
 
+export async function loadAdvancedListMembers(
+  ctx: QueryCtx | MutationCtx,
+  filter: LeadAdvancedFilter | undefined,
+  leadIds?: Id<'leads'>[],
+): Promise<Map<string, Set<string>> | undefined> {
+  const listIds = advancedFilterListIds(filter) as Id<'leadLists'>[];
+  if (listIds.length === 0) return undefined;
+  const members = new Map<string, Set<string>>(listIds.map((id) => [id, new Set()]));
+  for (const listId of listIds) {
+    if (leadIds) {
+      for (const leadId of leadIds) {
+        const member = await ctx.db
+          .query('leadListMembers')
+          .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
+          .first();
+        if (member) members.get(listId)?.add(leadId);
+      }
+    } else {
+      const rows = await ctx.db
+        .query('leadListMembers')
+        .withIndex('by_list_lead', (q) => q.eq('listId', listId))
+        .collect();
+      for (const row of rows) members.get(listId)?.add(row.leadId);
+    }
+  }
+  return members;
+}
+
+/** One lead's filter extras (list membership via indexed point reads) — for single-lead evals. */
+export async function loadLeadFilterExtras(
+  ctx: QueryCtx | MutationCtx,
+  leadId: Id<'leads'>,
+  filter: LeadAdvancedFilter | undefined,
+): Promise<LeadFilterExtras> {
+  const members = await loadAdvancedListMembers(ctx, filter, [leadId]);
+  return { memberListIds: memberListIdsOf(members, leadId) };
+}
+
+/** One lead's `memberListIds` extras, from a resolved membership map. */
+export function memberListIdsOf(
+  members: Map<string, Set<string>> | undefined,
+  leadId: Id<'leads'>,
+): string[] | undefined {
+  if (!members) return undefined;
+  return [...members.entries()].filter(([, ids]) => ids.has(leadId)).map(([listId]) => listId);
+}
+
 export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): boolean {
   if (!isNotDeleted(lead)) return false;
 
@@ -138,7 +186,12 @@ export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): bo
     }
   }
 
-  if (filters.advancedFilter && !evalAdvancedFilter(lead, filters.advancedFilter)) {
+  if (
+    filters.advancedFilter &&
+    !evalAdvancedFilter(lead, filters.advancedFilter, {
+      memberListIds: memberListIdsOf(filters.advancedListMembers, lead._id),
+    })
+  ) {
     return false;
   }
 

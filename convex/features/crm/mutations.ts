@@ -20,6 +20,7 @@ import {
   toBrevoRecipient,
   insertListMember,
   deleteListMember,
+  stampLeadSignal,
 } from '../../lib';
 import {
   addressValidator,
@@ -658,6 +659,7 @@ export const createNote = employeeMutation({
       isPinned: false,
       ...createAuditFields(ctx.userId),
     });
+    await stampLeadSignal(ctx, args.leadId, 'activity', Date.now());
 
     await logAudit({
       ctx,

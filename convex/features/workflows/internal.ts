@@ -6,6 +6,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import { appOrigin, deleteListMember, insertListMember, isNotDeleted, logAudit } from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
+import { loadLeadFilterExtras } from '../crm/leadTableFilters';
 import { buildLeadParams, buildLeadTargetPatch } from '../crm/leadTargets';
 import {
   applyLifecycleTransition,
@@ -189,7 +190,8 @@ export const executeStep = internalMutation({
 
     switch (node.type) {
       case 'branch': {
-        const result = evalAdvancedFilter(lead, node.condition);
+        const extras = await loadLeadFilterExtras(ctx, lead._id, node.condition);
+        const result = evalAdvancedFilter(lead, node.condition, extras);
         await logStep(ctx, run, node, 'success', { branchResult: result });
         await advanceRun(ctx, run, workflow, result ? node.nextTrue : node.nextFalse);
         return;
@@ -643,8 +645,9 @@ export const reenrollBatch = internalMutation({
     let skipped = 0;
     for (const lead of page.page) {
       if (!isNotDeleted(lead)) continue;
-      if (workflow.enrollmentCriteria && !evalAdvancedFilter(lead, workflow.enrollmentCriteria)) {
-        continue;
+      if (workflow.enrollmentCriteria) {
+        const extras = await loadLeadFilterExtras(ctx, lead._id, workflow.enrollmentCriteria);
+        if (!evalAdvancedFilter(lead, workflow.enrollmentCriteria, extras)) continue;
       }
       matched++;
 

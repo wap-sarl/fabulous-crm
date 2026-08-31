@@ -50,6 +50,7 @@ export function dealFilterFields(
     },
     { field: 'ownerIds', label: 'Propriétaires', type: 'assignee' },
     { field: 'expectedCloseDate', label: 'Clôture prévue', type: 'date' },
+    { field: 'createdAt', label: 'Date de création', type: 'timestamp' },
   ];
 }
 

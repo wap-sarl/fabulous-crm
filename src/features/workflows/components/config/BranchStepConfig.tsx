@@ -2,7 +2,7 @@ import { HelperText, Label } from '@crm/design-system';
 import type { WorkflowNode } from '@crm/lib/backend';
 import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterBuilder';
 import type { PropertyDefinitionRow } from '../../../properties/types';
-import { leadFieldCatalog } from '../../../leads/lib/leadFilters';
+import { useLeadFieldCatalog } from '../../../leads/hooks/useLeadFieldCatalog';
 
 type BranchNode = Extract<WorkflowNode, { type: 'branch' }>;
 
@@ -14,6 +14,7 @@ interface BranchStepConfigProps {
 
 /** If/else condition — the same AND/OR groups editor as the lead filters. */
 export function BranchStepConfig({ value, onChange, definitions }: BranchStepConfigProps) {
+  const leadCatalog = useLeadFieldCatalog(definitions);
   return (
     <div className="space-y-2">
       <Label>Condition</Label>
@@ -26,7 +27,7 @@ export function BranchStepConfig({ value, onChange, definitions }: BranchStepCon
         <AdvancedFilterGroupsEditor
           value={value.condition}
           onChange={(condition) => onChange({ ...value, condition })}
-          catalog={leadFieldCatalog(definitions)}
+          catalog={leadCatalog}
         />
       </div>
     </div>

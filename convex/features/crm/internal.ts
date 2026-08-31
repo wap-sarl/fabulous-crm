@@ -19,7 +19,13 @@ import { appOrigin } from '../../lib';
 import { buildSendParams } from './mutations';
 import { loadPropertyDefsById } from '../../lib/properties';
 import { loadVisibility, scopedReader } from '../../lib/visibility';
-import { leadFilterArgs, loadListMemberIdsForLeads, matchesLeadFilters } from './leadTableFilters';
+import { stampLeadSignal } from '../../lib/leadSignals';
+import {
+  leadFilterArgs,
+  loadAdvancedListMembers,
+  loadListMemberIdsForLeads,
+  matchesLeadFilters,
+} from './leadTableFilters';
 
 const BATCH_SIZE = 50;
 
@@ -78,8 +84,11 @@ export const recordSendResults = internalMutation({
         error: result.error,
         sentAt: Date.now(),
       });
-      if (result.status === 'sent') sentDelta++;
-      else failedDelta++;
+      if (result.status === 'sent') {
+        sentDelta++;
+        const send = await ctx.db.get(result.sendId);
+        if (send) await stampLeadSignal(ctx, send.leadId, 'activity', Date.now());
+      } else failedDelta++;
     }
 
     const campaign = await ctx.db.get(args.campaignId);
@@ -125,6 +134,14 @@ async function insertCampaignEventIfNew(ctx: MutationCtx, event: CampaignEvent):
     .collect();
   if (existing.some((e) => e.type === event.type && e.eventAt === event.eventAt)) return false;
   await ctx.db.insert('campaignEvents', event);
+
+  if (event.type === 'opened') {
+    await stampLeadSignal(ctx, event.leadId, 'email_open', event.eventAt);
+  } else if (event.type === 'clicked' || event.type === 'link_click') {
+    await stampLeadSignal(ctx, event.leadId, 'email_click', event.eventAt);
+  } else if (event.type === 'sms_reply') {
+    await stampLeadSignal(ctx, event.leadId, 'activity', event.eventAt);
+  }
 
   const campaign = await ctx.db.get(event.campaignId);
   const channel = campaign?.channel ?? 'email';
@@ -336,16 +353,19 @@ export const prepareCampaignBatch = internalMutation({
 
     // List membership is resolved per page with indexed point reads — a full
     // member-set load (loadListMemberIds) is unbounded on large lists.
-    const listMemberIds = await loadListMemberIdsForLeads(
+    const pageIds = page.page.map((lead) => lead._id);
+    const listMemberIds = await loadListMemberIdsForLeads(ctx, args.filter.listIds, pageIds);
+    const advancedListMembers = await loadAdvancedListMembers(
       ctx,
-      args.filter.listIds,
-      page.page.map((lead) => lead._id),
+      args.filter.advancedFilter,
+      pageIds,
     );
 
     let total = 0;
     let skipped = 0;
     for (const lead of page.page) {
-      if (!matchesLeadFilters(lead, { ...args.filter, listMemberIds })) continue;
+      if (!matchesLeadFilters(lead, { ...args.filter, listMemberIds, advancedListMembers }))
+        continue;
       total++;
 
       // Rows are inserted only for sends that actually go out (skipped recipients

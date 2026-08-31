@@ -17,6 +17,7 @@ export interface ComboboxItem {
   value: string;
   label: string;
   disabled?: boolean;
+  group?: string;
 }
 
 export interface ComboboxProps {
@@ -76,6 +77,13 @@ function Combobox({
     setOpen(false);
   };
 
+  const sections: { group?: string; items: ComboboxItem[] }[] = [];
+  for (const item of items) {
+    const last = sections[sections.length - 1];
+    if (last && last.group === item.group) last.items.push(item);
+    else sections.push({ group: item.group, items: [item] });
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen} modal={modal}>
       <PopoverTrigger asChild>
@@ -110,25 +118,27 @@ function Combobox({
             ) : (
               <>
                 <CommandEmpty>{emptyText}</CommandEmpty>
-                <CommandGroup>
-                  {items.map((item) => (
-                    <CommandItem
-                      key={item.value}
-                      value={item.value}
-                      keywords={[item.label]}
-                      disabled={item.disabled}
-                      onSelect={handleSelect}
-                    >
-                      <CheckIcon
-                        className={cn(
-                          'mr-2 h-4 w-4',
-                          value === item.value ? 'opacity-100' : 'opacity-0',
-                        )}
-                      />
-                      {item.label}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+                {sections.map((section, si) => (
+                  <CommandGroup key={section.group ?? si} heading={section.group}>
+                    {section.items.map((item) => (
+                      <CommandItem
+                        key={item.value}
+                        value={item.value}
+                        keywords={[item.label]}
+                        disabled={item.disabled}
+                        onSelect={handleSelect}
+                      >
+                        <CheckIcon
+                          className={cn(
+                            'mr-2 h-4 w-4',
+                            value === item.value ? 'opacity-100' : 'opacity-0',
+                          )}
+                        />
+                        {item.label}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ))}
               </>
             )}
           </CommandList>

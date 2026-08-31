@@ -21,7 +21,8 @@ import { toFilterArgs, useMatchingLeads } from '../../features/leads/hooks/useLe
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
 import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
-import { applyRecipientFilter, leadFieldCatalog } from '../../features/leads/lib/leadFilters';
+import { applyRecipientFilter } from '../../features/leads/lib/leadFilters';
+import { useLeadFieldCatalog } from '../../features/leads/hooks/useLeadFieldCatalog';
 import {
   withEmailCompliance,
   withSmsCompliance,
@@ -46,6 +47,7 @@ export function CampaignCreatePage() {
   const templateAvailable = (capabilities?.emailProvider ?? 'brevo') === 'brevo';
   const { filters, setParam, setAdvancedFilter } = useLeadFilters();
   const propertyDefinitions = usePropertyDefinitions('lead');
+  const leadCatalog = useLeadFieldCatalog(propertyDefinitions);
   const matching = useMatchingLeads(filters);
 
   const [channel, setChannel] = useState<CampaignChannel>('email');
@@ -236,7 +238,7 @@ export function CampaignCreatePage() {
             <AdvancedFilterBuilder
               filter={filters.advancedFilter}
               onChange={setAdvancedFilter}
-              catalog={leadFieldCatalog(propertyDefinitions)}
+              catalog={leadCatalog}
             />
           </div>
         </div>

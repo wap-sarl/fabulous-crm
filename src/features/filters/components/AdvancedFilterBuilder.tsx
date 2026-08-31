@@ -45,7 +45,7 @@ import {
   fieldItemsOf,
   fieldOptionsOf,
   fieldTypeOf,
-  OPERATOR_LABEL,
+  operatorLabel,
 } from '../lib/advancedFilter';
 
 interface Props<F extends string> {
@@ -301,7 +301,7 @@ function RuleRow<F extends string>({
           <SelectContent>
             {operators.map((op) => (
               <SelectItem key={op} value={op}>
-                {OPERATOR_LABEL[op]}
+                {operatorLabel(type, op)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -356,6 +356,26 @@ function RuleValueInput<F extends string>({
 
   const setValue = (v: FilterRule<F>['value']) => onChange({ ...rule, value: v });
 
+  if (operator === 'inLastDays' || operator === 'inNextDays' || operator === 'moreThanDaysAgo') {
+    return (
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={1}
+          step={1}
+          placeholder="N"
+          value={typeof value === 'number' ? String(value) : ''}
+          onChange={(e) =>
+            setValue(
+              e.target.value === '' ? undefined : Math.max(1, Math.floor(Number(e.target.value))),
+            )
+          }
+        />
+        <span className="text-sm text-faint">jours</span>
+      </div>
+    );
+  }
+
   const asString = typeof value === 'string' ? value : '';
   const asNumber = typeof value === 'number' ? String(value) : '';
   const asArray = Array.isArray(value) ? value : [];
@@ -363,7 +383,7 @@ function RuleValueInput<F extends string>({
     value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 
   if (operator === 'between') {
-    if (type === 'date') {
+    if (type === 'date' || type === 'timestamp') {
       return (
         <div className="flex items-center gap-2">
           <DatePicker
@@ -429,6 +449,7 @@ function RuleValueInput<F extends string>({
       );
 
     case 'date':
+    case 'timestamp':
       return <DatePicker value={asString} onValueChange={(v) => setValue(v || undefined)} />;
 
     case 'boolean':
@@ -455,6 +476,7 @@ function RuleValueInput<F extends string>({
 
     case 'select':
     case 'checkbox':
+    case 'list':
       return multi(options);
 
     // text / email → free text
