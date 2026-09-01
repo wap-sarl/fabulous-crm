@@ -9,6 +9,8 @@ export function useLeadActions() {
   const deleteLeads = useAuthMutation(api.features.crm.mutations.deleteLeads);
   const importLeads = useAuthMutation(api.features.crm.mutations.importLeads);
   const createLeadList = useAuthMutation(api.features.crm.mutations.createLeadList);
+  const updateLeadList = useAuthMutation(api.features.crm.mutations.updateLeadList);
+  const recalcLeadList = useAuthMutation(api.features.crm.mutations.recalcLeadList);
   const deleteLeadList = useAuthMutation(api.features.crm.mutations.deleteLeadList);
 
   return {
@@ -18,6 +20,8 @@ export function useLeadActions() {
     deleteLeads,
     importLeads,
     createLeadList,
+    updateLeadList,
+    recalcLeadList,
     deleteLeadList,
   };
 }

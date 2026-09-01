@@ -88,7 +88,8 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
   const lifecycle = useLifecycleConfig();
   const { importLeads, createLeadList } = useLeadActions();
   const customDefs = usePropertyDefinitions('lead');
-  const lists = useLeadLists();
+  const allLists = useLeadLists();
+  const lists = allLists.filter((l) => l.kind !== 'dynamic');
   const [listMode, setListMode] = useState<ListMode>('new');
   const [newListName, setNewListName] = useState('');
   const [existingListId, setExistingListId] = useState('');

@@ -99,6 +99,7 @@ import type * as lib_dealAggregates from "../lib/dealAggregates.js";
 import type * as lib_deals from "../lib/deals.js";
 import type * as lib_devWhitelist from "../lib/devWhitelist.js";
 import type * as lib_duplicates from "../lib/duplicates.js";
+import type * as lib_dynamicLists from "../lib/dynamicLists.js";
 import type * as lib_emailProvider from "../lib/emailProvider.js";
 import type * as lib_emailUtils from "../lib/emailUtils.js";
 import type * as lib_fileStorage from "../lib/fileStorage.js";
@@ -222,6 +223,7 @@ declare const fullApi: ApiFromModules<{
   "lib/deals": typeof lib_deals;
   "lib/devWhitelist": typeof lib_devWhitelist;
   "lib/duplicates": typeof lib_duplicates;
+  "lib/dynamicLists": typeof lib_dynamicLists;
   "lib/emailProvider": typeof lib_emailProvider;
   "lib/emailUtils": typeof lib_emailUtils;
   "lib/fileStorage": typeof lib_fileStorage;

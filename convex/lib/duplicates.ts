@@ -233,12 +233,13 @@ export async function repointLeadRows(
     .withIndex('by_lead', (q) => q.eq('leadId', absorbedId))
     .take(REPOINT_BATCH);
   for (const member of memberships) {
+    await deleteListMember(ctx, member);
+    const list = await ctx.db.get(member.listId);
+    if (list?.kind === 'dynamic') continue;
     const already = await ctx.db
       .query('leadListMembers')
       .withIndex('by_list_lead', (q) => q.eq('listId', member.listId).eq('leadId', survivorId))
       .first();
-    // Through the aggregate-aware helpers so list counts stay exact.
-    await deleteListMember(ctx, member);
     if (!already) {
       await insertListMember(ctx, {
         listId: member.listId,

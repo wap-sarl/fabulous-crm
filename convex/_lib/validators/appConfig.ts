@@ -108,6 +108,7 @@ export const appConfigValidator = v.object({
   email: v.optional(emailConfigValidator),
   lifecycle: v.optional(lifecycleConfigValidator),
   attachments: v.optional(attachmentsConfigValidator),
+  lists: v.optional(v.object({ maxDynamicLists: v.optional(v.number()) })),
   updatedAt: v.number(),
   updatedBy: v.optional(v.id('users')),
 });

@@ -54,6 +54,12 @@ import { requireValidAddress } from '../../lib/addresses';
 import { cleanOwnerIds } from '../../lib/owners';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
+import {
+  DEFAULT_MAX_DYNAMIC_LISTS,
+  validateDynamicListCriteria,
+} from '../../_lib/validators/leadLists';
+import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
+import { startDynamicListRecalc } from '../../lib/dynamicLists';
 
 const CONSENT_TOKEN_BYTES = 24;
 // 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
@@ -359,6 +365,11 @@ export const importLeads = employeeMutation({
     listId: v.optional(v.id('leadLists')),
   },
   handler: async (ctx, args) => {
+    if (args.listId) {
+      const list = await ctx.db.get(args.listId);
+      if (!list) throw new Error('list_not_found');
+      if (list.kind === 'dynamic') throw new Error('list_is_dynamic');
+    }
     const errors: { index: number; error: string }[] = [];
     let created = 0;
     let updated = 0;
@@ -543,18 +554,33 @@ export const importLeads = employeeMutation({
   },
 });
 
-/**
- * Create an (empty) lead list, e.g. before a CSV import populates it. The
- * creator is stamped as the importer via createAuditFields.
- */
 export const createLeadList = employeeMutation({
-  args: { name: v.string() },
+  args: {
+    name: v.string(),
+    kind: v.optional(v.union(v.literal('static'), v.literal('dynamic'))),
+    criteria: v.optional(leadAdvancedFilterValidator),
+  },
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw new Error('Le nom de la liste est requis.');
+    const kind = args.kind ?? 'static';
+
+    if (kind === 'dynamic') {
+      const error = validateDynamicListCriteria(args.criteria);
+      if (error) throw new Error(error);
+      const lists = await ctx.db.query('leadLists').collect();
+      const cfg = await ctx.db.query('appConfig').first();
+      const cap = cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS;
+      if (lists.filter((l) => l.kind === 'dynamic').length >= cap) {
+        throw new Error('dynamic_list_cap_reached');
+      }
+    } else if (args.criteria) {
+      throw new Error('list_not_dynamic');
+    }
 
     const listId = await ctx.db.insert('leadLists', {
       name,
+      ...(kind === 'dynamic' && { kind, criteria: args.criteria }),
       ...createAuditFields(ctx.userId),
     });
 
@@ -564,9 +590,63 @@ export const createLeadList = employeeMutation({
       entityType: 'leadList',
       entityId: listId,
       action: 'create',
+      metadata: { kind },
     });
 
+    if (kind === 'dynamic') {
+      const list = await ctx.db.get(listId);
+      if (list) await startDynamicListRecalc(ctx, list);
+    }
     return listId;
+  },
+});
+
+export const updateLeadList = employeeMutation({
+  args: {
+    listId: v.id('leadLists'),
+    name: v.optional(v.string()),
+    criteria: v.optional(leadAdvancedFilterValidator),
+  },
+  handler: async (ctx, args) => {
+    const list = await ctx.db.get(args.listId);
+    if (!list) throw new Error('list_not_found');
+
+    const name = args.name?.trim();
+    if (name !== undefined && !name) throw new Error('Le nom de la liste est requis.');
+    if (args.criteria) {
+      if (list.kind !== 'dynamic') throw new Error('list_not_dynamic');
+      const error = validateDynamicListCriteria(args.criteria);
+      if (error) throw new Error(error);
+    }
+
+    await ctx.db.patch(args.listId, {
+      ...(name !== undefined && { name }),
+      ...(args.criteria !== undefined && { criteria: args.criteria }),
+      ...updateAuditFields(ctx.userId),
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'leadList',
+      entityId: args.listId,
+      action: 'update',
+      metadata: { criteriaChanged: args.criteria !== undefined },
+    });
+
+    if (args.criteria !== undefined) {
+      const fresh = await ctx.db.get(args.listId);
+      if (fresh) await startDynamicListRecalc(ctx, fresh);
+    }
+  },
+});
+
+export const recalcLeadList = employeeMutation({
+  args: { listId: v.id('leadLists') },
+  handler: async (ctx, args) => {
+    const list = await ctx.db.get(args.listId);
+    if (!list) throw new Error('list_not_found');
+    if (list.kind !== 'dynamic') throw new Error('list_not_dynamic');
+    await startDynamicListRecalc(ctx, list);
   },
 });
 
@@ -588,6 +668,10 @@ export const deleteLeadList = employeeMutation({
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
     if (!list) return { done: true as const, deletedLeads: 0 };
+    if (list.nextRecalcId) {
+      await ctx.scheduler.cancel(list.nextRecalcId);
+      await ctx.db.patch(args.listId, { nextRecalcId: undefined, recalc: undefined });
+    }
 
     const members = await ctx.db
       .query('leadListMembers')
@@ -596,6 +680,8 @@ export const deleteLeadList = employeeMutation({
 
     let deletedLeads = 0;
     for (const member of members) {
+      // Junction row first: the soft-delete trigger below would otherwise delete it too.
+      await deleteListMember(ctx, member);
       if (args.deleteLeads) {
         const lead = await ctx.db.get(member.leadId);
         if (lead && lead.deletedAt == null) {
@@ -613,7 +699,6 @@ export const deleteLeadList = employeeMutation({
           deletedLeads++;
         }
       }
-      await deleteListMember(ctx, member);
     }
 
     // More members remain — signal the client to call again.

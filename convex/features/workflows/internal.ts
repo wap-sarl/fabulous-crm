@@ -388,6 +388,10 @@ export const executeStep = internalMutation({
         const list = listId ? await ctx.db.get(listId) : null;
         if (!listId || !list) {
           await logStep(ctx, run, node, 'skipped', { detail: 'liste introuvable' });
+        } else if (list.kind === 'dynamic') {
+          await logStep(ctx, run, node, 'skipped', {
+            detail: 'liste dynamique (membres calculés)',
+          });
         } else {
           const existing = await ctx.db
             .query('leadListMembers')
@@ -418,8 +422,16 @@ export const executeStep = internalMutation({
 
       case 'remove_from_list': {
         const listId = node.listId;
-        if (!listId) {
+        const list = listId ? await ctx.db.get(listId) : null;
+        if (!listId || !list) {
           await logStep(ctx, run, node, 'skipped', { detail: 'liste introuvable' });
+          await advanceRun(ctx, run, workflow, node.next);
+          return;
+        }
+        if (list.kind === 'dynamic') {
+          await logStep(ctx, run, node, 'skipped', {
+            detail: 'liste dynamique (membres calculés)',
+          });
           await advanceRun(ctx, run, workflow, node.next);
           return;
         }

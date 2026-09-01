@@ -483,7 +483,7 @@ interface ListStepConfigProps {
 }
 
 export function ListStepConfig({ value, onChange }: ListStepConfigProps) {
-  const lists = useLeadLists();
+  const lists = useLeadLists().filter((l) => l.kind !== 'dynamic');
   return (
     <div className="space-y-1.5">
       <Label>Liste</Label>
