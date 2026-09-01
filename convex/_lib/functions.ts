@@ -18,6 +18,7 @@ import { leadsByLifecycle, leadsByOwner } from '../lib/leadAggregates';
 import type { LeadDedupe } from './validators/duplicates';
 import { dedupeKeys } from '../lib/duplicates';
 import { syncLeadDynamicLists } from '../lib/dynamicLists';
+import { syncLeadScore } from '../lib/leadScoring';
 import { leadSearchText } from '../lib/leadSearch';
 
 const triggers = new Triggers<DataModel>();
@@ -53,6 +54,7 @@ triggers.register('leads', async (ctx, change) => {
   if (!sameDedupe(change.newDoc.dedupe, dedupe)) patch.dedupe = dedupe;
   if (Object.keys(patch).length > 0) await ctx.db.patch(change.id, patch);
 });
+triggers.register('leads', syncLeadScore);
 triggers.register('leads', syncLeadDynamicLists);
 triggers.register('companies', async (ctx, change) => {
   if (change.operation === 'delete') return;

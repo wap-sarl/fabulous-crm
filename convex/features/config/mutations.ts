@@ -15,6 +15,7 @@ import {
   MAX_LIFECYCLE_STAGES,
   lifecycleStageValidator,
 } from '../../_lib/validators/lifecycle';
+import { MAX_LEAD_SCORE, MIN_LEAD_SCORE } from '../../_lib/validators/scoring';
 import type {
   SsoProvider,
   SocialProviderConfig,
@@ -265,6 +266,7 @@ export const updateLifecycleConfig = settingsMutation({
     stages: v.array(lifecycleStageValidator),
     defaultStage: v.string(),
     allowRegression: v.boolean(),
+    scorePromotion: v.optional(v.object({ stage: v.string(), minScore: v.number() })),
   },
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
@@ -290,8 +292,21 @@ export const updateLifecycleConfig = settingsMutation({
       }
     }
 
+    if (args.scorePromotion) {
+      const { stage, minScore } = args.scorePromotion;
+      if (!keys.has(stage)) throw new Error('lifecycle_invalid_promotion_stage');
+      if (!Number.isInteger(minScore) || minScore < MIN_LEAD_SCORE || minScore > MAX_LEAD_SCORE) {
+        throw new Error('lifecycle_invalid_promotion_score');
+      }
+    }
+
     await ctx.db.patch(cfg._id, {
-      lifecycle: { stages, defaultStage: args.defaultStage, allowRegression: args.allowRegression },
+      lifecycle: {
+        stages,
+        defaultStage: args.defaultStage,
+        allowRegression: args.allowRegression,
+        scorePromotion: args.scorePromotion,
+      },
       updatedAt: Date.now(),
       updatedBy: ctx.userId,
     });

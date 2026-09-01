@@ -57,8 +57,8 @@ export const leadValidator = v.object({
   formSubmissionCount: v.optional(v.number()),
   lastPageViewAt: v.optional(v.number()),
   pageViewCount: v.optional(v.number()),
-  // Computed score; written by the scoring engine (#61).
   leadScore: v.optional(v.number()),
+  scoreBreakdown: v.optional(v.record(v.string(), v.number())),
 
   // Denormalized, normalized identity text (first/last name, email, phone,
   // company name) serving the by_searchText search index. Stamped by the

@@ -14,6 +14,7 @@ export const lifecycleConfigValidator = v.object({
   // Stage stamped on leads created without an explicit one (form, import).
   defaultStage: v.string(),
   allowRegression: v.boolean(),
+  scorePromotion: v.optional(v.object({ stage: v.string(), minScore: v.number() })),
 });
 
 export type LifecycleStage = Infer<typeof lifecycleStageValidator>;
@@ -77,6 +78,8 @@ export const lifecycleChangeSourceValidator = v.union(
   v.literal('migration'),
   // A won deal turned the lead into a customer.
   v.literal('deal'),
+  // The lead crossed the score-promotion threshold (lifecycle settings).
+  v.literal('score'),
 );
 
 /**

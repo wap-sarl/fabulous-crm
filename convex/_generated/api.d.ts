@@ -31,6 +31,7 @@ import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js
 import type * as _lib_validators_properties from "../_lib/validators/properties.js";
 import type * as _lib_validators_propertyTypes from "../_lib/validators/propertyTypes.js";
 import type * as _lib_validators_roles from "../_lib/validators/roles.js";
+import type * as _lib_validators_scoring from "../_lib/validators/scoring.js";
 import type * as _lib_validators_shared from "../_lib/validators/shared.js";
 import type * as _lib_validators_teams from "../_lib/validators/teams.js";
 import type * as _lib_validators_timeline from "../_lib/validators/timeline.js";
@@ -72,6 +73,9 @@ import type * as features_properties_mutations from "../features/properties/muta
 import type * as features_properties_queries from "../features/properties/queries.js";
 import type * as features_roles_mutations from "../features/roles/mutations.js";
 import type * as features_roles_queries from "../features/roles/queries.js";
+import type * as features_scoring_internal from "../features/scoring/internal.js";
+import type * as features_scoring_mutations from "../features/scoring/mutations.js";
+import type * as features_scoring_queries from "../features/scoring/queries.js";
 import type * as features_teams_mutations from "../features/teams/mutations.js";
 import type * as features_teams_queries from "../features/teams/queries.js";
 import type * as features_timeline_queries from "../features/timeline/queries.js";
@@ -107,6 +111,7 @@ import type * as lib_filterMatching from "../lib/filterMatching.js";
 import type * as lib_index from "../lib/index.js";
 import type * as lib_leadAggregates from "../lib/leadAggregates.js";
 import type * as lib_leadListMembers from "../lib/leadListMembers.js";
+import type * as lib_leadScoring from "../lib/leadScoring.js";
 import type * as lib_leadSearch from "../lib/leadSearch.js";
 import type * as lib_leadSignals from "../lib/leadSignals.js";
 import type * as lib_lifecycle from "../lib/lifecycle.js";
@@ -155,6 +160,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/properties": typeof _lib_validators_properties;
   "_lib/validators/propertyTypes": typeof _lib_validators_propertyTypes;
   "_lib/validators/roles": typeof _lib_validators_roles;
+  "_lib/validators/scoring": typeof _lib_validators_scoring;
   "_lib/validators/shared": typeof _lib_validators_shared;
   "_lib/validators/teams": typeof _lib_validators_teams;
   "_lib/validators/timeline": typeof _lib_validators_timeline;
@@ -196,6 +202,9 @@ declare const fullApi: ApiFromModules<{
   "features/properties/queries": typeof features_properties_queries;
   "features/roles/mutations": typeof features_roles_mutations;
   "features/roles/queries": typeof features_roles_queries;
+  "features/scoring/internal": typeof features_scoring_internal;
+  "features/scoring/mutations": typeof features_scoring_mutations;
+  "features/scoring/queries": typeof features_scoring_queries;
   "features/teams/mutations": typeof features_teams_mutations;
   "features/teams/queries": typeof features_teams_queries;
   "features/timeline/queries": typeof features_timeline_queries;
@@ -231,6 +240,7 @@ declare const fullApi: ApiFromModules<{
   "lib/index": typeof lib_index;
   "lib/leadAggregates": typeof lib_leadAggregates;
   "lib/leadListMembers": typeof lib_leadListMembers;
+  "lib/leadScoring": typeof lib_leadScoring;
   "lib/leadSearch": typeof lib_leadSearch;
   "lib/leadSignals": typeof lib_leadSignals;
   "lib/lifecycle": typeof lib_lifecycle;

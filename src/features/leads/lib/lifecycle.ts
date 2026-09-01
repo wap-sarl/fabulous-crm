@@ -7,4 +7,5 @@ export const LIFECYCLE_SOURCE_LABEL: Record<LifecycleChangeSource, string> = {
   workflow: 'Workflow',
   migration: 'Migration',
   deal: 'Transaction gagnée',
+  score: 'Score atteint',
 };

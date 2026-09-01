@@ -24,6 +24,7 @@ const sortFieldValidator = v.union(
   v.literal('recent'),
   v.literal('lastName'),
   v.literal('lifecycleStage'),
+  v.literal('leadScore'),
 );
 const sortDirectionValidator = v.union(v.literal('asc'), v.literal('desc'));
 
@@ -88,19 +89,21 @@ export const listLeadsPaginated = employeeQuery({
     const cursor =
       sortField === 'lastName'
         ? ctx.db.query('leads').withIndex('by_lastName').order(direction)
-        : sortField === 'lifecycleStage'
-          ? ctx.db.query('leads').withIndex('by_lifecycleStage').order(direction)
-          : singleCompany !== undefined
-            ? ctx.db
-                .query('leads')
-                .withIndex('by_company', (q) => q.eq('companyId', singleCompany))
-                .order(direction)
-            : singleStage !== undefined
+        : sortField === 'leadScore'
+          ? ctx.db.query('leads').withIndex('by_leadScore').order(direction)
+          : sortField === 'lifecycleStage'
+            ? ctx.db.query('leads').withIndex('by_lifecycleStage').order(direction)
+            : singleCompany !== undefined
               ? ctx.db
                   .query('leads')
-                  .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
+                  .withIndex('by_company', (q) => q.eq('companyId', singleCompany))
                   .order(direction)
-              : ctx.db.query('leads').order(direction);
+              : singleStage !== undefined
+                ? ctx.db
+                    .query('leads')
+                    .withIndex('by_lifecycleStage', (q) => q.eq('lifecycleStage', singleStage))
+                    .order(direction)
+                : ctx.db.query('leads').order(direction);
 
     const result = await cursor.paginate(args.paginationOpts);
 

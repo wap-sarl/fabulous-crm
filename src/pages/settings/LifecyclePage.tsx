@@ -48,6 +48,8 @@ const ERROR_MESSAGES: Record<string, string> = {
   lifecycle_invalid_default: 'Le statut par défaut doit être un statut de la liste.',
   lifecycle_stage_in_use:
     'Impossible de supprimer un statut dans lequel des leads se trouvent encore.',
+  lifecycle_invalid_promotion_stage: 'Le statut de promotion doit être un statut de la liste.',
+  lifecycle_invalid_promotion_score: 'Le seuil de promotion doit être un entier entre 0 et 100.',
 };
 
 export function LifecyclePage() {
@@ -61,6 +63,9 @@ export function LifecyclePage() {
   const [stages, setStages] = useState<LifecycleStage[]>([]);
   const [defaultStage, setDefaultStage] = useState('');
   const [allowRegression, setAllowRegression] = useState(false);
+  const [promotionEnabled, setPromotionEnabled] = useState(false);
+  const [promotionStage, setPromotionStage] = useState('');
+  const [promotionScore, setPromotionScore] = useState('50');
   const [newLabel, setNewLabel] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -71,6 +76,9 @@ export function LifecyclePage() {
     setStages(config.stages);
     setDefaultStage(config.defaultStage);
     setAllowRegression(config.allowRegression);
+    setPromotionEnabled(config.scorePromotion !== undefined);
+    setPromotionStage(config.scorePromotion?.stage ?? '');
+    setPromotionScore(String(config.scorePromotion?.minScore ?? 50));
   }, [config, dirty]);
 
   const total = useMemo(
@@ -124,9 +132,20 @@ export function LifecyclePage() {
       toast.error(ERROR_MESSAGES.lifecycle_invalid_key);
       return;
     }
+    if (promotionEnabled && !promotionStage) {
+      toast.error(ERROR_MESSAGES.lifecycle_invalid_promotion_stage);
+      return;
+    }
     setSaving(true);
     try {
-      await updateLifecycleConfig({ stages, defaultStage, allowRegression });
+      await updateLifecycleConfig({
+        stages,
+        defaultStage,
+        allowRegression,
+        scorePromotion: promotionEnabled
+          ? { stage: promotionStage, minScore: Number(promotionScore) }
+          : undefined,
+      });
       setDirty(false);
       toast.success('Statuts enregistrés.');
     } catch (e) {
@@ -276,6 +295,56 @@ export function LifecyclePage() {
               </span>
             </span>
           </label>
+
+          <div className="flex flex-col gap-3 border-t border-border pt-4">
+            <label className="flex items-start gap-3 text-sm">
+              <Switch
+                checked={promotionEnabled}
+                onCheckedChange={touch(setPromotionEnabled)}
+                aria-label="Promotion automatique par le score"
+                data-testid="score-promotion"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="font-medium text-ink">Promotion automatique par le score</span>
+                <span className="text-faint">
+                  Un lead atteignant le seuil passe automatiquement au statut choisi (jamais en
+                  arrière). Configurez les règles dans Réglages → Scoring.
+                </span>
+              </span>
+            </label>
+            {promotionEnabled && (
+              <div className="flex flex-wrap items-end gap-3 pl-12">
+                <div className="space-y-1.5">
+                  <Label>Statut cible</Label>
+                  <Select value={promotionStage} onValueChange={touch(setPromotionStage)}>
+                    <SelectTrigger className="w-56">
+                      <SelectValue placeholder="Choisir…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {stages.map((s) => (
+                        <SelectItem key={s.key} value={s.key}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Score minimal</Label>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={promotionScore}
+                    onChange={(e) => touch(setPromotionScore)(e.target.value)}
+                    className="w-24"
+                    aria-label="Score minimal de promotion"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </Card>
       </div>
     </div>

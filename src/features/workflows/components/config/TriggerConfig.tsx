@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   HelperText,
+  Input,
   Label,
   MultiSelect,
   SegmentedControl,
@@ -167,6 +168,27 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
               ))}
             </SelectContent>
           </Select>
+        </div>
+      )}
+
+      {trigger?.type === 'score_threshold_crossed' && (
+        <div className="space-y-1.5">
+          <Label>Seuil de score</Label>
+          <Input
+            type="number"
+            min={0}
+            max={100}
+            step={1}
+            value={String(trigger.threshold)}
+            onChange={(e) => setTrigger({ ...trigger, threshold: Number(e.target.value) })}
+            className="w-28"
+            aria-label="Seuil de score"
+          />
+          <HelperText>
+            Déclenche quand le score{' '}
+            {trigger.direction === 'up' ? 'atteint ou dépasse' : 'passe en dessous de'} ce seuil
+            (0–100).
+          </HelperText>
         </div>
       )}
 

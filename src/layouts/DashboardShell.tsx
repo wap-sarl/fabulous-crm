@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   KanbanSquare,
+  Gauge,
   ListChecks,
   Mail,
   Milestone,
@@ -79,6 +80,13 @@ const LISTS_NAV_ITEM: NavItem = {
   position: 'bottom',
 };
 
+const SCORING_NAV_ITEM: NavItem = {
+  label: 'Scoring',
+  icon: <Gauge />,
+  path: '/settings/scoring',
+  position: 'bottom',
+};
+
 /** Declarative: a page sets the document title by calling this hook. */
 export function usePageTitle(title: string) {
   useEffect(() => {
@@ -112,6 +120,7 @@ export function DashboardShell() {
         EMAIL_NAV_ITEM,
         PROPERTIES_NAV_ITEM,
         LIFECYCLE_NAV_ITEM,
+        SCORING_NAV_ITEM,
         PIPELINES_NAV_ITEM,
         FILES_NAV_ITEM,
       ]

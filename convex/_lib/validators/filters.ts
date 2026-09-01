@@ -251,3 +251,15 @@ export function isActiveRule(rule: FilterRule): boolean {
     }
   }
 }
+
+/** Matching can drift with time alone when the criteria use relative dates. */
+export function criteriaUsesRelativeDates(criteria: AdvancedFilter | undefined): boolean {
+  return (criteria?.groups ?? []).some((g) =>
+    g.rules.some(
+      (r) =>
+        r.operator === 'inLastDays' ||
+        r.operator === 'inNextDays' ||
+        r.operator === 'moreThanDaysAgo',
+    ),
+  );
+}

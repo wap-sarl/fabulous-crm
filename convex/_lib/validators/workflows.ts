@@ -54,6 +54,11 @@ export const workflowTriggerValidator = v.union(
     campaignId: v.optional(v.id('campaigns')),
     linkKey: v.optional(v.string()),
   }),
+  v.object({
+    type: v.literal('score_threshold_crossed'),
+    threshold: v.number(),
+    direction: v.union(v.literal('up'), v.literal('down')),
+  }),
   v.object({ type: v.literal('deal_created'), pipelineId: v.optional(v.id('pipelines')) }),
   v.object({
     type: v.literal('deal_stage_changed'),
