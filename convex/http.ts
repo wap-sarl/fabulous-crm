@@ -3,6 +3,8 @@ import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { authComponent, createAuth } from './auth';
 import { resolveBrevo, timingSafeEqual } from './lib';
+import { FORM_EMBED_JS, formIframeHtml } from './lib/formEmbed';
+import { hashClientIp } from './lib/forms';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -175,6 +177,116 @@ http.route({
     }
     return htmlResponse('Merci, vous pouvez fermer cet onglet.', 200);
   }),
+});
+
+/** Forms are embedded on third-party pages: every response is CORS-open. */
+const FORM_CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+};
+
+const formJson = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...FORM_CORS },
+  });
+
+/**
+ * Public capture-form surface, all under /forms/:
+ * - GET  /forms/<id>          — standalone page (iframe embedding)
+ * - GET  /forms/<id>/embed.js — the injectable script for external pages
+ * - GET  /forms/<id>/def      — render payload (rate-limited per IP)
+ * - POST /forms/<id>/submit   — submission (rate-limited per IP)
+ */
+http.route({
+  pathPrefix: '/forms/',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const [formId, rest, extra] = url.pathname.slice('/forms/'.length).split('/');
+    if (!formId || extra !== undefined) return new Response('Not found', { status: 404 });
+
+    if (rest === undefined) {
+      return new Response(formIframeHtml(formId), {
+        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+      });
+    }
+    if (rest === 'embed.js') {
+      return new Response(FORM_EMBED_JS, {
+        headers: {
+          'Content-Type': 'application/javascript; charset=utf-8',
+          'Cache-Control': 'public, max-age=300',
+          ...FORM_CORS,
+        },
+      });
+    }
+    if (rest === 'def') {
+      if (!(await enforceRateLimit(ctx, 'formRender', clientIpOf(request)))) {
+        return formJson({ error: 'rate_limited' }, 429);
+      }
+      const def = await ctx.runQuery(internal.features.forms.internal.getPublicForm, {
+        formId,
+        visitorToken: url.searchParams.get('visitor') ?? undefined,
+      });
+      if (!def) return formJson({ error: 'not_found' }, 404);
+      return formJson(def, 200);
+    }
+    return new Response('Not found', { status: 404 });
+  }),
+});
+
+http.route({
+  pathPrefix: '/forms/',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const [formId, rest, extra] = url.pathname.slice('/forms/'.length).split('/');
+    if (!formId || rest !== 'submit' || extra !== undefined) {
+      return new Response('Not found', { status: 404 });
+    }
+    const ip = clientIpOf(request);
+    if (!(await enforceRateLimit(ctx, 'formSubmit', ip))) {
+      return formJson({ ok: false, code: 'rate_limited' }, 429);
+    }
+    const body = (await request.json().catch(() => null)) as {
+      values?: Record<string, unknown>;
+      consent?: boolean;
+      honeypot?: string;
+      renderedAt?: number;
+      visitorToken?: string;
+    } | null;
+    if (!body || typeof body.values !== 'object' || body.values === null) {
+      return formJson({ ok: false, code: 'invalid_body' }, 400);
+    }
+    const result = await ctx.runMutation(internal.features.forms.internal.submitForm, {
+      formId,
+      values: Object.fromEntries(
+        Object.entries(body.values).filter(
+          ([, value]) =>
+            typeof value === 'string' ||
+            typeof value === 'number' ||
+            typeof value === 'boolean' ||
+            (Array.isArray(value) && value.every((item) => typeof item === 'string')),
+        ),
+      ) as Record<string, string | number | boolean | string[]>,
+      consent: body.consent === true,
+      honeypot: typeof body.honeypot === 'string' ? body.honeypot : undefined,
+      renderedAt: typeof body.renderedAt === 'number' ? body.renderedAt : undefined,
+      visitorToken: typeof body.visitorToken === 'string' ? body.visitorToken : undefined,
+      ipHash: await hashClientIp(ip),
+      userAgent: request.headers.get('user-agent') ?? undefined,
+    });
+    if (!result.ok) return formJson(result, result.code === 'not_found' ? 404 : 400);
+    return formJson(result, 200);
+  }),
+});
+
+// Cross-origin preflight for the JSON submit POST.
+http.route({
+  pathPrefix: '/forms/',
+  method: 'OPTIONS',
+  handler: httpAction(async () => new Response(null, { status: 204, headers: FORM_CORS })),
 });
 
 // Registers Better Auth's HTTP routes (e.g. /api/auth/callback/<provider>).

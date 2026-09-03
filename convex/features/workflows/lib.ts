@@ -268,6 +268,7 @@ export type WorkflowTriggerEvent =
   | { type: 'campaign_sms_event'; event: WorkflowSmsEvent; campaignId: Id<'campaigns'> }
   | { type: 'tracked_link_click'; campaignId: Id<'campaigns'>; linkKey: string }
   | { type: 'score_threshold_crossed'; oldScore: number; newScore: number }
+  | { type: 'form_submitted'; formId: Id<'forms'> }
   | { type: 'deal_created'; pipelineId: Id<'pipelines'>; dealId: Id<'deals'> }
   | {
       type: 'deal_stage_changed';
@@ -324,6 +325,11 @@ export function matchesTrigger(trigger: WorkflowTrigger, event: WorkflowTriggerE
         (trigger.direction === 'up'
           ? event.oldScore < trigger.threshold && event.newScore >= trigger.threshold
           : event.oldScore >= trigger.threshold && event.newScore < trigger.threshold)
+      );
+    case 'form_submitted':
+      return (
+        event.type === 'form_submitted' &&
+        (trigger.formId === undefined || trigger.formId === event.formId)
       );
     case 'deal_created':
     case 'deal_won':

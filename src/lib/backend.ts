@@ -31,6 +31,14 @@ export type {
   ActivityStatus,
 } from '../../convex/_lib/validators/activities';
 export type { ActivityRow } from '../../convex/features/activities/queries';
+export type {
+  Form,
+  FormField,
+  FormFieldTarget,
+  FormAfterSubmit,
+  FormStandardField,
+} from '../../convex/_lib/validators/forms';
+export { FORM_STANDARD_FIELDS, formFieldKey } from '../../convex/_lib/validators/forms';
 export type { TimelineKind } from '../../convex/_lib/validators/timeline';
 export { TIMELINE_KINDS } from '../../convex/_lib/validators/timeline';
 export type { TimelineEvent } from '../../convex/features/timeline/queries';

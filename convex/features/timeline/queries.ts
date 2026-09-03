@@ -11,6 +11,7 @@ import type {
   CampaignSendStatus,
 } from '../../_lib/validators/crm';
 import { type DealStatus, stageTagLabels } from '../../_lib/validators/deals';
+import { formFieldKey } from '../../_lib/validators/forms';
 import type { LifecycleChangeSource } from '../../_lib/validators/lifecycle';
 import {
   TIMELINE_KINDS,
@@ -68,6 +69,12 @@ export type TimelineEvent =
       url: string | null;
       linkLabel: string | null;
       reason: string | null;
+    })
+  | (TimelineEventBase<'form_submission'> & {
+      formId: Id<'forms'>;
+      formName: string;
+      /** Submitted field labels (values stay in the CRM record, not the feed). */
+      fieldLabels: string[];
     })
   | (TimelineEventBase<'workflow_run'> & {
       runId: Id<'workflowRuns'>;
@@ -255,6 +262,39 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
             url: event.url ?? null,
             linkLabel: event.linkLabel ?? null,
             reason: event.reason ?? null,
+          };
+        },
+      }));
+    },
+  }),
+
+  form_submission: (ctx, leadId, { get }) => ({
+    kind: 'form_submission',
+    load: async (w, limit) => {
+      const rows = await fetchRows(
+        ctx.db
+          .query('formSubmissions')
+          .withIndex('by_lead', (q) => withinWindow(q.eq('leadId', leadId), '_creationTime', w))
+          .order('desc'),
+        limit,
+      );
+      return rows.map((submission) => ({
+        at: submission._creationTime,
+        build: async () => {
+          const form = await get(submission.formId);
+          // Labels in form-field order (record keys come back sorted from Convex).
+          const fieldLabels = form
+            ? form.fields
+                .filter((f) => submission.values[formFieldKey(f.target)] !== undefined)
+                .map((f) => f.label)
+            : Object.keys(submission.values);
+          return {
+            kind: 'form_submission',
+            id: submission._id,
+            at: submission._creationTime,
+            formId: submission.formId,
+            formName: form?.name ?? 'Formulaire supprimé',
+            fieldLabels,
           };
         },
       }));

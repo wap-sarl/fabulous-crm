@@ -47,6 +47,7 @@ export type TriggerOptionValue =
   | 'link_click'
   | 'score_crossed_up'
   | 'score_crossed_down'
+  | 'form_submitted'
   | 'deal_created'
   | 'deal_stage_changed'
   | 'deal_won'
@@ -105,6 +106,10 @@ export const TRIGGER_GROUPS: {
     ],
   },
   {
+    label: 'Formulaires',
+    options: [{ value: 'form_submitted', label: 'Formulaire envoyé' }],
+  },
+  {
     label: 'Transactions',
     options: [
       { value: 'deal_created', label: 'Transaction créée' },
@@ -136,6 +141,7 @@ export function triggerToOption(trigger: WorkflowTrigger): TriggerOptionValue {
       return 'link_click';
     case 'score_threshold_crossed':
       return trigger.direction === 'up' ? 'score_crossed_up' : 'score_crossed_down';
+    case 'form_submitted':
     case 'deal_created':
     case 'deal_stage_changed':
     case 'deal_won':
@@ -197,6 +203,11 @@ export function optionToTrigger(
       };
     case 'link_click':
       return { type: 'tracked_link_click', campaignId: prevCampaignId };
+    case 'form_submitted':
+      return {
+        type: 'form_submitted',
+        formId: prev?.type === 'form_submitted' ? prev.formId : undefined,
+      };
     case 'score_crossed_up':
     case 'score_crossed_down':
       return {
@@ -250,6 +261,7 @@ export const TRIGGER_TYPE_LABEL: Record<WorkflowTriggerType | 'manual' | 'bulk_r
     campaign_sms_event: 'Événement SMS',
     tracked_link_click: 'Clic sur un lien suivi',
     score_threshold_crossed: 'Seuil de score franchi',
+    form_submitted: 'Formulaire envoyé',
     deal_created: 'Transaction créée',
     deal_stage_changed: 'Transaction changée de stade',
     deal_won: 'Transaction gagnée',
