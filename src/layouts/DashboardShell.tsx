@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  ClipboardList,
   KanbanSquare,
   Gauge,
   ListChecks,
@@ -87,6 +88,13 @@ const SCORING_NAV_ITEM: NavItem = {
   position: 'bottom',
 };
 
+const FORMS_NAV_ITEM: NavItem = {
+  label: 'Formulaires',
+  icon: <ClipboardList />,
+  path: '/settings/forms',
+  position: 'bottom',
+};
+
 /** Declarative: a page sets the document title by calling this hook. */
 export function usePageTitle(title: string) {
   useEffect(() => {
@@ -121,6 +129,7 @@ export function DashboardShell() {
         PROPERTIES_NAV_ITEM,
         LIFECYCLE_NAV_ITEM,
         SCORING_NAV_ITEM,
+        FORMS_NAV_ITEM,
         PIPELINES_NAV_ITEM,
         FILES_NAV_ITEM,
       ]

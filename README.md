@@ -264,6 +264,7 @@ d'environnement du conteneur — pas de rebuild par environnement.
 | `BREVO_SMS_SENDER` | **oui** pour les SMS | Nom d'expéditeur affiché sur les SMS (ID alphanumérique Brevo, ≤ 11 caractères ; défaut `CRM`) |
 | `BREVO_WEBHOOK_SECRET` | non (requis pour les webhooks) | Secret des webhooks Brevo au niveau compte (`/webhooks/brevo/email` et `/webhooks/brevo/sms`). Envoyé dans l'en-tête `x-webhook-secret` fixé à l'enregistrement (`registerBrevoEmailWebhook` / `registerBrevoSmsWebhook`) — jamais dans l'URL. Générer avec `bunx convex env set BREVO_WEBHOOK_SECRET $(openssl rand -hex 32)`. Absent = webhooks désactivés. |
 | `BREVO_SMS_WEBHOOK_SECRET` | non (recommandé pour le STOP SMS) | Secret **dédié** du webhook SMS par message (`webUrl` posé sur chaque envoi) : les webhooks par message de Brevo ne peuvent pas envoyer d'en-tête, ce secret voyage donc dans l'URL — d'où une valeur distincte, révocable sans toucher au secret de compte. Repli sur `BREVO_WEBHOOK_SECRET` si absente. Générer avec `bunx convex env set BREVO_SMS_WEBHOOK_SECRET $(openssl rand -hex 32)`. |
+| `FORM_IP_HASH_SALT` | non | Sel du hachage SHA-256 des adresses IP stockées avec les soumissions de formulaires publics (`formSubmissions.ipHash`). Absent = sel constant intégré. Générer avec `bunx convex env set FORM_IP_HASH_SALT $(openssl rand -hex 16)`. |
 
 > La plupart des réglages ci-dessus (URL, expéditeur) et les identifiants des
 > fournisseurs sociaux (Google…) sont stockés dans la table Convex singleton

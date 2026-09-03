@@ -11,6 +11,11 @@ import {
 } from './_lib/validators/crm';
 import { propertyDefinitionValidator } from './_lib/validators/properties';
 import { leadListValidator, leadListMemberValidator } from './_lib/validators/leadLists';
+import {
+  formSubmissionValidator,
+  formValidator,
+  formVisitorTokenValidator,
+} from './_lib/validators/forms';
 import { scoringRuleValidator, scoringStateValidator } from './_lib/validators/scoring';
 import { appConfigValidator } from './_lib/validators/appConfig';
 import { invitationValidator } from './_lib/validators/invitations';
@@ -178,6 +183,27 @@ export type { LeadList, LeadListMember } from './_lib/validators/leadLists';
 export { leadListValidator, leadListMemberValidator } from './_lib/validators/leadLists';
 
 export type {
+  Form,
+  FormField,
+  FormFieldTarget,
+  FormAfterSubmit,
+  FormSubmission,
+  FormStandardField,
+} from './_lib/validators/forms';
+export {
+  formValidator,
+  formFieldValidator,
+  formFieldTargetValidator,
+  formAfterSubmitValidator,
+  formSubmissionValidator,
+  formStandardFieldValidator,
+  formFieldKey,
+  validateFormShape,
+  FORM_STANDARD_FIELDS,
+  MAX_FORM_FIELDS,
+} from './_lib/validators/forms';
+
+export type {
   WorkflowEmailEvent,
   WorkflowSmsEvent,
   WorkflowTrigger,
@@ -321,6 +347,18 @@ export default defineSchema({
   scoringRules: defineTable(scoringRuleValidator),
 
   scoringState: defineTable(scoringStateValidator),
+
+  // Public capture forms (settings-managed). Few rows, read in full.
+  forms: defineTable(formValidator),
+
+  formSubmissions: defineTable(formSubmissionValidator)
+    .index('by_form', ['formId'])
+    .index('by_lead', ['leadId']),
+
+  // Browser identity for progressive profiling (see formVisitorTokenValidator).
+  formVisitorTokens: defineTable(formVisitorTokenValidator)
+    .index('by_token', ['token'])
+    .index('by_lead', ['leadId']),
 
   campaigns: defineTable(campaignValidator).index('by_status', ['status']),
 

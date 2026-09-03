@@ -103,8 +103,8 @@ async function addLeadToList(
   );
 }
 
-/** Emails are stored lowercased so the import upsert can match on them. */
-function normalizeEmail(raw: string | undefined): string | undefined {
+/** Emails are stored lowercased so the import/form upserts can match on them. */
+export function normalizeEmail(raw: string | undefined): string | undefined {
   const email = raw?.trim().toLowerCase();
   return email || undefined;
 }

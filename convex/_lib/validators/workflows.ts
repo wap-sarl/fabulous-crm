@@ -59,6 +59,7 @@ export const workflowTriggerValidator = v.union(
     threshold: v.number(),
     direction: v.union(v.literal('up'), v.literal('down')),
   }),
+  v.object({ type: v.literal('form_submitted'), formId: v.optional(v.id('forms')) }),
   v.object({ type: v.literal('deal_created'), pipelineId: v.optional(v.id('pipelines')) }),
   v.object({
     type: v.literal('deal_stage_changed'),

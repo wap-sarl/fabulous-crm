@@ -31,6 +31,10 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   rppsVerify: { kind: 'token bucket', rate: 30, period: HOUR },
   // Company registration lookups (public registries, e.g. INSEE), per employee.
   registryVerify: { kind: 'token bucket', rate: 60, period: HOUR },
+  // Public form definition fetches (GET /forms/*), per client IP.
+  formRender: { kind: 'token bucket', rate: 60, period: MINUTE },
+  // Public form submissions (POST /forms/<id>/submit), per client IP.
+  formSubmit: { kind: 'token bucket', rate: 10, period: MINUTE },
 });
 
 type LimitName =
@@ -39,7 +43,9 @@ type LimitName =
   | 'trackedLink'
   | 'otpEmail'
   | 'rppsVerify'
-  | 'registryVerify';
+  | 'registryVerify'
+  | 'formRender'
+  | 'formSubmit';
 
 /**
  * Consume one unit of `name` for `key`. Returns false — and logs the overrun —
