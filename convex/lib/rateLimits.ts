@@ -37,6 +37,10 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   apiWrite: { kind: 'token bucket', rate: 300, period: MINUTE },
   // Failed REST API auth attempts, per client IP — key brute-force guard.
   apiAuthFail: { kind: 'token bucket', rate: 10, period: MINUTE },
+  // Public form definition fetches (GET /forms/*), per client IP.
+  formRender: { kind: 'token bucket', rate: 60, period: MINUTE },
+  // Public form submissions (POST /forms/<id>/submit), per client IP.
+  formSubmit: { kind: 'token bucket', rate: 10, period: MINUTE },
 });
 
 type LimitName =
@@ -48,7 +52,9 @@ type LimitName =
   | 'registryVerify'
   | 'apiRequest'
   | 'apiWrite'
-  | 'apiAuthFail';
+  | 'apiAuthFail'
+  | 'formRender'
+  | 'formSubmit';
 
 /**
  * Consume one unit of `name` for `key`. Returns false — and logs the overrun —

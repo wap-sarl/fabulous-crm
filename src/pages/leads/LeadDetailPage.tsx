@@ -47,6 +47,7 @@ const CONSENT_SOURCE_LABEL: Record<string, string> = {
   public_link: 'Lien public',
   import: 'Import',
   sms_stop: 'Réponse STOP (SMS)',
+  form: 'Formulaire',
 };
 
 export function LeadDetailPage() {

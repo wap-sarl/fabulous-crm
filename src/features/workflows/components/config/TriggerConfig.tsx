@@ -62,6 +62,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
   const leadCatalog = useLeadFieldCatalog(definitions);
   const { pipelines, byId: pipelineById } = usePipelines();
   const campaigns = useAuthQuery(api.features.crm.queries.listCampaigns, {}) ?? [];
+  const forms = useAuthQuery(api.features.forms.queries.listFormOptions, {}) ?? [];
   const { trigger } = value;
 
   // The criteria editor always needs a filter object to edit; whether the
@@ -189,6 +190,30 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
             {trigger.direction === 'up' ? 'atteint ou dépasse' : 'passe en dessous de'} ce seuil
             (0–100).
           </HelperText>
+        </div>
+      )}
+
+      {trigger?.type === 'form_submitted' && (
+        <div className="space-y-1.5">
+          <Label>Formulaire concerné</Label>
+          <Select
+            value={(trigger.formId as string | undefined) ?? ANY}
+            onValueChange={(v) =>
+              setTrigger({ ...trigger, formId: v === ANY ? undefined : (v as never) })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANY}>Tous les formulaires</SelectItem>
+              {forms.map((f) => (
+                <SelectItem key={f._id} value={f._id}>
+                  {f.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 

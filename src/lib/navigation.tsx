@@ -1,5 +1,6 @@
 import {
   Building2,
+  ClipboardList,
   Gauge,
   Handshake,
   Hourglass,
@@ -64,6 +65,7 @@ export const NAV_ITEMS: ShellNavItem[] = [
   settings({ label: 'Propriétés', icon: <SlidersHorizontal />, path: '/settings/properties' }),
   settings({ label: 'Statuts', icon: <Milestone />, path: '/settings/lifecycle' }),
   settings({ label: 'Scoring', icon: <Gauge />, path: '/settings/scoring' }),
+  settings({ label: 'Formulaires', icon: <ClipboardList />, path: '/settings/forms' }),
   settings({ label: 'Clés d’API', icon: <KeyRound />, path: '/settings/api' }),
   settings({ label: 'Pipelines', icon: <KanbanSquare />, path: '/settings/pipelines' }),
   settings({ label: 'Fichiers', icon: <Paperclip />, path: '/settings/files' }),

@@ -39,6 +39,7 @@ import { LifecyclePage } from './pages/settings/LifecyclePage';
 import { ScoringPage } from './pages/settings/ScoringPage';
 import { ApiKeysPage } from './pages/settings/ApiKeysPage';
 import { IntegrationsPage } from './pages/settings/IntegrationsPage';
+import { FormsPage } from './pages/settings/FormsPage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
 import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
 import { DealsPage } from './pages/deals/DealsPage';
@@ -109,6 +110,7 @@ function AppRoutes() {
             <Route path="/settings/scoring" element={<ScoringPage />} />
             <Route path="/settings/api" element={<ApiKeysPage />} />
             <Route path="/settings/integrations" element={<IntegrationsPage />} />
+            <Route path="/settings/forms" element={<FormsPage />} />
             <Route path="/settings/pipelines" element={<PipelinesPage />} />
             <Route path="/settings/files" element={<FilesPage />} />
             <Route path="/settings/retention" element={<RetentionPage />} />

@@ -9,4 +9,5 @@ export const LIFECYCLE_SOURCE_LABEL: Record<LifecycleChangeSource, string> = {
   deal: 'Transaction gagnée',
   score: 'Score atteint',
   api: 'API',
+  form: 'Formulaire',
 };

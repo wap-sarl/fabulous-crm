@@ -81,6 +81,8 @@ export const lifecycleChangeSourceValidator = v.union(
   // The lead crossed the score-promotion threshold (lifecycle settings).
   v.literal('score'),
   v.literal('api'),
+  // The lead entered through a public capture form.
+  v.literal('form'),
 );
 
 /**

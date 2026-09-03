@@ -6,6 +6,7 @@ import type { StatusTone } from '@crm/design-system';
 import type { LucideIcon } from 'lucide-react';
 import {
   Ban,
+  ClipboardList,
   Eye,
   Handshake,
   Mail,
@@ -138,6 +139,13 @@ function present(event: TimelineEvent, lifecycleLabel: (key: string) => string):
         detail: joinDetails([event.linkLabel, event.url, event.reason]),
       };
     }
+    case 'form_submission':
+      return {
+        Icon: ClipboardList,
+        tone: 'green',
+        title: `Formulaire · ${event.formName}`,
+        detail: event.fieldLabels.join(', '),
+      };
     case 'workflow_run':
       return {
         Icon: Workflow,

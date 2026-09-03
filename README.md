@@ -361,6 +361,7 @@ d'environnement du conteneur — pas de rebuild par environnement.
 | `OAUTH_CALLBACK_TENANT` | avec `OAUTH_CALLBACK_BASE` | Identifiant de ce déploiement pour le répartiteur, placé dans l'état OAuth signé. |
 | `OAUTH_STATE_SECRET` | avec `OAUTH_CALLBACK_BASE` | Clé de signature de l'état OAuth des connecteurs, partagée avec le répartiteur. Absente : clé dérivée de `BETTER_AUTH_SECRET`. |
 | `API_KEY_HASH_SALT` | non | Sel du hachage SHA-256 des secrets de clés d'API (API REST publique `/api/v1/`, réglages → Clés d'API). Repli sur une valeur par défaut si absente — définir en prod **avant de créer la première clé** pour durcir les lignes `apiKeys` en cas de fuite de la base. Le sel entre dans chaque hachage : le changer invalide toutes les clés existantes (les secrets font 24 octets aléatoires, il ne se tourne donc jamais en routine). Générer avec `bunx convex env set API_KEY_HASH_SALT $(openssl rand -hex 16)`. |
+| `FORM_IP_HASH_SALT` | non | Sel du hachage SHA-256 des adresses IP stockées avec les soumissions de formulaires publics (`formSubmissions.ipHash`). Absent = sel constant intégré. Générer avec `bunx convex env set FORM_IP_HASH_SALT $(openssl rand -hex 16)`. |
 
 > La plupart des réglages ci-dessus (URL, expéditeur) et les identifiants des
 > fournisseurs sociaux (Google…) sont stockés dans la table Convex singleton
