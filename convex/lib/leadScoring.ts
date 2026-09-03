@@ -149,7 +149,8 @@ export async function applyLeadScore(
  */
 export async function syncLeadScore(ctx: MutationCtx, change: LeadChange): Promise<void> {
   if (change.operation === 'delete') return;
-  const lead = change.newDoc;
+  // Queued triggers hold snapshots: re-read so a stale one can't repeat the side effects.
+  const lead = await ctx.db.get(change.id);
   if (!lead || lead.deletedAt !== undefined) return;
   const rules = await loadScoringRules(ctx);
   // Fast path while scoring is unconfigured: no rules and nothing stored.

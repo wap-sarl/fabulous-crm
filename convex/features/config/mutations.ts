@@ -9,6 +9,7 @@ import {
 } from '../../_lib/validators/attachments';
 import { MAX_DYNAMIC_LISTS_CEILING } from '../../_lib/validators/leadLists';
 import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
+import { startScoreRecompute } from '../../lib/leadScoring';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
   LIFECYCLE_STAGE_KEY_RE,
@@ -310,6 +311,16 @@ export const updateLifecycleConfig = settingsMutation({
       updatedAt: Date.now(),
       updatedBy: ctx.userId,
     });
+
+    // A new promotion threshold must sweep existing leads, not wait for their next write.
+    const promotion = args.scorePromotion;
+    const before = previous.scorePromotion;
+    if (
+      promotion &&
+      (before?.stage !== promotion.stage || before?.minScore !== promotion.minScore)
+    ) {
+      await startScoreRecompute(ctx);
+    }
 
     await logAudit({
       ctx,

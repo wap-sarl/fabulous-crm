@@ -259,7 +259,8 @@ describe('lead scoring', () => {
         .withIndex('by_lead', (q) => q.eq('leadId', leadA))
         .collect(),
     );
-    expect(history.some((h) => h.source === 'score' && h.to === 'mql')).toBe(true);
+    // Exactly one: queued trigger re-runs on the same write must not repeat the promotion.
+    expect(history.filter((h) => h.source === 'score' && h.to === 'mql')).toHaveLength(1);
 
     // Already past the target stage: the score never demotes.
     const leadB = await as.mutation(api.features.crm.mutations.createLead, {
@@ -270,6 +271,37 @@ describe('lead scoring', () => {
     const docB = await leadDoc(t, leadB);
     expect(docB?.leadScore).toBe(60);
     expect(docB?.lifecycleStage).toBe('customer');
+  });
+
+  test('changing the promotion config sweeps already-scored leads', async () => {
+    const { t, as } = await setup();
+    await createRule(as, 'Sans propriétaire', noOwner(), 60);
+    await settleScoring(t);
+
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Rosa',
+      lastName: 'Retard',
+      lifecycleStage: 'lead',
+    });
+    // Scored 60, but no promotion is configured yet.
+    expect((await leadDoc(t, leadId))?.leadScore).toBe(60);
+    expect((await leadDoc(t, leadId))?.lifecycleStage).toBe('lead');
+
+    await as.mutation(api.features.config.mutations.updateLifecycleConfig, {
+      stages: [...DEFAULT_LIFECYCLE_STAGES],
+      defaultStage: 'lead',
+      allowRegression: false,
+      scorePromotion: { stage: 'mql', minScore: 50 },
+    });
+    await settleScoring(t);
+    expect((await leadDoc(t, leadId))?.lifecycleStage).toBe('mql');
+    const history = await t.run((ctx) =>
+      ctx.db
+        .query('lifecycleStageHistory')
+        .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+        .collect(),
+    );
+    expect(history.filter((h) => h.source === 'score')).toHaveLength(1);
   });
 
   test('acceptance: the open webhook re-scores the lead and the breakdown explains it', async () => {
