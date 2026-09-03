@@ -1,11 +1,13 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator } from './shared';
 import {
-  type AdvancedFilter,
+  criteriaUsesRelativeDates,
   isActiveRule,
   leadAdvancedFilterValidator,
   type LeadAdvancedFilter,
 } from './filters';
+
+export { criteriaUsesRelativeDates };
 
 /** Lists an org may run as dynamic ones, unless appConfig.lists raises/lowers it. */
 export const DEFAULT_MAX_DYNAMIC_LISTS = 20;
@@ -46,16 +48,4 @@ export function validateDynamicListCriteria(
   if (!rules.some(isActiveRule)) return 'dynamic_list_criteria_required';
   const hasListRule = rules.some((r) => r.field.kind === 'standard' && r.field.field === 'listIds');
   return hasListRule ? 'dynamic_list_criteria_list_rule' : null;
-}
-
-/** Membership can drift with time alone when the criteria use relative dates. */
-export function criteriaUsesRelativeDates(criteria: AdvancedFilter | undefined): boolean {
-  return (criteria?.groups ?? []).some((g) =>
-    g.rules.some(
-      (r) =>
-        r.operator === 'inLastDays' ||
-        r.operator === 'inNextDays' ||
-        r.operator === 'moreThanDaysAgo',
-    ),
-  );
 }

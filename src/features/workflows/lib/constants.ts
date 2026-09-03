@@ -45,6 +45,8 @@ export type TriggerOptionValue =
   | 'sms_reply'
   | 'sms_stop'
   | 'link_click'
+  | 'score_crossed_up'
+  | 'score_crossed_down'
   | 'deal_created'
   | 'deal_stage_changed'
   | 'deal_won'
@@ -96,6 +98,13 @@ export const TRIGGER_GROUPS: {
     options: [{ value: 'link_click', label: 'Clic sur un lien suivi' }],
   },
   {
+    label: 'Score',
+    options: [
+      { value: 'score_crossed_up', label: 'Score passé au-dessus d’un seuil' },
+      { value: 'score_crossed_down', label: 'Score passé en dessous d’un seuil' },
+    ],
+  },
+  {
     label: 'Transactions',
     options: [
       { value: 'deal_created', label: 'Transaction créée' },
@@ -125,6 +134,8 @@ export function triggerToOption(trigger: WorkflowTrigger): TriggerOptionValue {
       return SMS_EVENT_TO_OPTION[trigger.event];
     case 'tracked_link_click':
       return 'link_click';
+    case 'score_threshold_crossed':
+      return trigger.direction === 'up' ? 'score_crossed_up' : 'score_crossed_down';
     case 'deal_created':
     case 'deal_stage_changed':
     case 'deal_won':
@@ -186,6 +197,13 @@ export function optionToTrigger(
       };
     case 'link_click':
       return { type: 'tracked_link_click', campaignId: prevCampaignId };
+    case 'score_crossed_up':
+    case 'score_crossed_down':
+      return {
+        type: 'score_threshold_crossed',
+        threshold: prev?.type === 'score_threshold_crossed' ? prev.threshold : 50,
+        direction: value === 'score_crossed_up' ? 'up' : 'down',
+      };
     case 'deal_created':
     case 'deal_won':
     case 'deal_lost':
@@ -231,6 +249,7 @@ export const TRIGGER_TYPE_LABEL: Record<WorkflowTriggerType | 'manual' | 'bulk_r
     campaign_email_event: 'Événement e-mail',
     campaign_sms_event: 'Événement SMS',
     tracked_link_click: 'Clic sur un lien suivi',
+    score_threshold_crossed: 'Seuil de score franchi',
     deal_created: 'Transaction créée',
     deal_stage_changed: 'Transaction changée de stade',
     deal_won: 'Transaction gagnée',

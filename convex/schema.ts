@@ -11,6 +11,7 @@ import {
 } from './_lib/validators/crm';
 import { propertyDefinitionValidator } from './_lib/validators/properties';
 import { leadListValidator, leadListMemberValidator } from './_lib/validators/leadLists';
+import { scoringRuleValidator, scoringStateValidator } from './_lib/validators/scoring';
 import { appConfigValidator } from './_lib/validators/appConfig';
 import { invitationValidator } from './_lib/validators/invitations';
 import { lifecycleStageHistoryValidator } from './_lib/validators/lifecycle';
@@ -255,6 +256,7 @@ export default defineSchema({
     .index('by_company', ['companyId'])
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
+    .index('by_leadScore', ['leadScore'])
     .index('by_email', ['email'])
     // Duplicate detection candidates (lib/duplicates.ts): same phone / name block.
     .index('by_dedupe_phone', ['dedupe.phone'])
@@ -315,6 +317,10 @@ export default defineSchema({
   leadListMembers: defineTable(leadListMemberValidator)
     .index('by_list_lead', ['listId', 'leadId'])
     .index('by_lead', ['leadId']),
+
+  scoringRules: defineTable(scoringRuleValidator),
+
+  scoringState: defineTable(scoringStateValidator),
 
   campaigns: defineTable(campaignValidator).index('by_status', ['status']),
 

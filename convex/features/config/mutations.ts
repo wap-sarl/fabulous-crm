@@ -9,12 +9,14 @@ import {
 } from '../../_lib/validators/attachments';
 import { MAX_DYNAMIC_LISTS_CEILING } from '../../_lib/validators/leadLists';
 import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
+import { startScoreRecompute } from '../../lib/leadScoring';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
   LIFECYCLE_STAGE_KEY_RE,
   MAX_LIFECYCLE_STAGES,
   lifecycleStageValidator,
 } from '../../_lib/validators/lifecycle';
+import { MAX_LEAD_SCORE, MIN_LEAD_SCORE } from '../../_lib/validators/scoring';
 import type {
   SsoProvider,
   SocialProviderConfig,
@@ -265,6 +267,7 @@ export const updateLifecycleConfig = settingsMutation({
     stages: v.array(lifecycleStageValidator),
     defaultStage: v.string(),
     allowRegression: v.boolean(),
+    scorePromotion: v.optional(v.object({ stage: v.string(), minScore: v.number() })),
   },
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
@@ -290,11 +293,34 @@ export const updateLifecycleConfig = settingsMutation({
       }
     }
 
+    if (args.scorePromotion) {
+      const { stage, minScore } = args.scorePromotion;
+      if (!keys.has(stage)) throw new Error('lifecycle_invalid_promotion_stage');
+      if (!Number.isInteger(minScore) || minScore < MIN_LEAD_SCORE || minScore > MAX_LEAD_SCORE) {
+        throw new Error('lifecycle_invalid_promotion_score');
+      }
+    }
+
     await ctx.db.patch(cfg._id, {
-      lifecycle: { stages, defaultStage: args.defaultStage, allowRegression: args.allowRegression },
+      lifecycle: {
+        stages,
+        defaultStage: args.defaultStage,
+        allowRegression: args.allowRegression,
+        scorePromotion: args.scorePromotion,
+      },
       updatedAt: Date.now(),
       updatedBy: ctx.userId,
     });
+
+    // A new promotion threshold must sweep existing leads, not wait for their next write.
+    const promotion = args.scorePromotion;
+    const before = previous.scorePromotion;
+    if (
+      promotion &&
+      (before?.stage !== promotion.stage || before?.minScore !== promotion.minScore)
+    ) {
+      await startScoreRecompute(ctx);
+    }
 
     await logAudit({
       ctx,

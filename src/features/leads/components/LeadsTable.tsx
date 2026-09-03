@@ -18,6 +18,7 @@ import type { LeadSortField, SortDirection } from '../hooks/useLeadFilters';
 import type { LeadRow } from '../types';
 import type { PropertyDefinitionRow } from '../../properties/types';
 import { formatPropertyValue } from '../../properties/lib/customProperties';
+import { LeadScoreBadge } from './LeadScoreBadge';
 
 interface LeadsTableProps {
   leads: LeadRow[];
@@ -99,7 +100,7 @@ export function LeadsTable({
 }: LeadsTableProps) {
   const allSelected = leads.length > 0 && leads.every((l) => selectedIds.has(l._id));
   const visibleCols = definitions.filter((d) => d.showInTable);
-  const colCount = 8 + visibleCols.length;
+  const colCount = 9 + visibleCols.length;
 
   return (
     <div className="rounded-xl border bg-card shadow-card">
@@ -127,6 +128,15 @@ export function LeadsTable({
               <SortHeader
                 label="Statut"
                 field="lifecycleStage"
+                sortField={sortField}
+                sortDirection={sortDirection}
+                onSort={onSort}
+              />
+            </TableHead>
+            <TableHead>
+              <SortHeader
+                label="Score"
+                field="leadScore"
                 sortField={sortField}
                 sortDirection={sortDirection}
                 onSort={onSort}
@@ -209,6 +219,9 @@ export function LeadsTable({
                   </TableCell>
                   <TableCell>
                     <StatusBadge tone="violet">{lifecycleLabel(lead.lifecycleStage)}</StatusBadge>
+                  </TableCell>
+                  <TableCell>
+                    <LeadScoreBadge score={lead.leadScore} />
                   </TableCell>
                   <TableCell className="text-[13px] text-soft">
                     {lead.ownerIds.map((id) => employeeName.get(id) ?? '—').join(', ') || '—'}

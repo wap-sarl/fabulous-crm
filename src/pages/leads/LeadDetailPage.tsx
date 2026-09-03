@@ -23,6 +23,8 @@ import { LeadNotes } from '../../features/leads/components/LeadNotes';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { LeadLifecycleCard } from '../../features/leads/components/LeadLifecycleCard';
+import { LeadScoreBadge } from '../../features/leads/components/LeadScoreBadge';
+import { LeadScoreCard } from '../../features/leads/components/LeadScoreCard';
 import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { LogCallDialog } from '../../features/activities/components/ActivityDialogs';
@@ -97,6 +99,7 @@ export function LeadDetailPage() {
               <Milestone className="size-3" aria-hidden />
               {lifecycle.labelOf(lead.lifecycleStage)}
             </StatusBadge>
+            {lead.leadScore !== undefined && <LeadScoreBadge score={lead.leadScore} />}
           </span>
         }
         subtitle={[lead.email, lead.phone].filter(Boolean).join(' · ') || 'Aucune coordonnée'}
@@ -174,6 +177,8 @@ export function LeadDetailPage() {
         {/* Aside column */}
         <div className="flex flex-col gap-5">
           <LeadLifecycleCard leadId={lead._id} currentStage={lead.lifecycleStage} />
+
+          <LeadScoreCard score={lead.leadScore} breakdown={lead.scoreBreakdown} />
 
           <EntityActivitiesCard leadId={lead._id} />
 

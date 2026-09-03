@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import type { LeadAdvancedFilter, Id } from '@crm/lib/backend';
 import { parseAdvancedFilter, serializeAdvancedFilter } from '../../filters/lib/advancedFilter';
 
-export type LeadSortField = 'recent' | 'lastName' | 'lifecycleStage';
+export type LeadSortField = 'recent' | 'lastName' | 'lifecycleStage' | 'leadScore';
 export type SortDirection = 'asc' | 'desc';
 
 export interface LeadFilters {
@@ -34,7 +34,7 @@ export interface LeadFilters {
 export const CP_SELECT_PREFIX = 'cps_';
 export const CP_BOOLEAN_PREFIX = 'cpb_';
 
-const VALID_SORT: LeadSortField[] = ['recent', 'lastName', 'lifecycleStage'];
+const VALID_SORT: LeadSortField[] = ['recent', 'lastName', 'lifecycleStage', 'leadScore'];
 
 function csv(value: string | null): string[] {
   return value ? value.split(',').filter(Boolean) : [];
