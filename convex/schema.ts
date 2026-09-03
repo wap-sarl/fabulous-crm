@@ -22,6 +22,7 @@ import {
   pipelineValidator,
 } from './_lib/validators/deals';
 import { activityValidator } from './_lib/validators/activities';
+import { apiKeyValidator } from './_lib/validators/apiKeys';
 import { attachmentValidator } from './_lib/validators/attachments';
 import { teamValidator } from './_lib/validators/teams';
 import { roleValidator } from './_lib/validators/roles';
@@ -177,6 +178,9 @@ export {
 export type { LeadList, LeadListMember } from './_lib/validators/leadLists';
 export { leadListValidator, leadListMemberValidator } from './_lib/validators/leadLists';
 
+export type { ApiKey, ApiScope } from './_lib/validators/apiKeys';
+export { apiKeyValidator, apiScopeValidator, API_SCOPES } from './_lib/validators/apiKeys';
+
 export type {
   WorkflowEmailEvent,
   WorkflowSmsEvent,
@@ -319,6 +323,8 @@ export default defineSchema({
     .index('by_lead', ['leadId']),
 
   scoringRules: defineTable(scoringRuleValidator),
+
+  apiKeys: defineTable(apiKeyValidator).index('by_keyId', ['keyId']),
 
   scoringState: defineTable(scoringStateValidator),
 

@@ -17,6 +17,7 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('leadNote'),
   v.literal('leadList'),
   v.literal('scoringRule'),
+  v.literal('apiKey'),
   v.literal('workflow'),
   v.literal('workflowRun'),
 );

@@ -34,6 +34,7 @@ import { RequireModule } from './features/access/components/RequireModule';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
 import { LifecyclePage } from './pages/settings/LifecyclePage';
 import { ScoringPage } from './pages/settings/ScoringPage';
+import { ApiKeysPage } from './pages/settings/ApiKeysPage';
 import { CompaniesPage } from './pages/companies/CompaniesPage';
 import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
 import { DealsPage } from './pages/deals/DealsPage';
@@ -99,6 +100,7 @@ function AppRoutes() {
             <Route path="/settings/lists" element={<LeadListsPage />} />
             <Route path="/settings/lifecycle" element={<LifecyclePage />} />
             <Route path="/settings/scoring" element={<ScoringPage />} />
+            <Route path="/settings/api" element={<ApiKeysPage />} />
             <Route path="/settings/pipelines" element={<PipelinesPage />} />
             <Route path="/settings/files" element={<FilesPage />} />
             <Route path="/settings/roles" element={<RolesPage />} />

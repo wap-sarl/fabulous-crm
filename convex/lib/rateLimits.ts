@@ -31,6 +31,10 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   rppsVerify: { kind: 'token bucket', rate: 30, period: HOUR },
   // Company registration lookups (public registries, e.g. INSEE), per employee.
   registryVerify: { kind: 'token bucket', rate: 60, period: HOUR },
+  // Authenticated REST API traffic (/api/v1/), per API key.
+  apiRequest: { kind: 'token bucket', rate: 120, period: MINUTE },
+  // Failed REST API auth attempts, per client IP — key brute-force guard.
+  apiAuthFail: { kind: 'token bucket', rate: 10, period: MINUTE },
 });
 
 type LimitName =
@@ -39,7 +43,9 @@ type LimitName =
   | 'trackedLink'
   | 'otpEmail'
   | 'rppsVerify'
-  | 'registryVerify';
+  | 'registryVerify'
+  | 'apiRequest'
+  | 'apiAuthFail';
 
 /**
  * Consume one unit of `name` for `key`. Returns false — and logs the overrun —
@@ -51,11 +57,21 @@ export async function enforceRateLimit(
   name: LimitName,
   key?: string,
 ): Promise<boolean> {
+  return (await consumeRateLimit(ctx, name, key)).ok;
+}
+
+/** Like enforceRateLimit, but hands back retryAfter for a Retry-After header. */
+export async function consumeRateLimit(
+  ctx: Parameters<(typeof rateLimiter)['limit']>[0],
+  name: LimitName,
+  key?: string,
+): Promise<{ ok: boolean; retryAfterMs: number }> {
   const { ok, retryAfter } = await rateLimiter.limit(ctx, name, key ? { key } : {});
+  const retryAfterMs = ok ? 0 : Math.ceil(retryAfter);
   if (!ok) {
-    console.warn('rate_limit_exceeded', { limit: name, key, retryAfterMs: Math.ceil(retryAfter) });
+    console.warn('rate_limit_exceeded', { limit: name, key, retryAfterMs });
   }
-  return ok;
+  return { ok, retryAfterMs };
 }
 
 /**
