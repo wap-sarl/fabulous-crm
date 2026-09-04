@@ -175,6 +175,7 @@ src/
   features/ pages/   Code applicatif CRM
   lib/               backend.ts (ré-exports Convex), shared.ts, types.ts
 docker/              Caddyfile + entrypoint de l'image de production
+docs/                openapi.yaml — contrat de l'API publique (source de `bun run openapi`)
 ```
 
 Alias d'import : `@crm/*` → `./src/*` (déclaré dans `tsconfig.json` et
@@ -215,6 +216,7 @@ bun run dev
 | `bun run build` | `tsc --noEmit` + `vite build` → `dist/` |
 | `bun run typecheck` | tsconfig app + tsconfig convex |
 | `bun run codegen` | régénère `convex/_generated` (commité) |
+| `bun run openapi` | régénère `convex/lib/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
 
@@ -464,6 +466,21 @@ Chaque écriture par l'API produit une ligne `auditLogs` portant `apiKeyId` (et
 pas d'`userId`) ; le fil d'activité des fiches l'affiche comme
 `API · <nom de la clé>`. Les lectures ne sont pas journalisées : `lastUsedAt`
 de la clé (rafraîchi au plus toutes les 5 min) et les logs Convex suffisent.
+
+### Documentation OpenAPI
+
+Le contrat est décrit dans `docs/openapi.yaml` (OpenAPI 3.1, relu comme du
+code) et servi sans clé par le déploiement :
+
+- `GET /api/v1/openapi.json` — le document, avec `servers` pointant sur le
+  déploiement qui le sert ;
+- `GET /api/v1/docs` — explorateur Swagger UI ; le bouton *Authorize* prend
+  votre clé pour essayer les appels.
+
+Après une modification du YAML, `bun run openapi` régénère le module servi
+(`convex/lib/openapi.generated.ts`, commité) ; `tests/backend/openapi.test.ts`
+vérifie que le module est à jour, que le document est un OpenAPI valide et
+qu'il décrit exactement les routes du routeur avec leurs portées.
 
 ## Production
 
