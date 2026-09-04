@@ -1,0 +1,2366 @@
+// Generated from docs/openapi.yaml by `bun run openapi` — edit the YAML, not this file.
+export const openapiDocument: Record<string, unknown> = {
+  openapi: '3.1.0',
+  info: {
+    title: 'WAP CRM public API',
+    version: '1.0',
+    summary:
+      'Server-to-server access to contacts, companies, deals, activities, lists and properties.',
+    description:
+      "Every request carries an API key created in *Paramètres → Clés d'API*:\n\n    Authorization: Bearer wap_<keyId>_<secret>\n\nA key sees and writes every record of the organisation (scopes limit resources, not\nperimeter; the roles matrix does not apply). A write scope implies the read scope of\nthe same resource. No CORS headers are sent: keys must never live in a browser.\n\nCollections paginate with `limit` (default 50, max 100) and `cursor`; a page may be\nshorter than `limit` (soft-deleted rows are filtered out), so iterate until\n`nextCursor` is `null`. Deletes are soft. Consent fields and computed values are\nread-only. `POST` requests may carry an `Idempotency-Key` header: for 24 hours the\nsame key with the same body replays the stored response (`Idempotent-Replayed: true`),\nthe same key with a different body is refused with 422.\n\nRate limits per key: 600 requests and 300 writes per minute; per IP: 10 failed\nauthentications per minute. Overruns answer 429 with `Retry-After` in seconds.\n",
+  },
+  servers: [
+    {
+      url: 'https://<deployment>.convex.site/api/v1',
+      description:
+        'The Convex deployment of the organisation (replaced by the actual origin when served).',
+    },
+  ],
+  security: [
+    {
+      bearerAuth: [],
+    },
+  ],
+  tags: [
+    {
+      name: 'Meta',
+    },
+    {
+      name: 'Contacts',
+      description: 'Leads. Email is the matching key of `POST /contacts/upsert`.',
+    },
+    {
+      name: 'Companies',
+    },
+    {
+      name: 'Deals',
+      description: "Stage moves go through the pipeline's transition graph.",
+    },
+    {
+      name: 'Activities',
+    },
+    {
+      name: 'Lists',
+    },
+    {
+      name: 'Properties',
+      description: 'Custom property definitions; their ids key `customProperties`.',
+    },
+  ],
+  paths: {
+    '/me': {
+      get: {
+        tags: ['Meta'],
+        operationId: 'getMe',
+        summary: 'Describe the calling key',
+        description: 'Name, scopes and expiry of the key — the "is my key OK" probe.',
+        responses: {
+          '200': {
+            description: 'The key.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Me',
+                },
+              },
+            },
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/contacts': {
+      get: {
+        tags: ['Contacts'],
+        operationId: 'listContacts',
+        summary: 'List contacts',
+        'x-scopes': ['contacts:read'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/limit',
+          },
+          {
+            $ref: '#/components/parameters/cursor',
+          },
+          {
+            name: 'email',
+            in: 'query',
+            description: 'Exact match on the normalized (lowercased) email.',
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'A page of contacts, newest first.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ContactPage',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      post: {
+        tags: ['Contacts'],
+        operationId: 'createContact',
+        summary: 'Create a contact',
+        description:
+          'Strict create: a live contact with the same email answers `409 duplicate_email` with\nthe existing id in `details.existingId`. Use `POST /contacts/upsert` to merge instead.\n',
+        'x-scopes': ['contacts:write'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/idempotencyKey',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ContactCreate',
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'The created contact.',
+            headers: {
+              'Idempotent-Replayed': {
+                $ref: '#/components/headers/Idempotent-Replayed',
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Contact',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '409': {
+            $ref: '#/components/responses/Conflict',
+          },
+          '422': {
+            $ref: '#/components/responses/UnprocessableEntity',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/contacts/upsert': {
+      post: {
+        tags: ['Contacts'],
+        operationId: 'upsertContact',
+        summary: 'Create or merge a contact by email',
+        description:
+          '`email` is required. A live contact with that email is merged with the CSV-import\nrules: only the provided fields overwrite, `customProperties` merge key by key, a\nsoft-deleted match is revived, and `lifecycleStage` is ignored on an existing\ncontact. When several contacts share the email, the oldest live one wins.\nWithout a match the contact is created like `POST /contacts`.\n',
+        'x-scopes': ['contacts:write'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/idempotencyKey',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ContactCreate',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'An existing contact was merged.',
+            headers: {
+              'Idempotent-Replayed': {
+                $ref: '#/components/headers/Idempotent-Replayed',
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ContactUpsertResult',
+                },
+              },
+            },
+          },
+          '201': {
+            description: 'A contact was created.',
+            headers: {
+              'Idempotent-Replayed': {
+                $ref: '#/components/headers/Idempotent-Replayed',
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ContactUpsertResult',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '422': {
+            $ref: '#/components/responses/UnprocessableEntity',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/contacts/{id}': {
+      parameters: [
+        {
+          $ref: '#/components/parameters/id',
+        },
+      ],
+      get: {
+        tags: ['Contacts'],
+        operationId: 'getContact',
+        summary: 'Get a contact',
+        'x-scopes': ['contacts:read'],
+        responses: {
+          '200': {
+            description: 'The contact.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Contact',
+                },
+              },
+            },
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      patch: {
+        tags: ['Contacts'],
+        operationId: 'updateContact',
+        summary: 'Update a contact',
+        description:
+          'Partial: only the provided fields change, `null` clears an optional field.\n`customProperties` merges key by key (`null` removes a key). Changing the email to\none another live contact holds answers `409 duplicate_email`; a blocked lifecycle\nregression answers `409 lifecycle_regression_blocked`.\n',
+        'x-scopes': ['contacts:write'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ContactPatch',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'The updated contact.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Contact',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '409': {
+            $ref: '#/components/responses/Conflict',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      delete: {
+        tags: ['Contacts'],
+        operationId: 'deleteContact',
+        summary: 'Delete a contact (soft)',
+        'x-scopes': ['contacts:write'],
+        responses: {
+          '204': {
+            description: 'Deleted.',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/companies': {
+      get: {
+        tags: ['Companies'],
+        operationId: 'listCompanies',
+        summary: 'List companies',
+        'x-scopes': ['companies:read'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/limit',
+          },
+          {
+            $ref: '#/components/parameters/cursor',
+          },
+          {
+            name: 'domain',
+            in: 'query',
+            description: 'Exact match on the normalized domain (lowercase, no protocol or www).',
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'A page of companies, newest first.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/CompanyPage',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      post: {
+        tags: ['Companies'],
+        operationId: 'createCompany',
+        summary: 'Create a company',
+        description:
+          "Registration number, VAT number and domain are normalized by the company's country\nand must be unique among live companies (`409 company_registration_exists`,\n`company_vat_exists`, `company_domain_exists`).\n",
+        'x-scopes': ['companies:write'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/idempotencyKey',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/CompanyCreate',
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'The created company.',
+            headers: {
+              'Idempotent-Replayed': {
+                $ref: '#/components/headers/Idempotent-Replayed',
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Company',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '409': {
+            $ref: '#/components/responses/Conflict',
+          },
+          '422': {
+            $ref: '#/components/responses/UnprocessableEntity',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/companies/{id}': {
+      parameters: [
+        {
+          $ref: '#/components/parameters/id',
+        },
+      ],
+      get: {
+        tags: ['Companies'],
+        operationId: 'getCompany',
+        summary: 'Get a company',
+        'x-scopes': ['companies:read'],
+        responses: {
+          '200': {
+            description: 'The company.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Company',
+                },
+              },
+            },
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      patch: {
+        tags: ['Companies'],
+        operationId: 'updateCompany',
+        summary: 'Update a company',
+        description:
+          'Partial; `null` clears an optional field; `customProperties` merges key by key.',
+        'x-scopes': ['companies:write'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/CompanyPatch',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'The updated company.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Company',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '409': {
+            $ref: '#/components/responses/Conflict',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      delete: {
+        tags: ['Companies'],
+        operationId: 'deleteCompany',
+        summary: 'Delete a company (soft)',
+        description: 'Its contacts stay and are detached from the company in the background.',
+        'x-scopes': ['companies:write'],
+        responses: {
+          '204': {
+            description: 'Deleted.',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/deals': {
+      get: {
+        tags: ['Deals'],
+        operationId: 'listDeals',
+        summary: 'List deals',
+        'x-scopes': ['deals:read'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/limit',
+          },
+          {
+            $ref: '#/components/parameters/cursor',
+          },
+          {
+            name: 'leadId',
+            in: 'query',
+            description: 'Only the deals of this contact.',
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'A page of deals, newest first.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/DealPage',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      post: {
+        tags: ['Deals'],
+        operationId: 'createDeal',
+        summary: 'Create a deal',
+        description:
+          'Without `pipelineId` the default pipeline is used; without `stageKey` its first open\nstage. A stage with required tags needs `stageTags` (`409 stage_tag_required`).\n',
+        'x-scopes': ['deals:write'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/idempotencyKey',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/DealCreate',
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'The created deal.',
+            headers: {
+              'Idempotent-Replayed': {
+                $ref: '#/components/headers/Idempotent-Replayed',
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Deal',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '409': {
+            $ref: '#/components/responses/Conflict',
+          },
+          '422': {
+            $ref: '#/components/responses/UnprocessableEntity',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/deals/{id}': {
+      parameters: [
+        {
+          $ref: '#/components/parameters/id',
+        },
+      ],
+      get: {
+        tags: ['Deals'],
+        operationId: 'getDeal',
+        summary: 'Get a deal',
+        'x-scopes': ['deals:read'],
+        responses: {
+          '200': {
+            description: 'The deal.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Deal',
+                },
+              },
+            },
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      patch: {
+        tags: ['Deals'],
+        operationId: 'updateDeal',
+        summary: 'Update a deal, optionally moving its stage',
+        description:
+          "Field edits apply first, then the stage move when `stageKey` is given: the move\nmust be an arrow of the pipeline's transition graph (`409\ndeal_transition_forbidden`), `400 unknown_stage` otherwise. `status`, `closedAt`\nand `pipelineId` are read-only; a won stage promotes the linked contact to\ncustomer as in the UI.\n",
+        'x-scopes': ['deals:write'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/DealPatch',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'The updated deal.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Deal',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '409': {
+            $ref: '#/components/responses/Conflict',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      delete: {
+        tags: ['Deals'],
+        operationId: 'deleteDeal',
+        summary: 'Delete a deal (soft)',
+        'x-scopes': ['deals:write'],
+        responses: {
+          '204': {
+            description: 'Deleted.',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/activities': {
+      get: {
+        tags: ['Activities'],
+        operationId: 'listActivities',
+        summary: 'List activities',
+        'x-scopes': ['activities:read'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/limit',
+          },
+          {
+            $ref: '#/components/parameters/cursor',
+          },
+          {
+            name: 'leadId',
+            in: 'query',
+            description: 'Only the activities of this contact.',
+            schema: {
+              type: 'string',
+            },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'A page of activities, newest first.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ActivityPage',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      post: {
+        tags: ['Activities'],
+        operationId: 'createActivity',
+        summary: 'Create an activity',
+        description: 'A `done` activity (a logged call, a note) gets `completedAt` stamped now.',
+        'x-scopes': ['activities:write'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/idempotencyKey',
+          },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ActivityCreate',
+              },
+            },
+          },
+        },
+        responses: {
+          '201': {
+            description: 'The created activity.',
+            headers: {
+              'Idempotent-Replayed': {
+                $ref: '#/components/headers/Idempotent-Replayed',
+              },
+            },
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Activity',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '422': {
+            $ref: '#/components/responses/UnprocessableEntity',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/activities/{id}': {
+      parameters: [
+        {
+          $ref: '#/components/parameters/id',
+        },
+      ],
+      get: {
+        tags: ['Activities'],
+        operationId: 'getActivity',
+        summary: 'Get an activity',
+        'x-scopes': ['activities:read'],
+        responses: {
+          '200': {
+            description: 'The activity.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Activity',
+                },
+              },
+            },
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      patch: {
+        tags: ['Activities'],
+        operationId: 'updateActivity',
+        summary: 'Update an activity',
+        description:
+          'Partial; `null` clears an optional field. `status: done` stamps `completedAt`,\n`status: open` clears it, `cancelled` leaves it.\n',
+        'x-scopes': ['activities:write'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                $ref: '#/components/schemas/ActivityPatch',
+              },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'The updated activity.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/Activity',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+      delete: {
+        tags: ['Activities'],
+        operationId: 'deleteActivity',
+        summary: 'Delete an activity (soft)',
+        'x-scopes': ['activities:write'],
+        responses: {
+          '204': {
+            description: 'Deleted.',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/lists': {
+      get: {
+        tags: ['Lists'],
+        operationId: 'listLists',
+        summary: 'List the contact lists',
+        'x-scopes': ['lists:read'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/limit',
+          },
+          {
+            $ref: '#/components/parameters/cursor',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'A page of lists.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ListPage',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/lists/{id}/members': {
+      parameters: [
+        {
+          $ref: '#/components/parameters/id',
+        },
+      ],
+      get: {
+        tags: ['Lists'],
+        operationId: 'listListMembers',
+        summary: 'List the members of a list',
+        description:
+          'Members are full contacts, hence the `contacts:read` scope on top of `lists:read`.',
+        'x-scopes': ['lists:read', 'contacts:read'],
+        parameters: [
+          {
+            $ref: '#/components/parameters/limit',
+          },
+          {
+            $ref: '#/components/parameters/cursor',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'A page of contacts.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/ContactPage',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '404': {
+            $ref: '#/components/responses/NotFound',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+    '/properties': {
+      get: {
+        tags: ['Properties'],
+        operationId: 'listProperties',
+        summary: 'List the custom property definitions of an entity type',
+        'x-scopes': ['properties:read'],
+        parameters: [
+          {
+            name: 'entityType',
+            in: 'query',
+            required: true,
+            schema: {
+              $ref: '#/components/schemas/PropertyEntityType',
+            },
+          },
+          {
+            $ref: '#/components/parameters/limit',
+          },
+          {
+            $ref: '#/components/parameters/cursor',
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'A page of definitions.',
+            content: {
+              'application/json': {
+                schema: {
+                  $ref: '#/components/schemas/PropertyDefinitionPage',
+                },
+              },
+            },
+          },
+          '400': {
+            $ref: '#/components/responses/BadRequest',
+          },
+          '401': {
+            $ref: '#/components/responses/Unauthorized',
+          },
+          '403': {
+            $ref: '#/components/responses/Forbidden',
+          },
+          '429': {
+            $ref: '#/components/responses/RateLimited',
+          },
+        },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      bearerAuth: {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'wap_<keyId>_<secret>',
+      },
+    },
+    parameters: {
+      id: {
+        name: 'id',
+        in: 'path',
+        required: true,
+        description: 'The record id (`id` of the DTO).',
+        schema: {
+          type: 'string',
+        },
+      },
+      limit: {
+        name: 'limit',
+        in: 'query',
+        description: 'Page size, 1 to 100.',
+        schema: {
+          type: 'integer',
+          minimum: 1,
+          maximum: 100,
+          default: 50,
+        },
+      },
+      cursor: {
+        name: 'cursor',
+        in: 'query',
+        description: 'The `nextCursor` of the previous page.',
+        schema: {
+          type: 'string',
+        },
+      },
+      idempotencyKey: {
+        name: 'Idempotency-Key',
+        in: 'header',
+        description:
+          'Unique per API key, 1 to 255 characters. For 24 hours a retry with the same key\nand body replays the stored response instead of writing again.\n',
+        schema: {
+          type: 'string',
+          minLength: 1,
+          maxLength: 255,
+        },
+      },
+    },
+    headers: {
+      'Idempotent-Replayed': {
+        description:
+          'Present (`true`) when the response was replayed from an earlier request with the same `Idempotency-Key`.',
+        schema: {
+          type: 'string',
+          enum: ['true'],
+        },
+      },
+      'Retry-After': {
+        description: 'Seconds to wait before retrying.',
+        schema: {
+          type: 'integer',
+        },
+      },
+    },
+    responses: {
+      BadRequest: {
+        description:
+          'Invalid request. `code` is `invalid_json`, `invalid_body`, `invalid_fields` (with\n`details.path`), `read_only_field`, `unknown_property`, `invalid_limit`,\n`invalid_cursor`, `invalid_idempotency_key`, or a backend validation code such as\n`invalid_owner`, `invalid_address`, `unknown_lifecycle_stage`, `unknown_stage`,\n`invalid_deal`, `email_required`.\n',
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+      Unauthorized: {
+        description: 'Missing, malformed, unknown, revoked or expired key — always the same body.',
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+      Forbidden: {
+        description: 'The key lacks a required scope (`missing_scope`).',
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+      NotFound: {
+        description: 'Unknown route, malformed id, or no live record with this id (`not_found`).',
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+      Conflict: {
+        description:
+          'State conflict: `duplicate_email` (with `details.existingId`),\n`company_registration_exists`, `company_vat_exists`, `company_domain_exists`,\n`lifecycle_regression_blocked`, `deal_transition_forbidden`, `stage_tag_required`,\n`idempotency_in_progress`.\n',
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+      UnprocessableEntity: {
+        description:
+          'The `Idempotency-Key` was already used with a different request (`idempotency_key_reused`).',
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+      RateLimited: {
+        description: 'A per-key or per-IP budget is exhausted (`rate_limited`).',
+        headers: {
+          'Retry-After': {
+            $ref: '#/components/headers/Retry-After',
+          },
+        },
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+    },
+    schemas: {
+      Error: {
+        type: 'object',
+        required: ['error'],
+        properties: {
+          error: {
+            type: 'object',
+            required: ['code', 'message'],
+            properties: {
+              code: {
+                type: 'string',
+                description: 'Stable machine code.',
+              },
+              message: {
+                type: 'string',
+              },
+              details: {
+                description: 'Code-specific data (`path`, `existingId`, `reason`…).',
+              },
+            },
+          },
+        },
+      },
+      Me: {
+        type: 'object',
+        required: ['name', 'keyId', 'scopes', 'expiresAt'],
+        properties: {
+          name: {
+            type: 'string',
+          },
+          keyId: {
+            type: 'string',
+            description: 'The public identifier of the key (8 hex characters).',
+          },
+          scopes: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/Scope',
+            },
+          },
+          expiresAt: {
+            type: ['number', 'null'],
+            description: 'Unix milliseconds, or null when the key never expires.',
+          },
+        },
+      },
+      Scope: {
+        type: 'string',
+        enum: [
+          'contacts:read',
+          'contacts:write',
+          'companies:read',
+          'companies:write',
+          'deals:read',
+          'deals:write',
+          'activities:read',
+          'activities:write',
+          'lists:read',
+          'forms:read',
+          'properties:read',
+        ],
+      },
+      Timestamp: {
+        type: 'number',
+        description: 'Unix milliseconds.',
+      },
+      Address: {
+        type: 'object',
+        description: "Country-driven postal address; validated against the country's format.",
+        required: ['country', 'streetNumber', 'street', 'postalCode', 'city'],
+        properties: {
+          country: {
+            type: 'string',
+            description: 'ISO 3166-1 alpha-2, uppercase.',
+          },
+          streetNumber: {
+            type: 'string',
+          },
+          street: {
+            type: 'string',
+          },
+          line2: {
+            type: 'string',
+          },
+          postalCode: {
+            type: 'string',
+          },
+          city: {
+            type: 'string',
+          },
+          region: {
+            type: 'string',
+          },
+          placeId: {
+            type: 'string',
+          },
+          coordinates: {
+            type: 'object',
+            required: ['lat', 'lng'],
+            properties: {
+              lat: {
+                type: 'number',
+              },
+              lng: {
+                type: 'number',
+              },
+            },
+          },
+        },
+      },
+      PropertyValue: {
+        description: "A custom property value; the shape depends on the definition's type.",
+        oneOf: [
+          {
+            type: 'string',
+          },
+          {
+            type: 'number',
+          },
+          {
+            type: 'boolean',
+          },
+          {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+          },
+        ],
+      },
+      CustomProperties: {
+        type: 'object',
+        description: 'Values keyed by property definition id (see `GET /properties`).',
+        additionalProperties: {
+          $ref: '#/components/schemas/PropertyValue',
+        },
+      },
+      CustomPropertiesPatch: {
+        type: 'object',
+        description: 'Merged key by key into the stored values; `null` removes a key.',
+        additionalProperties: {
+          oneOf: [
+            {
+              $ref: '#/components/schemas/PropertyValue',
+            },
+            {
+              type: 'null',
+            },
+          ],
+        },
+      },
+      IdList: {
+        type: 'array',
+        items: {
+          type: 'string',
+        },
+      },
+      ConsentChannel: {
+        type: 'string',
+        enum: ['email', 'sms', 'telephone_canvassing', 'postal'],
+      },
+      ConsentSource: {
+        type: 'string',
+        enum: ['crm', 'public_link', 'import', 'sms_stop'],
+      },
+      Contact: {
+        type: 'object',
+        required: [
+          'id',
+          'createdAt',
+          'updatedAt',
+          'firstName',
+          'lastName',
+          'email',
+          'phone',
+          'address',
+          'comment',
+          'companyId',
+          'ownerIds',
+          'isRedFlagged',
+          'lifecycleStage',
+          'leadScore',
+          'marketingConsent',
+          'consentSource',
+          'consentUpdatedAt',
+          'lastActivityAt',
+          'emailOpenCount',
+          'emailClickCount',
+          'formSubmissionCount',
+          'customProperties',
+        ],
+        properties: {
+          id: {
+            type: 'string',
+          },
+          createdAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          updatedAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          firstName: {
+            type: 'string',
+          },
+          lastName: {
+            type: 'string',
+          },
+          email: {
+            type: ['string', 'null'],
+            description: 'Normalized (lowercased).',
+          },
+          phone: {
+            type: ['string', 'null'],
+          },
+          address: {
+            oneOf: [
+              {
+                $ref: '#/components/schemas/Address',
+              },
+              {
+                type: 'null',
+              },
+            ],
+          },
+          comment: {
+            type: ['string', 'null'],
+          },
+          companyId: {
+            type: ['string', 'null'],
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          isRedFlagged: {
+            type: 'boolean',
+          },
+          lifecycleStage: {
+            type: ['string', 'null'],
+            description: 'A stage key of the lifecycle settings.',
+          },
+          leadScore: {
+            type: ['number', 'null'],
+            readOnly: true,
+          },
+          marketingConsent: {
+            type: 'array',
+            readOnly: true,
+            items: {
+              $ref: '#/components/schemas/ConsentChannel',
+            },
+          },
+          consentSource: {
+            readOnly: true,
+            oneOf: [
+              {
+                $ref: '#/components/schemas/ConsentSource',
+              },
+              {
+                type: 'null',
+              },
+            ],
+          },
+          consentUpdatedAt: {
+            type: ['number', 'null'],
+            readOnly: true,
+          },
+          lastActivityAt: {
+            type: ['number', 'null'],
+            readOnly: true,
+          },
+          emailOpenCount: {
+            type: 'integer',
+            readOnly: true,
+          },
+          emailClickCount: {
+            type: 'integer',
+            readOnly: true,
+          },
+          formSubmissionCount: {
+            type: 'integer',
+            readOnly: true,
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      CompanyHint: {
+        type: 'object',
+        description:
+          "Matches an existing company by registration number, VAT number or domain (else the\nemail's domain); creates one when nothing matches and `name` is given.\n",
+        properties: {
+          name: {
+            type: 'string',
+          },
+          country: {
+            type: 'string',
+          },
+          registrationNumber: {
+            type: 'string',
+          },
+          vatNumber: {
+            type: 'string',
+          },
+          domain: {
+            type: 'string',
+          },
+        },
+      },
+      ContactCreate: {
+        type: 'object',
+        properties: {
+          firstName: {
+            type: 'string',
+          },
+          lastName: {
+            type: 'string',
+          },
+          email: {
+            type: 'string',
+            description: 'Required by `POST /contacts/upsert`.',
+          },
+          phone: {
+            type: 'string',
+          },
+          address: {
+            $ref: '#/components/schemas/Address',
+          },
+          comment: {
+            type: 'string',
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          isRedFlagged: {
+            type: 'boolean',
+          },
+          lifecycleStage: {
+            type: 'string',
+            description: 'A stage key; the default stage when absent.',
+          },
+          companyId: {
+            type: 'string',
+          },
+          company: {
+            $ref: '#/components/schemas/CompanyHint',
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      ContactPatch: {
+        type: 'object',
+        properties: {
+          firstName: {
+            type: 'string',
+          },
+          lastName: {
+            type: 'string',
+          },
+          email: {
+            type: ['string', 'null'],
+          },
+          phone: {
+            type: ['string', 'null'],
+          },
+          address: {
+            oneOf: [
+              {
+                $ref: '#/components/schemas/Address',
+              },
+              {
+                type: 'null',
+              },
+            ],
+          },
+          comment: {
+            type: ['string', 'null'],
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          isRedFlagged: {
+            type: 'boolean',
+          },
+          lifecycleStage: {
+            type: 'string',
+          },
+          companyId: {
+            type: ['string', 'null'],
+            description: 'An explicit pick; `null` detaches.',
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomPropertiesPatch',
+          },
+        },
+      },
+      ContactPage: {
+        type: 'object',
+        required: ['data', 'nextCursor'],
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/Contact',
+            },
+          },
+          nextCursor: {
+            type: ['string', 'null'],
+          },
+        },
+      },
+      ContactUpsertResult: {
+        type: 'object',
+        required: ['created', 'data'],
+        properties: {
+          created: {
+            type: 'boolean',
+          },
+          data: {
+            $ref: '#/components/schemas/Contact',
+          },
+        },
+      },
+      Company: {
+        type: 'object',
+        required: [
+          'id',
+          'createdAt',
+          'updatedAt',
+          'name',
+          'country',
+          'registrationNumber',
+          'vatNumber',
+          'domain',
+          'website',
+          'sector',
+          'headcount',
+          'address',
+          'ownerIds',
+          'customProperties',
+        ],
+        properties: {
+          id: {
+            type: 'string',
+          },
+          createdAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          updatedAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          name: {
+            type: 'string',
+          },
+          country: {
+            type: 'string',
+            description: 'ISO 3166-1 alpha-2, uppercase.',
+          },
+          registrationNumber: {
+            type: ['string', 'null'],
+            description: "Normalized by the country's scheme (digits only for a SIRET).",
+          },
+          vatNumber: {
+            type: ['string', 'null'],
+          },
+          domain: {
+            type: ['string', 'null'],
+            description: 'Lowercase, no protocol or www.',
+          },
+          website: {
+            type: ['string', 'null'],
+          },
+          sector: {
+            type: ['string', 'null'],
+          },
+          headcount: {
+            type: ['number', 'null'],
+          },
+          address: {
+            oneOf: [
+              {
+                $ref: '#/components/schemas/Address',
+              },
+              {
+                type: 'null',
+              },
+            ],
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      CompanyCreate: {
+        type: 'object',
+        required: ['name'],
+        properties: {
+          name: {
+            type: 'string',
+          },
+          country: {
+            type: 'string',
+            description: 'ISO 3166-1 alpha-2; the instance default when absent.',
+          },
+          registrationNumber: {
+            type: 'string',
+          },
+          vatNumber: {
+            type: 'string',
+          },
+          domain: {
+            type: 'string',
+          },
+          website: {
+            type: 'string',
+          },
+          sector: {
+            type: 'string',
+          },
+          headcount: {
+            type: 'number',
+          },
+          address: {
+            $ref: '#/components/schemas/Address',
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      CompanyPatch: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+          },
+          country: {
+            type: 'string',
+          },
+          registrationNumber: {
+            type: ['string', 'null'],
+          },
+          vatNumber: {
+            type: ['string', 'null'],
+          },
+          domain: {
+            type: ['string', 'null'],
+          },
+          website: {
+            type: ['string', 'null'],
+          },
+          sector: {
+            type: ['string', 'null'],
+          },
+          headcount: {
+            type: ['number', 'null'],
+          },
+          address: {
+            oneOf: [
+              {
+                $ref: '#/components/schemas/Address',
+              },
+              {
+                type: 'null',
+              },
+            ],
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomPropertiesPatch',
+          },
+        },
+      },
+      CompanyPage: {
+        type: 'object',
+        required: ['data', 'nextCursor'],
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/Company',
+            },
+          },
+          nextCursor: {
+            type: ['string', 'null'],
+          },
+        },
+      },
+      DealStatus: {
+        type: 'string',
+        enum: ['open', 'won', 'lost'],
+      },
+      Deal: {
+        type: 'object',
+        required: [
+          'id',
+          'createdAt',
+          'updatedAt',
+          'title',
+          'amount',
+          'currency',
+          'pipelineId',
+          'stageKey',
+          'status',
+          'expectedCloseDate',
+          'closedAt',
+          'leadId',
+          'ownerIds',
+          'sourceCampaignId',
+          'customProperties',
+        ],
+        properties: {
+          id: {
+            type: 'string',
+          },
+          createdAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          updatedAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          title: {
+            type: 'string',
+          },
+          amount: {
+            type: ['number', 'null'],
+          },
+          currency: {
+            type: 'string',
+            description: 'ISO 4217, uppercase.',
+          },
+          pipelineId: {
+            type: 'string',
+            readOnly: true,
+          },
+          stageKey: {
+            type: 'string',
+          },
+          status: {
+            readOnly: true,
+            $ref: '#/components/schemas/DealStatus',
+          },
+          expectedCloseDate: {
+            type: ['string', 'null'],
+            description: 'YYYY-MM-DD.',
+          },
+          closedAt: {
+            type: ['number', 'null'],
+            readOnly: true,
+          },
+          leadId: {
+            type: ['string', 'null'],
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          sourceCampaignId: {
+            type: ['string', 'null'],
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      DealCreate: {
+        type: 'object',
+        required: ['title'],
+        properties: {
+          title: {
+            type: 'string',
+          },
+          amount: {
+            type: 'number',
+            minimum: 0,
+          },
+          currency: {
+            type: 'string',
+            description: 'ISO 4217; EUR when absent.',
+          },
+          pipelineId: {
+            type: 'string',
+          },
+          stageKey: {
+            type: 'string',
+          },
+          stageTags: {
+            type: 'array',
+            items: {
+              type: 'string',
+            },
+          },
+          stageComment: {
+            type: 'string',
+          },
+          expectedCloseDate: {
+            type: 'string',
+            description: 'YYYY-MM-DD.',
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          leadId: {
+            type: 'string',
+          },
+          sourceCampaignId: {
+            type: 'string',
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      DealPatch: {
+        type: 'object',
+        properties: {
+          title: {
+            type: 'string',
+          },
+          amount: {
+            type: ['number', 'null'],
+          },
+          currency: {
+            type: 'string',
+          },
+          stageKey: {
+            type: 'string',
+            description: "Moves the deal through the pipeline's transition graph.",
+          },
+          stageTags: {
+            type: 'array',
+            description: 'Tags of the target stage; only with `stageKey`.',
+            items: {
+              type: 'string',
+            },
+          },
+          stageComment: {
+            type: 'string',
+            description: 'Only with `stageKey`.',
+          },
+          expectedCloseDate: {
+            type: ['string', 'null'],
+          },
+          ownerIds: {
+            $ref: '#/components/schemas/IdList',
+          },
+          leadId: {
+            type: ['string', 'null'],
+          },
+          sourceCampaignId: {
+            type: ['string', 'null'],
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomPropertiesPatch',
+          },
+        },
+      },
+      DealPage: {
+        type: 'object',
+        required: ['data', 'nextCursor'],
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/Deal',
+            },
+          },
+          nextCursor: {
+            type: ['string', 'null'],
+          },
+        },
+      },
+      ActivityType: {
+        type: 'string',
+        enum: ['call', 'meeting', 'task', 'email', 'note'],
+      },
+      ActivityStatus: {
+        type: 'string',
+        enum: ['open', 'done', 'cancelled'],
+      },
+      Activity: {
+        type: 'object',
+        required: [
+          'id',
+          'createdAt',
+          'updatedAt',
+          'type',
+          'title',
+          'description',
+          'status',
+          'dueAt',
+          'completedAt',
+          'outcome',
+          'ownerId',
+          'teamId',
+          'leadId',
+          'companyId',
+          'dealId',
+          'customProperties',
+        ],
+        properties: {
+          id: {
+            type: 'string',
+          },
+          createdAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          updatedAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          type: {
+            $ref: '#/components/schemas/ActivityType',
+          },
+          title: {
+            type: 'string',
+          },
+          description: {
+            type: ['string', 'null'],
+          },
+          status: {
+            $ref: '#/components/schemas/ActivityStatus',
+          },
+          dueAt: {
+            type: ['number', 'null'],
+          },
+          completedAt: {
+            type: ['number', 'null'],
+            readOnly: true,
+          },
+          outcome: {
+            type: ['string', 'null'],
+          },
+          ownerId: {
+            type: ['string', 'null'],
+          },
+          teamId: {
+            type: ['string', 'null'],
+          },
+          leadId: {
+            type: ['string', 'null'],
+          },
+          companyId: {
+            type: ['string', 'null'],
+          },
+          dealId: {
+            type: ['string', 'null'],
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      ActivityCreate: {
+        type: 'object',
+        required: ['type', 'title'],
+        properties: {
+          type: {
+            $ref: '#/components/schemas/ActivityType',
+          },
+          title: {
+            type: 'string',
+          },
+          description: {
+            type: 'string',
+          },
+          dueAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          status: {
+            type: 'string',
+            enum: ['open', 'done'],
+          },
+          ownerId: {
+            type: 'string',
+            description: 'A live employee.',
+          },
+          teamId: {
+            type: 'string',
+          },
+          leadId: {
+            type: 'string',
+          },
+          companyId: {
+            type: 'string',
+          },
+          dealId: {
+            type: 'string',
+          },
+          outcome: {
+            type: 'string',
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomProperties',
+          },
+        },
+      },
+      ActivityPatch: {
+        type: 'object',
+        properties: {
+          type: {
+            $ref: '#/components/schemas/ActivityType',
+          },
+          title: {
+            type: 'string',
+          },
+          description: {
+            type: ['string', 'null'],
+          },
+          dueAt: {
+            type: ['number', 'null'],
+          },
+          status: {
+            $ref: '#/components/schemas/ActivityStatus',
+          },
+          ownerId: {
+            type: ['string', 'null'],
+          },
+          teamId: {
+            type: ['string', 'null'],
+          },
+          leadId: {
+            type: ['string', 'null'],
+          },
+          companyId: {
+            type: ['string', 'null'],
+          },
+          dealId: {
+            type: ['string', 'null'],
+          },
+          outcome: {
+            type: ['string', 'null'],
+          },
+          customProperties: {
+            $ref: '#/components/schemas/CustomPropertiesPatch',
+          },
+        },
+      },
+      ActivityPage: {
+        type: 'object',
+        required: ['data', 'nextCursor'],
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/Activity',
+            },
+          },
+          nextCursor: {
+            type: ['string', 'null'],
+          },
+        },
+      },
+      List: {
+        type: 'object',
+        required: ['id', 'createdAt', 'updatedAt', 'name', 'kind'],
+        properties: {
+          id: {
+            type: 'string',
+          },
+          createdAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          updatedAt: {
+            $ref: '#/components/schemas/Timestamp',
+          },
+          name: {
+            type: 'string',
+          },
+          kind: {
+            type: 'string',
+            enum: ['static', 'dynamic'],
+          },
+        },
+      },
+      ListPage: {
+        type: 'object',
+        required: ['data', 'nextCursor'],
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/List',
+            },
+          },
+          nextCursor: {
+            type: ['string', 'null'],
+          },
+        },
+      },
+      PropertyEntityType: {
+        type: 'string',
+        enum: ['lead', 'company', 'deal', 'activity'],
+      },
+      PropertyType: {
+        type: 'string',
+        enum: ['text', 'number', 'email', 'select', 'radio', 'checkbox', 'date', 'boolean', 'rpps'],
+      },
+      PropertyDefinition: {
+        type: 'object',
+        required: ['id', 'entityType', 'label', 'type', 'options', 'validation', 'computed'],
+        properties: {
+          id: {
+            type: 'string',
+            description: 'The key of this property in `customProperties`.',
+          },
+          entityType: {
+            $ref: '#/components/schemas/PropertyEntityType',
+          },
+          label: {
+            type: 'string',
+          },
+          type: {
+            $ref: '#/components/schemas/PropertyType',
+          },
+          options: {
+            type: ['array', 'null'],
+            description:
+              'The choices of select / radio / checkbox properties; `value` is the stored key.',
+            items: {
+              type: 'object',
+              required: ['value', 'label'],
+              properties: {
+                value: {
+                  type: 'string',
+                },
+                label: {
+                  type: 'string',
+                },
+              },
+            },
+          },
+          validation: {
+            type: ['object', 'null'],
+            properties: {
+              min: {
+                type: 'number',
+              },
+              max: {
+                type: 'number',
+              },
+              minLength: {
+                type: 'integer',
+              },
+              maxLength: {
+                type: 'integer',
+              },
+              pattern: {
+                type: 'string',
+              },
+            },
+          },
+          computed: {
+            type: 'boolean',
+            description: 'Engine-maintained value, read-only through the API.',
+          },
+        },
+      },
+      PropertyDefinitionPage: {
+        type: 'object',
+        required: ['data', 'nextCursor'],
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              $ref: '#/components/schemas/PropertyDefinition',
+            },
+          },
+          nextCursor: {
+            type: ['string', 'null'],
+          },
+        },
+      },
+    },
+  },
+};
