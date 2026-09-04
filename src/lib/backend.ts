@@ -207,3 +207,5 @@ export type {
   WorkflowRunStep,
   WorkflowStepOutcome,
 } from '../../convex/_lib/validators/workflows';
+export type { ApiScope } from '../../convex/_lib/validators/apiKeys';
+export { API_SCOPES } from '../../convex/_lib/validators/apiKeys';

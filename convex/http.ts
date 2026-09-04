@@ -1,9 +1,12 @@
 import { httpRouter } from 'convex/server';
-import { httpAction } from './_generated/server';
+import type { Doc } from './_generated/dataModel';
+import { httpAction, type ActionCtx } from './_generated/server';
 import { internal } from './_generated/api';
+import type { ApiScope } from './_lib/validators/apiKeys';
 import { authComponent, createAuth } from './auth';
 import { resolveBrevo, timingSafeEqual } from './lib';
-import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
+import { API_KEY_TOUCH_INTERVAL_MS, apiKeyAccepts, parseApiBearer } from './lib/apiAuth';
+import { clientIpOf, consumeRateLimit, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
 const http = httpRouter();
@@ -174,6 +177,184 @@ http.route({
       return new Response(null, { status: 302, headers: { Location: result.redirectUrl } });
     }
     return htmlResponse('Merci, vous pouvez fermer cet onglet.', 200);
+  }),
+});
+
+const apiJson = (body: unknown, status: number, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json', ...headers },
+  });
+
+const apiError = (status: number, code: string, message: string, details?: unknown) =>
+  apiJson({ error: { code, message, ...(details !== undefined ? { details } : {}) } }, status);
+
+const apiRateLimited = (retryAfterMs: number) =>
+  apiJson({ error: { code: 'rate_limited', message: 'Too many requests.' } }, 429, {
+    'Retry-After': String(Math.max(1, Math.ceil(retryAfterMs / 1000))),
+  });
+
+async function authenticateApiRequest(
+  ctx: ActionCtx,
+  request: Request,
+): Promise<{ key: Doc<'apiKeys'> } | { response: Response }> {
+  const failed = async (): Promise<{ response: Response }> => {
+    const fail = await consumeRateLimit(ctx, 'apiAuthFail', clientIpOf(request));
+    if (!fail.ok) return { response: apiRateLimited(fail.retryAfterMs) };
+    return { response: apiError(401, 'unauthorized', 'Invalid API key.') };
+  };
+
+  const parsed = parseApiBearer(request.headers.get('authorization'));
+  if (!parsed) return failed();
+  const key = await ctx.runQuery(internal.features.api.internal.getApiKeyByKeyId, {
+    keyId: parsed.keyId,
+  });
+  if (!key || !(await apiKeyAccepts(key, parsed.secret))) return failed();
+
+  const budget = await consumeRateLimit(ctx, 'apiRequest', key.keyId);
+  if (!budget.ok) return { response: apiRateLimited(budget.retryAfterMs) };
+
+  if (key.lastUsedAt === undefined || Date.now() - key.lastUsedAt >= API_KEY_TOUCH_INTERVAL_MS) {
+    await ctx.runMutation(internal.features.api.internal.touchApiKey, { id: key._id });
+  }
+  return { key };
+}
+
+/** Read scope guarding each top-level resource segment. */
+const API_READ_SCOPE: Record<string, ApiScope> = {
+  contacts: 'contacts:read',
+  companies: 'companies:read',
+  deals: 'deals:read',
+  activities: 'activities:read',
+  lists: 'lists:read',
+  properties: 'properties:read',
+};
+
+const API_PAGE_LIMIT_DEFAULT = 50;
+const API_PAGE_LIMIT_MAX = 100;
+
+/** `?limit=`/`?cursor=` → Convex paginationOpts; null on an invalid limit. */
+function apiPaginationOpts(url: URL): { numItems: number; cursor: string | null } | null {
+  const raw = url.searchParams.get('limit');
+  const numItems = raw === null ? API_PAGE_LIMIT_DEFAULT : Number(raw);
+  if (!Number.isInteger(numItems) || numItems < 1 || numItems > API_PAGE_LIMIT_MAX) return null;
+  return { numItems, cursor: url.searchParams.get('cursor') };
+}
+
+http.route({
+  pathPrefix: '/api/v1/',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const url = new URL(request.url);
+    const segments = url.pathname
+      .slice('/api/v1/'.length)
+      .split('/')
+      .filter((s) => s !== '');
+    const [resource, id, sub] = segments;
+
+    const auth = await authenticateApiRequest(ctx, request);
+    if ('response' in auth) return auth.response;
+    const { key } = auth;
+
+    if (resource === 'me' && segments.length === 1) {
+      return apiJson(
+        {
+          name: key.name,
+          keyId: key.keyId,
+          scopes: key.scopes,
+          expiresAt: key.expiresAt ?? null,
+        },
+        200,
+      );
+    }
+
+    const scope = resource ? API_READ_SCOPE[resource] : undefined;
+    if (!scope) return apiError(404, 'not_found', 'Unknown resource.');
+    if (!key.scopes.includes(scope)) {
+      return apiError(403, 'missing_scope', `This key lacks the ${scope} scope.`);
+    }
+
+    const paginationOpts = apiPaginationOpts(url);
+    if (!paginationOpts) {
+      return apiError(
+        400,
+        'invalid_limit',
+        `limit must be an integer between 1 and ${API_PAGE_LIMIT_MAX}.`,
+      );
+    }
+
+    const q = internal.features.api.internal;
+    if (segments.length === 1) {
+      switch (resource) {
+        case 'contacts':
+          return apiJson(
+            await ctx.runQuery(q.listContacts, {
+              paginationOpts,
+              email: url.searchParams.get('email') ?? undefined,
+            }),
+            200,
+          );
+        case 'companies':
+          return apiJson(
+            await ctx.runQuery(q.listCompanies, {
+              paginationOpts,
+              domain: url.searchParams.get('domain') ?? undefined,
+            }),
+            200,
+          );
+        case 'deals':
+          return apiJson(
+            await ctx.runQuery(q.listDeals, {
+              paginationOpts,
+              leadId: url.searchParams.get('leadId') ?? undefined,
+            }),
+            200,
+          );
+        case 'activities':
+          return apiJson(
+            await ctx.runQuery(q.listActivities, {
+              paginationOpts,
+              leadId: url.searchParams.get('leadId') ?? undefined,
+            }),
+            200,
+          );
+        case 'lists':
+          return apiJson(await ctx.runQuery(q.listLists, {}), 200);
+        case 'properties': {
+          const entityType = url.searchParams.get('entityType');
+          if (!entityType) {
+            return apiError(400, 'missing_entity_type', 'The entityType parameter is required.');
+          }
+          const result = await ctx.runQuery(q.listProperties, { entityType });
+          if (!result) return apiError(400, 'invalid_entity_type', 'Unknown entityType.');
+          return apiJson(result, 200);
+        }
+      }
+    }
+
+    if (segments.length === 2 && id !== undefined) {
+      const single =
+        resource === 'contacts'
+          ? await ctx.runQuery(q.getContact, { id })
+          : resource === 'companies'
+            ? await ctx.runQuery(q.getCompany, { id })
+            : resource === 'deals'
+              ? await ctx.runQuery(q.getDeal, { id })
+              : resource === 'activities'
+                ? await ctx.runQuery(q.getActivity, { id })
+                : undefined;
+      if (single === undefined) return apiError(404, 'not_found', 'Unknown resource.');
+      if (single === null) return apiError(404, 'not_found', 'No such record.');
+      return apiJson(single, 200);
+    }
+
+    if (resource === 'lists' && sub === 'members' && segments.length === 3 && id !== undefined) {
+      const members = await ctx.runQuery(q.listListMembers, { listId: id, paginationOpts });
+      if (!members) return apiError(404, 'not_found', 'No such list.');
+      return apiJson(members, 200);
+    }
+
+    return apiError(404, 'not_found', 'Unknown resource.');
   }),
 });
 

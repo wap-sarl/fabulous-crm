@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   KanbanSquare,
   Gauge,
+  KeyRound,
   ListChecks,
   Mail,
   Milestone,
@@ -80,6 +81,13 @@ const LISTS_NAV_ITEM: NavItem = {
   position: 'bottom',
 };
 
+const API_KEYS_NAV_ITEM: NavItem = {
+  label: 'Clés d’API',
+  icon: <KeyRound />,
+  path: '/settings/api',
+  position: 'bottom',
+};
+
 const SCORING_NAV_ITEM: NavItem = {
   label: 'Scoring',
   icon: <Gauge />,
@@ -121,6 +129,7 @@ export function DashboardShell() {
         PROPERTIES_NAV_ITEM,
         LIFECYCLE_NAV_ITEM,
         SCORING_NAV_ITEM,
+        API_KEYS_NAV_ITEM,
         PIPELINES_NAV_ITEM,
         FILES_NAV_ITEM,
       ]
