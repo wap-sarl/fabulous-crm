@@ -51,3 +51,21 @@ export function validateApiKeyShape(fields: { name: string; scopes: string[] }):
   if (new Set(fields.scopes).size !== fields.scopes.length) return 'api_key_duplicate_scope';
   return null;
 }
+
+/** Idempotency-Key replays are honoured for this long after the first request. */
+export const API_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+export const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
+
+/** One row per (API key, Idempotency-Key): reserved before the write, completed with the response, swept after the TTL. */
+export const apiIdempotencyKeyValidator = v.object({
+  apiKeyId: v.id('apiKeys'),
+  key: v.string(),
+  // SHA-256 of method + path + body: the same key on a different request is an error.
+  fingerprint: v.string(),
+  status: v.union(v.literal('pending'), v.literal('done')),
+  responseStatus: v.optional(v.number()),
+  responseBody: v.optional(v.string()),
+  expiresAt: v.number(),
+});
+
+export type ApiIdempotencyKey = Infer<typeof apiIdempotencyKeyValidator>;

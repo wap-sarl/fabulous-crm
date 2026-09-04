@@ -47,7 +47,7 @@ export async function requireActivityLinks(
 export async function createActivityRecord(
   ctx: MutationCtx,
   data: NewActivity,
-  meta: { changedBy?: Id<'users'>; workflowId?: Id<'workflows'> },
+  meta: { changedBy?: Id<'users'>; apiKeyId?: Id<'apiKeys'>; workflowId?: Id<'workflows'> },
 ): Promise<Id<'activities'>> {
   const title = data.title.trim();
   if (!title) throw new Error('activity_title_required');
@@ -72,10 +72,11 @@ export async function createActivityRecord(
     createdBy: meta.changedBy,
     updatedBy: meta.changedBy,
   });
-  if (meta.changedBy) {
+  if (meta.changedBy || meta.apiKeyId) {
     await logAudit({
       ctx,
       userId: meta.changedBy,
+      apiKeyId: meta.apiKeyId,
       entityType: 'activity',
       entityId: activityId,
       action: 'create',

@@ -2,7 +2,9 @@ import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import type { AuditLogAction, AuditLogEntityType } from '../_lib/validators/auditLogs';
 
-export function createAuditFields(userId: Id<'users'>) {
+export type AuditActor = { userId?: Id<'users'>; apiKeyId?: Id<'apiKeys'> };
+
+export function createAuditFields(userId: Id<'users'> | undefined) {
   return {
     updatedAt: Date.now(),
     createdBy: userId,
@@ -10,26 +12,28 @@ export function createAuditFields(userId: Id<'users'>) {
   };
 }
 
-export function updateAuditFields(userId: Id<'users'>) {
+export function updateAuditFields(userId: Id<'users'> | undefined) {
   return {
     updatedAt: Date.now(),
     updatedBy: userId,
   };
 }
 
-export async function logAudit(params: {
-  ctx: MutationCtx;
-  userId: Id<'users'>;
-  entityType: AuditLogEntityType;
-  entityId: string;
-  action: AuditLogAction;
-  metadata?: unknown;
-}) {
+export async function logAudit(
+  params: {
+    ctx: MutationCtx;
+    entityType: AuditLogEntityType;
+    entityId: string;
+    action: AuditLogAction;
+    metadata?: unknown;
+  } & AuditActor,
+) {
   await params.ctx.db.insert('auditLogs', {
     entityType: params.entityType,
     entityId: params.entityId,
     action: params.action,
     userId: params.userId,
+    apiKeyId: params.apiKeyId,
     timestamp: Date.now(),
     metadata: params.metadata,
   });

@@ -2,11 +2,12 @@ import type { FilterBuilder, NamedTableInfo } from 'convex/server';
 import type { DataModel, Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
 import {
+  COUNTRY_CODE_RE,
   normalizeCountryCode,
   registrationSchemeFor,
   vatSchemeFor,
 } from '../_lib/validators/companyRegistry';
-import { createAuditFields } from './audit';
+import { type AuditActor, createAuditFields } from './audit';
 import { companyDomainOfEmail, normalizeDomain, websiteOfDomain } from './companyDomains';
 import { logAudit } from './audit';
 
@@ -93,6 +94,36 @@ export function normalizeRegistrationNumber(
   return normalized;
 }
 
+/** A trimmed string, or undefined when blank. */
+export const blank = (s: string | undefined) => (s?.trim() ? s.trim() : undefined);
+
+export async function normalizeIdentifiers(
+  ctx: QueryCtx | MutationCtx,
+  args: { country?: string; registrationNumber?: string; vatNumber?: string; domain?: string },
+  selfId?: string,
+) {
+  const country = normalizeCountryCode(args.country);
+  if (!COUNTRY_CODE_RE.test(country)) throw new Error('invalid_country');
+  const registrationNumber = normalizeRegistrationNumber(country, args.registrationNumber);
+  const vatNumber = normalizeVatNumber(country, args.vatNumber);
+  const domain = args.domain === undefined ? undefined : normalizeDomain(args.domain);
+  if (args.domain?.trim() && !domain) throw new Error('invalid_domain');
+
+  if (registrationNumber) {
+    const other = await findCompanyByRegistration(ctx, country, registrationNumber);
+    if (other && other._id !== selfId) throw new Error('company_registration_exists');
+  }
+  if (vatNumber) {
+    const other = await findCompanyByVat(ctx, vatNumber);
+    if (other && other._id !== selfId) throw new Error('company_vat_exists');
+  }
+  if (domain) {
+    const other = await findCompanyByDomain(ctx, domain);
+    if (other && other._id !== selfId) throw new Error('company_domain_exists');
+  }
+  return { country, registrationNumber, vatNumber, domain };
+}
+
 export type CompanyHint = {
   name?: string;
   country?: string;
@@ -105,7 +136,7 @@ export async function resolveCompanyForLead(
   ctx: MutationCtx,
   hint: CompanyHint,
   email: string | undefined,
-  userId: Id<'users'>,
+  actor: AuditActor,
   cache?: Map<string, Id<'companies'>>,
 ): Promise<Id<'companies'> | null> {
   const country = normalizeCountryCode(hint.country);
@@ -142,15 +173,15 @@ export async function resolveCompanyForLead(
     domain,
     website: domain ? websiteOfDomain(domain) : undefined,
     ownerIds: [],
-    ...createAuditFields(userId),
+    ...createAuditFields(actor.userId),
   });
   await logAudit({
     ctx,
-    userId,
+    ...actor,
     entityType: 'company',
     entityId: companyId,
     action: 'create',
-    metadata: { source: 'import' },
+    metadata: { source: actor.apiKeyId ? 'api' : 'import' },
   });
   if (cacheKey) cache?.set(cacheKey, companyId);
   return companyId;

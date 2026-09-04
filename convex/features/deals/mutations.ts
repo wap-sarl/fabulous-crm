@@ -1,9 +1,7 @@
 import { v } from 'convex/values';
-import type { MutationCtx } from '../../_generated/server';
-import type { Doc, Id } from '../../_generated/dataModel';
+import type { Doc } from '../../_generated/dataModel';
 import { settingsMutation, employeeMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
-import { cleanOwnerIds } from '../../lib/owners';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
 import {
   normalizeTransitions,
@@ -31,6 +29,7 @@ import {
   ensureDefaultPipeline as ensureDefault,
   loadPipeline,
   moveDealToStage,
+  validateDealFields,
 } from '../../lib/deals';
 
 function normalizeStages(stages: PipelineStage[]): PipelineStage[] {
@@ -212,42 +211,6 @@ const dealFieldArgs = {
   sourceCampaignId: v.optional(v.id('campaigns')),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 } as const;
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const CURRENCY_RE = /^[A-Z]{3}$/;
-
-/** Field-level checks shared by create and update; throws `invalid_deal: <field>`. */
-async function validateDealFields(
-  ctx: MutationCtx,
-  fields: {
-    title?: string;
-    amount?: number;
-    currency?: string;
-    expectedCloseDate?: string;
-    ownerIds?: Id<'users'>[];
-    leadId?: Id<'leads'>;
-    sourceCampaignId?: Id<'campaigns'>;
-  },
-): Promise<void> {
-  if (fields.title !== undefined && !fields.title.trim()) throw new Error('deal_title_required');
-  if (fields.amount !== undefined && (!Number.isFinite(fields.amount) || fields.amount < 0)) {
-    throw new Error('invalid_deal: amount');
-  }
-  if (fields.currency !== undefined && !CURRENCY_RE.test(fields.currency.toUpperCase())) {
-    throw new Error('invalid_deal: currency');
-  }
-  if (fields.expectedCloseDate !== undefined && !DATE_RE.test(fields.expectedCloseDate)) {
-    throw new Error('invalid_deal: expectedCloseDate');
-  }
-  if (fields.ownerIds) await cleanOwnerIds(ctx, fields.ownerIds);
-  if (fields.leadId) {
-    const lead = await ctx.db.get(fields.leadId);
-    if (!lead || !isNotDeleted(lead)) throw new Error('lead_not_found');
-  }
-  if (fields.sourceCampaignId && !(await ctx.db.get(fields.sourceCampaignId))) {
-    throw new Error('invalid_deal: sourceCampaignId');
-  }
-}
 
 export const createDeal = employeeMutation({
   args: {

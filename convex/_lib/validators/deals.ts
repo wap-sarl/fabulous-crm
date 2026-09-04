@@ -78,6 +78,7 @@ export const dealStageChangeSourceValidator = v.union(
   v.literal('create'),
   v.literal('manual'),
   v.literal('workflow'),
+  v.literal('api'),
 );
 
 /** Append-only log of stage moves, one row per change (creation included, `from` unset). */

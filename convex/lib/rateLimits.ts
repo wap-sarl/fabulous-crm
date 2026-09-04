@@ -32,7 +32,9 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Company registration lookups (public registries, e.g. INSEE), per employee.
   registryVerify: { kind: 'token bucket', rate: 60, period: HOUR },
   // Authenticated REST API traffic (/api/v1/), per API key.
-  apiRequest: { kind: 'token bucket', rate: 120, period: MINUTE },
+  apiRequest: { kind: 'token bucket', rate: 600, period: MINUTE },
+  // REST API writes (POST/PATCH/DELETE), per API key, on top of apiRequest (10k contacts ≈ 30 min).
+  apiWrite: { kind: 'token bucket', rate: 300, period: MINUTE },
   // Failed REST API auth attempts, per client IP — key brute-force guard.
   apiAuthFail: { kind: 'token bucket', rate: 10, period: MINUTE },
 });
@@ -45,6 +47,7 @@ type LimitName =
   | 'rppsVerify'
   | 'registryVerify'
   | 'apiRequest'
+  | 'apiWrite'
   | 'apiAuthFail';
 
 /**

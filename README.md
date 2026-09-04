@@ -155,6 +155,9 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   postal), sans authentification.
 - **Auth** : magic link par email (Brevo) + code OTP, sessions stockées en base
   avec token en localStorage. Seuls les utilisateurs `employee` accèdent au CRM.
+- **API publique REST** : `/api/v1/` sur l'origine `.convex.site`, clés d'API à
+  portées (*Paramètres → Clés d'API*), lecture et écriture des contacts,
+  entreprises, transactions et activités, listes et propriétés en lecture.
 
 ## Structure
 
@@ -264,7 +267,7 @@ d'environnement du conteneur — pas de rebuild par environnement.
 | `BREVO_SMS_SENDER` | **oui** pour les SMS | Nom d'expéditeur affiché sur les SMS (ID alphanumérique Brevo, ≤ 11 caractères ; défaut `CRM`) |
 | `BREVO_WEBHOOK_SECRET` | non (requis pour les webhooks) | Secret des webhooks Brevo au niveau compte (`/webhooks/brevo/email` et `/webhooks/brevo/sms`). Envoyé dans l'en-tête `x-webhook-secret` fixé à l'enregistrement (`registerBrevoEmailWebhook` / `registerBrevoSmsWebhook`) — jamais dans l'URL. Générer avec `bunx convex env set BREVO_WEBHOOK_SECRET $(openssl rand -hex 32)`. Absent = webhooks désactivés. |
 | `BREVO_SMS_WEBHOOK_SECRET` | non (recommandé pour le STOP SMS) | Secret **dédié** du webhook SMS par message (`webUrl` posé sur chaque envoi) : les webhooks par message de Brevo ne peuvent pas envoyer d'en-tête, ce secret voyage donc dans l'URL — d'où une valeur distincte, révocable sans toucher au secret de compte. Repli sur `BREVO_WEBHOOK_SECRET` si absente. Générer avec `bunx convex env set BREVO_SMS_WEBHOOK_SECRET $(openssl rand -hex 32)`. |
-| `API_KEY_HASH_SALT` | non | Sel du hachage SHA-256 des secrets de clés d'API (API REST publique `/api/v1/`, réglages → Clés d'API). Repli sur une valeur par défaut si absente — définir en prod pour durcir les lignes `apiKeys` en cas de fuite de la base. Générer avec `bunx convex env set API_KEY_HASH_SALT $(openssl rand -hex 16)`. |
+| `API_KEY_HASH_SALT` | non | Sel du hachage SHA-256 des secrets de clés d'API (API REST publique `/api/v1/`, réglages → Clés d'API). Repli sur une valeur par défaut si absente — définir en prod **avant de créer la première clé** pour durcir les lignes `apiKeys` en cas de fuite de la base. Le sel entre dans chaque hachage : le changer invalide toutes les clés existantes (les secrets font 24 octets aléatoires, il ne se tourne donc jamais en routine). Générer avec `bunx convex env set API_KEY_HASH_SALT $(openssl rand -hex 16)`. |
 
 > La plupart des réglages ci-dessus (URL, expéditeur) et les identifiants des
 > fournisseurs sociaux (Google…) sont stockés dans la table Convex singleton
@@ -333,6 +336,132 @@ L'accès reste régi par le modèle sur invitation : à la première connexion, 
 e-mail invité provisionne l'employé ; un e-mail non invité est refusé
 (`not_invited`) — le même filtre que pour les fournisseurs sociaux et le lien
 magique. Il n'y a donc ni `allowedDomains` ni `autoProvision` propres au SSO.
+
+## API publique
+
+Les systèmes tiers (Zapier / Make, back-offices, scripts) lisent et écrivent
+les données du CRM en HTTPS, sur l'origine du déploiement Convex :
+
+```
+https://<deployment>.convex.site/api/v1/
+Authorization: Bearer wap_<keyId>_<secret>
+```
+
+Les clés se créent dans *Paramètres → Clés d'API* (nom, portées, expiration
+optionnelle). Le secret n'est affiché **qu'une fois** ; seule son empreinte
+salée est stockée. Une clé se révoque sans délai ; sa création, sa modification
+et sa révocation sont journalisées dans `auditLogs` (`entityType: 'apiKey'`).
+
+> **Une clé voit et modifie toutes les fiches de l'organisation.** L'API est
+> une surface serveur-à-serveur : les portées limitent les ressources, pas le
+> périmètre — la grille rôles × modules et les équipes ne s'y appliquent pas.
+> Pas d'en-têtes CORS : une clé ne doit jamais vivre dans un navigateur.
+
+### Ressources et portées
+
+| Ressource | Routes | Portées |
+|---|---|---|
+| Sonde | `GET /me` (nom, portées, expiration de la clé) | n'importe quelle clé valide |
+| Contacts (leads) | `GET /contacts[?email=]`, `GET /contacts/:id`, `POST /contacts`, `POST /contacts/upsert`, `PATCH /contacts/:id`, `DELETE /contacts/:id` | `contacts:read` / `contacts:write` |
+| Entreprises | `GET /companies[?domain=]`, `GET /companies/:id`, `POST`, `PATCH`, `DELETE` | `companies:read` / `companies:write` |
+| Transactions | `GET /deals[?leadId=]`, `GET /deals/:id`, `POST`, `PATCH`, `DELETE` | `deals:read` / `deals:write` |
+| Activités | `GET /activities[?leadId=]`, `GET /activities/:id`, `POST`, `PATCH`, `DELETE` | `activities:read` / `activities:write` |
+| Listes | `GET /lists`, `GET /lists/:id/members` | `lists:read` |
+| Propriétés | `GET /properties?entityType=lead\|company\|deal\|activity` | `properties:read` |
+
+L'écriture n'inclut pas la lecture (une clé d'injection peut être en écriture
+seule). Les réponses sont des DTO explicites (`id`, `createdAt`, `updatedAt`,
+champs publics) : jamais de document brut, jamais de jeton de consentement ni
+de champ interne. Les fiches supprimées (soft delete) sont invisibles partout.
+
+### Lecture
+
+- Pagination par curseur : `?limit=` (50 par défaut, 100 max) et `?cursor=` ;
+  réponse `{ "data": [...], "nextCursor": "..." | null }`. Une page peut être
+  plus courte que `limit` (fiches supprimées filtrées) : itérer jusqu'à
+  `nextCursor: null`, ne pas se fier à la taille de la page.
+- Tri par date de création décroissante. Ce n'est pas un mécanisme de
+  synchronisation incrémentale (prévu avec les webhooks sortants).
+
+### Écriture
+
+- Corps JSON ; `POST` renvoie `201` et la fiche, `PATCH` `200` et la fiche,
+  `DELETE` `204` (suppression douce, comme l'interface).
+- `PATCH` est partiel : seuls les champs fournis changent, `null` vide un champ
+  optionnel. `customProperties` (clés = ids de `GET /properties`) fusionne
+  clé par clé, `null` retire une clé ; un id de propriété inconnu est refusé
+  (`unknown_property`).
+- **Consentement en lecture seule** : `marketingConsent`, `consentSource`,
+  `consentUpdatedAt` sont renvoyés mais refusés en écriture
+  (`read_only_field`) — la trace RGPD reste celle de la page de consentement
+  et des formulaires. Idem pour les champs calculés (score, compteurs).
+- `POST /contacts` est une **création stricte** : un contact vivant avec le
+  même e-mail (normalisé) renvoie `409 duplicate_email` avec l'`existingId`
+  dans `details`. `PATCH` applique la même règle à un changement d'e-mail.
+- `POST /contacts/upsert` **crée ou fusionne** par e-mail (obligatoire), avec
+  les règles de l'import CSV : seuls les champs fournis écrasent, les
+  propriétés fusionnent, une fiche supprimée est ravivée, le statut d'une
+  fiche existante n'est jamais touché. Si plusieurs fiches partagent
+  l'e-mail, la plus ancienne vivante gagne. Réponse
+  `{ "created": true|false, "data": {…contact} }` (`201` / `200`).
+- Rattachement d'entreprise d'un contact : `companyId` explicite, ou
+  `company: { name, domain, registrationNumber, vatNumber, country }`
+  (correspondance puis création), sinon la correspondance automatique par
+  domaine de l'e-mail (entreprise **existante** uniquement).
+- Nouvelle fiche : sans propriétaire sauf `ownerIds` fournis (employés
+  vivants), statut par défaut sauf `lifecycleStage`, historique de statut avec
+  la source `api`. Les déclencheurs de workflow (`lead_created`,
+  `lead_property_changed`, `deal_*`) partent comme pour une écriture
+  d'interface.
+- Transactions : `POST /deals` sans `pipelineId` prend le pipeline par défaut
+  et son premier stade. Un changement de stade passe par `PATCH { stageKey,
+  stageTags?, stageComment? }` et respecte le graphe des transitions
+  (`409 deal_transition_forbidden`, `409 stage_tag_required`). `status`,
+  `closedAt` et `pipelineId` ne s'écrivent pas.
+- Activités : `POST` accepte `status: open | done` ; `PATCH { status: 'done' }`
+  horodate `completedAt`, `open` l'efface.
+
+### Idempotence
+
+Les clients qui rejouent leurs requêtes (Zapier, Make) envoient un en-tête
+`Idempotency-Key` (1 à 255 caractères, unique par clé d'API) sur les `POST`.
+Pendant 24 h, la même clé avec le même corps renvoie la **réponse enregistrée**
+(en-tête `Idempotent-Replayed: true`) sans réécrire ; la même clé avec un corps
+différent renvoie `422 idempotency_key_reused` ; une requête encore en cours
+renvoie `409 idempotency_in_progress`. Sans cet en-tête, un `POST` rejoué crée
+un doublon (sauf `/contacts/upsert`).
+
+### Limites de débit
+
+| Limite | Valeur | Clé |
+|---|---|---|
+| Requêtes | 600 / min | par clé d'API |
+| Écritures (`POST`, `PATCH`, `DELETE`) | 300 / min, en plus de la précédente | par clé d'API |
+| Échecs d'authentification | 10 / min | par adresse IP |
+
+Dépassement : `429` avec `Retry-After` (secondes).
+
+### Erreurs
+
+```json
+{ "error": { "code": "invalid_fields", "message": "…", "details": { "path": ".email" } } }
+```
+
+Codes HTTP : `400` (corps ou champ invalide, id malformé, référence inconnue —
+le `code` est le code d'erreur métier, ex. `invalid_owner`,
+`invalid_address`, `unknown_stage`), `401` (clé absente, malformée, inconnue,
+révoquée ou expirée — toujours le même corps), `403 missing_scope`,
+`404 not_found`, `409` (conflit d'état : `duplicate_email`,
+`company_domain_exists`, `lifecycle_regression_blocked`,
+`deal_transition_forbidden`…), `422 idempotency_key_reused`, `429 rate_limited`,
+`500 internal_error`.
+
+### Journal et traçabilité
+
+Chaque écriture par l'API produit une ligne `auditLogs` portant `apiKeyId` (et
+pas d'`userId`) ; le fil d'activité des fiches l'affiche comme
+`API · <nom de la clé>`. Les lectures ne sont pas journalisées : `lastUsedAt`
+de la clé (rafraîchi au plus toutes les 5 min) et les logs Convex suffisent.
 
 ## Production
 

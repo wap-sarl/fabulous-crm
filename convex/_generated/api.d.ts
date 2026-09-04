@@ -45,6 +45,8 @@ import type * as features_activities_queries from "../features/activities/querie
 import type * as features_api_internal from "../features/api/internal.js";
 import type * as features_api_mutations from "../features/api/mutations.js";
 import type * as features_api_queries from "../features/api/queries.js";
+import type * as features_api_routes from "../features/api/routes.js";
+import type * as features_api_writes from "../features/api/writes.js";
 import type * as features_attachments_internal from "../features/attachments/internal.js";
 import type * as features_attachments_mutations from "../features/attachments/mutations.js";
 import type * as features_attachments_queries from "../features/attachments/queries.js";
@@ -96,7 +98,9 @@ import type * as lib_activities from "../lib/activities.js";
 import type * as lib_activityAggregates from "../lib/activityAggregates.js";
 import type * as lib_addresses from "../lib/addresses.js";
 import type * as lib_apiAuth from "../lib/apiAuth.js";
+import type * as lib_apiBodies from "../lib/apiBodies.js";
 import type * as lib_apiDtos from "../lib/apiDtos.js";
+import type * as lib_apiErrors from "../lib/apiErrors.js";
 import type * as lib_appUrl from "../lib/appUrl.js";
 import type * as lib_audit from "../lib/audit.js";
 import type * as lib_companies from "../lib/companies.js";
@@ -180,6 +184,8 @@ declare const fullApi: ApiFromModules<{
   "features/api/internal": typeof features_api_internal;
   "features/api/mutations": typeof features_api_mutations;
   "features/api/queries": typeof features_api_queries;
+  "features/api/routes": typeof features_api_routes;
+  "features/api/writes": typeof features_api_writes;
   "features/attachments/internal": typeof features_attachments_internal;
   "features/attachments/mutations": typeof features_attachments_mutations;
   "features/attachments/queries": typeof features_attachments_queries;
@@ -231,7 +237,9 @@ declare const fullApi: ApiFromModules<{
   "lib/activityAggregates": typeof lib_activityAggregates;
   "lib/addresses": typeof lib_addresses;
   "lib/apiAuth": typeof lib_apiAuth;
+  "lib/apiBodies": typeof lib_apiBodies;
   "lib/apiDtos": typeof lib_apiDtos;
+  "lib/apiErrors": typeof lib_apiErrors;
   "lib/appUrl": typeof lib_appUrl;
   "lib/audit": typeof lib_audit;
   "lib/companies": typeof lib_companies;

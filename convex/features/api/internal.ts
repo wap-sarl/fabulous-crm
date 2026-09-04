@@ -2,6 +2,7 @@ import { paginationOptsValidator } from 'convex/server';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import { internalMutation, internalQuery } from '../../_generated/server';
+import { API_IDEMPOTENCY_TTL_MS } from '../../_lib/validators/apiKeys';
 import { PROPERTY_ENTITY_TYPES, type PropertyEntityType } from '../../_lib/validators/properties';
 import { API_KEY_TOUCH_INTERVAL_MS } from '../../lib/apiAuth';
 import {
@@ -34,6 +35,65 @@ export const touchApiKey = internalMutation({
     if (key.lastUsedAt === undefined || now - key.lastUsedAt >= API_KEY_TOUCH_INTERVAL_MS) {
       await ctx.db.patch(args.id, { lastUsedAt: now });
     }
+  },
+});
+
+/** Stale replay rows swept per reservation — keeps the table bounded without a cron. */
+const IDEMPOTENCY_SWEEP_BATCH = 20;
+
+/** Reserve an Idempotency-Key: replay a done row, refuse a different fingerprint, flag a pending one. */
+export const beginIdempotentRequest = internalMutation({
+  args: { apiKeyId: v.id('apiKeys'), key: v.string(), fingerprint: v.string() },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const stale = await ctx.db
+      .query('apiIdempotencyKeys')
+      .withIndex('by_expiresAt', (q) => q.lt('expiresAt', now))
+      .take(IDEMPOTENCY_SWEEP_BATCH);
+    for (const row of stale) await ctx.db.delete(row._id);
+
+    const existing = await ctx.db
+      .query('apiIdempotencyKeys')
+      .withIndex('by_apiKey_key', (q) => q.eq('apiKeyId', args.apiKeyId).eq('key', args.key))
+      .first();
+    if (existing && existing.expiresAt > now) {
+      if (existing.fingerprint !== args.fingerprint) return { kind: 'mismatch' as const };
+      if (existing.status === 'pending') return { kind: 'pending' as const };
+      return {
+        kind: 'replay' as const,
+        status: existing.responseStatus ?? 200,
+        body: existing.responseBody ?? 'null',
+      };
+    }
+    if (existing) await ctx.db.delete(existing._id);
+    const id = await ctx.db.insert('apiIdempotencyKeys', {
+      apiKeyId: args.apiKeyId,
+      key: args.key,
+      fingerprint: args.fingerprint,
+      status: 'pending',
+      expiresAt: now + API_IDEMPOTENCY_TTL_MS,
+    });
+    return { kind: 'new' as const, id };
+  },
+});
+
+export const finishIdempotentRequest = internalMutation({
+  args: { id: v.id('apiIdempotencyKeys'), status: v.number(), body: v.string() },
+  handler: async (ctx, args) => {
+    if (!(await ctx.db.get(args.id))) return;
+    await ctx.db.patch(args.id, {
+      status: 'done',
+      responseStatus: args.status,
+      responseBody: args.body,
+    });
+  },
+});
+
+/** Drop a reservation whose request failed server-side, so the retry runs again. */
+export const abandonIdempotentRequest = internalMutation({
+  args: { id: v.id('apiIdempotencyKeys') },
+  handler: async (ctx, args) => {
+    if (await ctx.db.get(args.id)) await ctx.db.delete(args.id);
   },
 });
 

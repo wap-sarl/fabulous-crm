@@ -8,4 +8,5 @@ export const LIFECYCLE_SOURCE_LABEL: Record<LifecycleChangeSource, string> = {
   migration: 'Migration',
   deal: 'Transaction gagnée',
   score: 'Score atteint',
+  api: 'API',
 };

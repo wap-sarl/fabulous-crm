@@ -22,7 +22,7 @@ import {
   pipelineValidator,
 } from './_lib/validators/deals';
 import { activityValidator } from './_lib/validators/activities';
-import { apiKeyValidator } from './_lib/validators/apiKeys';
+import { apiIdempotencyKeyValidator, apiKeyValidator } from './_lib/validators/apiKeys';
 import { attachmentValidator } from './_lib/validators/attachments';
 import { teamValidator } from './_lib/validators/teams';
 import { roleValidator } from './_lib/validators/roles';
@@ -325,6 +325,10 @@ export default defineSchema({
   scoringRules: defineTable(scoringRuleValidator),
 
   apiKeys: defineTable(apiKeyValidator).index('by_keyId', ['keyId']),
+
+  apiIdempotencyKeys: defineTable(apiIdempotencyKeyValidator)
+    .index('by_apiKey_key', ['apiKeyId', 'key'])
+    .index('by_expiresAt', ['expiresAt']),
 
   scoringState: defineTable(scoringStateValidator),
 
