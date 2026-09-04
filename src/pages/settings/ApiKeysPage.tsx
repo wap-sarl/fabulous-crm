@@ -43,7 +43,6 @@ const SCOPE_GROUPS: { label: string; read: ApiScope; write?: ApiScope }[] = [
   { label: 'Transactions', read: 'deals:read', write: 'deals:write' },
   { label: 'Activités', read: 'activities:read', write: 'activities:write' },
   { label: 'Listes', read: 'lists:read' },
-  { label: 'Formulaires', read: 'forms:read' },
   { label: 'Propriétés', read: 'properties:read' },
 ];
 
@@ -165,8 +164,8 @@ function KeyEditorDialog({
           <div className="space-y-1.5">
             <Label>Portées</Label>
             <p className="text-xs text-soft">
-              L’écriture n’inclut pas la lecture : cochez les deux si l’intégration doit lire et
-              écrire.
+              L’écriture inclut la lecture de la même ressource. Une clé voit et modifie toutes les
+              fiches de l’organisation, sans le périmètre des rôles et des équipes.
             </p>
             <div className="divide-y divide-border rounded-lg border border-border">
               {SCOPE_GROUPS.map((group) => (

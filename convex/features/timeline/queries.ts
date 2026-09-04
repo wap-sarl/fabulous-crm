@@ -120,7 +120,18 @@ function docLoader(ctx: QueryCtx) {
     const user = id ? await get(id) : null;
     return user ? `${user.firstName} ${user.lastName}` : null;
   };
-  return { get, userName };
+  /** The employee, or the REST API key, behind an audit row. */
+  const actorName = async (log: {
+    userId?: Id<'users'>;
+    apiKeyId?: Id<'apiKeys'>;
+  }): Promise<string | null> => {
+    if (log.apiKeyId) {
+      const key = await get(log.apiKeyId);
+      return key ? `API · ${key.name}` : 'API';
+    }
+    return await userName(log.userId);
+  };
+  return { get, userName, actorName };
 }
 type Loader = ReturnType<typeof docLoader>;
 
@@ -353,7 +364,7 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
     },
   }),
 
-  audit: (ctx, leadId, { userName }) => ({
+  audit: (ctx, leadId, { actorName }) => ({
     kind: 'audit',
     load: async (w, limit) => {
       const rows = await fetchRows(
@@ -377,7 +388,7 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
             id: log._id,
             at: log._creationTime,
             action: log.action,
-            userName: await userName(log.userId),
+            userName: await actorName(log),
             fields: Object.keys(metadata?.changes ?? {}),
             absorbedLeadName: metadata?.absorbedLeadName ?? null,
           };

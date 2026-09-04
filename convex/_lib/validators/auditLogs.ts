@@ -33,7 +33,8 @@ export const auditLogValidator = v.object({
   entityType: auditLogEntityTypeValidator,
   entityId: v.string(),
   action: auditLogActionValidator,
-  userId: v.id('users'),
+  userId: v.optional(v.id('users')),
+  apiKeyId: v.optional(v.id('apiKeys')),
   timestamp: v.number(),
   metadata: v.optional(v.any()),
 });

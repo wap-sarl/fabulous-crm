@@ -15,6 +15,7 @@ import {
 import { dispatchWorkflowTrigger } from '../features/workflows/triggerDispatch';
 import { createAuditFields, logAudit } from './audit';
 import { isNotDeleted } from './dbHelpers';
+import { cleanOwnerIds } from './owners';
 import {
   applyLifecycleTransition,
   loadLifecycleConfig,
@@ -66,8 +67,9 @@ export async function ensureDefaultPipeline(
 }
 
 export type DealChangeMeta = {
-  source: 'create' | 'manual' | 'workflow';
+  source: 'create' | 'manual' | 'workflow' | 'api';
   changedBy?: Id<'users'>;
+  apiKeyId?: Id<'apiKeys'>;
   workflowId?: Id<'workflows'>;
   /** The run whose step caused the change (self-enrollment guard). */
   runSource?: { runId: Id<'workflowRuns'>; workflowId: Id<'workflows'> };
@@ -138,6 +140,42 @@ async function promoteLeadOnWin(ctx: MutationCtx, deal: Doc<'deals'>): Promise<v
   }
 }
 
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const CURRENCY_RE = /^[A-Z]{3}$/;
+
+/** Field-level checks shared by create and update; throws `invalid_deal: <field>`. */
+export async function validateDealFields(
+  ctx: MutationCtx,
+  fields: {
+    title?: string;
+    amount?: number;
+    currency?: string;
+    expectedCloseDate?: string;
+    ownerIds?: Id<'users'>[];
+    leadId?: Id<'leads'>;
+    sourceCampaignId?: Id<'campaigns'>;
+  },
+): Promise<void> {
+  if (fields.title !== undefined && !fields.title.trim()) throw new Error('deal_title_required');
+  if (fields.amount !== undefined && (!Number.isFinite(fields.amount) || fields.amount < 0)) {
+    throw new Error('invalid_deal: amount');
+  }
+  if (fields.currency !== undefined && !CURRENCY_RE.test(fields.currency.toUpperCase())) {
+    throw new Error('invalid_deal: currency');
+  }
+  if (fields.expectedCloseDate !== undefined && !DATE_RE.test(fields.expectedCloseDate)) {
+    throw new Error('invalid_deal: expectedCloseDate');
+  }
+  if (fields.ownerIds) await cleanOwnerIds(ctx, fields.ownerIds);
+  if (fields.leadId) {
+    const lead = await ctx.db.get(fields.leadId);
+    if (!lead || !isNotDeleted(lead)) throw new Error('lead_not_found');
+  }
+  if (fields.sourceCampaignId && !(await ctx.db.get(fields.sourceCampaignId))) {
+    throw new Error('invalid_deal: sourceCampaignId');
+  }
+}
+
 export type NewDeal = {
   title: string;
   amount?: number;
@@ -198,10 +236,11 @@ export async function createDealRecord(
   });
   const deal = (await ctx.db.get(dealId))!;
   await insertHistory(ctx, deal, undefined, stage.key, meta, entry);
-  if (meta.changedBy) {
+  if (meta.changedBy || meta.apiKeyId) {
     await logAudit({
       ctx,
       userId: meta.changedBy,
+      apiKeyId: meta.apiKeyId,
       entityType: 'deal',
       entityId: dealId,
       action: 'create',
@@ -252,10 +291,11 @@ export async function moveDealToStage(
     updatedBy: meta.changedBy ?? deal.updatedBy,
   });
   await insertHistory(ctx, deal, deal.stageKey, stage.key, meta, entry);
-  if (meta.changedBy) {
+  if (meta.changedBy || meta.apiKeyId) {
     await logAudit({
       ctx,
       userId: meta.changedBy,
+      apiKeyId: meta.apiKeyId,
       entityType: 'deal',
       entityId: deal._id,
       action: 'update',

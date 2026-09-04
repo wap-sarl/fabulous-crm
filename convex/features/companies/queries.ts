@@ -169,18 +169,30 @@ export const listCompanyActivity = employeeQuery({
       .order('desc')
       .take(50);
     const names = new Map<string, string | null>();
-    for (const log of logs) {
-      if (!names.has(log.userId)) {
-        const user = await ctx.db.get(log.userId);
-        names.set(log.userId, user ? `${user.firstName} ${user.lastName}` : null);
+    const actorName = async (log: (typeof logs)[number]): Promise<string | null> => {
+      const id = log.apiKeyId ?? log.userId;
+      if (!id) return null;
+      if (!names.has(id)) {
+        if (log.apiKeyId) {
+          const key = await ctx.db.get(log.apiKeyId);
+          names.set(id, key ? `API · ${key.name}` : 'API');
+        } else if (log.userId) {
+          const user = await ctx.db.get(log.userId);
+          names.set(id, user ? `${user.firstName} ${user.lastName}` : null);
+        }
       }
+      return names.get(id) ?? null;
+    };
+    const out = [];
+    for (const log of logs) {
+      out.push({
+        _id: log._id,
+        action: log.action,
+        timestamp: log.timestamp,
+        userName: await actorName(log),
+        metadata: log.metadata ?? null,
+      });
     }
-    return logs.map((log) => ({
-      _id: log._id,
-      action: log.action,
-      timestamp: log.timestamp,
-      userName: names.get(log.userId) ?? null,
-      metadata: log.metadata ?? null,
-    }));
+    return out;
   },
 });

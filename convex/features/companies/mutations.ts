@@ -1,7 +1,6 @@
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
-import { COUNTRY_CODE_RE, normalizeCountryCode } from '../../_lib/validators/companyRegistry';
 import { addressValidator } from '../../schema';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { cleanOwnerIds } from '../../lib/owners';
@@ -13,15 +12,8 @@ import {
   logAudit,
   updateAuditFields,
 } from '../../lib';
-import {
-  findCompanyByDomain,
-  findCompanyByRegistration,
-  findCompanyByVat,
-  normalizeRegistrationNumber,
-  normalizeVatNumber,
-} from '../../lib/companies';
+import { blank, normalizeIdentifiers } from '../../lib/companies';
 import { requireValidAddress } from '../../lib/addresses';
-import { normalizeDomain } from '../../lib/companyDomains';
 
 const companyFieldArgs = {
   name: v.string(),
@@ -36,40 +28,6 @@ const companyFieldArgs = {
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   ownerIds: v.optional(v.array(v.id('users'))),
 } as const;
-
-const blank = (s: string | undefined) => (s?.trim() ? s.trim() : undefined);
-
-/**
- * Normalize the identifying fields and enforce their uniqueness among live
- * companies (excluding `selfId` on update). Throws
- * `company_registration_exists` / `company_domain_exists`.
- */
-async function normalizeIdentifiers(
-  ctx: Parameters<typeof findCompanyByDomain>[0],
-  args: { country?: string; registrationNumber?: string; vatNumber?: string; domain?: string },
-  selfId?: string,
-) {
-  const country = normalizeCountryCode(args.country);
-  if (!COUNTRY_CODE_RE.test(country)) throw new Error('invalid_country');
-  const registrationNumber = normalizeRegistrationNumber(country, args.registrationNumber);
-  const vatNumber = normalizeVatNumber(country, args.vatNumber);
-  const domain = args.domain === undefined ? undefined : normalizeDomain(args.domain);
-  if (args.domain?.trim() && !domain) throw new Error('invalid_domain');
-
-  if (registrationNumber) {
-    const other = await findCompanyByRegistration(ctx, country, registrationNumber);
-    if (other && other._id !== selfId) throw new Error('company_registration_exists');
-  }
-  if (vatNumber) {
-    const other = await findCompanyByVat(ctx, vatNumber);
-    if (other && other._id !== selfId) throw new Error('company_vat_exists');
-  }
-  if (domain) {
-    const other = await findCompanyByDomain(ctx, domain);
-    if (other && other._id !== selfId) throw new Error('company_domain_exists');
-  }
-  return { country, registrationNumber, vatNumber, domain };
-}
 
 export const createCompany = employeeMutation({
   args: companyFieldArgs,

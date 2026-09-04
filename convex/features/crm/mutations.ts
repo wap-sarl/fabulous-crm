@@ -104,7 +104,7 @@ async function addLeadToList(
 }
 
 /** Emails are stored lowercased so the import upsert can match on them. */
-function normalizeEmail(raw: string | undefined): string | undefined {
+export function normalizeEmail(raw: string | undefined): string | undefined {
   const email = raw?.trim().toLowerCase();
   return email || undefined;
 }
@@ -161,7 +161,8 @@ export const createLead = employeeMutation({
     if (companyId) await requireCompany(ctx, companyId);
     else if (args.company) {
       companyId =
-        (await resolveCompanyForLead(ctx, args.company, undefined, ctx.userId)) ?? undefined;
+        (await resolveCompanyForLead(ctx, args.company, undefined, { userId: ctx.userId })) ??
+        undefined;
     }
 
     const leadId = await ctx.db.insert('leads', {
@@ -434,7 +435,7 @@ export const importLeads = employeeMutation({
               ctx,
               row.company ?? {},
               email,
-              ctx.userId,
+              { userId: ctx.userId },
               companyCache,
             );
             if (matched) updates.companyId = matched;
@@ -507,7 +508,7 @@ export const importLeads = employeeMutation({
               ctx,
               row.company ?? {},
               email,
-              ctx.userId,
+              { userId: ctx.userId },
               companyCache,
             )) ?? undefined;
         }

@@ -80,6 +80,7 @@ export const lifecycleChangeSourceValidator = v.union(
   v.literal('deal'),
   // The lead crossed the score-promotion threshold (lifecycle settings).
   v.literal('score'),
+  v.literal('api'),
 );
 
 /**

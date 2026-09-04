@@ -37,6 +37,9 @@ export async function apiKeyAccepts(key: Doc<'apiKeys'>, secret: string): Promis
   return timingSafeEqual(await hashApiKeySecret(secret), key.secretHash);
 }
 
+/** A write scope implies the read scope of the same resource. */
 export function hasScope(key: Pick<Doc<'apiKeys'>, 'scopes'>, scope: ApiScope): boolean {
-  return key.scopes.includes(scope);
+  if (key.scopes.includes(scope)) return true;
+  const [resource, level] = scope.split(':');
+  return level === 'read' && key.scopes.includes(`${resource}:write` as ApiScope);
 }
