@@ -5,7 +5,6 @@ import { propertyValueValidator } from '../_lib/validators/properties';
 import { addressValidator } from '../_lib/validators/shared';
 import { apiError } from './apiErrors';
 
-
 const idString = v.string();
 const idList = v.array(v.string());
 const customPropertiesPatch = v.record(v.string(), nullable(propertyValueValidator));
