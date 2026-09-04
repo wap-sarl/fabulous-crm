@@ -92,7 +92,12 @@ describe('public REST API', () => {
       });
     }
 
-    // An expired key fails identically once its expiry passes.
+    // The valid key introduces itself on /me.
+    const me = await apiGet(t, 'me', key);
+    expect(me.status).toBe(200);
+    expect(await me.json()).toMatchObject({ name: 'Test key', scopes: ALL_READ_SCOPES });
+
+    // Expired key last: the clock jump stamps the IP bucket in the future, which then reads as empty.
     const originalNow = Date.now;
     Date.now = () => originalNow() + 120_000;
     try {
@@ -100,11 +105,6 @@ describe('public REST API', () => {
     } finally {
       Date.now = originalNow;
     }
-
-    // The valid key introduces itself on /me.
-    const me = await apiGet(t, 'me', key);
-    expect(me.status).toBe(200);
-    expect(await me.json()).toMatchObject({ name: 'Test key', scopes: ALL_READ_SCOPES });
   });
 
   test('scopes gate each resource; management listing never leaks the hash', async () => {
@@ -246,6 +246,11 @@ describe('public REST API', () => {
     expect(listList.data).toHaveLength(1);
     expect(listList.data[0].kind).toBe('static');
 
+    // Members are contacts: the list scope alone is not enough, a contact write scope is.
+    const { key: listsOnly } = await createKey(as, ['lists:read']);
+    const { key: listsAndWrite } = await createKey(as, ['lists:read', 'contacts:write']);
+    expect((await apiGet(t, `lists/${listId}/members`, listsOnly)).status).toBe(403);
+    expect((await apiGet(t, `lists/${listId}/members`, listsAndWrite)).status).toBe(200);
     const members = await apiGet(t, `lists/${listId}/members`, key);
     const memberList = (await members.json()) as { data: { email: string }[] };
     expect(memberList.data).toHaveLength(1);
@@ -262,6 +267,42 @@ describe('public REST API', () => {
     expect((await apiGet(t, 'unknown', key)).status).toBe(404);
   });
 
+  test('filtered collections paginate like the plain ones', async () => {
+    const { t, as } = await setup();
+    const { key } = await createKey(as);
+    const leadId = await seedLead(t, { email: 'busy@example.com' });
+    await t.run(async (ctx) => {
+      for (let i = 0; i < 3; i++) {
+        await ctx.db.insert('activities', {
+          type: 'note',
+          title: `Note ${i}`,
+          status: 'done',
+          leadId,
+          updatedAt: Date.now(),
+        });
+      }
+      for (let i = 0; i < 3; i++) {
+        await ctx.db.insert('leadLists', { name: `Liste ${i}`, updatedAt: Date.now() });
+      }
+    });
+    const first = await apiGet(t, `activities?leadId=${leadId}&limit=2`, key);
+    const page1 = (await first.json()) as { data: unknown[]; nextCursor: string | null };
+    expect(page1.data).toHaveLength(2);
+    expect(page1.nextCursor).not.toBeNull();
+    const second = await apiGet(
+      t,
+      `activities?leadId=${leadId}&limit=2&cursor=${encodeURIComponent(page1.nextCursor!)}`,
+      key,
+    );
+    const page2 = (await second.json()) as { data: unknown[]; nextCursor: string | null };
+    expect(page2.data).toHaveLength(1);
+    expect(page2.nextCursor).toBeNull();
+
+    const lists = (await (await apiGet(t, 'lists?limit=2', key)).json()) as { data: unknown[] };
+    expect(lists.data).toHaveLength(2);
+    expect((await apiGet(t, `deals?leadId=${leadId}&limit=101`, key)).status).toBe(400);
+  });
+
   test('failed auth attempts are rate-limited per IP', async () => {
     const { t } = await setup();
     for (let i = 0; i < 10; i++) {
@@ -270,6 +311,8 @@ describe('public REST API', () => {
     const limited = await apiGet(t, 'me', 'bad');
     expect(limited.status).toBe(429);
     expect(limited.headers.get('Retry-After')).toMatch(/^\d+$/);
+    // Once the IP is out of budget, a well-formed key is refused before any lookup.
+    expect((await apiGet(t, 'me', `wap_${'0'.repeat(8)}_${'0'.repeat(48)}`)).status).toBe(429);
   });
 
   test('authenticated traffic consumes the per-key budget', async () => {
@@ -423,7 +466,9 @@ describe('public REST API writes', () => {
     expect(await errorCode(notJson)).toBe('invalid_json');
 
     expect((await apiCall(t, 'POST', 'contacts', readOnly, {})).status).toBe(403);
-    expect((await apiGet(t, 'contacts', writeOnly)).status).toBe(403);
+    // A write scope implies the read scope of its resource.
+    expect((await apiGet(t, 'contacts', writeOnly)).status).toBe(200);
+    expect((await apiGet(t, 'companies', writeOnly)).status).toBe(403);
     expect((await apiGet(t, 'contacts?cursor=garbage', key)).status).toBe(400);
     expect(await errorCode(await apiGet(t, 'contacts?cursor=garbage', key))).toBe('invalid_cursor');
   });

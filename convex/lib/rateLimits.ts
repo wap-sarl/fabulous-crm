@@ -63,6 +63,16 @@ export async function enforceRateLimit(
   return (await consumeRateLimit(ctx, name, key)).ok;
 }
 
+/** Whether `key` still has budget on `name`, without consuming any — a pre-check before costly work. */
+export async function checkRateLimit(
+  ctx: Parameters<(typeof rateLimiter)['check']>[0],
+  name: LimitName,
+  key?: string,
+): Promise<{ ok: boolean; retryAfterMs: number }> {
+  const { ok, retryAfter } = await rateLimiter.check(ctx, name, key ? { key } : {});
+  return { ok, retryAfterMs: ok ? 0 : Math.ceil(retryAfter) };
+}
+
 /** Like enforceRateLimit, but hands back retryAfter for a Retry-After header. */
 export async function consumeRateLimit(
   ctx: Parameters<(typeof rateLimiter)['limit']>[0],

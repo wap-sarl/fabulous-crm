@@ -110,16 +110,13 @@ const page = <T, U>(
 export const listContacts = internalQuery({
   args: { paginationOpts: paginationOptsValidator, email: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    if (args.email !== undefined) {
-      // Emails are stored lowercased (see crm/mutations normalizeEmail).
-      const email = args.email.trim().toLowerCase();
-      const rows = await ctx.db
-        .query('leads')
-        .withIndex('by_email', (q) => q.eq('email', email))
-        .collect();
-      return { data: rows.filter(isNotDeleted).map(toPublicContact), nextCursor: null };
-    }
-    const result = await ctx.db.query('leads').order('desc').paginate(args.paginationOpts);
+    // Emails are stored lowercased (see crm/mutations normalizeEmail).
+    const email = args.email?.trim().toLowerCase();
+    const query =
+      email === undefined
+        ? ctx.db.query('leads').order('desc')
+        : ctx.db.query('leads').withIndex('by_email', (q) => q.eq('email', email));
+    const result = await query.paginate(args.paginationOpts);
     return page({ ...result, page: result.page.filter(isNotDeleted) }, toPublicContact);
   },
 });
@@ -136,16 +133,13 @@ export const getContact = internalQuery({
 export const listCompanies = internalQuery({
   args: { paginationOpts: paginationOptsValidator, domain: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    if (args.domain !== undefined) {
-      // Domains are stored lowercase without protocol/www (companies validator).
-      const domain = args.domain.trim().toLowerCase();
-      const rows = await ctx.db
-        .query('companies')
-        .withIndex('by_domain', (q) => q.eq('domain', domain))
-        .collect();
-      return { data: rows.filter(isNotDeleted).map(toPublicCompany), nextCursor: null };
-    }
-    const result = await ctx.db.query('companies').order('desc').paginate(args.paginationOpts);
+    // Domains are stored lowercase without protocol/www (companies validator).
+    const domain = args.domain?.trim().toLowerCase();
+    const query =
+      domain === undefined
+        ? ctx.db.query('companies').order('desc')
+        : ctx.db.query('companies').withIndex('by_domain', (q) => q.eq('domain', domain));
+    const result = await query.paginate(args.paginationOpts);
     return page({ ...result, page: result.page.filter(isNotDeleted) }, toPublicCompany);
   },
 });
@@ -162,16 +156,13 @@ export const getCompany = internalQuery({
 export const listDeals = internalQuery({
   args: { paginationOpts: paginationOptsValidator, leadId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    if (args.leadId !== undefined) {
-      const leadId = ctx.db.normalizeId('leads', args.leadId);
-      if (!leadId) return { data: [], nextCursor: null };
-      const rows = await ctx.db
-        .query('deals')
-        .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-        .collect();
-      return { data: rows.filter(isNotDeleted).map(toPublicDeal), nextCursor: null };
-    }
-    const result = await ctx.db.query('deals').order('desc').paginate(args.paginationOpts);
+    const leadId = args.leadId === undefined ? undefined : ctx.db.normalizeId('leads', args.leadId);
+    if (leadId === null) return { data: [], nextCursor: null };
+    const query =
+      leadId === undefined
+        ? ctx.db.query('deals').order('desc')
+        : ctx.db.query('deals').withIndex('by_lead', (q) => q.eq('leadId', leadId));
+    const result = await query.paginate(args.paginationOpts);
     return page({ ...result, page: result.page.filter(isNotDeleted) }, toPublicDeal);
   },
 });
@@ -188,16 +179,13 @@ export const getDeal = internalQuery({
 export const listActivities = internalQuery({
   args: { paginationOpts: paginationOptsValidator, leadId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    if (args.leadId !== undefined) {
-      const leadId = ctx.db.normalizeId('leads', args.leadId);
-      if (!leadId) return { data: [], nextCursor: null };
-      const rows = await ctx.db
-        .query('activities')
-        .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-        .collect();
-      return { data: rows.filter(isNotDeleted).map(toPublicActivity), nextCursor: null };
-    }
-    const result = await ctx.db.query('activities').order('desc').paginate(args.paginationOpts);
+    const leadId = args.leadId === undefined ? undefined : ctx.db.normalizeId('leads', args.leadId);
+    if (leadId === null) return { data: [], nextCursor: null };
+    const query =
+      leadId === undefined
+        ? ctx.db.query('activities').order('desc')
+        : ctx.db.query('activities').withIndex('by_lead', (q) => q.eq('leadId', leadId));
+    const result = await query.paginate(args.paginationOpts);
     return page({ ...result, page: result.page.filter(isNotDeleted) }, toPublicActivity);
   },
 });
@@ -212,10 +200,10 @@ export const getActivity = internalQuery({
 });
 
 export const listLists = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const lists = await ctx.db.query('leadLists').collect();
-    return { data: lists.map(toPublicList), nextCursor: null };
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    const result = await ctx.db.query('leadLists').paginate(args.paginationOpts);
+    return page(result, toPublicList);
   },
 });
 
@@ -238,16 +226,13 @@ export const listListMembers = internalQuery({
 });
 
 export const listProperties = internalQuery({
-  args: { entityType: v.string() },
+  args: { entityType: v.string(), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
     if (!(PROPERTY_ENTITY_TYPES as readonly string[]).includes(args.entityType)) return null;
-    const defs = await ctx.db
+    const result = await ctx.db
       .query('propertyDefinitions')
       .withIndex('by_entityType', (q) => q.eq('entityType', args.entityType as PropertyEntityType))
-      .collect();
-    return {
-      data: defs.filter(isNotDeleted).map(toPublicPropertyDefinition),
-      nextCursor: null,
-    };
+      .paginate(args.paginationOpts);
+    return page({ ...result, page: result.page.filter(isNotDeleted) }, toPublicPropertyDefinition);
   },
 });

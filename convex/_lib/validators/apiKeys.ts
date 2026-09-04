@@ -8,7 +8,7 @@ export const API_KEY_SECRET_BYTES = 24;
 
 export const MAX_API_KEY_NAME_LENGTH = 60;
 
-/** Write scopes do not imply read — a pure ingestion key can be write-only. */
+/** A write scope implies the read scope of the same resource (see hasScope). */
 export const API_SCOPES = [
   'contacts:read',
   'contacts:write',

@@ -22,7 +22,7 @@ import {
   READ_ONLY_FIELDS,
 } from '../../lib/apiBodies';
 import { apiError, isApiError } from '../../lib/apiErrors';
-import { clientIpOf, consumeRateLimit } from '../../lib/rateLimits';
+import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../lib/rateLimits';
 
 const API_PREFIX = '/api/v1/';
 const METHODS = ['GET', 'POST', 'PATCH', 'DELETE'] as const;
@@ -43,8 +43,8 @@ interface ApiRoute {
   method: Method;
   /** Segments after the prefix, `:name` capturing one segment — e.g. `contacts/:id`. */
   pattern: string;
-  /** Scope the key must hold; absent on `/me`. */
-  scope?: ApiScope;
+  /** Scope(s) the key must hold; absent on `/me`. */
+  scope?: ApiScope | ApiScope[];
   handler: (ctx: ActionCtx, req: ApiRequest) => Promise<ApiResult>;
 }
 
@@ -362,12 +362,14 @@ const ROUTES: ApiRoute[] = [
     method: 'GET',
     pattern: 'lists',
     scope: 'lists:read',
-    handler: async (ctx) => ok(await ctx.runQuery(q.listLists, {})),
+    handler: async (ctx, { url }) =>
+      ok(await ctx.runQuery(q.listLists, { paginationOpts: paginationOptsOf(url) })),
   },
   {
     method: 'GET',
     pattern: 'lists/:id/members',
-    scope: 'lists:read',
+    // Members are full contact DTOs: the list scope alone must not open contact data.
+    scope: ['lists:read', 'contacts:read'],
     handler: async (ctx, { url, params }) => {
       const members = await ctx.runQuery(q.listListMembers, {
         listId: params.id,
@@ -385,15 +387,21 @@ const ROUTES: ApiRoute[] = [
       if (!entityType) {
         return errorResult(400, 'missing_entity_type', 'The entityType parameter is required.');
       }
-      const result = await ctx.runQuery(q.listProperties, { entityType });
+      const result = await ctx.runQuery(q.listProperties, {
+        entityType,
+        paginationOpts: paginationOptsOf(url),
+      });
       return result ? ok(result) : errorResult(400, 'invalid_entity_type', 'Unknown entityType.');
     },
   },
 ];
 
 /** Every route of the table — the OpenAPI spec test checks the document against it. */
-export const API_ROUTE_TABLE: readonly { method: Method; pattern: string; scope?: ApiScope }[] =
-  ROUTES.map(({ method, pattern, scope }) => ({ method, pattern, scope }));
+export const API_ROUTE_TABLE: readonly {
+  method: Method;
+  pattern: string;
+  scope?: ApiScope | ApiScope[];
+}[] = ROUTES.map(({ method, pattern, scope }) => ({ method, pattern, scope }));
 
 const literalCount = (pattern: string) =>
   pattern.split('/').filter((s) => !s.startsWith(':')).length;
@@ -429,12 +437,16 @@ async function authenticate(
   ctx: ActionCtx,
   request: Request,
 ): Promise<{ key: Doc<'apiKeys'> } | { response: Response }> {
+  const ip = clientIpOf(request);
   const failed = async (): Promise<{ response: Response }> => {
-    const fail = await consumeRateLimit(ctx, 'apiAuthFail', clientIpOf(request));
+    const fail = await consumeRateLimit(ctx, 'apiAuthFail', ip);
     if (!fail.ok) return { response: rateLimited(fail.retryAfterMs) };
     return { response: toResponse(errorResult(401, 'unauthorized', 'Invalid API key.')) };
   };
 
+  // A rate-limited IP is refused before any key lookup: no DB work for a brute force.
+  const budget = await checkRateLimit(ctx, 'apiAuthFail', ip);
+  if (!budget.ok) return { response: rateLimited(budget.retryAfterMs) };
   const parsed = parseApiBearer(request.headers.get('authorization'));
   if (!parsed) return failed();
   const key = await ctx.runQuery(q.getApiKeyByKeyId, { keyId: parsed.keyId });
@@ -486,10 +498,9 @@ async function handle(ctx: ActionCtx, request: Request, method: Method): Promise
   const match = matchRoute(method, segments);
   if (!match) return toResponse(errorResult(404, 'not_found', 'Unknown resource.'));
   const { route, params } = match;
-  if (route.scope && !hasScope(key, route.scope)) {
-    return toResponse(
-      errorResult(403, 'missing_scope', `This key lacks the ${route.scope} scope.`),
-    );
+  const missing = [route.scope ?? []].flat().find((scope) => !hasScope(key, scope));
+  if (missing) {
+    return toResponse(errorResult(403, 'missing_scope', `This key lacks the ${missing} scope.`));
   }
 
   let body: unknown;

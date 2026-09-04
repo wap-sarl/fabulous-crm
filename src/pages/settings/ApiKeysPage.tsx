@@ -164,9 +164,8 @@ function KeyEditorDialog({
           <div className="space-y-1.5">
             <Label>Portées</Label>
             <p className="text-xs text-soft">
-              L’écriture n’inclut pas la lecture : cochez les deux si l’intégration doit lire et
-              écrire. Une clé voit et modifie toutes les fiches de l’organisation, sans le périmètre
-              des rôles et des équipes.
+              L’écriture inclut la lecture de la même ressource. Une clé voit et modifie toutes les
+              fiches de l’organisation, sans le périmètre des rôles et des équipes.
             </p>
             <div className="divide-y divide-border rounded-lg border border-border">
               {SCOPE_GROUPS.map((group) => (

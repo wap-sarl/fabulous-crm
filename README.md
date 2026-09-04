@@ -366,11 +366,12 @@ et sa révocation sont journalisées dans `auditLogs` (`entityType: 'apiKey'`).
 | Entreprises | `GET /companies[?domain=]`, `GET /companies/:id`, `POST`, `PATCH`, `DELETE` | `companies:read` / `companies:write` |
 | Transactions | `GET /deals[?leadId=]`, `GET /deals/:id`, `POST`, `PATCH`, `DELETE` | `deals:read` / `deals:write` |
 | Activités | `GET /activities[?leadId=]`, `GET /activities/:id`, `POST`, `PATCH`, `DELETE` | `activities:read` / `activities:write` |
-| Listes | `GET /lists`, `GET /lists/:id/members` | `lists:read` |
+| Listes | `GET /lists`, `GET /lists/:id/members` | `lists:read` (+ `contacts:read` pour les membres, qui sont des contacts complets) |
 | Propriétés | `GET /properties?entityType=lead\|company\|deal\|activity` | `properties:read` |
 
-L'écriture n'inclut pas la lecture (une clé d'injection peut être en écriture
-seule). Les réponses sont des DTO explicites (`id`, `createdAt`, `updatedAt`,
+Une portée d'écriture inclut la lecture de la même ressource (`contacts:write`
+suffit pour lire les contacts et pour recevoir la fiche renvoyée par une
+écriture). Les réponses sont des DTO explicites (`id`, `createdAt`, `updatedAt`,
 champs publics) : jamais de document brut, jamais de jeton de consentement ni
 de champ interne. Les fiches supprimées (soft delete) sont invisibles partout.
 
@@ -439,7 +440,8 @@ un doublon (sauf `/contacts/upsert`).
 | Écritures (`POST`, `PATCH`, `DELETE`) | 300 / min, en plus de la précédente | par clé d'API |
 | Échecs d'authentification | 10 / min | par adresse IP |
 
-Dépassement : `429` avec `Retry-After` (secondes).
+Dépassement : `429` avec `Retry-After` (secondes). Une adresse IP à court de
+budget d'authentification est refusée avant toute recherche de clé en base.
 
 ### Erreurs
 
