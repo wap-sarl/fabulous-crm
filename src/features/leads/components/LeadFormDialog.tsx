@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useConvex } from 'convex/react';
+import { z } from 'zod';
+import { EMAIL_ERROR_MESSAGES } from '@crm/lib/types';
 import { api } from '@crm/lib/backend';
 import type { Id, PropertyValue } from '@crm/lib/backend';
 import {
@@ -110,24 +112,25 @@ function fromLead(lead: LeadRow): FormState {
 
 type DomainMatch = { _id: Id<'companies'>; name: string };
 
-type RequiredField = 'firstName' | 'lastName' | 'email';
+const identitySchema = z.object({
+  firstName: z.string().trim().min(1, 'Le prénom est requis.'),
+  lastName: z.string().trim().min(1, 'Le nom est requis.'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'L’e-mail est requis.')
+    .pipe(z.email({ error: EMAIL_ERROR_MESSAGES.invalid })),
+});
+type Identity = z.infer<typeof identitySchema>;
+type RequiredField = keyof Identity;
 type FieldErrors = Partial<Record<RequiredField, string>>;
 
-const REQUIRED_MESSAGES: Record<RequiredField, string> = {
-  firstName: 'Le prénom est requis.',
-  lastName: 'Le nom est requis.',
-  email: 'L’e-mail est requis.',
-};
-
-/** Identity fields: blank is an error, and the e-mail must also parse. */
-function requiredFieldErrors(form: FormState): FieldErrors {
+function toFieldErrors(error: z.ZodError<Identity>): FieldErrors {
+  const { fieldErrors } = z.flattenError(error);
   const errors: FieldErrors = {};
-  for (const field of ['firstName', 'lastName', 'email'] as const) {
-    if (!form[field].trim()) errors[field] = REQUIRED_MESSAGES[field];
-  }
-  if (!errors.email) {
-    const invalid = validateEmail(form.email.trim());
-    if (invalid) errors.email = invalid;
+  for (const field of Object.keys(identitySchema.shape) as RequiredField[]) {
+    const message = fieldErrors[field]?.[0];
+    if (message) errors[field] = message;
   }
   return errors;
 }
@@ -177,11 +180,10 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       return { ...prev, customProperties: next };
     });
 
-  /** Validate the form and shape the mutation payload; null (with a toast or field errors) when invalid. */
   const buildPayload = () => {
-    const errors = requiredFieldErrors(form);
-    setFieldErrors(errors);
-    if (Object.keys(errors).length > 0) return null;
+    const identity = identitySchema.safeParse(form);
+    setFieldErrors(identity.success ? {} : toFieldErrors(identity.error));
+    if (!identity.success) return null;
 
     // Block on any invalid custom-property value (email/number/text rules).
     const invalid = propertyDefinitions.some(
@@ -214,9 +216,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     }
 
     return {
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
-      email: form.email.trim(),
+      ...identity.data,
       phone: form.phone || undefined,
       address,
       lifecycleStage: form.lifecycleStage || undefined,
