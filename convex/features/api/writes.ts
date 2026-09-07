@@ -18,6 +18,7 @@ import {
   dealCreateBody,
   dealPatchBody,
   type ContactCreateBody,
+  requireText,
 } from '../../lib/apiBodies';
 import {
   toPublicActivity,
@@ -52,7 +53,6 @@ import {
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
 } from '../../lib/properties';
-import { normalizeEmail } from '../crm/mutations';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
 
@@ -189,11 +189,14 @@ async function contactCompany(
   return current;
 }
 
+/** The normalized email of a create body; blank is a 400 like the other identity fields. */
+const requiredEmail = (raw: string) => requireText(raw, 'email').toLowerCase();
+
 async function insertContact(
   ctx: MutationCtx,
   apiKeyId: Id<'apiKeys'>,
   body: ContactCreateBody,
-  email: string | undefined,
+  email: string,
 ): Promise<Id<'leads'>> {
   const defs = await loadPropertyDefsById(ctx, 'lead');
   requireKnownProperties(defs, body.customProperties);
@@ -207,8 +210,8 @@ async function insertContact(
   const companyId = await contactCompany(ctx, apiKeyId, body, email, undefined);
 
   const leadId = await ctx.db.insert('leads', {
-    firstName: body.firstName?.trim() ?? '',
-    lastName: body.lastName?.trim() ?? '',
+    firstName: requireText(body.firstName, 'firstName'),
+    lastName: requireText(body.lastName, 'lastName'),
     email,
     phone: body.phone?.trim() || undefined,
     address: requireValidAddress(body.address),
@@ -239,7 +242,7 @@ export const createContact = internalMutation({
   args: { apiKeyId: v.id('apiKeys'), body: contactCreateBody },
   handler: (ctx, { apiKeyId, body }) =>
     api(async () => {
-      const email = normalizeEmail(body.email);
+      const email = requiredEmail(body.email);
       await assertEmailFree(ctx, email);
       const leadId = await insertContact(ctx, apiKeyId, body, email);
       return toPublicContact((await ctx.db.get(leadId))!);
@@ -251,8 +254,7 @@ export const upsertContact = internalMutation({
   args: { apiKeyId: v.id('apiKeys'), body: contactCreateBody },
   handler: (ctx, { apiKeyId, body }) =>
     api(async () => {
-      const email = normalizeEmail(body.email);
-      if (!email) throw apiError(400, 'email_required', 'upsert matches on email.');
+      const email = requiredEmail(body.email);
       const rows = await ctx.db
         .query('leads')
         .withIndex('by_email', (q) => q.eq('email', email))
@@ -267,8 +269,8 @@ export const upsertContact = internalMutation({
       requireKnownProperties(defs, body.customProperties);
       const custom = sanitizeCustomProperties(defs, body.customProperties);
       const updates: Record<string, unknown> = filterUndefined({
-        firstName: body.firstName?.trim(),
-        lastName: body.lastName?.trim(),
+        firstName: requireText(body.firstName, 'firstName'),
+        lastName: requireText(body.lastName, 'lastName'),
         phone: body.phone?.trim() || undefined,
         address: requireValidAddress(body.address),
         comment: body.comment,
@@ -317,12 +319,13 @@ export const updateContact = internalMutation({
     api(async () => {
       const lead = await target(ctx, 'leads', id);
       const updates: Record<string, unknown> = {};
-      if (body.firstName !== undefined) updates.firstName = body.firstName.trim();
-      if (body.lastName !== undefined) updates.lastName = body.lastName.trim();
+      if (body.firstName !== undefined)
+        updates.firstName = requireText(body.firstName, 'firstName');
+      if (body.lastName !== undefined) updates.lastName = requireText(body.lastName, 'lastName');
       if (body.email !== undefined) {
-        const email = body.email === null ? undefined : normalizeEmail(body.email);
+        const email = requiredEmail(body.email);
         if (email !== lead.email) await assertEmailFree(ctx, email, lead._id);
-        updates.email = email ?? null;
+        updates.email = email;
       }
       if (body.phone !== undefined) updates.phone = body.phone?.trim() || null;
       if (body.address !== undefined)

@@ -131,8 +131,8 @@ paths:
       operationId: upsertContact
       summary: Create or merge a contact by email
       description: |
-        `email` is required. A live contact with that email is merged with the CSV-import
-        rules: only the provided fields overwrite, `customProperties` merge key by key, a
+        `firstName`, `lastName` and `email` are required, as for `POST /contacts`. A live
+        contact with that email is merged with the CSV-import rules: only the provided fields overwrite, `customProperties` merge key by key, a
         soft-deleted match is revived, and `lifecycleStage` is ignored on an existing
         contact. When several contacts share the email, the oldest live one wins.
         Without a match the contact is created like `POST /contacts`.
@@ -810,11 +810,11 @@ components:
   responses:
     BadRequest:
       description: |
-        Invalid request. `code` is `invalid_json`, `invalid_body`, `invalid_fields` (with
-        `details.path`), `read_only_field`, `unknown_property`, `invalid_limit`,
-        `invalid_cursor`, `invalid_idempotency_key`, or a backend validation code such as
-        `invalid_owner`, `invalid_address`, `unknown_lifecycle_stage`, `unknown_stage`,
-        `invalid_deal`, `email_required`.
+        Invalid request. `code` is `invalid_json`, `invalid_body`, `field_required` (with
+        `details.field`), `invalid_fields` (with `details.path`), `read_only_field`,
+        `unknown_property`, `invalid_limit`, `invalid_cursor`, `invalid_idempotency_key`, or a
+        backend validation code such as `invalid_owner`, `invalid_address`,
+        `unknown_lifecycle_stage`, `unknown_stage`, `invalid_deal`.
       content:
         application/json:
           schema:
@@ -1090,6 +1090,7 @@ components:
 
     ContactCreate:
       type: object
+      required: [firstName, lastName, email]
       properties:
         firstName:
           type: string
@@ -1097,7 +1098,7 @@ components:
           type: string
         email:
           type: string
-          description: Required by `POST /contacts/upsert`.
+          description: Stored lower-cased. Blank identity fields are refused (`field_required`).
         phone:
           type: string
         address:
@@ -1126,7 +1127,8 @@ components:
         lastName:
           type: string
         email:
-          type: [string, 'null']
+          type: string
+          description: Identity fields (`firstName`, `lastName`, `email`) can change but never be cleared.
         phone:
           type: [string, 'null']
         address:

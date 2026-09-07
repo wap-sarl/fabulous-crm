@@ -186,7 +186,7 @@ export const openapiDocument: Record<string, unknown> = {
         operationId: 'upsertContact',
         summary: 'Create or merge a contact by email',
         description:
-          '`email` is required. A live contact with that email is merged with the CSV-import\nrules: only the provided fields overwrite, `customProperties` merge key by key, a\nsoft-deleted match is revived, and `lifecycleStage` is ignored on an existing\ncontact. When several contacts share the email, the oldest live one wins.\nWithout a match the contact is created like `POST /contacts`.\n',
+          '`firstName`, `lastName` and `email` are required, as for `POST /contacts`. A live\ncontact with that email is merged with the CSV-import rules: only the provided fields overwrite, `customProperties` merge key by key, a\nsoft-deleted match is revived, and `lifecycleStage` is ignored on an existing\ncontact. When several contacts share the email, the oldest live one wins.\nWithout a match the contact is created like `POST /contacts`.\n',
         'x-scopes': ['contacts:write'],
         parameters: [
           {
@@ -1203,7 +1203,7 @@ export const openapiDocument: Record<string, unknown> = {
     responses: {
       BadRequest: {
         description:
-          'Invalid request. `code` is `invalid_json`, `invalid_body`, `invalid_fields` (with\n`details.path`), `read_only_field`, `unknown_property`, `invalid_limit`,\n`invalid_cursor`, `invalid_idempotency_key`, or a backend validation code such as\n`invalid_owner`, `invalid_address`, `unknown_lifecycle_stage`, `unknown_stage`,\n`invalid_deal`, `email_required`.\n',
+          'Invalid request. `code` is `invalid_json`, `invalid_body`, `field_required` (with\n`details.field`), `invalid_fields` (with `details.path`), `read_only_field`,\n`unknown_property`, `invalid_limit`, `invalid_cursor`, `invalid_idempotency_key`, or a\nbackend validation code such as `invalid_owner`, `invalid_address`,\n`unknown_lifecycle_stage`, `unknown_stage`, `invalid_deal`.\n',
         content: {
           'application/json': {
             schema: {
@@ -1591,6 +1591,7 @@ export const openapiDocument: Record<string, unknown> = {
       },
       ContactCreate: {
         type: 'object',
+        required: ['firstName', 'lastName', 'email'],
         properties: {
           firstName: {
             type: 'string',
@@ -1600,7 +1601,8 @@ export const openapiDocument: Record<string, unknown> = {
           },
           email: {
             type: 'string',
-            description: 'Required by `POST /contacts/upsert`.',
+            description:
+              'Stored lower-cased. Blank identity fields are refused (`field_required`).',
           },
           phone: {
             type: 'string',
@@ -1642,7 +1644,9 @@ export const openapiDocument: Record<string, unknown> = {
             type: 'string',
           },
           email: {
-            type: ['string', 'null'],
+            type: 'string',
+            description:
+              'Identity fields (`firstName`, `lastName`, `email`) can change but never be cleared.',
           },
           phone: {
             type: ['string', 'null'],
