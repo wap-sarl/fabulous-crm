@@ -1,0 +1,43 @@
+Fabulous CRM Enterprise Edition Licence
+
+Copyright (c) 2026 WAP SARL
+
+The files in the `ee/` directory of this repository (the "Enterprise Software")
+are not covered by the licence of the rest of the repository. They are made
+available under the following terms.
+
+1. Licence. WAP SARL grants you a non-exclusive, non-transferable licence to
+   use the Enterprise Software in production only if you (and any entity you
+   represent) hold a valid Fabulous CRM subscription or another written
+   agreement with WAP SARL covering the Enterprise Software, and only within
+   the limits (seats, quotas, features) of that subscription or agreement.
+
+2. Development and evaluation. You may copy, modify and run the Enterprise
+   Software for development, testing and evaluation purposes without a
+   subscription. You may publish patches to it. WAP SARL and its licensors
+   retain all right, title and interest in and to the Enterprise Software and
+   in any such modifications and patches, which may only be used in production
+   under the terms of section 1.
+
+3. Restrictions. Except as expressly permitted above, you may not copy, merge,
+   publish, distribute, sublicense, sell, or otherwise make the Enterprise
+   Software available to third parties, remove or alter the technical measures
+   that condition its use on a valid subscription, or use it to provide a
+   hosted service to third parties.
+
+4. Termination. This licence terminates automatically if you breach it or if
+   your subscription or agreement ends. Sections 5 and 6 survive termination.
+
+5. Disclaimer. THE ENTERPRISE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+   ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+
+6. Liability. IN NO EVENT SHALL WAP SARL OR ITS LICENSORS BE LIABLE FOR ANY
+   CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+   OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE ENTERPRISE
+   SOFTWARE OR ITS USE.
+
+7. Governing law. This licence is governed by Swiss law. Any dispute is subject
+   to the exclusive jurisdiction of the courts of the seat of WAP SARL.
+
+For subscriptions and other agreements, contact WAP SARL.

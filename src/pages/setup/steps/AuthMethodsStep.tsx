@@ -223,7 +223,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                   <Label>Libellé</Label>
                   <Input
                     value={provider.label}
-                    placeholder="Est Santé"
+                    placeholder="Mon organisation"
                     onChange={(e) =>
                       setSso(index, {
                         label: e.target.value,

@@ -25,7 +25,7 @@ services:
     networks:
       proxy:
         aliases:
-          - est-sante-crm
+          - fabulous-crm
 
 networks:
   proxy:
