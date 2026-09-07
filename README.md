@@ -578,13 +578,9 @@ d'API côté conteneur (le WebSocket Convex va directement du navigateur vers
 publique pour que l'authentification, les liens de connexion et de consentement
 soient corrects.
 
-## Éditions, contribution et sécurité
+## Contribution et sécurité
 
-- [`EDITIONS.md`](EDITIONS.md) — ce qui est libre (tout ce dépôt, licence Apache 2.0) et ce
-  que l'édition hébergée ajoute ; le dossier `ee/` est sous licence commerciale
-  ([`LICENSE.ee`](LICENSE.ee)).
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow, vérifications avant commit, conventions ;
-  ouvrir une PR vaut acceptation du [`CLA.md`](CLA.md).
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow, vérifications avant commit, conventions.
 - [`SECURITY.md`](SECURITY.md) — signalement d'une faille de sécurité.
 
 ## Origine & divergence

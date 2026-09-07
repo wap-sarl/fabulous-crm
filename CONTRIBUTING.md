@@ -3,8 +3,6 @@
 Issues, pull requests, commits and code comments are written in English. The README stays
 in French because it is the self-hosting reference for the French-speaking customers.
 
-Opening a pull request means you accept the [Contributor Licence Agreement](CLA.md).
-
 ## Setup
 
 The recommended environment is the `wap-crm-dev` Docker container described in the README
@@ -36,9 +34,3 @@ Convex CLI through `bunx convex …`.
 - Form and field validation uses zod schemas; backend validators use Convex `v.*`.
 - Tests are `bun:test` suites under `tests/backend/` using `convex-test`; every behaviour
   change comes with its test.
-
-## Editions
-
-Code under `ee/` is the paid edition (see [EDITIONS.md](EDITIONS.md) and
-[LICENSE.ee](LICENSE.ee)) and is reviewed by its code owners. Everything else is the
-community edition and stays free.
