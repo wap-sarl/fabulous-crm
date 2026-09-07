@@ -6,7 +6,7 @@ scripts, seeds, et le tableau complet des variables d'environnement (frontend
 
 Points clés :
 - Package manager : **bun** (jamais npm/npx). Convex CLI via `bunx convex …`.
-- Alias d'import : `@crm/*` → `./src/*`. Ne pas réintroduire de specifiers `@est-sante/*`.
+- Alias d'import : `@crm/*` → `./src/*`.
 - `convex/_generated` est commité ; le régénérer avec `bun run codegen` après
   modification des fonctions Convex.
 - Le schéma Convex valide strictement (`schemaValidation` actif) : toute

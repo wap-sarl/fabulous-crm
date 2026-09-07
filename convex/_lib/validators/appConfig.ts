@@ -15,7 +15,7 @@ import { lifecycleConfigValidator } from './lifecycle';
  */
 export const ssoProviderValidator = v.object({
   providerId: v.string(), // stable slug — the OAuth callback path segment
-  label: v.string(), // button label, e.g. "Est Santé"
+  label: v.string(), // button label, e.g. "Mon organisation"
   issuerUrl: v.string(), // discovery base; `${issuerUrl}/.well-known/openid-configuration`
   clientId: v.string(),
   clientSecret: v.string(), // SECRET — server-side token exchange only
