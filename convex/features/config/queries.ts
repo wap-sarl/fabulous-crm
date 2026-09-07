@@ -3,6 +3,7 @@ import { settingsQuery, employeeQuery } from '../../_lib/auth';
 import { isSetupComplete } from '../../setup/helpers';
 import { SOCIAL_PROVIDERS } from '../../_lib/socialProviders';
 import { resolveBrevo, resolveEmailProvider, isEmailProviderConfigured } from '../../lib';
+import { countSeatsUsed, edition, loadEntitlements, tenantStatus } from '../../lib/entitlements';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
   DEFAULT_ATTACHMENT_MAX_BYTES,
@@ -23,6 +24,8 @@ export const getPublicConfig = query({
 
     return {
       setupComplete,
+      edition: edition(),
+      tenantStatus: tenantStatus(),
       organizationName: cfg?.organizationName ?? 'CRM',
       // Resolved, short-lived URLs for the custom branding (null when unset).
       // Public so the login page + runtime favicon can render pre-auth.
@@ -58,6 +61,14 @@ export const getPublicConfig = query({
           .map((p) => ({ id: p.providerId, label: p.label })),
       },
     };
+  },
+});
+
+export const getEntitlements = employeeQuery({
+  args: {},
+  handler: async (ctx) => {
+    const state = await loadEntitlements();
+    return { ...state, seatsUsed: await countSeatsUsed(ctx) };
   },
 });
 

@@ -23,6 +23,7 @@ import {
 } from './_lib/validators/deals';
 import { activityValidator } from './_lib/validators/activities';
 import { apiIdempotencyKeyValidator, apiKeyValidator } from './_lib/validators/apiKeys';
+import { usageCounterValidator } from './_lib/validators/entitlements';
 import { attachmentValidator } from './_lib/validators/attachments';
 import { teamValidator } from './_lib/validators/teams';
 import { roleValidator } from './_lib/validators/roles';
@@ -247,7 +248,8 @@ export default defineSchema({
   // Invitation allowlist (Better Auth membership gate). See invitations validator.
   invitations: defineTable(invitationValidator)
     .index('by_email', ['email'])
-    .index('by_email_status', ['email', 'status']),
+    .index('by_email_status', ['email', 'status'])
+    .index('by_status', ['status']),
 
   auditLogs: defineTable(auditLogValidator)
     .index('by_entity', ['entityType', 'entityId'])
@@ -329,6 +331,12 @@ export default defineSchema({
   apiIdempotencyKeys: defineTable(apiIdempotencyKeyValidator)
     .index('by_apiKey_key', ['apiKeyId', 'key'])
     .index('by_expiresAt', ['expiresAt']),
+
+  usageCounters: defineTable(usageCounterValidator).index('by_kind_month_subject', [
+    'kind',
+    'month',
+    'subject',
+  ]),
 
   scoringState: defineTable(scoringStateValidator),
 

@@ -68,6 +68,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '429': {
             $ref: '#/components/responses/RateLimited',
           },
@@ -112,6 +115,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -164,6 +170,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -240,6 +249,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -276,6 +288,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -322,6 +337,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -347,6 +365,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -398,6 +419,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -451,6 +475,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -490,6 +517,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -536,6 +566,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -562,6 +595,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -613,6 +649,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -666,6 +705,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -705,6 +747,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -751,6 +796,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -776,6 +824,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -828,6 +879,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -879,6 +933,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -915,6 +972,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -961,6 +1021,9 @@ export const openapiDocument: Record<string, unknown> = {
           '401': {
             $ref: '#/components/responses/Unauthorized',
           },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
+          },
           '403': {
             $ref: '#/components/responses/Forbidden',
           },
@@ -983,6 +1046,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -1026,6 +1092,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -1073,6 +1142,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -1124,6 +1196,9 @@ export const openapiDocument: Record<string, unknown> = {
           },
           '401': {
             $ref: '#/components/responses/Unauthorized',
+          },
+          '402': {
+            $ref: '#/components/responses/PaymentRequired',
           },
           '403': {
             $ref: '#/components/responses/Forbidden',
@@ -1214,6 +1289,17 @@ export const openapiDocument: Record<string, unknown> = {
       },
       Unauthorized: {
         description: 'Missing, malformed, unknown, revoked or expired key — always the same body.',
+        content: {
+          'application/json': {
+            schema: {
+              $ref: '#/components/schemas/Error',
+            },
+          },
+        },
+      },
+      PaymentRequired: {
+        description:
+          "Hosted edition only. `tenant_suspended` when the subscription lapsed (every call is\nrefused until it is settled), `quota_exceeded` when the plan's monthly API call\nquota is used up (`details.limit`, `details.used`).\n",
         content: {
           'application/json': {
             schema: {

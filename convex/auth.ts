@@ -17,6 +17,7 @@ import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } fr
 import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
 import { internalQuery, query } from './_generated/server';
 import { resolveRoleAccess } from './lib/roles';
+import { requireSeatAvailable } from './lib/entitlements';
 
 /**
  * Better Auth is the single session authority for this app (social OAuth +
@@ -77,6 +78,7 @@ async function linkOrProvisionEmployee(
     .withIndex('by_email_status', (q) => q.eq('email', email).eq('status', 'pending'))
     .first();
   if (!invite) return; // Gate should have prevented this; stay defensive.
+  await requireSeatAvailable(ctx);
 
   const now = Date.now();
   const nameParts = (authUser.name ?? '').trim().split(/\s+/).filter(Boolean);

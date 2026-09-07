@@ -6,3 +6,13 @@ export type EeFeature = (typeof EE_FEATURES)[number];
 
 /** Error code thrown by community-edition stubs in place of every paid entry point. */
 export const EDITION_REQUIRED = 'edition_required';
+
+export interface EeFrontend {
+  readonly bundled: boolean;
+  readonly features: readonly EeFeature[];
+}
+
+export interface EeBackend {
+  readonly bundled: boolean;
+  readonly features: readonly EeFeature[];
+}

@@ -246,6 +246,7 @@ localStorage.setItem('wap-crm-session-token', '<token retourné>')
 | `CONVEX_DEPLOYMENT` | CLI | Déploiement ciblé par `convex dev` / `convex run` (écrit automatiquement) |
 | `VITE_CONVEX_URL` | **oui** | URL du déploiement Convex ; `main.tsx` lève une erreur si absente |
 | `VITE_CONVEX_SITE_URL` | non | Origine `.convex.site` servant les routes Better Auth (`/api/auth/*`), utilisée comme `baseURL` du client d'auth. Si absente, dérivée de `VITE_CONVEX_URL` (`.convex.cloud` → `.convex.site`) |
+| `VITE_EDITION` | non | `ce` (défaut) ou `saas` : miroir de `EDITION` côté backend, utilisé avant le chargement de la config publique (bannière, libellés). Ne débloque rien par lui-même. |
 | `VITE_GOOGLE_MAPS_API_KEY` | non | Autocomplétion d'adresse Google Places pour les pays **hors France** (restreinte au pays sélectionné). Sans clé, l'app utilise Photon (OpenStreetMap, sans clé) ; la France passe toujours par l'API **BAN** gouvernementale. Voir `src/lib/countryInputs/address.tsx` (`registerAddressProvider`). |
 
 En production, les `VITE_*` sont injectées **au démarrage du conteneur** :
@@ -278,6 +279,11 @@ d'environnement du conteneur — pas de rebuild par environnement.
 > ou de secret/config déploiement (`SETUP_TOKEN`, `BREVO_API_KEY`, `SITE_URL`,
 > `BETTER_AUTH_SECRET`). `CONVEX_SITE_URL` est injectée automatiquement par Convex
 > et sert d'origine aux routes/callbacks Better Auth — rien à définir.
+
+| `EDITION` | non | `ce` (défaut) ou `saas` (hébergé par WAP). Informatif : n'accorde aucune fonctionnalité, voir `ENTITLEMENTS`. |
+| `TENANT_ID` | édition `saas` | Identifiant du tenant (slug), obligatoirement égal au champ `tenant` du jeton `ENTITLEMENTS`. |
+| `TENANT_STATUS` | non | `active` (défaut) ou `suspended` : un tenant suspendu refuse toutes les fonctions employé (`tenant_suspended`) et l'API publique (`402`), l'interface affiche une page de facturation ; les crons continuent. |
+| `ENTITLEMENTS` | édition `saas` | Jeton **signé** par le plan de contrôle (`base64url(payload).base64url(signature)`, ECDSA P-256) portant le plan, les sièges, les quotas mensuels, la rétention et les fonctionnalités payantes. Vérifié contre les clés publiques compilées dans `convex/lib/entitlementsKeys.ts` — jamais lues depuis l'environnement. Absent, invalide, lié à un autre tenant ou expiré depuis plus de 7 jours = édition communautaire (aucun verrouillage). Jeton de test : `bun run entitlements:sign --tenant <id>` (voir `EDITIONS.md`). |
 
 ### Rotation des secrets webhook Brevo
 
@@ -459,6 +465,7 @@ Codes HTTP : `400` (corps ou champ invalide ou absent, id malformé, référence
 inconnue — le `code` est le code d'erreur métier, ex. `field_required`, `invalid_owner`,
 `invalid_address`, `unknown_stage`), `401` (clé absente, malformée, inconnue,
 révoquée ou expirée — toujours le même corps), `403 missing_scope`,
+`402` (édition hébergée : `tenant_suspended`, `quota_exceeded`),
 `404 not_found`, `409` (conflit d'état : `duplicate_email`,
 `company_domain_exists`, `lifecycle_regression_blocked`,
 `deal_transition_forbidden`…), `422 idempotency_key_reused`, `429 rate_limited`,

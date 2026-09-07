@@ -4,6 +4,8 @@ import { api } from '@crm/lib/backend';
 
 export type PublicConfig = {
   setupComplete: boolean;
+  edition: 'ce' | 'saas';
+  tenantStatus: 'active' | 'suspended';
   organizationName: string;
   /** Resolved custom-branding URLs (null when the deployment uses defaults). */
   logoUrl: string | null;

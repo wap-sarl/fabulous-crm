@@ -2,6 +2,7 @@ import type { MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import { isNotDeleted } from '../../lib';
+import { consumeQuota } from '../../lib/entitlements';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { loadLeadFilterExtras } from '../crm/leadTableFilters';
 import { matchesTrigger, MAX_ENROLLMENTS_PER_LEAD_PER_DAY, type WorkflowTriggerEvent } from './lib';
@@ -34,6 +35,7 @@ export async function enrollLead(
   opts?: { manual?: boolean },
 ): Promise<Id<'workflowRuns'> | null> {
   if (!workflow.startNodeId) return null;
+  if (!(await consumeQuota(ctx, 'workflowRuns')).ok) return null;
 
   const runId = await ctx.db.insert('workflowRuns', {
     workflowId: workflow._id,

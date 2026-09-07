@@ -5,9 +5,16 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
   resolve: {
-    alias: {
-      '@crm': path.resolve(import.meta.dirname, 'src'),
-    },
+    alias: [
+      {
+        find: '@crm/ee',
+        replacement: path.resolve(
+          import.meta.dirname,
+          process.env.EE === '1' ? 'ee/src' : 'src/ee-stubs',
+        ),
+      },
+      { find: '@crm', replacement: path.resolve(import.meta.dirname, 'src') },
+    ],
   },
   server: {
     port: 4202,

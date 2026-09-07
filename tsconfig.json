@@ -19,9 +19,11 @@
     "types": ["vite/client", "node"],
     "baseUrl": ".",
     "paths": {
+      "@crm/ee": ["./src/ee-stubs/index.ts"],
+      "@crm/ee/*": ["./src/ee-stubs/*"],
       "@crm/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "ee/contract.ts"],
   "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.test.tsx"]
 }

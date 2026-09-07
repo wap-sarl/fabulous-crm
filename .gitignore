@@ -4,6 +4,7 @@ dist/
 .env.local
 .env.*.local
 *.log
+.entitlements-dev-key.json
 .DS_Store
 .vite/
 .idea/

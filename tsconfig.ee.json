@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@crm/ee": ["./ee/src/index.ts"],
+      "@crm/ee/*": ["./ee/src/*"],
+      "@crm/*": ["./src/*"]
+    }
+  },
+  "include": ["src/**/*", "ee/**/*"],
+  "exclude": ["node_modules", "dist", "src/**/*.test.ts", "src/**/*.test.tsx", "src/ee-stubs"]
+}

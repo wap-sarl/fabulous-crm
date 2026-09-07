@@ -22,6 +22,7 @@ import {
   READ_ONLY_FIELDS,
 } from '../../lib/apiBodies';
 import { apiError, isApiError } from '../../lib/apiErrors';
+import { isTenantSuspended, loadEntitlements } from '../../lib/entitlements';
 import { openapiDocument } from '../../lib/openapi.generated';
 import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../lib/rateLimits';
 
@@ -485,12 +486,26 @@ async function handle(ctx: ActionCtx, request: Request, method: Method): Promise
   const auth = await authenticate(ctx, request);
   if ('response' in auth) return auth.response;
   const { key } = auth;
+  if (isTenantSuspended()) {
+    return toResponse(errorResult(402, 'tenant_suspended', 'This deployment is suspended.'));
+  }
 
   const budget = await consumeRateLimit(ctx, 'apiRequest', key.keyId);
   if (!budget.ok) return rateLimited(budget.retryAfterMs);
   if (method !== 'GET') {
     const writes = await consumeRateLimit(ctx, 'apiWrite', key.keyId);
     if (!writes.ok) return rateLimited(writes.retryAfterMs);
+  }
+  if ((await loadEntitlements()).apiCallsPerMonth !== null) {
+    const quota = await ctx.runMutation(q.consumeApiCallQuota, { keyId: key.keyId });
+    if (!quota.ok) {
+      return toResponse(
+        errorResult(402, 'quota_exceeded', 'The monthly API call quota of this plan is used up.', {
+          limit: quota.limit,
+          used: quota.used,
+        }),
+      );
+    }
   }
   if (key.lastUsedAt === undefined || Date.now() - key.lastUsedAt >= API_KEY_TOUCH_INTERVAL_MS) {
     await ctx.runMutation(q.touchApiKey, { id: key._id });

@@ -14,6 +14,7 @@ import {
   toPublicPropertyDefinition,
 } from '../../lib/apiDtos';
 import { isNotDeleted } from '../../lib/dbHelpers';
+import { consumeQuota } from '../../lib/entitlements';
 
 export const getApiKeyByKeyId = internalQuery({
   args: { keyId: v.string() },
@@ -36,6 +37,11 @@ export const touchApiKey = internalMutation({
       await ctx.db.patch(args.id, { lastUsedAt: now });
     }
   },
+});
+
+export const consumeApiCallQuota = internalMutation({
+  args: { keyId: v.string() },
+  handler: (ctx, args) => consumeQuota(ctx, 'apiCalls', args.keyId),
 });
 
 /** Stale replay rows swept per reservation — keeps the table bounded without a cron. */

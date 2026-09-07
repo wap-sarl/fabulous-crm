@@ -13,7 +13,8 @@ import {
   SlidersHorizontal,
   UsersRound,
 } from 'lucide-react';
-import { DashboardLayout, useAuth, type NavItem } from '@crm/widgets';
+import { DashboardLayout, useAuth, usePublicConfig, type NavItem } from '@crm/widgets';
+import { SuspendedPage } from '../pages/SuspendedPage';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
 import { NAV_ITEMS } from '../lib/navigation';
 
@@ -109,6 +110,7 @@ export function DashboardShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { config } = usePublicConfig();
 
   // Highlight the top-level nav item even on nested/detail routes
   const currentPath = `/${location.pathname.split('/')[1] ?? ''}`;
@@ -134,6 +136,8 @@ export function DashboardShell() {
         FILES_NAV_ITEM,
       ]
     : [...moduleItems, LISTS_NAV_ITEM];
+
+  if (config?.tenantStatus === 'suspended') return <SuspendedPage />;
 
   return (
     <DashboardLayout
