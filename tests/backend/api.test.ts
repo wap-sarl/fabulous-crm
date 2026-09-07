@@ -426,7 +426,11 @@ describe('public REST API writes', () => {
     });
 
     // Strict create: the same email is a conflict pointing at the existing contact.
-    const dup = await apiCall(t, 'POST', 'contacts', key, { email: 'ada@example.com' });
+    const dup = await apiCall(t, 'POST', 'contacts', key, {
+      firstName: 'Ada',
+      lastName: 'Byron',
+      email: 'ada@example.com',
+    });
     expect(dup.status).toBe(409);
     const dupBody = (await dup.json()) as ErrorBody;
     expect(dupBody.error.code).toBe('duplicate_email');
@@ -438,27 +442,48 @@ describe('public REST API writes', () => {
     const { key } = await createKey(as, ALL_SCOPES);
     const { key: readOnly } = await createKey(as, ['contacts:read']);
     const { key: writeOnly } = await createKey(as, ['contacts:write']);
+    const base = { firstName: 'Val', lastName: 'Idation', email: 'val@example.com' };
 
-    const consent = await apiCall(t, 'POST', 'contacts', key, { marketingConsent: ['email'] });
+    // firstName, lastName and email are mandatory; the first missing one is named.
+    const missing = await apiCall(t, 'POST', 'contacts', key, { lastName: 'Only' });
+    expect(missing.status).toBe(400);
+    const missingBody = (await missing.json()) as ErrorBody;
+    expect(missingBody.error.code).toBe('field_required');
+    expect(missingBody.error.details?.field).toBe('firstName');
+    const blank = await apiCall(t, 'POST', 'contacts', key, { ...base, email: '  ' });
+    expect(blank.status).toBe(400);
+    expect(((await blank.json()) as ErrorBody).error.details).toEqual({ field: 'email' });
+
+    const consent = await apiCall(t, 'POST', 'contacts', key, {
+      ...base,
+      marketingConsent: ['email'],
+    });
     expect(consent.status).toBe(400);
     expect(await errorCode(consent)).toBe('read_only_field');
 
-    const unknownField = await apiCall(t, 'POST', 'contacts', key, { nickname: 'x' });
+    const unknownField = await apiCall(t, 'POST', 'contacts', key, { ...base, nickname: 'x' });
     expect(unknownField.status).toBe(400);
     expect(await errorCode(unknownField)).toBe('invalid_fields');
 
-    const badType = await apiCall(t, 'POST', 'contacts', key, { firstName: 3 });
+    const badType = await apiCall(t, 'POST', 'contacts', key, { ...base, firstName: 3 });
     expect(await errorCode(badType)).toBe('invalid_fields');
 
     const unknownProp = await apiCall(t, 'POST', 'contacts', key, {
+      ...base,
       customProperties: { nope: 'x' },
     });
     expect(await errorCode(unknownProp)).toBe('unknown_property');
 
-    const badOwner = await apiCall(t, 'POST', 'contacts', key, { ownerIds: ['notanid'] });
+    const badOwner = await apiCall(t, 'POST', 'contacts', key, {
+      ...base,
+      ownerIds: ['notanid'],
+    });
     expect(await errorCode(badOwner)).toBe('invalid_fields');
 
-    const badStage = await apiCall(t, 'POST', 'contacts', key, { lifecycleStage: 'nope' });
+    const badStage = await apiCall(t, 'POST', 'contacts', key, {
+      ...base,
+      lifecycleStage: 'nope',
+    });
     expect(badStage.status).toBe(400);
     expect(await errorCode(badStage)).toBe('unknown_lifecycle_stage');
 
@@ -489,8 +514,12 @@ describe('public REST API writes', () => {
       showInTable: false,
     });
 
-    const noEmail = await apiCall(t, 'POST', 'contacts/upsert', key, { firstName: 'X' });
-    expect(await errorCode(noEmail)).toBe('email_required');
+    const noEmail = await apiCall(t, 'POST', 'contacts/upsert', key, {
+      firstName: 'X',
+      lastName: 'Y',
+    });
+    expect(noEmail.status).toBe(400);
+    expect(await errorCode(noEmail)).toBe('field_required');
 
     const first = await apiCall(t, 'POST', 'contacts/upsert', key, {
       firstName: 'Grace',
@@ -511,6 +540,7 @@ describe('public REST API writes', () => {
 
     const second = await apiCall(t, 'POST', 'contacts/upsert', key, {
       email: 'GRACE@example.com',
+      firstName: 'Grace',
       lastName: 'Hopper-Murray',
       lifecycleStage: 'subscriber',
       customProperties: { [propId2]: 'Marine' },
@@ -534,6 +564,8 @@ describe('public REST API writes', () => {
     expect((await apiCall(t, 'DELETE', `contacts/${created.data.id}`, key)).status).toBe(204);
     expect((await apiGet(t, `contacts/${created.data.id}`, key)).status).toBe(404);
     const revived = await apiCall(t, 'POST', 'contacts/upsert', key, {
+      firstName: 'Grace',
+      lastName: 'Hopper-Murray',
       email: 'grace@example.com',
     });
     expect(revived.status).toBe(200);
@@ -572,6 +604,14 @@ describe('public REST API writes', () => {
     expect(conflict.status).toBe(409);
     expect(((await conflict.json()) as ErrorBody).error.details?.existingId).toBe(other);
 
+    // Identity fields can change but never be blanked or cleared.
+    const blank = await apiCall(t, 'PATCH', `contacts/${id}`, key, { firstName: ' ' });
+    expect(blank.status).toBe(400);
+    expect(await errorCode(blank)).toBe('field_required');
+    const cleared = await apiCall(t, 'PATCH', `contacts/${id}`, key, { email: null });
+    expect(cleared.status).toBe(400);
+    expect(await errorCode(cleared)).toBe('invalid_fields');
+
     const audits = await t.run(async (ctx) =>
       (await ctx.db.query('auditLogs').collect()).filter((a) => a.entityId === id),
     );
@@ -599,10 +639,16 @@ describe('public REST API writes', () => {
     expect(company.domain).toBe('acme.fr');
 
     // A contact with a business email attaches to the existing company by domain.
-    const contact = await apiCall(t, 'POST', 'contacts', key, { email: 'jo@acme.fr' });
+    const contact = await apiCall(t, 'POST', 'contacts', key, {
+      firstName: 'Jo',
+      lastName: 'Acme',
+      email: 'jo@acme.fr',
+    });
     expect(((await contact.json()) as { companyId: string }).companyId).toBe(company.id);
     // A company hint with a name creates one when nothing matches.
     const hinted = await apiCall(t, 'POST', 'contacts', key, {
+      firstName: 'X',
+      lastName: 'Y',
       email: 'x@gmail.com',
       company: { name: 'Nouvelle SAS' },
     });
@@ -745,7 +791,7 @@ describe('public REST API writes', () => {
   test('Idempotency-Key replays the first answer and refuses a different body', async () => {
     const { t, as } = await setup();
     const { key } = await createKey(as, ALL_SCOPES);
-    const body = { firstName: 'Idem', email: 'idem@example.com' };
+    const body = { firstName: 'Idem', lastName: 'Potent', email: 'idem@example.com' };
     const headers = { 'Idempotency-Key': 'zap-run-42' };
 
     const first = await apiCall(t, 'POST', 'contacts', key, body, headers);
@@ -756,7 +802,14 @@ describe('public REST API writes', () => {
     expect(replay.headers.get('Idempotent-Replayed')).toBe('true');
     expect(await replay.json()).toEqual(await first.json());
 
-    const reused = await apiCall(t, 'POST', 'contacts', key, { firstName: 'Other' }, headers);
+    const reused = await apiCall(
+      t,
+      'POST',
+      'contacts',
+      key,
+      { ...body, firstName: 'Other' },
+      headers,
+    );
     expect(reused.status).toBe(422);
     expect(await errorCode(reused)).toBe('idempotency_key_reused');
 

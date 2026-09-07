@@ -18,9 +18,9 @@ const companyHint = v.object({
 });
 
 export const contactCreateBody = v.object({
-  firstName: v.optional(v.string()),
-  lastName: v.optional(v.string()),
-  email: v.optional(v.string()),
+  firstName: v.string(),
+  lastName: v.string(),
+  email: v.string(),
   phone: v.optional(v.string()),
   address: v.optional(addressValidator),
   comment: v.optional(v.string()),
@@ -37,7 +37,8 @@ export type ContactCreateBody = Infer<typeof contactCreateBody>;
 export const contactPatchBody = v.object({
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
-  email: v.optional(nullable(v.string())),
+  // Identity fields are never cleared: no null here, blanks are refused by the handler.
+  email: v.optional(v.string()),
   phone: v.optional(nullable(v.string())),
   address: v.optional(nullable(addressValidator)),
   comment: v.optional(nullable(v.string())),
@@ -174,7 +175,16 @@ export const READ_ONLY_FIELDS: Record<'contacts' | 'companies' | 'deals' | 'acti
 /** Fields every DTO carries that are never writable. */
 const SYSTEM_FIELDS = ['id', 'createdAt', 'updatedAt'];
 
-/** Validate a JSON body: read-only fields → `read_only_field`, unknown/mistyped → `invalid_fields`. */
+/** A required text field: trimmed, and a 400 `field_required` when blank. */
+export function requireText(value: string, field: string): string {
+  const text = value.trim();
+  if (!text) throw apiError(400, 'field_required', `${field} is required.`, { field });
+  return text;
+}
+
+type ObjectFields = { fields?: Record<string, { isOptional: 'required' | 'optional' }> };
+
+/** Validate a JSON body: read-only → `read_only_field`, missing → `field_required`, unknown/mistyped → `invalid_fields`. */
 export function parseBody<V extends Validator<unknown, 'required', string>>(
   validator: V,
   body: unknown,
@@ -188,6 +198,11 @@ export function parseBody<V extends Validator<unknown, 'required', string>>(
       throw apiError(400, 'read_only_field', `${field} cannot be written through the API.`, {
         field,
       });
+    }
+  }
+  for (const [field, spec] of Object.entries((validator as ObjectFields).fields ?? {})) {
+    if (spec.isOptional === 'required' && (body as Record<string, unknown>)[field] === undefined) {
+      throw apiError(400, 'field_required', `${field} is required.`, { field });
     }
   }
   try {

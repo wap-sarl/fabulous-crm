@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useConvex } from 'convex/react';
+import { z } from 'zod';
+import { EMAIL_ERROR_MESSAGES } from '@crm/lib/types';
 import { api } from '@crm/lib/backend';
 import type { Id, PropertyValue } from '@crm/lib/backend';
 import {
@@ -110,6 +112,29 @@ function fromLead(lead: LeadRow): FormState {
 
 type DomainMatch = { _id: Id<'companies'>; name: string };
 
+const identitySchema = z.object({
+  firstName: z.string().trim().min(1, 'Le prénom est requis.'),
+  lastName: z.string().trim().min(1, 'Le nom est requis.'),
+  email: z
+    .string()
+    .trim()
+    .min(1, 'L’e-mail est requis.')
+    .pipe(z.email({ error: EMAIL_ERROR_MESSAGES.invalid })),
+});
+type Identity = z.infer<typeof identitySchema>;
+type RequiredField = keyof Identity;
+type FieldErrors = Partial<Record<RequiredField, string>>;
+
+function toFieldErrors(error: z.ZodError<Identity>): FieldErrors {
+  const { fieldErrors } = z.flattenError(error);
+  const errors: FieldErrors = {};
+  for (const field of Object.keys(identitySchema.shape) as RequiredField[]) {
+    const message = fieldErrors[field]?.[0];
+    if (message) errors[field] = message;
+  }
+  return errors;
+}
+
 export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
   const isEdit = !!lead;
   const convex = useConvex();
@@ -120,6 +145,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   const currentStageIndex = isEdit ? lifecycle.indexOf(lead?.lifecycleStage) : -1;
 
   const [form, setForm] = useState<FormState>(emptyForm);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [submitting, setSubmitting] = useState(false);
   /** Company matched by the email's domain, awaiting the « rattacher ? » answer. */
   const [domainMatch, setDomainMatch] = useState<DomainMatch | null>(null);
@@ -129,13 +155,22 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
   useEffect(() => {
     if (open) {
       setForm(lead ? fromLead(lead) : emptyForm());
+      setFieldErrors({});
       setDomainMatch(null);
       setPickedCompanyName(null);
     }
   }, [open, lead]);
 
-  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+  const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+    // Typing in a flagged field clears its message until the next submit.
+    setFieldErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key as RequiredField];
+      return next;
+    });
+  };
 
   const setCustomProp = (definitionId: string, value: PropertyValue | undefined) =>
     setForm((prev) => {
@@ -145,12 +180,10 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
       return { ...prev, customProperties: next };
     });
 
-  /** Validate the form and shape the mutation payload; null (with a toast) when invalid. */
   const buildPayload = () => {
-    if (!form.firstName.trim() || !form.lastName.trim()) {
-      toast.error('Le prénom et le nom sont requis.');
-      return null;
-    }
+    const identity = identitySchema.safeParse(form);
+    setFieldErrors(identity.success ? {} : toFieldErrors(identity.error));
+    if (!identity.success) return null;
 
     // Block on any invalid custom-property value (email/number/text rules).
     const invalid = propertyDefinitions.some(
@@ -183,9 +216,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     }
 
     return {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email || undefined,
+      ...identity.data,
       phone: form.phone || undefined,
       address,
       lifecycleStage: form.lifecycleStage || undefined,
@@ -277,7 +308,15 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
               id="firstName"
               value={form.firstName}
               onChange={(e) => setField('firstName', e.target.value)}
+              invalid={!!fieldErrors.firstName}
+              aria-invalid={!!fieldErrors.firstName}
+              aria-describedby={fieldErrors.firstName ? 'firstName-error' : undefined}
             />
+            {fieldErrors.firstName ? (
+              <HelperText id="firstName-error" variant="error">
+                {fieldErrors.firstName}
+              </HelperText>
+            ) : null}
           </div>
           <div className="space-y-1">
             <Label htmlFor="lastName">Nom *</Label>
@@ -285,16 +324,25 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
               id="lastName"
               value={form.lastName}
               onChange={(e) => setField('lastName', e.target.value)}
+              invalid={!!fieldErrors.lastName}
+              aria-invalid={!!fieldErrors.lastName}
+              aria-describedby={fieldErrors.lastName ? 'lastName-error' : undefined}
             />
+            {fieldErrors.lastName ? (
+              <HelperText id="lastName-error" variant="error">
+                {fieldErrors.lastName}
+              </HelperText>
+            ) : null}
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="email">E-mail</Label>
+            <Label htmlFor="email">E-mail *</Label>
             <EmailInput
               id="email"
               value={form.email}
               onChange={(e) => setField('email', e.target.value)}
-              error={form.email ? validateEmail(form.email) : null}
+              error={fieldErrors.email ?? (form.email ? validateEmail(form.email) : null)}
+              errorId="email-error"
             />
           </div>
           <div className="space-y-1">

@@ -22,6 +22,7 @@ import {
   READ_ONLY_FIELDS,
 } from '../../lib/apiBodies';
 import { apiError, isApiError } from '../../lib/apiErrors';
+import { openapiDocument } from '../../lib/openapi.generated';
 import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../lib/rateLimits';
 
 const API_PREFIX = '/api/v1/';
@@ -565,7 +566,36 @@ async function handle(ctx: ActionCtx, request: Request, method: Method): Promise
   return toResponse(result);
 }
 
+const DOCS_CACHE = 'public, max-age=300';
+
+// Swagger UI from the CDN, pointed at the served spec; the Authorize button takes the user's own key.
+const SWAGGER_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WAP CRM API</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script><script>window.ui=SwaggerUIBundle({url:'/api/v1/openapi.json',dom_id:'#swagger-ui',persistAuthorization:true,tryItOutEnabled:true,displayRequestDuration:true});</script></body></html>`;
+
+/** The spec with `servers` pointing at this deployment. */
+function openapiFor(request: Request): Record<string, unknown> {
+  const origin = new URL(request.url).origin;
+  return { ...openapiDocument, servers: [{ url: `${origin}${API_PREFIX.slice(0, -1)}` }] };
+}
+
 export function registerApiRoutes(http: HttpRouter): void {
+  // Exact routes win over the prefix ones: the docs need no key (they describe, they reveal nothing).
+  http.route({
+    path: `${API_PREFIX}openapi.json`,
+    method: 'GET',
+    handler: httpAction(async (_ctx, request) =>
+      Response.json(openapiFor(request), { headers: { 'Cache-Control': DOCS_CACHE } }),
+    ),
+  });
+  http.route({
+    path: `${API_PREFIX}docs`,
+    method: 'GET',
+    handler: httpAction(
+      async () =>
+        new Response(SWAGGER_HTML, {
+          headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': DOCS_CACHE },
+        }),
+    ),
+  });
   for (const method of METHODS) {
     http.route({
       pathPrefix: API_PREFIX,

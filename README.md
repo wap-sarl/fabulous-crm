@@ -175,6 +175,7 @@ src/
   features/ pages/   Code applicatif CRM
   lib/               backend.ts (ré-exports Convex), shared.ts, types.ts
 docker/              Caddyfile + entrypoint de l'image de production
+docs/                openapi.yaml — contrat de l'API publique (source de `bun run openapi`)
 ```
 
 Alias d'import : `@crm/*` → `./src/*` (déclaré dans `tsconfig.json` et
@@ -215,6 +216,7 @@ bun run dev
 | `bun run build` | `tsc --noEmit` + `vite build` → `dist/` |
 | `bun run typecheck` | tsconfig app + tsconfig convex |
 | `bun run codegen` | régénère `convex/_generated` (commité) |
+| `bun run openapi` | régénère `convex/lib/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
 
@@ -388,6 +390,10 @@ de champ interne. Les fiches supprimées (soft delete) sont invisibles partout.
 
 - Corps JSON ; `POST` renvoie `201` et la fiche, `PATCH` `200` et la fiche,
   `DELETE` `204` (suppression douce, comme l'interface).
+- Contacts : `firstName`, `lastName` et `email` sont **obligatoires** sur
+  `POST /contacts` et `POST /contacts/upsert` (`400 field_required`, le champ
+  dans `details.field`), et `PATCH` ne peut ni les vider ni les passer à
+  `null`. Le formulaire de l'interface applique la même règle.
 - `PATCH` est partiel : seuls les champs fournis changent, `null` vide un champ
   optionnel. `customProperties` (clés = ids de `GET /properties`) fusionne
   clé par clé, `null` retire une clé ; un id de propriété inconnu est refusé
@@ -399,7 +405,7 @@ de champ interne. Les fiches supprimées (soft delete) sont invisibles partout.
 - `POST /contacts` est une **création stricte** : un contact vivant avec le
   même e-mail (normalisé) renvoie `409 duplicate_email` avec l'`existingId`
   dans `details`. `PATCH` applique la même règle à un changement d'e-mail.
-- `POST /contacts/upsert` **crée ou fusionne** par e-mail (obligatoire), avec
+- `POST /contacts/upsert` **crée ou fusionne** par e-mail, avec
   les règles de l'import CSV : seuls les champs fournis écrasent, les
   propriétés fusionnent, une fiche supprimée est ravivée, le statut d'une
   fiche existante n'est jamais touché. Si plusieurs fiches partagent
@@ -449,8 +455,8 @@ budget d'authentification est refusée avant toute recherche de clé en base.
 { "error": { "code": "invalid_fields", "message": "…", "details": { "path": ".email" } } }
 ```
 
-Codes HTTP : `400` (corps ou champ invalide, id malformé, référence inconnue —
-le `code` est le code d'erreur métier, ex. `invalid_owner`,
+Codes HTTP : `400` (corps ou champ invalide ou absent, id malformé, référence
+inconnue — le `code` est le code d'erreur métier, ex. `field_required`, `invalid_owner`,
 `invalid_address`, `unknown_stage`), `401` (clé absente, malformée, inconnue,
 révoquée ou expirée — toujours le même corps), `403 missing_scope`,
 `404 not_found`, `409` (conflit d'état : `duplicate_email`,
@@ -464,6 +470,21 @@ Chaque écriture par l'API produit une ligne `auditLogs` portant `apiKeyId` (et
 pas d'`userId`) ; le fil d'activité des fiches l'affiche comme
 `API · <nom de la clé>`. Les lectures ne sont pas journalisées : `lastUsedAt`
 de la clé (rafraîchi au plus toutes les 5 min) et les logs Convex suffisent.
+
+### Documentation OpenAPI
+
+Le contrat est décrit dans `docs/openapi.yaml` (OpenAPI 3.1, relu comme du
+code) et servi sans clé par le déploiement :
+
+- `GET /api/v1/openapi.json` — le document, avec `servers` pointant sur le
+  déploiement qui le sert ;
+- `GET /api/v1/docs` — explorateur Swagger UI ; le bouton *Authorize* prend
+  votre clé pour essayer les appels.
+
+Après une modification du YAML, `bun run openapi` régénère le module servi
+(`convex/lib/openapi.generated.ts`, commité) ; `tests/backend/openapi.test.ts`
+vérifie que le module est à jour, que le document est un OpenAPI valide et
+qu'il décrit exactement les routes du routeur avec leurs portées.
 
 ## Production
 
