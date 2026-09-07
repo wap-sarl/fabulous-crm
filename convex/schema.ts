@@ -1,4 +1,5 @@
 import { defineSchema, defineTable } from 'convex/server';
+import { extensionTables } from './extensionsSchema';
 import { userValidator } from './_lib/validators/users';
 import { auditLogValidator } from './_lib/validators/auditLogs';
 import {
@@ -235,7 +236,7 @@ export {
   OPTION_BASED_TYPES,
 } from './_lib/validators/properties';
 
-export default defineSchema({
+const tables = {
   // Sessions/accounts/verification live inside the Better Auth component
   // (convex/convex.config.ts), not in the app schema. See convex/auth.ts.
   users: defineTable(userValidator)
@@ -247,7 +248,8 @@ export default defineSchema({
   // Invitation allowlist (Better Auth membership gate). See invitations validator.
   invitations: defineTable(invitationValidator)
     .index('by_email', ['email'])
-    .index('by_email_status', ['email', 'status']),
+    .index('by_email_status', ['email', 'status'])
+    .index('by_status', ['status']),
 
   auditLogs: defineTable(auditLogValidator)
     .index('by_entity', ['entityType', 'entityId'])
@@ -381,4 +383,6 @@ export default defineSchema({
 
   // Singleton runtime config (org basics + SSO providers). Read with `.first()`.
   appConfig: defineTable(appConfigValidator),
-});
+};
+
+export default defineSchema({ ...tables, ...extensionTables });

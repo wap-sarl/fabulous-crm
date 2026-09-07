@@ -27,6 +27,7 @@ import {
   MAX_STEPS_PER_RUN,
 } from './lib';
 import { dispatchWorkflowTrigger, enrollLead } from './triggerDispatch';
+import { extensions } from '../../extensions';
 
 /**
  * The workflow execution engine. One node per `executeStep` invocation, each
@@ -467,6 +468,13 @@ export const executeStep = internalMutation({
           await advanceRun(ctx, run, workflow, node.next);
           return;
         }
+        if (
+          !(await extensions.beforeSend(ctx, { channel: 'email', count: 1, source: 'workflow' }))
+        ) {
+          await logStep(ctx, run, node, 'skipped', { detail: 'refusé par une extension' });
+          await advanceRun(ctx, run, workflow, node.next);
+          return;
+        }
         const stepId = await logStep(ctx, run, node, 'pending');
         await ctx.scheduler.runAfter(0, internal.features.workflows.actions.runWorkflowActionStep, {
           runId: run._id,
@@ -485,6 +493,11 @@ export const executeStep = internalMutation({
         }
         if (!lead.marketingConsent.includes('sms')) {
           await logStep(ctx, run, node, 'skipped_no_consent');
+          await advanceRun(ctx, run, workflow, node.next);
+          return;
+        }
+        if (!(await extensions.beforeSend(ctx, { channel: 'sms', count: 1, source: 'workflow' }))) {
+          await logStep(ctx, run, node, 'skipped', { detail: 'refusé par une extension' });
           await advanceRun(ctx, run, workflow, node.next);
           return;
         }

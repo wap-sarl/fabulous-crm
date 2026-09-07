@@ -30,6 +30,7 @@ import {
   loadListMemberIdsForLeads,
   matchesLeadFilters,
 } from './leadTableFilters';
+import { extensions } from '../../extensions';
 
 const BATCH_SIZE = 50;
 
@@ -431,6 +432,17 @@ export const prepareCampaignBatch = internalMutation({
     // Last page: finalize. Any pending send (this batch or an earlier one)
     // means there is something to deliver.
     const hasPending = totalCount - failedCount > 0;
+    const allowed =
+      !hasPending ||
+      (await extensions.beforeSend(ctx, {
+        channel: campaign.channel ?? 'email',
+        count: totalCount - failedCount,
+        source: 'campaign',
+      }));
+    if (!allowed) {
+      await ctx.db.patch(args.campaignId, { totalCount, failedCount, status: 'failed' });
+      return { isDone: true, continueCursor: page.continueCursor };
+    }
     await ctx.db.patch(args.campaignId, {
       totalCount,
       failedCount,

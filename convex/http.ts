@@ -2,6 +2,7 @@ import { httpRouter } from 'convex/server';
 import { httpAction } from './_generated/server';
 import { internal } from './_generated/api';
 import { authComponent, createAuth } from './auth';
+import { extensions } from './extensions';
 import { registerApiRoutes } from './features/api/routes';
 import { resolveBrevo, timingSafeEqual } from './lib';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
@@ -179,6 +180,7 @@ http.route({
 });
 
 // Public REST API (/api/v1/): see features/api/routes.ts.
+extensions.registerHttpRoutes(http);
 registerApiRoutes(http);
 
 // Registers Better Auth's HTTP routes (e.g. /api/auth/callback/<provider>).

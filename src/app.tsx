@@ -41,6 +41,7 @@ import { DealsPage } from './pages/deals/DealsPage';
 import { DealDetailPage } from './pages/deals/DealDetailPage';
 import { PipelinesPage } from './pages/settings/PipelinesPage';
 import { TasksPage } from './pages/tasks/TasksPage';
+import { extensions } from './extensions';
 
 function NotFoundPage() {
   const navigate = useNavigate();
@@ -105,6 +106,9 @@ function AppRoutes() {
             <Route path="/settings/files" element={<FilesPage />} />
             <Route path="/settings/roles" element={<RolesPage />} />
             <Route path="/design-system" element={<DesignSystemPage />} />
+            {extensions.routes.map((route) => (
+              <Route key={route.path} path={route.path} element={route.element} />
+            ))}
           </Route>
         </Route>
 

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { DashboardLayout, useAuth, type NavItem } from '@crm/widgets';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
+import { extensions } from '../extensions';
 import { NAV_ITEMS } from '../lib/navigation';
 
 const TEAM_NAV_ITEM: NavItem = {
@@ -133,9 +134,10 @@ export function DashboardShell() {
         PIPELINES_NAV_ITEM,
         FILES_NAV_ITEM,
       ]
-    : [...moduleItems, LISTS_NAV_ITEM];
+    : [...moduleItems, LISTS_NAV_ITEM, ...extensions.navItems];
 
-  return (
+  const Guard = extensions.ShellGuard;
+  const shell = (
     <DashboardLayout
       navItems={navItems}
       currentPath={currentPath}
@@ -147,4 +149,5 @@ export function DashboardShell() {
       <Outlet />
     </DashboardLayout>
   );
+  return Guard ? <Guard>{shell}</Guard> : shell;
 }

@@ -21,6 +21,7 @@ import {
   parseBody,
   READ_ONLY_FIELDS,
 } from '../../lib/apiBodies';
+import { extensions } from '../../extensions';
 import { apiError, isApiError } from '../../lib/apiErrors';
 import { openapiDocument } from '../../lib/openapi.generated';
 import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../lib/rateLimits';
@@ -491,6 +492,10 @@ async function handle(ctx: ActionCtx, request: Request, method: Method): Promise
   if (method !== 'GET') {
     const writes = await consumeRateLimit(ctx, 'apiWrite', key.keyId);
     if (!writes.ok) return rateLimited(writes.retryAfterMs);
+  }
+  const refusal = await extensions.beforeApiRequest(ctx, key, method);
+  if (refusal) {
+    return toResponse(errorResult(refusal.status, refusal.code, refusal.message, refusal.details));
   }
   if (key.lastUsedAt === undefined || Date.now() - key.lastUsedAt >= API_KEY_TOUCH_INTERVAL_MS) {
     await ctx.runMutation(q.touchApiKey, { id: key._id });

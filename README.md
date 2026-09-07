@@ -578,6 +578,16 @@ d'API côté conteneur (le WebSocket Convex va directement du navigateur vers
 publique pour que l'authentification, les liens de connexion et de consentement
 soient corrects.
 
+## Extensions
+
+Le CRM expose quelques points d'accroche typés, sans effet par défaut, pour qu'un
+déploiement ajoute ses propres règles, pages et routes sans forker le code : refuser un
+appel employé, enrichir la configuration publique, limiter invitations, créations de
+contacts, envois et enrôlements, répondre à une requête d'API avant la route, ajouter des
+routes HTTP, des tables, des pages et des entrées de menu. Un *overlay* remplace
+`convex/extensions.ts`, `convex/extensionsSchema.ts` et `src/extensions.tsx`. Le contrat
+est décrit dans [`docs/extensions.md`](docs/extensions.md).
+
 ## Contribution et sécurité
 
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow, vérifications avant commit, conventions.

@@ -55,6 +55,7 @@ import {
 } from '../../lib/properties';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
+import { extensions } from '../../extensions';
 
 const CONSENT_TOKEN_BYTES = 24;
 
@@ -208,6 +209,7 @@ async function insertContact(
   }
   const ownerIds = await cleanOwnerIds(ctx, refs(ctx, 'users', body.ownerIds ?? [], 'ownerIds'));
   const companyId = await contactCompany(ctx, apiKeyId, body, email, undefined);
+  await extensions.beforeLeadCreate(ctx, { count: 1, source: 'api' });
 
   const leadId = await ctx.db.insert('leads', {
     firstName: requireText(body.firstName, 'firstName'),
