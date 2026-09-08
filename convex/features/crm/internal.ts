@@ -334,6 +334,8 @@ export const prepareCampaignBatch = internalMutation({
     campaignId: v.id('campaigns'),
     filter: v.object(leadFilterArgs),
     cursor: v.optional(v.string()),
+    // Tests only: a small page exercises the per-page gate; production keeps PREP_BATCH.
+    batchSize: v.optional(v.number()),
   },
   // Returns the paging state so tests can drive the chain deterministically
   // without the scheduler; production runs on the self-scheduled chain below.
@@ -354,7 +356,7 @@ export const prepareCampaignBatch = internalMutation({
     const leadsDb = creator ? scopedReader(ctx, await loadVisibility(ctx, creator)) : ctx.db;
     const page = await leadsDb
       .query('leads')
-      .paginate({ cursor: args.cursor ?? null, numItems: PREP_BATCH });
+      .paginate({ cursor: args.cursor ?? null, numItems: args.batchSize ?? PREP_BATCH });
 
     // List membership is resolved per page with indexed point reads — a full
     // member-set load (loadListMemberIds) is unbounded on large lists.
@@ -418,6 +420,21 @@ export const prepareCampaignBatch = internalMutation({
 
     const totalCount = campaign.totalCount + total;
     const failedCount = campaign.failedCount + skipped;
+    const pending = totalCount - failedCount;
+
+    // Gated on every page with the running count: a refused campaign stops within one page of the limit.
+    const allowed =
+      pending === 0 ||
+      (await extensions.beforeSend(ctx, {
+        source: 'campaign',
+        channel: campaign.channel ?? 'email',
+        count: pending,
+        stage: page.isDone ? 'prepared' : 'preparing',
+      }));
+    if (!allowed) {
+      await ctx.db.patch(args.campaignId, { totalCount, failedCount, status: 'failed' });
+      return { isDone: true, continueCursor: page.continueCursor };
+    }
 
     if (!page.isDone) {
       await ctx.db.patch(args.campaignId, { totalCount, failedCount });
@@ -425,25 +442,14 @@ export const prepareCampaignBatch = internalMutation({
         campaignId: args.campaignId,
         filter: args.filter,
         cursor: page.continueCursor,
+        batchSize: args.batchSize,
       });
       return { isDone: false, continueCursor: page.continueCursor };
     }
 
     // Last page: finalize. Any pending send (this batch or an earlier one)
     // means there is something to deliver.
-    const hasPending = totalCount - failedCount > 0;
-    const allowed =
-      !hasPending ||
-      (await extensions.beforeSend(ctx, {
-        source: 'campaign',
-        channel: campaign.channel ?? 'email',
-        count: totalCount - failedCount,
-        stage: 'prepared',
-      }));
-    if (!allowed) {
-      await ctx.db.patch(args.campaignId, { totalCount, failedCount, status: 'failed' });
-      return { isDone: true, continueCursor: page.continueCursor };
-    }
+    const hasPending = pending > 0;
     await ctx.db.patch(args.campaignId, {
       totalCount,
       failedCount,

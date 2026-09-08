@@ -142,12 +142,16 @@ describe('extension seam', () => {
           subject: 'Bonjour',
           htmlBody: '<p>Contenu</p>',
         });
-      const prepare = async (campaignId: Awaited<ReturnType<typeof create>>) => {
+      const prepare = async (
+        campaignId: Awaited<ReturnType<typeof create>>,
+        batchSize?: number,
+      ) => {
         let cursor: string | undefined;
         for (;;) {
           const res = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
             campaignId,
             filter: {},
+            batchSize,
             ...(cursor !== undefined ? { cursor } : {}),
           });
           if (res.isDone) return;
@@ -209,6 +213,31 @@ describe('extension seam', () => {
         'resend:1',
         'resend:1',
       ]);
+
+      // Large campaigns are gated page by page with the running count: a refusal stops the
+      // preparation within one page and never reaches the drain.
+      for (const n of [2, 3, 4]) {
+        await as.mutation(api.features.crm.mutations.createLead, {
+          firstName: `L${n}`,
+          lastName: 'Page',
+          email: `l${n}@example.com`,
+        });
+      }
+      seen.length = 0;
+      setExtensionsForTests({
+        beforeSend: async (_ctx, info) => {
+          seen.push(info.source === 'campaign' ? `${info.stage}:${info.count}` : 'workflow');
+          return info.source !== 'campaign' || info.stage === 'create' || info.count <= 2;
+        },
+      });
+      const paged = await create();
+      await prepare(paged, 1);
+      expect((await t.run((ctx) => ctx.db.get(paged)))?.status).toBe('failed');
+      const written = (await t.run((ctx) => ctx.db.query('campaignSends').collect())).filter(
+        (row) => row.campaignId === paged,
+      );
+      expect(written).toHaveLength(3);
+      expect(seen).toEqual(['create:1', 'preparing:1', 'preparing:2', 'preparing:3']);
     } finally {
       if (savedKey === undefined) delete process.env.BREVO_API_KEY;
       else process.env.BREVO_API_KEY = savedKey;

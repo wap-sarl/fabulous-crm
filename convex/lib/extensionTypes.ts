@@ -43,12 +43,12 @@ export const defaultExtensions: Extensions = {
   beforeWorkflowRun: async () => true,
   beforeApiRequest: async () => null,
   registerHttpRoutes: () => {},
-}; /** Campaign sends are checked three times: at creation (at least one message), once recipients are known, and on retries. */
+}; /** Campaign sends are checked at creation (count 1), on every preparation page with the running count, and on retries. */
 export type SendInfo =
   | {
       source: 'campaign';
       channel: 'email' | 'sms';
       count: number;
-      stage: 'create' | 'prepared' | 'resend';
+      stage: 'create' | 'preparing' | 'prepared' | 'resend';
     }
   | { source: 'workflow'; channel: 'email' | 'sms'; count: 1 };

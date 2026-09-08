@@ -133,6 +133,7 @@ import type * as lib_owners from "../lib/owners.js";
 import type * as lib_properties from "../lib/properties.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
 import type * as lib_roles from "../lib/roles.js";
+import type * as lib_sends from "../lib/sends.js";
 import type * as lib_smsUtils from "../lib/smsUtils.js";
 import type * as lib_smtpUtils from "../lib/smtpUtils.js";
 import type * as lib_timeConstants from "../lib/timeConstants.js";
@@ -276,6 +277,7 @@ declare const fullApi: ApiFromModules<{
   "lib/properties": typeof lib_properties;
   "lib/rateLimits": typeof lib_rateLimits;
   "lib/roles": typeof lib_roles;
+  "lib/sends": typeof lib_sends;
   "lib/smsUtils": typeof lib_smsUtils;
   "lib/smtpUtils": typeof lib_smtpUtils;
   "lib/timeConstants": typeof lib_timeConstants;
