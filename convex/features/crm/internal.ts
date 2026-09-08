@@ -435,9 +435,10 @@ export const prepareCampaignBatch = internalMutation({
     const allowed =
       !hasPending ||
       (await extensions.beforeSend(ctx, {
+        source: 'campaign',
         channel: campaign.channel ?? 'email',
         count: totalCount - failedCount,
-        source: 'campaign',
+        stage: 'prepared',
       }));
     if (!allowed) {
       await ctx.db.patch(args.campaignId, { totalCount, failedCount, status: 'failed' });

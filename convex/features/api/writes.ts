@@ -289,6 +289,8 @@ export const upsertContact = internalMutation({
 
       const changes = computeChanges(existing, updates);
       const revived = existing.deletedAt != null;
+      // A revived contact becomes live again: same gate as a creation.
+      if (revived) await extensions.beforeLeadCreate(ctx, { count: 1, source: 'api' });
       await ctx.db.patch(existing._id, {
         ...updates,
         ...(revived ? { deletedAt: undefined } : {}),

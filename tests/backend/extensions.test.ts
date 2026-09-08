@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from 'bun:test';
 import type { HttpRouter } from 'convex/server';
 import { api, internal } from '../../convex/_generated/api';
 import { extensions, setExtensionsForTests } from '../../convex/extensions';
-import { asIdentity, createTestConvex, seedEmployee } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
 
 afterEach(() => setExtensionsForTests(null));
 
@@ -115,7 +115,7 @@ describe('extension seam', () => {
     });
   });
 
-  test('beforeSend false fails a campaign at the end of its preparation', async () => {
+  test('beforeSend gates campaigns at creation, preparation, retry and resend', async () => {
     const { t, as } = await setup();
     // A Brevo key makes the email provider "configured" so createCampaign accepts.
     const savedKey = process.env.BREVO_API_KEY;
@@ -126,37 +126,123 @@ describe('extension seam', () => {
         lastName: 'B',
         email: 'a@example.com',
       });
-      const seen: { channel: string; count: number; source: string }[] = [];
+      const seen: string[] = [];
+      let allow = true;
       setExtensionsForTests({
         beforeSend: async (_ctx, info) => {
-          seen.push(info);
-          return false;
+          seen.push(info.source === 'campaign' ? `${info.stage}:${info.count}` : 'workflow');
+          return allow;
         },
       });
-      const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
-        name: 'Refusée',
-        channel: 'email',
-        filter: {},
-        subject: 'Bonjour',
-        htmlBody: '<p>Contenu</p>',
-      });
-      let cursor: string | undefined;
-      for (;;) {
-        const res = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
-          campaignId,
+      const create = () =>
+        as.mutation(api.features.crm.mutations.createCampaign, {
+          name: 'Newsletter',
+          channel: 'email',
           filter: {},
-          ...(cursor !== undefined ? { cursor } : {}),
+          subject: 'Bonjour',
+          htmlBody: '<p>Contenu</p>',
         });
-        if (res.isDone) break;
-        cursor = res.continueCursor ?? undefined;
-      }
-      const campaign = await t.run((ctx) => ctx.db.get(campaignId));
-      expect(campaign?.status).toBe('failed');
-      expect(seen).toEqual([{ channel: 'email', count: 1, source: 'campaign' }]);
+      const prepare = async (campaignId: Awaited<ReturnType<typeof create>>) => {
+        let cursor: string | undefined;
+        for (;;) {
+          const res = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+            campaignId,
+            filter: {},
+            ...(cursor !== undefined ? { cursor } : {}),
+          });
+          if (res.isDone) return;
+          cursor = res.continueCursor ?? undefined;
+        }
+      };
+
+      // Refused at creation: nothing is written.
+      allow = false;
+      await expect(create()).rejects.toThrow(/send_refused/);
+      expect(await t.run((ctx) => ctx.db.query('campaigns').collect())).toHaveLength(0);
+
+      // Refused once recipients are known: the campaign fails and never drains.
+      allow = true;
+      const failed = await create();
+      allow = false;
+      await prepare(failed);
+      expect((await t.run((ctx) => ctx.db.get(failed)))?.status).toBe('failed');
+
+      // Allowed through: then a retry and a resend go through the same gate.
+      allow = true;
+      const campaignId = await create();
+      await prepare(campaignId);
+      expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sending');
+      const send = (await t.run((ctx) => ctx.db.query('campaignSends').collect())).find(
+        (row) => row.campaignId === campaignId,
+      )!;
+      await t.run(async (ctx) => {
+        await ctx.db.patch(send._id, { status: 'failed' });
+        await ctx.db.patch(campaignId, { status: 'sent', failedCount: 1 });
+      });
+      allow = false;
+      await expect(
+        as.mutation(api.features.crm.mutations.retryCampaignSend, {
+          campaignId,
+          sendId: send._id,
+        }),
+      ).rejects.toThrow(/send_refused/);
+      await expect(
+        as.mutation(api.features.crm.mutations.resendAllCampaignSends, { campaignId }),
+      ).rejects.toThrow(/send_refused/);
+      // The refused retry rolled back: the send is still failed and the campaign still sent.
+      expect((await t.run((ctx) => ctx.db.get(send._id)))?.status).toBe('failed');
+      expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sent');
+      allow = true;
+      await as.mutation(api.features.crm.mutations.retryCampaignSend, {
+        campaignId,
+        sendId: send._id,
+      });
+      expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sending');
+
+      expect(seen).toEqual([
+        'create:1',
+        'create:1',
+        'prepared:1',
+        'create:1',
+        'prepared:1',
+        'resend:1',
+        'resend:1',
+        'resend:1',
+      ]);
     } finally {
       if (savedKey === undefined) delete process.env.BREVO_API_KEY;
       else process.env.BREVO_API_KEY = savedKey;
     }
+  });
+
+  test('beforeLeadCreate also gates a soft-deleted contact revived by the API upsert', async () => {
+    const { t, as } = await setup();
+    const deletedId = await seedLead(t, { email: 'gone@example.com', deletedAt: Date.now() });
+    const { key } = await as.mutation(api.features.api.mutations.createApiKey, {
+      name: 'k',
+      scopes: ['contacts:write'],
+    });
+    const upsert = () =>
+      t.fetch('/api/v1/contacts/upsert', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ firstName: 'Back', lastName: 'Again', email: 'gone@example.com' }),
+      });
+    const calls: string[] = [];
+    setExtensionsForTests({
+      beforeLeadCreate: async (_ctx, info) => {
+        calls.push(info.source);
+        throw new Error('contact_limit_reached');
+      },
+    });
+    const refused = await upsert();
+    expect(refused.status).toBe(400);
+    expect((await t.run((ctx) => ctx.db.get(deletedId)))?.deletedAt).toBeDefined();
+
+    setExtensionsForTests(null);
+    expect((await upsert()).status).toBe(200);
+    expect((await t.run((ctx) => ctx.db.get(deletedId)))?.deletedAt).toBeUndefined();
+    expect(calls).toEqual(['api']);
   });
 
   test('beforeApiRequest answers instead of the route, after authentication', async () => {

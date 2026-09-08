@@ -1,100 +1,10 @@
 import { useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  KanbanSquare,
-  Gauge,
-  KeyRound,
-  ListChecks,
-  Mail,
-  Milestone,
-  Palette,
-  Paperclip,
-  ShieldCheck,
-  SlidersHorizontal,
-  UsersRound,
-} from 'lucide-react';
-import { DashboardLayout, useAuth, type NavItem } from '@crm/widgets';
+import { DashboardLayout, useAuth } from '@crm/widgets';
+import type { RoleAccess } from '@crm/lib/backend';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
 import { extensions } from '../extensions';
-import { NAV_ITEMS } from '../lib/navigation';
-
-const TEAM_NAV_ITEM: NavItem = {
-  label: 'Équipe',
-  icon: <UsersRound />,
-  path: '/settings/team',
-  position: 'bottom',
-};
-
-const BRANDING_NAV_ITEM: NavItem = {
-  label: 'Apparence',
-  icon: <Palette />,
-  path: '/settings/branding',
-  position: 'bottom',
-};
-
-const PROPERTIES_NAV_ITEM: NavItem = {
-  label: 'Propriétés',
-  icon: <SlidersHorizontal />,
-  path: '/settings/properties',
-  position: 'bottom',
-};
-
-const LIFECYCLE_NAV_ITEM: NavItem = {
-  label: 'Statuts',
-  icon: <Milestone />,
-  path: '/settings/lifecycle',
-  position: 'bottom',
-};
-
-const PIPELINES_NAV_ITEM: NavItem = {
-  label: 'Pipelines',
-  icon: <KanbanSquare />,
-  path: '/settings/pipelines',
-  position: 'bottom',
-};
-
-const ROLES_NAV_ITEM: NavItem = {
-  label: 'Rôles et accès',
-  icon: <ShieldCheck />,
-  path: '/settings/roles',
-  position: 'bottom',
-};
-
-const FILES_NAV_ITEM: NavItem = {
-  label: 'Fichiers',
-  icon: <Paperclip />,
-  path: '/settings/files',
-  position: 'bottom',
-};
-
-const EMAIL_NAV_ITEM: NavItem = {
-  label: 'E-mail & SMS',
-  icon: <Mail />,
-  path: '/settings/email',
-  position: 'bottom',
-};
-
-// Lists are available to every employee (not admin-gated).
-const LISTS_NAV_ITEM: NavItem = {
-  label: 'Listes',
-  icon: <ListChecks />,
-  path: '/settings/lists',
-  position: 'bottom',
-};
-
-const API_KEYS_NAV_ITEM: NavItem = {
-  label: 'Clés d’API',
-  icon: <KeyRound />,
-  path: '/settings/api',
-  position: 'bottom',
-};
-
-const SCORING_NAV_ITEM: NavItem = {
-  label: 'Scoring',
-  icon: <Gauge />,
-  path: '/settings/scoring',
-  position: 'bottom',
-};
+import { NAV_ITEMS, type ShellNavItem } from '../lib/navigation';
 
 /** Declarative: a page sets the document title by calling this hook. */
 export function usePageTitle(title: string) {
@@ -106,6 +16,13 @@ export function usePageTitle(title: string) {
   }, [title]);
 }
 
+/** Module pages follow the role's access matrix; `requires: 'settings'` follows its settings switch. */
+function canSee(item: ShellNavItem, access: RoleAccess | undefined): boolean {
+  if (item.requires === 'settings' && !access?.settings) return false;
+  const module = moduleOfPath(item.path);
+  return !module || canAccessModule(access, module);
+}
+
 export function DashboardShell() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -114,27 +31,10 @@ export function DashboardShell() {
   // Highlight the top-level nav item even on nested/detail routes
   const currentPath = `/${location.pathname.split('/')[1] ?? ''}`;
 
-  // Modules follow the role's access matrix; settings screens its `settings` switch.
-  const moduleItems = NAV_ITEMS.filter((item) => {
-    const module = moduleOfPath(item.path);
-    return !module || canAccessModule(user?.access, module);
-  });
-  const navItems = user?.access.settings
-    ? [
-        ...moduleItems,
-        LISTS_NAV_ITEM,
-        TEAM_NAV_ITEM,
-        ROLES_NAV_ITEM,
-        BRANDING_NAV_ITEM,
-        EMAIL_NAV_ITEM,
-        PROPERTIES_NAV_ITEM,
-        LIFECYCLE_NAV_ITEM,
-        SCORING_NAV_ITEM,
-        API_KEYS_NAV_ITEM,
-        PIPELINES_NAV_ITEM,
-        FILES_NAV_ITEM,
-      ]
-    : [...moduleItems, LISTS_NAV_ITEM, ...extensions.navItems];
+  // One list for everyone, built-in and overlay items alike; visibility is per item.
+  const navItems = [...NAV_ITEMS, ...extensions.navItems].filter((item) =>
+    canSee(item, user?.access),
+  );
 
   const Guard = extensions.ShellGuard;
   const shell = (

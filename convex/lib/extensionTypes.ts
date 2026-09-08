@@ -19,16 +19,13 @@ export interface Extensions {
     ctx: MutationCtx,
     info: { stage: 'create' | 'accept'; pending: number },
   ): Promise<void>;
-  /** Leads about to be inserted (`count` is an upper bound for imports); throw to refuse. */
+  /** Leads about to become live, by insertion or by reviving a soft-deleted one (`count` is an upper bound for imports); throw to refuse. */
   beforeLeadCreate(
     ctx: MutationCtx,
     info: { count: number; source: 'crm' | 'import' | 'api' },
   ): Promise<void>;
-  /** Messages about to go out; `false` cancels them (campaign marked failed, workflow step skipped). */
-  beforeSend(
-    ctx: MutationCtx,
-    info: { channel: 'email' | 'sms'; count: number; source: 'campaign' | 'workflow' },
-  ): Promise<boolean>;
+  /** Messages about to go out; `false` refuses them (`send_refused`, campaign `failed`, workflow step skipped). */
+  beforeSend(ctx: MutationCtx, info: SendInfo): Promise<boolean>;
   /** A lead is about to be enrolled; `false` skips silently without failing the host write. */
   beforeWorkflowRun(ctx: MutationCtx, workflow: Doc<'workflows'>): Promise<boolean>;
   /** After API authentication and rate limits; a refusal answers instead of the route. */
@@ -46,4 +43,12 @@ export const defaultExtensions: Extensions = {
   beforeWorkflowRun: async () => true,
   beforeApiRequest: async () => null,
   registerHttpRoutes: () => {},
-};
+}; /** Campaign sends are checked three times: at creation (at least one message), once recipients are known, and on retries. */
+export type SendInfo =
+  | {
+      source: 'campaign';
+      channel: 'email' | 'sms';
+      count: number;
+      stage: 'create' | 'prepared' | 'resend';
+    }
+  | { source: 'workflow'; channel: 'email' | 'sms'; count: 1 };
