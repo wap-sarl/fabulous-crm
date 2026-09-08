@@ -3,6 +3,7 @@ import { settingsQuery, employeeQuery } from '../../_lib/auth';
 import { isSetupComplete } from '../../setup/helpers';
 import { SOCIAL_PROVIDERS } from '../../_lib/socialProviders';
 import { resolveBrevo, resolveEmailProvider, isEmailProviderConfigured } from '../../lib';
+import { extensions } from '../../extensions';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
   DEFAULT_ATTACHMENT_MAX_BYTES,
@@ -22,6 +23,7 @@ export const getPublicConfig = query({
     const setupComplete = await isSetupComplete(ctx, cfg);
 
     return {
+      ...(await extensions.publicConfig(ctx)),
       setupComplete,
       organizationName: cfg?.organizationName ?? 'CRM',
       // Resolved, short-lived URLs for the custom branding (null when unset).

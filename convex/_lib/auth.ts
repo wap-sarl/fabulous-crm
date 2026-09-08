@@ -11,6 +11,7 @@ import { authComponent } from '../auth';
 // Trigger-wrapped base so employee/admin mutations keep the lead aggregates in
 // sync on every `leads` write (see _lib/functions.ts).
 import { mutation } from './functions';
+import { extensions } from '../extensions';
 import { loadVisibility, scopedReader, scopedWriter } from '../lib/visibility';
 
 /**
@@ -45,6 +46,7 @@ async function requireRole(
   predicate: (u: Doc<'users'>) => boolean,
   label: string,
 ): Promise<{ userId: Id<'users'>; user: Doc<'users'> }> {
+  await extensions.beforeEmployeeCall(ctx);
   const session = await loadEmployee(ctx);
   if (!session) throw new Error('Unauthenticated');
   if (!predicate(session.user)) throw new Error(`Unauthorized: ${label}`);
@@ -105,6 +107,7 @@ export const settingsMutation = customMutation(
 export const employeeAction = customAction(
   action,
   customCtx(async (ctx) => {
+    await extensions.beforeEmployeeCall(ctx);
     // Resolve the identity on the *action* ctx (where the Better Auth `sessionId`
     // claim is present) rather than re-entering a query via `runQuery` — the
     // latter drops the claim, so `getCurrentUser` would return null here. The

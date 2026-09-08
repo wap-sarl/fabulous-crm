@@ -12,6 +12,8 @@ import {
 import { INVITE_EMAIL, LOGIN_ACCENT, generateEmailHtml } from '../../auth/emailTemplates';
 import { invitationRoleValidator } from '../../_lib/validators/invitations';
 import { DEFAULT_ROLES } from '../../_lib/validators/roles';
+import { extensions } from '../../extensions';
+import { countPendingInvitations } from '../../lib/invitations';
 import { findRole } from '../../lib/roles';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -60,6 +62,10 @@ export const createInvitation = settingsMutation({
       .withIndex('by_email_status', (q) => q.eq('email', email).eq('status', 'pending'))
       .first();
     if (pending) throw new Error('already_invited');
+    await extensions.beforeInvitation(ctx, {
+      stage: 'create',
+      pending: await countPendingInvitations(ctx),
+    });
 
     const now = Date.now();
     const invitationId = await ctx.db.insert('invitations', {

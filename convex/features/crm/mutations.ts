@@ -60,6 +60,8 @@ import {
 } from '../../_lib/validators/leadLists';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { startDynamicListRecalc } from '../../lib/dynamicLists';
+import { extensions } from '../../extensions';
+import { requireSendAllowed } from '../../lib/sends';
 
 const CONSENT_TOKEN_BYTES = 24;
 // 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
@@ -165,6 +167,7 @@ export const createLead = employeeMutation({
         undefined;
     }
 
+    await extensions.beforeLeadCreate(ctx, { count: 1, source: 'crm' });
     const leadId = await ctx.db.insert('leads', {
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
@@ -366,6 +369,7 @@ export const importLeads = employeeMutation({
     listId: v.optional(v.id('leadLists')),
   },
   handler: async (ctx, args) => {
+    await extensions.beforeLeadCreate(ctx, { count: args.rows.length, source: 'import' });
     if (args.listId) {
       const list = await ctx.db.get(args.listId);
       if (!list) throw new Error('list_not_found');
@@ -993,6 +997,13 @@ export const createCampaign = employeeMutation({
       }
     }
 
+    // Early gate: an exhausted allowance refuses before any recipient is materialised.
+    await requireSendAllowed(ctx, {
+      source: 'campaign',
+      channel: args.channel,
+      count: 1,
+      stage: 'create',
+    });
     const campaignId = await ctx.db.insert('campaigns', {
       name,
       brevoTemplateId,
@@ -1137,6 +1148,12 @@ export const retryCampaignSend = employeeMutation({
 
     const remat = await loadResendContext(ctx, campaign);
     if (!(await requeueSend(ctx, send, remat))) throw new Error('no_contact');
+    await requireSendAllowed(ctx, {
+      source: 'campaign',
+      channel: campaign.channel ?? 'email',
+      count: 1,
+      stage: 'resend',
+    });
 
     // `sent` was counted in sentCount; `failed` and `skipped_*` in failedCount.
     await ctx.db.patch(args.campaignId, {
@@ -1189,6 +1206,12 @@ export const resendAllCampaignSends = employeeMutation({
       else stillSkipped++;
     }
     if (resent === 0) return { resent: 0 };
+    await requireSendAllowed(ctx, {
+      source: 'campaign',
+      channel: campaign.channel ?? 'email',
+      count: resent,
+      stage: 'resend',
+    });
 
     await ctx.db.patch(args.campaignId, {
       sentCount: 0,

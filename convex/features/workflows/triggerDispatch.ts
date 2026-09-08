@@ -1,6 +1,7 @@
 import type { MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
+import { extensions } from '../../extensions';
 import { isNotDeleted } from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { loadLeadFilterExtras } from '../crm/leadTableFilters';
@@ -34,6 +35,7 @@ export async function enrollLead(
   opts?: { manual?: boolean },
 ): Promise<Id<'workflowRuns'> | null> {
   if (!workflow.startNodeId) return null;
+  if (!(await extensions.beforeWorkflowRun(ctx, workflow))) return null;
 
   const runId = await ctx.db.insert('workflowRuns', {
     workflowId: workflow._id,
