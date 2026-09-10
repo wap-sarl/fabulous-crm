@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { HttpRouter } from 'convex/server';
 import { ConvexError } from 'convex/values';
-import { SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensionTypes';
+import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensionTypes';
 import { api, internal } from '../../convex/_generated/api';
 import { extensions, setExtensionsForTests } from '../../convex/extensions';
 import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
@@ -310,10 +310,10 @@ describe('extension seam', () => {
     expect((await t.fetch('/api/v1/me', { method: 'GET' })).status).toBe(401);
   });
 
-  test('registerHttpRoutes receives the router; the default registers nothing', () => {
+  test('registerHttpRoutes receives the router; the defaults register nothing', () => {
     const registered: string[] = [];
     const router = { route: (spec: { path?: string }) => registered.push(spec.path ?? '') };
-    extensions.registerHttpRoutes(router as unknown as HttpRouter);
+    defaultExtensions.registerHttpRoutes(router as unknown as HttpRouter);
     expect(registered).toEqual([]);
     setExtensionsForTests({
       registerHttpRoutes: (http) =>
