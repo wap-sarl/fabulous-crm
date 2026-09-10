@@ -32,6 +32,23 @@ whether at least one message may go out, and the running count is checked again 
 page, so a refused campaign writes at most one page of sends past the limit before it is
 marked `failed`. Overlays that reserve quota should do it at `prepared`.
 
+## What each gate is asked to bill
+
+The CRM passes a business unit, never a technical count, so an overlay can meter on it: check
+at intent, charge at effect.
+
+| Gate | Unit | Intent or effect |
+|---|---|---|
+| `beforeInvitation` | one seat; `pending` = open invitations an overlay may count as reserved | intent at `create`, effect at `accept` |
+| `beforeLeadCreate` | leads becoming live: created, or revived from a soft delete; for an import, counted after matching and validation | effect |
+| `beforeSend`, campaign `create` | 1: at least one message will go out | intent |
+| `beforeSend`, campaign `preparing` | the recipients with a contact so far | intent |
+| `beforeSend`, campaign `prepared` | the recipients with a contact, final | effect |
+| `beforeSend`, campaign `resend` | the messages re-queued | effect |
+| `beforeSend`, workflow | one message | effect |
+| `beforeWorkflowRun` | one enrollment | effect |
+| `beforeApiRequest` | one authenticated request | effect |
+
 ## Refusals
 
 A hook refuses by throwing. Throw a `ConvexError` whose data is `{ code, ...details }` to give
