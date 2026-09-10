@@ -367,117 +367,128 @@ describe('extension seam', () => {
 
   test('beforeScheduledWork false defers each background entry point untouched', async () => {
     const { t, as } = await setup();
-    const savedKey = process.env.BREVO_API_KEY;
-    process.env.BREVO_API_KEY = 'test-brevo-key';
-    try {
-      const scheduledLater = async (name: string) => {
-        const rows = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').collect());
-        return rows.filter(
-          (row) =>
-            row.name.includes(name) &&
-            row.scheduledTime >= Date.now() + SCHEDULED_WORK_RETRY_MS - 5_000,
-        );
-      };
-      const leadId = await as.mutation(api.features.crm.mutations.createLead, {
-        firstName: 'A',
-        lastName: 'B',
-        email: 'a@example.com',
-      });
-      await t.run((ctx) => ctx.db.patch(leadId, { marketingConsent: ['email'] }));
-      const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
+    // convex-test runs scheduled work in the background, so the state under test is built by hand
+    // and the rescheduled rows are matched on their arguments.
+    const scheduledLater = async (name: string, args: Record<string, unknown>) => {
+      const rows = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').collect());
+      return rows.filter(
+        (row) =>
+          row.name.includes(name) &&
+          row.scheduledTime >= Date.now() + SCHEDULED_WORK_RETRY_MS - 5_000 &&
+          Object.entries(args).every(
+            ([k, v]) => (row.args[0] as Record<string, unknown>)?.[k] === v,
+          ),
+      );
+    };
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'A',
+      lastName: 'B',
+      email: 'a@example.com',
+    });
+    const workflowId = await as.mutation(api.features.workflows.mutations.createWorkflow, {
+      name: 'Bienvenue',
+      trigger: { type: 'lead_created' },
+      allowReEnrollment: false,
+      nodes: [{ id: 'n1', type: 'send_email', subject: 'Hi', htmlBody: '<p>x</p>' }],
+      startNodeId: 'n1',
+    });
+    // Active, or executeStep parks the run before it even asks the seam.
+    await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+      workflowId,
+      status: 'active',
+    });
+    const { preparing, sending, sendId, runId, stepId } = await t.run(async (ctx) => {
+      const now = Date.now();
+      const campaign = {
         name: 'Newsletter',
-        channel: 'email',
-        filter: {},
+        channel: 'email' as const,
+        messageType: 'marketing' as const,
         subject: 'Bonjour',
         htmlBody: '<p>Contenu</p>',
-      });
-      const defer = (kinds: string[]) =>
-        setExtensionsForTests({
-          beforeScheduledWork: async (_ctx, { kind }) => !kinds.includes(kind),
-        });
-
-      // campaign_prepare: the page is rescheduled and no recipient is materialised.
-      defer(['campaign_prepare']);
-      const page = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
-        campaignId,
-        filter: {},
-      });
-      expect(page).toEqual({ isDone: false, continueCursor: null });
-      expect(await t.run((ctx) => ctx.db.get(campaignId))).toMatchObject({
+        sentCount: 0,
+        failedCount: 0,
+        updatedAt: now,
+      };
+      const preparing = await ctx.db.insert('campaigns', {
+        ...campaign,
         status: 'preparing',
         totalCount: 0,
       });
-      expect(await scheduledLater('prepareCampaignBatch')).toHaveLength(1);
-
-      // campaign_drain: pending sends wait, the campaign stays sending, the drain is rescheduled.
-      setExtensionsForTests(null);
-      await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
-        campaignId,
-        filter: {},
+      const sending = await ctx.db.insert('campaigns', {
+        ...campaign,
+        status: 'sending',
+        totalCount: 1,
       });
-      expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sending');
-      defer(['campaign_drain']);
-      await t.action(internal.features.crm.actions.sendCampaignBatch, { campaignId });
-      const sends = (await t.run((ctx) => ctx.db.query('campaignSends').collect())).filter(
-        (row) => row.campaignId === campaignId,
-      );
-      expect(sends.map((row) => row.status)).toEqual(['pending']);
-      expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sending');
-      expect(await scheduledLater('sendCampaignBatch')).toHaveLength(1);
-
-      // workflow_step and workflow_action: the run stays parked on its node, the pending step waits.
-      setExtensionsForTests(null);
-      const workflowId = await as.mutation(api.features.workflows.mutations.createWorkflow, {
-        name: 'Bienvenue',
-        trigger: { type: 'lead_created' },
-        allowReEnrollment: false,
-        nodes: [{ id: 'n1', type: 'send_email', subject: 'Hi', htmlBody: '<p>x</p>' }],
-        startNodeId: 'n1',
+      const sendId = await ctx.db.insert('campaignSends', {
+        campaignId: sending,
+        leadId,
+        email: 'a@example.com',
+        params: {},
+        status: 'pending',
       });
-      await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+      const runId = await ctx.db.insert('workflowRuns', {
         workflowId,
+        leadId,
         status: 'active',
-      });
-      const enrolledId = await as.mutation(api.features.crm.mutations.createLead, {
-        firstName: 'C',
-        lastName: 'D',
-        email: 'c@example.com',
-      });
-      await t.run((ctx) => ctx.db.patch(enrolledId, { marketingConsent: ['email'] }));
-      const run = (await t.run((ctx) => ctx.db.query('workflowRuns').collect())).find(
-        (row) => row.leadId === enrolledId,
-      )!;
-      defer(['workflow_step']);
-      await t.mutation(internal.features.workflows.internal.executeStep, {
-        runId: run._id,
-        nodeId: 'n1',
-      });
-      expect(await t.run((ctx) => ctx.db.get(run._id))).toMatchObject({
+        triggerType: 'manual',
+        enrolledAt: now,
         currentNodeId: 'n1',
         stepCount: 0,
       });
-      expect(await scheduledLater('executeStep')).toHaveLength(1);
+      const stepId = await ctx.db.insert('workflowRunSteps', {
+        runId,
+        workflowId,
+        leadId,
+        nodeId: 'n1',
+        nodeType: 'send_email',
+        status: 'pending',
+        startedAt: now,
+      });
+      return { preparing, sending, sendId, runId, stepId };
+    });
+    const defer = (kinds: string[]) =>
+      setExtensionsForTests({
+        beforeScheduledWork: async (_ctx, { kind }) => !kinds.includes(kind),
+      });
 
-      setExtensionsForTests(null);
-      await t.mutation(internal.features.workflows.internal.executeStep, {
-        runId: run._id,
-        nodeId: 'n1',
-      });
-      const step = (await t.run((ctx) => ctx.db.query('workflowRunSteps').collect())).find(
-        (row) => row.runId === run._id,
-      )!;
-      expect(step.status).toBe('pending');
-      defer(['workflow_action']);
-      await t.action(internal.features.workflows.actions.runWorkflowActionStep, {
-        runId: run._id,
-        stepId: step._id,
-        nodeId: 'n1',
-      });
-      expect((await t.run((ctx) => ctx.db.get(step._id)))?.status).toBe('pending');
-      expect(await scheduledLater('runWorkflowActionStep')).toHaveLength(1);
-    } finally {
-      if (savedKey === undefined) delete process.env.BREVO_API_KEY;
-      else process.env.BREVO_API_KEY = savedKey;
-    }
+    // campaign_prepare: the page is rescheduled and no recipient is materialised.
+    defer(['campaign_prepare']);
+    expect(
+      await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+        campaignId: preparing,
+        filter: {},
+      }),
+    ).toEqual({ isDone: false, continueCursor: null });
+    expect(await t.run((ctx) => ctx.db.get(preparing))).toMatchObject({
+      status: 'preparing',
+      totalCount: 0,
+    });
+    expect(await scheduledLater('prepareCampaignBatch', { campaignId: preparing })).toHaveLength(1);
+
+    // campaign_drain: the pending send waits, the campaign stays sending, the drain is rescheduled.
+    defer(['campaign_drain']);
+    await t.action(internal.features.crm.actions.sendCampaignBatch, { campaignId: sending });
+    expect((await t.run((ctx) => ctx.db.get(sendId)))?.status).toBe('pending');
+    expect((await t.run((ctx) => ctx.db.get(sending)))?.status).toBe('sending');
+    expect(await scheduledLater('sendCampaignBatch', { campaignId: sending })).toHaveLength(1);
+
+    // workflow_step: the run stays parked on its node.
+    defer(['workflow_step']);
+    await t.mutation(internal.features.workflows.internal.executeStep, { runId, nodeId: 'n1' });
+    expect(await t.run((ctx) => ctx.db.get(runId))).toMatchObject({
+      currentNodeId: 'n1',
+      stepCount: 0,
+    });
+    expect(await scheduledLater('executeStep', { runId })).toHaveLength(1);
+
+    // workflow_action: the pending step waits.
+    defer(['workflow_action']);
+    await t.action(internal.features.workflows.actions.runWorkflowActionStep, {
+      runId,
+      stepId,
+      nodeId: 'n1',
+    });
+    expect((await t.run((ctx) => ctx.db.get(stepId)))?.status).toBe('pending');
+    expect(await scheduledLater('runWorkflowActionStep', { stepId })).toHaveLength(1);
   });
 });
