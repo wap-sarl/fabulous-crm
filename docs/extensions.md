@@ -19,7 +19,7 @@ tables; everything else in the repository stays untouched.
 | `beforeEmployeeCall(ctx)` | first line of `employeeQuery`, `employeeMutation`, `settingsQuery`, `settingsMutation`, `employeeAction` | throw to refuse the call |
 | `publicConfig(ctx)` | `getPublicConfig`, before login | fields merged into the public config (core fields win) |
 | `beforeInvitation(ctx, { stage, pending })` | invitation creation (`stage: 'create'`) and acceptance in the Better Auth provisioning hook (`stage: 'accept'`); `pending` = open invitations | throw to refuse |
-| `beforeLeadCreate(ctx, { count, source })` | a lead becoming live: creation (`crm`), CSV import (`import`, `count` = rows that will create or revive a lead, after matching and validation — rows updating a live lead and invalid rows do not count) and the public API (`api`, creation and revival by upsert) | throw to refuse |
+| `beforeLeadCreate(ctx, { count, source })` | a lead becoming live: creation (`crm`), CSV import (`import`, `count` = the rows of the import, updates and invalid rows included, by decision: no matching pass before the gate) and the public API (`api`, creation and revival by upsert) | throw to refuse |
 | `beforeSend(ctx, info)` | campaigns at four stages — `create` (`count: 1`, before any recipient is materialised), `preparing` (each 200-lead preparation page, `count` = recipients with a contact so far), `prepared` (last page, final count) and `resend` (retry of one send or resend of all, `count` = messages re-queued) — and each workflow send step (`count: 1`) | throw to refuse: `create` and `resend` propagate the error to the caller; `preparing` / `prepared` mark the campaign `failed` with the code in `failureReason`; a workflow step is logged `skipped` with the code |
 | `beforeWorkflowRun(ctx, workflow)` | every enrollment | `false` skips the enrollment; the host write succeeds |
 | `beforeApiRequest(ctx, key, method)` | after API authentication and rate limits | a `{ status, code, message, details? }` answers instead of the route |
@@ -44,7 +44,7 @@ at intent, charge at effect.
 | Gate | Unit | Intent or effect |
 |---|---|---|
 | `beforeInvitation` | one seat; `pending` = open invitations an overlay may count as reserved | intent at `create`, effect at `accept` |
-| `beforeLeadCreate` | leads becoming live: created, or revived from a soft delete; for an import, counted after matching and validation | effect |
+| `beforeLeadCreate` | leads becoming live: created, or revived from a soft delete; for an import, every row of the import (updates and invalid rows included, by decision) | effect |
 | `beforeSend`, campaign `create` | 1: at least one message will go out | intent |
 | `beforeSend`, campaign `preparing` | the recipients with a contact so far | intent |
 | `beforeSend`, campaign `prepared` | the recipients with a contact, final | effect |

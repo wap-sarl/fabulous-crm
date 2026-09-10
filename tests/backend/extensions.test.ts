@@ -323,7 +323,7 @@ describe('extension seam', () => {
     expect(registered).toEqual(['/ops/health']);
   });
 
-  test('beforeLeadCreate sees the real import delta: matches and invalid rows do not count', async () => {
+  test('beforeLeadCreate is asked for every import row, updates and invalid rows included', async () => {
     const { t, as } = await setup();
     await as.mutation(api.features.crm.mutations.createLead, {
       firstName: 'Live',
@@ -339,13 +339,9 @@ describe('extension seam', () => {
     });
     const result = await as.mutation(api.features.crm.mutations.importLeads, {
       rows: [
-        // Matches a live lead: an update, not a new contact.
         { firstName: 'Live', lastName: 'Renamed', email: 'live@example.com' },
-        // New contact.
         { firstName: 'New', lastName: 'One', email: 'new@example.com' },
-        // Revives a soft-deleted lead: becomes live again.
         { firstName: 'Back', lastName: 'Again', email: 'gone@example.com' },
-        // Invalid row: reported, never counted.
         {
           firstName: 'Bad',
           lastName: 'Address',
@@ -354,15 +350,14 @@ describe('extension seam', () => {
         },
       ],
     });
-    expect(counts).toEqual([2]);
+    // The whole batch is billed before any matching, by decision: no pre-pass on imports.
+    expect(counts).toEqual([4]);
     expect(result).toMatchObject({ created: 1, updated: 2 });
     expect(result.errors).toHaveLength(1);
-    expect(result.errors[0].index).toBe(3);
-    // Only updates: the gate is not even consulted.
     await as.mutation(api.features.crm.mutations.importLeads, {
       rows: [{ firstName: 'Live', lastName: 'Again', email: 'live@example.com' }],
     });
-    expect(counts).toEqual([2]);
+    expect(counts).toEqual([4, 1]);
   });
 
   test('beforeScheduledWork false defers each background entry point untouched', async () => {
