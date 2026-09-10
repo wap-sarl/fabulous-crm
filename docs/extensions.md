@@ -34,6 +34,10 @@ marked `failed`. Overlays that reserve quota should do it at `prepared`.
 
 ## What each gate is asked to bill
 
+The core invokes the seam from one place, `convex/lib/gates.ts`, whose helpers are named after
+the unit they bill: `gateLeadCreate`, `gateInvitation`, `requireSendAllowed` and `trySend`, and
+`deferUnlessAllowed` for the background entry points.
+
 The CRM passes a business unit, never a technical count, so an overlay can meter on it: check
 at intent, charge at effect.
 

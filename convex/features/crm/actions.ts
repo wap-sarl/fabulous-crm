@@ -17,8 +17,7 @@ import {
 } from '../../lib';
 import { createEmailDispatcher } from '../email/send';
 import type { CampaignSendStatus } from '../../schema';
-import { extensions } from '../../extensions';
-import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensionTypes';
+import { deferUnlessAllowed } from '../../lib/gates';
 
 const BATCH_DELAY_MS = 1000;
 
@@ -209,12 +208,14 @@ export const sendCampaignBatch = internalAction({
   args: { campaignId: v.id('campaigns') },
   handler: async (ctx, args) => {
     // Deferred (e.g. a suspended deployment): the pending sends wait untouched for the next attempt.
-    if (!(await extensions.beforeScheduledWork(ctx, { kind: 'campaign_drain' }))) {
-      await ctx.scheduler.runAfter(
-        SCHEDULED_WORK_RETRY_MS,
+    if (
+      await deferUnlessAllowed(
+        ctx,
+        'campaign_drain',
         internal.features.crm.actions.sendCampaignBatch,
         args,
-      );
+      )
+    ) {
       return;
     }
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);

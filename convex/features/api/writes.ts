@@ -55,7 +55,7 @@ import {
 } from '../../lib/properties';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
-import { extensions } from '../../extensions';
+import { gateLeadCreate } from '../../lib/gates';
 
 const CONSENT_TOKEN_BYTES = 24;
 
@@ -209,7 +209,7 @@ async function insertContact(
   }
   const ownerIds = await cleanOwnerIds(ctx, refs(ctx, 'users', body.ownerIds ?? [], 'ownerIds'));
   const companyId = await contactCompany(ctx, apiKeyId, body, email, undefined);
-  await extensions.beforeLeadCreate(ctx, { count: 1, source: 'api' });
+  await gateLeadCreate(ctx, 1, 'api');
 
   const leadId = await ctx.db.insert('leads', {
     firstName: requireText(body.firstName, 'firstName'),
@@ -290,7 +290,7 @@ export const upsertContact = internalMutation({
       const changes = computeChanges(existing, updates);
       const revived = existing.deletedAt != null;
       // A revived contact becomes live again: same gate as a creation.
-      if (revived) await extensions.beforeLeadCreate(ctx, { count: 1, source: 'api' });
+      if (revived) await gateLeadCreate(ctx, 1, 'api');
       await ctx.db.patch(existing._id, {
         ...updates,
         ...(revived ? { deletedAt: undefined } : {}),

@@ -17,8 +17,7 @@ import {
 import { sendEmail } from '../email/send';
 import type { WorkflowStepOutcome } from '../../_lib/validators/workflows';
 import { WEBHOOK_TIMEOUT_MS } from './lib';
-import { extensions } from '../../extensions';
-import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensionTypes';
+import { deferUnlessAllowed } from '../../lib/gates';
 
 /**
  * Async executor of a workflow send/webhook step. Dumb by design: every
@@ -37,12 +36,14 @@ export const runWorkflowActionStep = internalAction({
       });
 
     // Deferred (e.g. a suspended deployment): the pending step waits untouched for the next attempt.
-    if (!(await extensions.beforeScheduledWork(ctx, { kind: 'workflow_action' }))) {
-      await ctx.scheduler.runAfter(
-        SCHEDULED_WORK_RETRY_MS,
+    if (
+      await deferUnlessAllowed(
+        ctx,
+        'workflow_action',
         internal.features.workflows.actions.runWorkflowActionStep,
         args,
-      );
+      )
+    ) {
       return;
     }
     try {

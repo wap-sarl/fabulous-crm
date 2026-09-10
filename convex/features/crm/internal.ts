@@ -30,8 +30,7 @@ import {
   loadListMemberIdsForLeads,
   matchesLeadFilters,
 } from './leadTableFilters';
-import { extensions } from '../../extensions';
-import { refusalCode, SCHEDULED_WORK_RETRY_MS } from '../../lib/extensionTypes';
+import { deferUnlessAllowed, trySend } from '../../lib/gates';
 
 const BATCH_SIZE = 50;
 
@@ -347,12 +346,14 @@ export const prepareCampaignBatch = internalMutation({
       return { isDone: true, continueCursor: null };
     }
     // Deferred (e.g. a suspended deployment): the same page runs again later, nothing changes.
-    if (!(await extensions.beforeScheduledWork(ctx, { kind: 'campaign_prepare' }))) {
-      await ctx.scheduler.runAfter(
-        SCHEDULED_WORK_RETRY_MS,
+    if (
+      await deferUnlessAllowed(
+        ctx,
+        'campaign_prepare',
         internal.features.crm.internal.prepareCampaignBatch,
         args,
-      );
+      )
+    ) {
       return { isDone: false, continueCursor: args.cursor ?? null };
     }
 
@@ -433,23 +434,23 @@ export const prepareCampaignBatch = internalMutation({
     const pending = totalCount - failedCount;
 
     // Gated on every page with the running count: a refused campaign stops within one page of the limit.
-    if (pending > 0) {
-      try {
-        await extensions.beforeSend(ctx, {
-          source: 'campaign',
-          channel: campaign.channel ?? 'email',
-          count: pending,
-          stage: page.isDone ? 'prepared' : 'preparing',
-        });
-      } catch (error) {
-        await ctx.db.patch(args.campaignId, {
-          totalCount,
-          failedCount,
-          status: 'failed',
-          failureReason: refusalCode(error),
-        });
-        return { isDone: true, continueCursor: page.continueCursor };
-      }
+    const refused =
+      pending > 0
+        ? await trySend(ctx, {
+            source: 'campaign',
+            channel: campaign.channel ?? 'email',
+            count: pending,
+            stage: page.isDone ? 'prepared' : 'preparing',
+          })
+        : null;
+    if (refused) {
+      await ctx.db.patch(args.campaignId, {
+        totalCount,
+        failedCount,
+        status: 'failed',
+        failureReason: refused,
+      });
+      return { isDone: true, continueCursor: page.continueCursor };
     }
 
     if (!page.isDone) {

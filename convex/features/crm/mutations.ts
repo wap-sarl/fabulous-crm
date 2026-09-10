@@ -60,8 +60,7 @@ import {
 } from '../../_lib/validators/leadLists';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { startDynamicListRecalc } from '../../lib/dynamicLists';
-import { extensions } from '../../extensions';
-import { requireSendAllowed } from '../../lib/sends';
+import { gateLeadCreate, requireSendAllowed } from '../../lib/gates';
 
 const CONSENT_TOKEN_BYTES = 24;
 // 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
@@ -167,7 +166,7 @@ export const createLead = employeeMutation({
         undefined;
     }
 
-    await extensions.beforeLeadCreate(ctx, { count: 1, source: 'crm' });
+    await gateLeadCreate(ctx, 1, 'crm');
     const leadId = await ctx.db.insert('leads', {
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
@@ -418,9 +417,7 @@ export const importLeads = employeeMutation({
       if (!existing || existing.deletedAt != null) becomingLive++;
       prepared.push({ email, customProperties, existing });
     }
-    if (becomingLive > 0) {
-      await extensions.beforeLeadCreate(ctx, { count: becomingLive, source: 'import' });
-    }
+    await gateLeadCreate(ctx, becomingLive, 'import');
 
     for (let index = 0; index < args.rows.length; index++) {
       const row = args.rows[index];
