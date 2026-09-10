@@ -49,6 +49,7 @@ import {
   SEND_STATUS_TONE,
   formatSendError,
 } from '../../lib/constants';
+import { describeError } from '@crm/lib/errors';
 
 /** Build a recipient's display name from the merge values stored on the send. */
 function sendLeadName(params: Record<string, string>): string {
@@ -217,6 +218,11 @@ export function CampaignDetailPage() {
             <StatusBadge tone={CAMPAIGN_STATUS_TONE[campaign.status]}>
               {CAMPAIGN_STATUS_LABEL[campaign.status]}
             </StatusBadge>
+            {campaign.status === 'failed' && campaign.failureReason ? (
+              <span className="text-sm text-soft" data-testid="campaign-failure-reason">
+                {describeError(campaign.failureReason, campaign.failureReason)}
+              </span>
+            ) : null}
           </>
         }
         subtitle={`${numberFormat.format(campaign.totalCount)} destinataire(s) · créée le ${dateFormat.format(campaign._creationTime)}`}

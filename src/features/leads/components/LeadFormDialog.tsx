@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useConvex } from 'convex/react';
 import { z } from 'zod';
+import { describeError } from '@crm/lib/errors';
 import { EMAIL_ERROR_MESSAGES } from '@crm/lib/types';
 import { api } from '@crm/lib/backend';
 import type { Id, PropertyValue } from '@crm/lib/backend';
@@ -246,7 +247,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     toast.error(
       message.includes('lifecycle_regression_blocked')
         ? 'Le retour à un statut antérieur est désactivé (Paramètres → Statuts).'
-        : 'Une erreur est survenue.',
+        : describeError(e, 'Une erreur est survenue.'),
     );
   };
 

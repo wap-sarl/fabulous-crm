@@ -14,4 +14,12 @@ export interface FrontendExtensions {
   navItems: ShellNavItem[];
   /** Wraps the whole authenticated shell; may render something else instead of its children. */
   ShellGuard: ComponentType<{ children: ReactNode }> | null;
+  /** A user message for one of the overlay's refusal codes (`describeError`), null for the rest. */
+  describeRefusal?: (refusal: Refusal) => string | null;
+}
+
+/** A refusal as the client sees it: the code, and the structured data of a ConvexError when there is one. */
+export interface Refusal {
+  code: string;
+  data: Record<string, unknown>;
 }

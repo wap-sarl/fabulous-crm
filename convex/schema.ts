@@ -243,6 +243,8 @@ const tables = {
     .index('by_email', ['email', 'deletedAt'])
     .index('by_email_type', ['email', 'type', 'deletedAt'])
     .index('by_type', ['type'])
+    // Live users of a type without scanning the deleted ones (seat counts, overlays).
+    .index('by_type_deleted', ['type', 'deletedAt'])
     .index('by_authId', ['authId']),
 
   // Invitation allowlist (Better Auth membership gate). See invitations validator.

@@ -21,6 +21,7 @@ import { Mail, RotateCw, Trash2, UserPlus } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { TeamsSection } from '../../features/teams/components/TeamsSection';
 import { useRoles } from '../../lib/hooks/useRoles';
+import { describeError } from '@crm/lib/errors';
 
 const INVITE_ERRORS: Record<string, string> = {
   invalid_email: 'Adresse e-mail invalide.',
@@ -57,7 +58,9 @@ function TeamManager() {
     } catch (err) {
       const message = err instanceof Error ? err.message : '';
       const key = Object.keys(INVITE_ERRORS).find((k) => message.includes(k));
-      setError(key ? INVITE_ERRORS[key] : "L'invitation a échoué. Veuillez réessayer.");
+      setError(
+        key ? INVITE_ERRORS[key] : describeError(err, "L'invitation a échoué. Veuillez réessayer."),
+      );
     } finally {
       setBusy(false);
     }

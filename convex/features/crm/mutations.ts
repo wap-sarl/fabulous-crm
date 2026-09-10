@@ -60,8 +60,7 @@ import {
 } from '../../_lib/validators/leadLists';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { startDynamicListRecalc } from '../../lib/dynamicLists';
-import { extensions } from '../../extensions';
-import { requireSendAllowed } from '../../lib/sends';
+import { gateLeadCreate, requireSendAllowed } from '../../lib/gates';
 
 const CONSENT_TOKEN_BYTES = 24;
 // 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
@@ -167,7 +166,7 @@ export const createLead = employeeMutation({
         undefined;
     }
 
-    await extensions.beforeLeadCreate(ctx, { count: 1, source: 'crm' });
+    await gateLeadCreate(ctx, 1, 'crm');
     const leadId = await ctx.db.insert('leads', {
       firstName: args.firstName.trim(),
       lastName: args.lastName.trim(),
@@ -369,7 +368,6 @@ export const importLeads = employeeMutation({
     listId: v.optional(v.id('leadLists')),
   },
   handler: async (ctx, args) => {
-    await extensions.beforeLeadCreate(ctx, { count: args.rows.length, source: 'import' });
     if (args.listId) {
       const list = await ctx.db.get(args.listId);
       if (!list) throw new Error('list_not_found');
@@ -386,6 +384,9 @@ export const importLeads = employeeMutation({
     const lifecycle = await loadLifecycleConfig(ctx);
     // Company lookups/creations memoized across the chunk (many rows share a domain).
     const companyCache = new Map<string, Id<'companies'>>();
+
+    // Every row counts, updates and invalid rows included: no matching pass before the gate, by decision.
+    await gateLeadCreate(ctx, args.rows.length, 'import');
 
     for (let index = 0; index < args.rows.length; index++) {
       const row = args.rows[index];
