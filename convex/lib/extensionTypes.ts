@@ -1,6 +1,28 @@
 import type { HttpRouter } from 'convex/server';
+import { ConvexError } from 'convex/values';
 import type { Doc } from '../_generated/dataModel';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../_generated/server';
+
+/** The background entry points that ask before running (`beforeScheduledWork`). */
+export type ScheduledWorkKind =
+  | 'campaign_prepare'
+  | 'campaign_drain'
+  | 'workflow_step'
+  | 'workflow_action';
+
+/** A deferred background function runs again this much later. */
+export const SCHEDULED_WORK_RETRY_MS = 15 * 60 * 1000;
+
+/** The code of a refusal: `data.code` of a ConvexError (structured refusals), else the error message. */
+export function refusalCode(error: unknown): string {
+  if (error instanceof ConvexError) {
+    const data: unknown = error.data;
+    if (data && typeof data === 'object' && typeof (data as { code?: unknown }).code === 'string') {
+      return (data as { code: string }).code;
+    }
+  }
+  return error instanceof Error ? error.message : String(error);
+}
 
 export interface ApiRefusal {
   status: number;
@@ -24,12 +46,17 @@ export interface Extensions {
     ctx: MutationCtx,
     info: { count: number; source: 'crm' | 'import' | 'api' },
   ): Promise<void>;
-  /** Messages about to go out; `false` refuses them (`send_refused`, campaign `failed`, workflow step skipped). */
-  beforeSend(ctx: MutationCtx, info: SendInfo): Promise<boolean>;
+  /** Messages about to go out; throw to refuse (creation and resend propagate it, a preparation page fails the campaign, a workflow step is skipped). */
+  beforeSend(ctx: MutationCtx, info: SendInfo): Promise<void>;
   /** A lead is about to be enrolled; `false` skips silently without failing the host write. */
   beforeWorkflowRun(ctx: MutationCtx, workflow: Doc<'workflows'>): Promise<boolean>;
   /** After API authentication and rate limits; a refusal answers instead of the route. */
   beforeApiRequest(ctx: ActionCtx, key: Doc<'apiKeys'>, method: string): Promise<ApiRefusal | null>;
+  /** Background work about to run; `false` defers it by SCHEDULED_WORK_RETRY_MS with nothing changed. */
+  beforeScheduledWork(
+    ctx: MutationCtx | ActionCtx,
+    info: { kind: ScheduledWorkKind },
+  ): Promise<boolean>;
   /** Extra HTTP routes, registered before the public API prefix routes. */
   registerHttpRoutes(http: HttpRouter): void;
 }
@@ -39,9 +66,10 @@ export const defaultExtensions: Extensions = {
   publicConfig: async () => ({}),
   beforeInvitation: async () => {},
   beforeLeadCreate: async () => {},
-  beforeSend: async () => true,
+  beforeSend: async () => {},
   beforeWorkflowRun: async () => true,
   beforeApiRequest: async () => null,
+  beforeScheduledWork: async () => true,
   registerHttpRoutes: () => {},
 }; /** Campaign sends are checked at creation (count 1), on every preparation page with the running count, and on retries. */
 export type SendInfo =

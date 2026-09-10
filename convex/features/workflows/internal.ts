@@ -28,6 +28,7 @@ import {
 } from './lib';
 import { dispatchWorkflowTrigger, enrollLead } from './triggerDispatch';
 import { extensions } from '../../extensions';
+import { refusalCode, SCHEDULED_WORK_RETRY_MS } from '../../lib/extensionTypes';
 
 /**
  * The workflow execution engine. One node per `executeStep` invocation, each
@@ -153,6 +154,15 @@ export const executeStep = internalMutation({
     }
     // Paused: leave the run parked; setWorkflowStatus re-kicks it on resume.
     if (workflow.status !== 'active') return;
+    // Deferred (e.g. a suspended deployment): the step runs again later, the run stays parked here.
+    if (!(await extensions.beforeScheduledWork(ctx, { kind: 'workflow_step' }))) {
+      await ctx.scheduler.runAfter(
+        SCHEDULED_WORK_RETRY_MS,
+        internal.features.workflows.internal.executeStep,
+        args,
+      );
+      return;
+    }
 
     // An async action is still in flight for this run (e.g. resume clicked while
     // a send hadn't completed) — completeActionStep will advance it.
@@ -468,10 +478,10 @@ export const executeStep = internalMutation({
           await advanceRun(ctx, run, workflow, node.next);
           return;
         }
-        if (
-          !(await extensions.beforeSend(ctx, { channel: 'email', count: 1, source: 'workflow' }))
-        ) {
-          await logStep(ctx, run, node, 'skipped', { detail: 'refusé par une extension' });
+        try {
+          await extensions.beforeSend(ctx, { channel: 'email', count: 1, source: 'workflow' });
+        } catch (error) {
+          await logStep(ctx, run, node, 'skipped', { detail: refusalCode(error) });
           await advanceRun(ctx, run, workflow, node.next);
           return;
         }
@@ -496,8 +506,10 @@ export const executeStep = internalMutation({
           await advanceRun(ctx, run, workflow, node.next);
           return;
         }
-        if (!(await extensions.beforeSend(ctx, { channel: 'sms', count: 1, source: 'workflow' }))) {
-          await logStep(ctx, run, node, 'skipped', { detail: 'refusé par une extension' });
+        try {
+          await extensions.beforeSend(ctx, { channel: 'sms', count: 1, source: 'workflow' });
+        } catch (error) {
+          await logStep(ctx, run, node, 'skipped', { detail: refusalCode(error) });
           await advanceRun(ctx, run, workflow, node.next);
           return;
         }

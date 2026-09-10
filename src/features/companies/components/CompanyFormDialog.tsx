@@ -38,6 +38,7 @@ import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefini
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { useCompanyActions } from '../hooks/useCompanyActions';
 import { companyErrorMessage } from '../lib/errors';
+import { describeError } from '@crm/lib/errors';
 
 interface CompanyFormDialogProps {
   open: boolean;
@@ -258,7 +259,7 @@ export function CompanyFormDialog({
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error(companyErrorMessage(e, 'Une erreur est survenue.'));
+      toast.error(companyErrorMessage(e, describeError(e, 'Une erreur est survenue.')));
     } finally {
       setSubmitting(false);
     }

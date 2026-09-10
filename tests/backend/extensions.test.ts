@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { HttpRouter } from 'convex/server';
+import { ConvexError } from 'convex/values';
+import { SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensionTypes';
 import { api, internal } from '../../convex/_generated/api';
 import { extensions, setExtensionsForTests } from '../../convex/extensions';
 import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
@@ -115,7 +117,7 @@ describe('extension seam', () => {
     });
   });
 
-  test('beforeSend gates campaigns at creation, preparation, retry and resend', async () => {
+  test('beforeSend refuses by throwing at creation, preparation, retry and resend', async () => {
     const { t, as } = await setup();
     // A Brevo key makes the email provider "configured" so createCampaign accepts.
     const savedKey = process.env.BREVO_API_KEY;
@@ -128,10 +130,11 @@ describe('extension seam', () => {
       });
       const seen: string[] = [];
       let allow = true;
+      const refusal = { code: 'quota_exceeded', quota: 'emails', limit: 1, used: 1 };
       setExtensionsForTests({
         beforeSend: async (_ctx, info) => {
           seen.push(info.source === 'campaign' ? `${info.stage}:${info.count}` : 'workflow');
-          return allow;
+          if (!allow) throw new ConvexError(refusal);
         },
       });
       const create = () =>
@@ -159,17 +162,22 @@ describe('extension seam', () => {
         }
       };
 
-      // Refused at creation: nothing is written.
+      // Refused at creation: the structured reason reaches the caller and nothing is written.
       allow = false;
-      await expect(create()).rejects.toThrow(/send_refused/);
+      const error = await create().catch((e: unknown) => e);
+      expect(error).toBeInstanceOf(ConvexError);
+      expect((error as ConvexError<typeof refusal>).data).toEqual(refusal);
       expect(await t.run((ctx) => ctx.db.query('campaigns').collect())).toHaveLength(0);
 
-      // Refused once recipients are known: the campaign fails and never drains.
+      // Refused once recipients are known: the campaign fails with the code and never drains.
       allow = true;
       const failed = await create();
       allow = false;
       await prepare(failed);
-      expect((await t.run((ctx) => ctx.db.get(failed)))?.status).toBe('failed');
+      expect(await t.run((ctx) => ctx.db.get(failed))).toMatchObject({
+        status: 'failed',
+        failureReason: 'quota_exceeded',
+      });
 
       // Allowed through: then a retry and a resend go through the same gate.
       allow = true;
@@ -185,14 +193,11 @@ describe('extension seam', () => {
       });
       allow = false;
       await expect(
-        as.mutation(api.features.crm.mutations.retryCampaignSend, {
-          campaignId,
-          sendId: send._id,
-        }),
-      ).rejects.toThrow(/send_refused/);
+        as.mutation(api.features.crm.mutations.retryCampaignSend, { campaignId, sendId: send._id }),
+      ).rejects.toThrow(/quota_exceeded/);
       await expect(
         as.mutation(api.features.crm.mutations.resendAllCampaignSends, { campaignId }),
-      ).rejects.toThrow(/send_refused/);
+      ).rejects.toThrow(/quota_exceeded/);
       // The refused retry rolled back: the send is still failed and the campaign still sent.
       expect((await t.run((ctx) => ctx.db.get(send._id)))?.status).toBe('failed');
       expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sent');
@@ -227,12 +232,17 @@ describe('extension seam', () => {
       setExtensionsForTests({
         beforeSend: async (_ctx, info) => {
           seen.push(info.source === 'campaign' ? `${info.stage}:${info.count}` : 'workflow');
-          return info.source !== 'campaign' || info.stage === 'create' || info.count <= 2;
+          if (info.source === 'campaign' && info.stage !== 'create' && info.count > 2) {
+            throw new Error('too_many');
+          }
         },
       });
       const paged = await create();
       await prepare(paged, 1);
-      expect((await t.run((ctx) => ctx.db.get(paged)))?.status).toBe('failed');
+      expect(await t.run((ctx) => ctx.db.get(paged))).toMatchObject({
+        status: 'failed',
+        failureReason: 'too_many',
+      });
       const written = (await t.run((ctx) => ctx.db.query('campaignSends').collect())).filter(
         (row) => row.campaignId === paged,
       );
@@ -311,5 +321,163 @@ describe('extension seam', () => {
     });
     extensions.registerHttpRoutes(router as unknown as HttpRouter);
     expect(registered).toEqual(['/ops/health']);
+  });
+
+  test('beforeLeadCreate sees the real import delta: matches and invalid rows do not count', async () => {
+    const { t, as } = await setup();
+    await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Live',
+      lastName: 'One',
+      email: 'live@example.com',
+    });
+    await seedLead(t, { email: 'gone@example.com', deletedAt: Date.now() });
+    const counts: number[] = [];
+    setExtensionsForTests({
+      beforeLeadCreate: async (_ctx, info) => {
+        if (info.source === 'import') counts.push(info.count);
+      },
+    });
+    const result = await as.mutation(api.features.crm.mutations.importLeads, {
+      rows: [
+        // Matches a live lead: an update, not a new contact.
+        { firstName: 'Live', lastName: 'Renamed', email: 'live@example.com' },
+        // New contact.
+        { firstName: 'New', lastName: 'One', email: 'new@example.com' },
+        // Revives a soft-deleted lead: becomes live again.
+        { firstName: 'Back', lastName: 'Again', email: 'gone@example.com' },
+        // Invalid row: reported, never counted.
+        {
+          firstName: 'Bad',
+          lastName: 'Address',
+          email: 'bad@example.com',
+          address: { country: 'zz', streetNumber: '', street: '', postalCode: '', city: '' },
+        },
+      ],
+    });
+    expect(counts).toEqual([2]);
+    expect(result).toMatchObject({ created: 1, updated: 2 });
+    expect(result.errors).toHaveLength(1);
+    expect(result.errors[0].index).toBe(3);
+    // Only updates: the gate is not even consulted.
+    await as.mutation(api.features.crm.mutations.importLeads, {
+      rows: [{ firstName: 'Live', lastName: 'Again', email: 'live@example.com' }],
+    });
+    expect(counts).toEqual([2]);
+  });
+
+  test('beforeScheduledWork false defers each background entry point untouched', async () => {
+    const { t, as } = await setup();
+    const savedKey = process.env.BREVO_API_KEY;
+    process.env.BREVO_API_KEY = 'test-brevo-key';
+    try {
+      const scheduledLater = async (name: string) => {
+        const rows = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').collect());
+        return rows.filter(
+          (row) =>
+            row.name.includes(name) &&
+            row.scheduledTime >= Date.now() + SCHEDULED_WORK_RETRY_MS - 5_000,
+        );
+      };
+      const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+        firstName: 'A',
+        lastName: 'B',
+        email: 'a@example.com',
+      });
+      await t.run((ctx) => ctx.db.patch(leadId, { marketingConsent: ['email'] }));
+      const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
+        name: 'Newsletter',
+        channel: 'email',
+        filter: {},
+        subject: 'Bonjour',
+        htmlBody: '<p>Contenu</p>',
+      });
+      const defer = (kinds: string[]) =>
+        setExtensionsForTests({
+          beforeScheduledWork: async (_ctx, { kind }) => !kinds.includes(kind),
+        });
+
+      // campaign_prepare: the page is rescheduled and no recipient is materialised.
+      defer(['campaign_prepare']);
+      const page = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+        campaignId,
+        filter: {},
+      });
+      expect(page).toEqual({ isDone: false, continueCursor: null });
+      expect(await t.run((ctx) => ctx.db.get(campaignId))).toMatchObject({
+        status: 'preparing',
+        totalCount: 0,
+      });
+      expect(await scheduledLater('prepareCampaignBatch')).toHaveLength(1);
+
+      // campaign_drain: pending sends wait, the campaign stays sending, the drain is rescheduled.
+      setExtensionsForTests(null);
+      await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+        campaignId,
+        filter: {},
+      });
+      expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sending');
+      defer(['campaign_drain']);
+      await t.action(internal.features.crm.actions.sendCampaignBatch, { campaignId });
+      const sends = (await t.run((ctx) => ctx.db.query('campaignSends').collect())).filter(
+        (row) => row.campaignId === campaignId,
+      );
+      expect(sends.map((row) => row.status)).toEqual(['pending']);
+      expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sending');
+      expect(await scheduledLater('sendCampaignBatch')).toHaveLength(1);
+
+      // workflow_step and workflow_action: the run stays parked on its node, the pending step waits.
+      setExtensionsForTests(null);
+      const workflowId = await as.mutation(api.features.workflows.mutations.createWorkflow, {
+        name: 'Bienvenue',
+        trigger: { type: 'lead_created' },
+        allowReEnrollment: false,
+        nodes: [{ id: 'n1', type: 'send_email', subject: 'Hi', htmlBody: '<p>x</p>' }],
+        startNodeId: 'n1',
+      });
+      await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+        workflowId,
+        status: 'active',
+      });
+      const enrolledId = await as.mutation(api.features.crm.mutations.createLead, {
+        firstName: 'C',
+        lastName: 'D',
+        email: 'c@example.com',
+      });
+      await t.run((ctx) => ctx.db.patch(enrolledId, { marketingConsent: ['email'] }));
+      const run = (await t.run((ctx) => ctx.db.query('workflowRuns').collect())).find(
+        (row) => row.leadId === enrolledId,
+      )!;
+      defer(['workflow_step']);
+      await t.mutation(internal.features.workflows.internal.executeStep, {
+        runId: run._id,
+        nodeId: 'n1',
+      });
+      expect(await t.run((ctx) => ctx.db.get(run._id))).toMatchObject({
+        currentNodeId: 'n1',
+        stepCount: 0,
+      });
+      expect(await scheduledLater('executeStep')).toHaveLength(1);
+
+      setExtensionsForTests(null);
+      await t.mutation(internal.features.workflows.internal.executeStep, {
+        runId: run._id,
+        nodeId: 'n1',
+      });
+      const step = (await t.run((ctx) => ctx.db.query('workflowRunSteps').collect())).find(
+        (row) => row.runId === run._id,
+      )!;
+      expect(step.status).toBe('pending');
+      defer(['workflow_action']);
+      await t.action(internal.features.workflows.actions.runWorkflowActionStep, {
+        runId: run._id,
+        stepId: step._id,
+        nodeId: 'n1',
+      });
+      expect((await t.run((ctx) => ctx.db.get(step._id)))?.status).toBe('pending');
+      expect(await scheduledLater('runWorkflowActionStep')).toHaveLength(1);
+    } finally {
+      if (savedKey === undefined) delete process.env.BREVO_API_KEY;
+      else process.env.BREVO_API_KEY = savedKey;
+    }
   });
 });

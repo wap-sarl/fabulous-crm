@@ -160,6 +160,8 @@ export const campaignValidator = v.object({
   // legacy rows and on SMS campaigns = Brevo (the only provider that existed).
   emailProvider: v.optional(v.union(v.literal('brevo'), v.literal('smtp'))),
   status: campaignStatusValidator,
+  // Code of the refusal that failed the campaign during preparation (extensions), if any.
+  failureReason: v.optional(v.string()),
   totalCount: v.number(),
   sentCount: v.number(),
   failedCount: v.number(),

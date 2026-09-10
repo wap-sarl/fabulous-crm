@@ -30,6 +30,7 @@ import { useDealActions } from '../hooks/useDealActions';
 import { usePipelines } from '../hooks/usePipelines';
 import { DEAL_ERROR_MESSAGES, dealErrorMessage } from '../lib/errors';
 import { LeadPicker } from './LeadPicker';
+import { describeError } from '@crm/lib/errors';
 
 interface DealFormDialogProps {
   open: boolean;
@@ -213,7 +214,7 @@ function DealFormBody({
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error(dealErrorMessage(e, 'Une erreur est survenue.'));
+      toast.error(dealErrorMessage(e, describeError(e, 'Une erreur est survenue.')));
     } finally {
       setSubmitting(false);
     }

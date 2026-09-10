@@ -369,7 +369,6 @@ export const importLeads = employeeMutation({
     listId: v.optional(v.id('leadLists')),
   },
   handler: async (ctx, args) => {
-    await extensions.beforeLeadCreate(ctx, { count: args.rows.length, source: 'import' });
     if (args.listId) {
       const list = await ctx.db.get(args.listId);
       if (!list) throw new Error('list_not_found');
@@ -387,19 +386,26 @@ export const importLeads = employeeMutation({
     // Company lookups/creations memoized across the chunk (many rows share a domain).
     const companyCache = new Map<string, Id<'companies'>>();
 
+    // First pass: validate and match every row, so the gate below sees the real number of leads becoming live.
+    type Prepared = {
+      email: string | undefined;
+      customProperties: Record<string, PropertyValue> | undefined;
+      existing: Doc<'leads'> | null;
+    };
+    const prepared: (Prepared | null)[] = [];
+    let becomingLive = 0;
     for (let index = 0; index < args.rows.length; index++) {
       const row = args.rows[index];
       const email = normalizeEmail(row.email);
-
       let customProperties: Record<string, PropertyValue> | undefined;
       try {
         requireValidAddress(row.address);
         customProperties = sanitizeCustomProperties(propertyDefsById, row.customProperties);
       } catch (e) {
         errors.push({ index, error: e instanceof Error ? e.message : 'invalid_property_value' });
+        prepared.push(null);
         continue;
       }
-
       const matched = row.matchLeadId ? await ctx.db.get(row.matchLeadId) : null;
       const existing =
         matched ??
@@ -409,6 +415,18 @@ export const importLeads = employeeMutation({
               .withIndex('by_email', (q) => q.eq('email', email))
               .first()
           : null);
+      if (!existing || existing.deletedAt != null) becomingLive++;
+      prepared.push({ email, customProperties, existing });
+    }
+    if (becomingLive > 0) {
+      await extensions.beforeLeadCreate(ctx, { count: becomingLive, source: 'import' });
+    }
+
+    for (let index = 0; index < args.rows.length; index++) {
+      const row = args.rows[index];
+      const ready = prepared[index];
+      if (!ready) continue;
+      const { email, customProperties, existing } = ready;
 
       if (existing) {
         // Upsert: only patch columns the CSV provided (filterUndefined drops the

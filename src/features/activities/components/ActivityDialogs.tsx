@@ -29,6 +29,7 @@ import { ACTIVITY_TYPES, CALL_OUTCOMES } from '../../../lib/constants';
 import { activityErrorMessage, useActivityActions } from '../hooks/useActivityActions';
 import { fromDueAt, toDueAt } from '../lib/buckets';
 import { useTeams } from '../../../lib/hooks/useTeams';
+import { describeError } from '@crm/lib/errors';
 
 /** Owner picker sentinel: an explicit « nobody » (team task, or a free task for anyone). */
 const NOBODY = '__nobody__';
@@ -157,7 +158,7 @@ function ActivityFormBody({
       }
       onOpenChange(false);
     } catch (e) {
-      toast.error(activityErrorMessage(e, 'Une erreur est survenue.'));
+      toast.error(activityErrorMessage(e, describeError(e, 'Une erreur est survenue.')));
     } finally {
       setSubmitting(false);
     }
@@ -314,7 +315,7 @@ function LogCallBody({ links, onOpenChange }: Omit<LogCallDialogProps, 'open'>) 
       toast.success(followUp ? 'Appel consigné, rappel planifié.' : 'Appel consigné.');
       onOpenChange(false);
     } catch (e) {
-      toast.error(activityErrorMessage(e, 'Une erreur est survenue.'));
+      toast.error(activityErrorMessage(e, describeError(e, 'Une erreur est survenue.')));
     } finally {
       setSubmitting(false);
     }

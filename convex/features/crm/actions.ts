@@ -17,6 +17,8 @@ import {
 } from '../../lib';
 import { createEmailDispatcher } from '../email/send';
 import type { CampaignSendStatus } from '../../schema';
+import { extensions } from '../../extensions';
+import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensionTypes';
 
 const BATCH_DELAY_MS = 1000;
 
@@ -206,6 +208,15 @@ export const registerBrevoSmsWebhook = internalAction({
 export const sendCampaignBatch = internalAction({
   args: { campaignId: v.id('campaigns') },
   handler: async (ctx, args) => {
+    // Deferred (e.g. a suspended deployment): the pending sends wait untouched for the next attempt.
+    if (!(await extensions.beforeScheduledWork(ctx, { kind: 'campaign_drain' }))) {
+      await ctx.scheduler.runAfter(
+        SCHEDULED_WORK_RETRY_MS,
+        internal.features.crm.actions.sendCampaignBatch,
+        args,
+      );
+      return;
+    }
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const provider = resolveEmailProvider(cfg);
     const brevo = resolveBrevo(cfg);

@@ -43,6 +43,7 @@ import {
   type LeadImportRow,
   type AddressParts,
 } from '../lib/leadImportFields';
+import { describeError } from '@crm/lib/errors';
 
 interface CsvImportDialogProps {
   open: boolean;
@@ -368,8 +369,8 @@ export function CsvImportDialog({ open, onOpenChange }: CsvImportDialogProps) {
       if (created > 0 || updated > 0) {
         toast.success(`${created} créé(s), ${updated} mis à jour.`);
       }
-    } catch {
-      toast.error('Échec de l’import.');
+    } catch (e) {
+      toast.error(describeError(e, 'Échec de l’import.'));
       if (created > 0 || updated > 0) {
         setSummary(`Import interrompu après ${created} créé(s), ${updated} mis à jour.`);
       }

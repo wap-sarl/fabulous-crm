@@ -33,6 +33,7 @@ import {
   type EmailContentMode,
 } from '../../features/campaigns/components/CampaignContentFields';
 import { buildPlaceholders } from '../../features/campaigns/lib/placeholders';
+import { describeError } from '@crm/lib/errors';
 
 const numberFormat = new Intl.NumberFormat('fr-FR');
 
@@ -169,8 +170,8 @@ export function CampaignCreatePage() {
       });
       toast.success('Campagne créée, préparation des destinataires en cours.');
       navigate(`/campaigns/${campaignId}`);
-    } catch {
-      toast.error('Échec de la création de la campagne.');
+    } catch (e) {
+      toast.error(describeError(e, 'Échec de la création de la campagne.'));
     } finally {
       setSubmitting(false);
     }

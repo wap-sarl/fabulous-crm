@@ -31,6 +31,7 @@ import {
   matchesLeadFilters,
 } from './leadTableFilters';
 import { extensions } from '../../extensions';
+import { refusalCode, SCHEDULED_WORK_RETRY_MS } from '../../lib/extensionTypes';
 
 const BATCH_SIZE = 50;
 
@@ -345,6 +346,15 @@ export const prepareCampaignBatch = internalMutation({
     if (!campaign || campaign.deletedAt != null || campaign.status !== 'preparing') {
       return { isDone: true, continueCursor: null };
     }
+    // Deferred (e.g. a suspended deployment): the same page runs again later, nothing changes.
+    if (!(await extensions.beforeScheduledWork(ctx, { kind: 'campaign_prepare' }))) {
+      await ctx.scheduler.runAfter(
+        SCHEDULED_WORK_RETRY_MS,
+        internal.features.crm.internal.prepareCampaignBatch,
+        args,
+      );
+      return { isDone: false, continueCursor: args.cursor ?? null };
+    }
 
     const isSms = campaign.channel === 'sms';
     const trackedLinks = campaign.trackedLinks ?? [];
@@ -423,17 +433,23 @@ export const prepareCampaignBatch = internalMutation({
     const pending = totalCount - failedCount;
 
     // Gated on every page with the running count: a refused campaign stops within one page of the limit.
-    const allowed =
-      pending === 0 ||
-      (await extensions.beforeSend(ctx, {
-        source: 'campaign',
-        channel: campaign.channel ?? 'email',
-        count: pending,
-        stage: page.isDone ? 'prepared' : 'preparing',
-      }));
-    if (!allowed) {
-      await ctx.db.patch(args.campaignId, { totalCount, failedCount, status: 'failed' });
-      return { isDone: true, continueCursor: page.continueCursor };
+    if (pending > 0) {
+      try {
+        await extensions.beforeSend(ctx, {
+          source: 'campaign',
+          channel: campaign.channel ?? 'email',
+          count: pending,
+          stage: page.isDone ? 'prepared' : 'preparing',
+        });
+      } catch (error) {
+        await ctx.db.patch(args.campaignId, {
+          totalCount,
+          failedCount,
+          status: 'failed',
+          failureReason: refusalCode(error),
+        });
+        return { isDone: true, continueCursor: page.continueCursor };
+      }
     }
 
     if (!page.isDone) {
