@@ -39,14 +39,14 @@ afterEach(() => {
 });
 
 describe('resolveEmailProvider', () => {
-  it('defaults to Brevo when email config is absent', () => {
-    const r = resolveEmailProvider(cfg(undefined));
+  it('defaults to Brevo when email config is absent', async () => {
+    const r = await resolveEmailProvider(cfg(undefined));
     expect(r.kind).toBe('brevo');
   });
 
-  it('falls back to the env Brevo API key when config value is empty', () => {
+  it('falls back to the env Brevo API key when config value is empty', async () => {
     process.env.BREVO_API_KEY = 'env-key';
-    const r = resolveEmailProvider(cfg({ provider: 'brevo' }));
+    const r = await resolveEmailProvider(cfg({ provider: 'brevo' }));
     expect(r).toEqual({
       kind: 'brevo',
       apiKey: 'env-key',
@@ -54,14 +54,14 @@ describe('resolveEmailProvider', () => {
     });
   });
 
-  it('prefers the stored Brevo API key over the env var', () => {
+  it('prefers the stored Brevo API key over the env var', async () => {
     process.env.BREVO_API_KEY = 'env-key';
-    const r = resolveEmailProvider(cfg({ provider: 'brevo', brevoApiKey: 'stored-key' }));
+    const r = await resolveEmailProvider(cfg({ provider: 'brevo', brevoApiKey: 'stored-key' }));
     expect(r.kind === 'brevo' && r.apiKey).toBe('stored-key');
   });
 
-  it('resolves SMTP settings with defaults for missing port/secure', () => {
-    const r = resolveEmailProvider(
+  it('resolves SMTP settings with defaults for missing port/secure', async () => {
+    const r = await resolveEmailProvider(
       cfg({ provider: 'smtp', smtpHost: 'smtp.example.com', smtpUser: 'u', smtpPass: 'p' }),
     );
     expect(r).toEqual({
@@ -73,47 +73,53 @@ describe('resolveEmailProvider', () => {
 });
 
 describe('isEmailProviderConfigured', () => {
-  it('is false for Brevo with no API key (config or env)', () => {
-    expect(isEmailProviderConfigured(resolveEmailProvider(cfg({ provider: 'brevo' })))).toBe(false);
+  it('is false for Brevo with no API key (config or env)', async () => {
+    expect(isEmailProviderConfigured(await resolveEmailProvider(cfg({ provider: 'brevo' })))).toBe(
+      false,
+    );
   });
 
-  it('is true for Brevo once a key resolves (env fallback counts)', () => {
+  it('is true for Brevo once a key resolves (env fallback counts)', async () => {
     process.env.BREVO_API_KEY = 'env-key';
-    expect(isEmailProviderConfigured(resolveEmailProvider(cfg({ provider: 'brevo' })))).toBe(true);
+    expect(isEmailProviderConfigured(await resolveEmailProvider(cfg({ provider: 'brevo' })))).toBe(
+      true,
+    );
   });
 
-  it('is false for SMTP with no host', () => {
+  it('is false for SMTP with no host', async () => {
     expect(
-      isEmailProviderConfigured(resolveEmailProvider(cfg({ provider: 'smtp', smtpUser: 'u' }))),
+      isEmailProviderConfigured(
+        await resolveEmailProvider(cfg({ provider: 'smtp', smtpUser: 'u' })),
+      ),
     ).toBe(false);
   });
 
-  it('is true for SMTP with a host', () => {
+  it('is true for SMTP with a host', async () => {
     expect(
       isEmailProviderConfigured(
-        resolveEmailProvider(cfg({ provider: 'smtp', smtpHost: 'smtp.example.com' })),
+        await resolveEmailProvider(cfg({ provider: 'smtp', smtpHost: 'smtp.example.com' })),
       ),
     ).toBe(true);
   });
 });
 
 describe('resolveBrevo', () => {
-  it('marks SMS available whenever an API key resolves (independent of email provider)', () => {
-    const r = resolveBrevo(cfg({ provider: 'smtp', smtpHost: 'h', brevoApiKey: 'k' }));
+  it('marks SMS available whenever an API key resolves (independent of email provider)', async () => {
+    const r = await resolveBrevo(cfg({ provider: 'smtp', smtpHost: 'h', brevoApiKey: 'k' }));
     expect(r.smsAvailable).toBe(true);
     expect(r.emailIsBrevo).toBe(false);
   });
 
-  it('marks SMS unavailable when no key is configured or in env', () => {
-    const r = resolveBrevo(cfg({ provider: 'brevo' }));
+  it('marks SMS unavailable when no key is configured or in env', async () => {
+    const r = await resolveBrevo(cfg({ provider: 'brevo' }));
     expect(r.smsAvailable).toBe(false);
     expect(r.emailIsBrevo).toBe(true);
   });
 
-  it('falls back to env for webhook secret and SMS sender', () => {
+  it('falls back to env for webhook secret and SMS sender', async () => {
     process.env.BREVO_WEBHOOK_SECRET = 'env-secret';
     process.env.BREVO_SMS_SENDER = 'EnvSender';
-    const r = resolveBrevo(cfg({ provider: 'brevo', brevoApiKey: 'k' }));
+    const r = await resolveBrevo(cfg({ provider: 'brevo', brevoApiKey: 'k' }));
     expect(r.webhookSecret).toBe('env-secret');
     expect(r.smsSender).toBe('EnvSender');
   });

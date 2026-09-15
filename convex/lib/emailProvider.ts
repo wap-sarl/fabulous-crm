@@ -8,6 +8,7 @@
  */
 
 import type { AppConfig } from '../_lib/validators/appConfig';
+import { decryptSecret } from './crypto';
 
 /** Sender identity used as the `From` for every outgoing email. */
 export type EmailSender = { name: string; email: string };
@@ -32,6 +33,11 @@ export type ResolvedEmailProvider =
  */
 type ConfigLike = Pick<AppConfig, 'email' | 'senderEmail' | 'senderName'> | null | undefined;
 
+/** A stored secret in clear, or the env fallback; stored secrets are ciphertext (lib/crypto.ts). */
+async function secret(stored: string | undefined, fallback: string | undefined): Promise<string> {
+  return stored ? await decryptSecret(stored) : fallback || '';
+}
+
 /** Resolve the `From` identity: config sender → env → hard default. */
 function resolveSender(cfg: ConfigLike): EmailSender {
   return {
@@ -46,7 +52,7 @@ function resolveSender(cfg: ConfigLike): EmailSender {
  * SMTP fields fall back to their env vars so a deployment keeps working before
  * the settings screen is filled in.
  */
-export function resolveEmailProvider(cfg: ConfigLike): ResolvedEmailProvider {
+export async function resolveEmailProvider(cfg: ConfigLike): Promise<ResolvedEmailProvider> {
   const email = cfg?.email;
   const sender = resolveSender(cfg);
 
@@ -58,7 +64,7 @@ export function resolveEmailProvider(cfg: ConfigLike): ResolvedEmailProvider {
         port: email.smtpPort ?? 587,
         secure: email.smtpSecure ?? false,
         user: email.smtpUser ?? '',
-        pass: email.smtpPass ?? '',
+        pass: await secret(email.smtpPass, undefined),
       },
       sender,
     };
@@ -66,8 +72,26 @@ export function resolveEmailProvider(cfg: ConfigLike): ResolvedEmailProvider {
 
   return {
     kind: 'brevo',
-    apiKey: email?.brevoApiKey || process.env.BREVO_API_KEY || '',
+    apiKey: await secret(email?.brevoApiKey, process.env.BREVO_API_KEY),
     sender,
+  };
+}
+
+/** What is configured, without decrypting anything: for queries that only show presence flags. */
+export function emailPresence(cfg: ConfigLike): {
+  hasBrevoApiKey: boolean;
+  hasBrevoWebhookSecret: boolean;
+  smsAvailable: boolean;
+  emailConfigured: boolean;
+} {
+  const email = cfg?.email;
+  const hasBrevoApiKey = !!(email?.brevoApiKey || process.env.BREVO_API_KEY);
+  const smtpConfigured = email?.provider === 'smtp' && !!email.smtpHost;
+  return {
+    hasBrevoApiKey,
+    hasBrevoWebhookSecret: !!(email?.brevoWebhookSecret || process.env.BREVO_WEBHOOK_SECRET),
+    smsAvailable: hasBrevoApiKey,
+    emailConfigured: email?.provider === 'smtp' ? smtpConfigured : hasBrevoApiKey,
   };
 }
 
@@ -89,10 +113,10 @@ export type ResolvedBrevo = {
 };
 
 /** Resolve Brevo credentials with env fallback, independent of email provider. */
-export function resolveBrevo(cfg: ConfigLike): ResolvedBrevo {
+export async function resolveBrevo(cfg: ConfigLike): Promise<ResolvedBrevo> {
   const email = cfg?.email;
-  const apiKey = email?.brevoApiKey || process.env.BREVO_API_KEY || '';
-  const webhookSecret = email?.brevoWebhookSecret || process.env.BREVO_WEBHOOK_SECRET || '';
+  const apiKey = await secret(email?.brevoApiKey, process.env.BREVO_API_KEY);
+  const webhookSecret = await secret(email?.brevoWebhookSecret, process.env.BREVO_WEBHOOK_SECRET);
   return {
     apiKey,
     webhookSecret,

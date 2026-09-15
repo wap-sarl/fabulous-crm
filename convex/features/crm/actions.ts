@@ -52,7 +52,7 @@ export const registerBrevoEmailWebhook = internalAction({
   args: {},
   handler: async (ctx) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const brevo = resolveBrevo(cfg);
+    const brevo = await resolveBrevo(cfg);
     // Email tracking webhooks only make sense when email goes through Brevo.
     if (!brevo.emailIsBrevo) {
       return { action: 'skipped', reason: 'provider_not_brevo' } as const;
@@ -132,7 +132,7 @@ export const registerBrevoSmsWebhook = internalAction({
   args: {},
   handler: async (ctx) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const brevo = resolveBrevo(cfg);
+    const brevo = await resolveBrevo(cfg);
     const apiKey = brevo.apiKey;
     const secret = brevo.webhookSecret;
     const siteUrl = process.env.CONVEX_SITE_URL;
@@ -219,8 +219,8 @@ export const sendCampaignBatch = internalAction({
       return;
     }
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const provider = resolveEmailProvider(cfg);
-    const brevo = resolveBrevo(cfg);
+    const provider = await resolveEmailProvider(cfg);
+    const brevo = await resolveBrevo(cfg);
 
     const batch = await ctx.runQuery(internal.features.crm.internal.getPendingSends, {
       campaignId: args.campaignId,

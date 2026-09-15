@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { ssoProviderValidator, socialProviderConfigValidator } from '../_lib/validators/appConfig';
 import { logAudit } from '../lib';
+import { encryptSecret } from '../lib/crypto';
 import { isSetupComplete } from './helpers';
 import { ensureDefaultRoles } from '../lib/roles';
 
@@ -118,13 +119,30 @@ export const completeSetup = mutation({
       ...(args.logoStorageId && { logoStorageId: args.logoStorageId }),
       ...(args.faviconStorageId && { faviconStorageId: args.faviconStorageId }),
       ...(args.primaryColor && { primaryColor: args.primaryColor.toLowerCase() }),
-      auth: args.auth,
+      // Secrets are stored as ciphertext (lib/crypto.ts).
+      auth: {
+        ...args.auth,
+        ssoProviders: await Promise.all(
+          args.auth.ssoProviders.map(async (p) => ({
+            ...p,
+            clientSecret: await encryptSecret(p.clientSecret),
+          })),
+        ),
+        socialProviders: args.auth.socialProviders
+          ? await Promise.all(
+              args.auth.socialProviders.map(async (p) => ({
+                ...p,
+                clientSecret: await encryptSecret(p.clientSecret),
+              })),
+            )
+          : undefined,
+      },
       // Default to Brevo with credentials backfilled from env; the settings
       // screen can switch to SMTP later. Resolvers fall back to env regardless.
       email: {
         provider: 'brevo' as const,
-        brevoApiKey: process.env.BREVO_API_KEY ?? '',
-        brevoWebhookSecret: process.env.BREVO_WEBHOOK_SECRET ?? '',
+        brevoApiKey: await encryptSecret(process.env.BREVO_API_KEY ?? ''),
+        brevoWebhookSecret: await encryptSecret(process.env.BREVO_WEBHOOK_SECRET ?? ''),
         brevoSmsSender: process.env.BREVO_SMS_SENDER ?? '',
       },
       updatedAt: now,

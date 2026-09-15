@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
+import { encryptSecret } from '../../lib/crypto';
 import {
   ATTACHMENT_MAX_BYTES_CEILING,
   ATTACHMENT_RETENTION_MAX_DAYS,
@@ -149,36 +150,47 @@ export const updateConfig = settingsMutation({
       await ctx.storage.delete(cfg.faviconStorageId);
     }
 
-    const mergedSso: SsoProvider[] | undefined = args.ssoProviders?.map((p) => {
-      const existing = (cfg.auth.ssoProviders ?? []).find((e) => e.providerId === p.providerId);
-      const clientSecret =
-        p.clientSecret && p.clientSecret.length > 0
-          ? p.clientSecret
-          : (existing?.clientSecret ?? '');
-      return {
-        providerId: p.providerId,
-        label: p.label,
-        issuerUrl: p.issuerUrl,
-        clientId: p.clientId,
-        clientSecret,
-        scopes: p.scopes,
-        enabled: p.enabled,
-      };
-    });
+    // Secrets are stored as ciphertext (lib/crypto.ts); an omitted or empty one keeps the stored value.
+    const mergedSso: SsoProvider[] | undefined = args.ssoProviders
+      ? await Promise.all(
+          args.ssoProviders.map(async (p) => {
+            const existing = (cfg.auth.ssoProviders ?? []).find(
+              (e) => e.providerId === p.providerId,
+            );
+            const clientSecret =
+              p.clientSecret && p.clientSecret.length > 0
+                ? await encryptSecret(p.clientSecret)
+                : (existing?.clientSecret ?? '');
+            return {
+              providerId: p.providerId,
+              label: p.label,
+              issuerUrl: p.issuerUrl,
+              clientId: p.clientId,
+              clientSecret,
+              scopes: p.scopes,
+              enabled: p.enabled,
+            };
+          }),
+        )
+      : undefined;
 
-    const mergedSocial: SocialProviderConfig[] | undefined = args.socialProviders?.map((p) => {
-      const existing = cfg.auth.socialProviders?.find((e) => e.id === p.id);
-      const clientSecret =
-        p.clientSecret && p.clientSecret.length > 0
-          ? p.clientSecret
-          : (existing?.clientSecret ?? '');
-      return {
-        id: p.id,
-        clientId: p.clientId,
-        clientSecret,
-        enabled: p.enabled,
-      };
-    });
+    const mergedSocial: SocialProviderConfig[] | undefined = args.socialProviders
+      ? await Promise.all(
+          args.socialProviders.map(async (p) => {
+            const existing = cfg.auth.socialProviders?.find((e) => e.id === p.id);
+            const clientSecret =
+              p.clientSecret && p.clientSecret.length > 0
+                ? await encryptSecret(p.clientSecret)
+                : (existing?.clientSecret ?? '');
+            return {
+              id: p.id,
+              clientId: p.clientId,
+              clientSecret,
+              enabled: p.enabled,
+            };
+          }),
+        )
+      : undefined;
 
     // Email config: same secret-preservation rule — an omitted/empty secret
     // keeps the stored value (matched on the existing config, singleton).
@@ -186,18 +198,18 @@ export const updateConfig = settingsMutation({
     if (args.email) {
       const e = args.email;
       const prev = cfg.email;
-      const keep = (incoming: string | undefined, existing: string | undefined) =>
-        incoming && incoming.length > 0 ? incoming : (existing ?? '');
+      const keep = async (incoming: string | undefined, existing: string | undefined) =>
+        incoming && incoming.length > 0 ? await encryptSecret(incoming) : (existing ?? '');
       mergedEmail = {
         provider: e.provider,
-        brevoApiKey: keep(e.brevoApiKey, prev?.brevoApiKey),
-        brevoWebhookSecret: keep(e.brevoWebhookSecret, prev?.brevoWebhookSecret),
+        brevoApiKey: await keep(e.brevoApiKey, prev?.brevoApiKey),
+        brevoWebhookSecret: await keep(e.brevoWebhookSecret, prev?.brevoWebhookSecret),
         brevoSmsSender: e.brevoSmsSender ?? prev?.brevoSmsSender ?? '',
         smtpHost: e.smtpHost ?? prev?.smtpHost ?? '',
         smtpPort: e.smtpPort ?? prev?.smtpPort,
         smtpSecure: e.smtpSecure ?? prev?.smtpSecure ?? false,
         smtpUser: e.smtpUser ?? prev?.smtpUser ?? '',
-        smtpPass: keep(e.smtpPass, prev?.smtpPass),
+        smtpPass: await keep(e.smtpPass, prev?.smtpPass),
       };
       // Refuse to switch to a half-configured SMTP relay: host + port are the
       // minimum needed to connect (the From identity comes from senderEmail).

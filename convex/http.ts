@@ -42,7 +42,7 @@ http.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const brevo = resolveBrevo(cfg);
+    const brevo = await resolveBrevo(cfg);
     if (
       !brevo.webhookSecret ||
       !authorizeWebhook(request, { header: brevo.webhookSecret, query: brevo.smsWebhookSecret })
@@ -108,7 +108,7 @@ http.route({
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const brevo = resolveBrevo(cfg);
+    const brevo = await resolveBrevo(cfg);
     if (
       !brevo.webhookSecret ||
       !authorizeWebhook(request, { header: brevo.webhookSecret, query: brevo.webhookSecret })

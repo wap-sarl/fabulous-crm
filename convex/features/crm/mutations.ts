@@ -915,9 +915,9 @@ export const createCampaign = employeeMutation({
     // Resolve the active email provider (snapshotted on the campaign) and Brevo
     // availability so we can reject channels/modes the provider can't serve.
     const cfg = await ctx.db.query('appConfig').first();
-    const provider = resolveEmailProvider(cfg);
+    const provider = await resolveEmailProvider(cfg);
     const emailProvider = provider.kind;
-    const smsAvailable = resolveBrevo(cfg).smsAvailable;
+    const smsAvailable = (await resolveBrevo(cfg)).smsAvailable;
 
     // Custom-property definitions: substituted as {{ params.custom_<id> }} and
     // referenced by tracked links.
@@ -1043,12 +1043,15 @@ export const createCampaign = employeeMutation({
  * channel can't be delivered because its provider isn't configured — so a retry
  * never resets rows back into a silently-unconfigured provider.
  */
-function assertChannelDeliverable(cfg: Doc<'appConfig'> | null, channel: 'email' | 'sms') {
+async function assertChannelDeliverable(
+  cfg: Doc<'appConfig'> | null,
+  channel: 'email' | 'sms',
+): Promise<void> {
   if (channel === 'sms') {
-    if (!resolveBrevo(cfg).smsAvailable) {
+    if (!(await resolveBrevo(cfg)).smsAvailable) {
       throw new Error('Les campagnes SMS nécessitent un compte Brevo configuré.');
     }
-  } else if (!isEmailProviderConfigured(resolveEmailProvider(cfg))) {
+  } else if (!isEmailProviderConfigured(await resolveEmailProvider(cfg))) {
     throw new Error(
       "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.",
     );
@@ -1145,7 +1148,7 @@ export const retryCampaignSend = employeeMutation({
     if (campaign.status === 'sending') throw new Error('campaign_sending');
 
     const cfg = await ctx.db.query('appConfig').first();
-    assertChannelDeliverable(cfg, campaign.channel ?? 'email');
+    await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
 
     const remat = await loadResendContext(ctx, campaign);
     if (!(await requeueSend(ctx, send, remat))) throw new Error('no_contact');
@@ -1192,7 +1195,7 @@ export const resendAllCampaignSends = employeeMutation({
     if (campaign.status === 'sending') throw new Error('campaign_sending');
 
     const cfg = await ctx.db.query('appConfig').first();
-    assertChannelDeliverable(cfg, campaign.channel ?? 'email');
+    await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
 
     const remat = await loadResendContext(ctx, campaign);
     const sends = await ctx.db

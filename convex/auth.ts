@@ -12,6 +12,7 @@ import type { MutationCtx } from './_generated/server';
 import authConfig from './auth.config';
 import { enforceRateLimit } from './lib/rateLimits';
 import { SOCIAL_PROVIDERS } from './_lib/socialProviders';
+import { decryptSecret } from './lib/crypto';
 import type { SsoProvider } from './_lib/validators/appConfig';
 import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } from './lib';
 import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
@@ -170,10 +171,12 @@ function buildSocialProviders(ctx: GenericCtx<DataModel>): BetterAuthOptions['so
       }
       const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
       const sp = cfg?.auth.socialProviders?.find((s) => s.id === p.key);
+      // Stored ciphertext; the clear value exists only here, for the token exchange.
+      const clientSecret = sp?.clientSecret ? await decryptSecret(sp.clientSecret) : '';
       return {
         clientId: sp?.clientId ?? '',
-        clientSecret: sp?.clientSecret ?? '',
-        enabled: !!sp?.enabled && !!sp.clientId && !!sp.clientSecret,
+        clientSecret,
+        enabled: !!sp?.enabled && !!sp.clientId && !!clientSecret,
       };
     };
   }
@@ -345,8 +348,10 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
       if (prop !== 'handler') return Reflect.get(target, prop);
       return async (request: Request): Promise<Response> => {
         const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-        const sso = (cfg?.auth.ssoProviders ?? []).filter(
-          (p) => p.enabled && p.clientId && p.clientSecret,
+        const sso = await Promise.all(
+          (cfg?.auth.ssoProviders ?? [])
+            .filter((p) => p.enabled && p.clientId && p.clientSecret)
+            .map(async (p) => ({ ...p, clientSecret: await decryptSecret(p.clientSecret) })),
         );
         if (sso.length === 0) return target.handler(request);
         return betterAuth(authOptions(ctx, sso)).handler(request);

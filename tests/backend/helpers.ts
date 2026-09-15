@@ -20,6 +20,7 @@ import { join, relative } from 'node:path';
 import { convexTest, type TestConvex } from 'convex-test';
 import aggregateSchema from '../../node_modules/@convex-dev/aggregate/dist/component/schema.js';
 import betterAuthSchema from '../../node_modules/@convex-dev/better-auth/dist/component/schema.js';
+import migrationsSchema from '../../node_modules/@convex-dev/migrations/dist/component/schema.js';
 import rateLimiterSchema from '../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
@@ -61,6 +62,9 @@ const aggregateModules = globModules(
 const rateLimiterModules = globModules(
   join(import.meta.dir, '../../node_modules/@convex-dev/rate-limiter/dist/component'),
 );
+const migrationsModules = globModules(
+  join(import.meta.dir, '../../node_modules/@convex-dev/migrations/dist/component'),
+);
 
 export type T = TestConvex<typeof schema>;
 
@@ -68,6 +72,7 @@ export type T = TestConvex<typeof schema>;
 export function createTestConvex(): T {
   const t = convexTest(schema, appModules);
   t.registerComponent('betterAuth', betterAuthSchema, betterAuthModules);
+  t.registerComponent('migrations', migrationsSchema, migrationsModules);
   t.registerComponent('leadListMemberCounts', aggregateSchema, aggregateModules);
   t.registerComponent('leadsByOwner', aggregateSchema, aggregateModules);
   t.registerComponent('leadsByLifecycle', aggregateSchema, aggregateModules);
