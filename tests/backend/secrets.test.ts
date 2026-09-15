@@ -141,7 +141,9 @@ describe('secrets at rest', () => {
     const encrypted = await storedConfig(t);
     expect(encrypted?.email?.brevoApiKey).toMatch(CIPHERTEXT);
     expect(encrypted?.email?.smtpPass).toMatch(CIPHERTEXT);
-    expect(encrypted?.email?.brevoWebhookSecret ?? '').toBe('');
+    // A field that was absent stays absent: nothing invents an empty secret.
+    expect(encrypted?.email?.brevoWebhookSecret).toBeUndefined();
+    expect(encrypted?.auth.ssoProviders).toBeUndefined();
     expect(encrypted?.auth.socialProviders?.[0]?.clientSecret).toMatch(CIPHERTEXT);
     expect(await decryptSecret(encrypted?.auth.socialProviders?.[0]?.clientSecret ?? '')).toBe(
       'google-clear',

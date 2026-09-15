@@ -1,45 +1,41 @@
 import { Migrations } from '@convex-dev/migrations';
 import { components } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
-import { decryptSecret, encryptSecret, isEncryptedSecret } from './lib/crypto';
 import type { AppConfig } from './_lib/validators/appConfig';
+import { decryptSecret, encryptSecret, isEncryptedSecret } from './lib/crypto';
 
+// Online migrations (@convex-dev/migrations): `bunx convex run migrations:run '{"fn":"migrations:<name>"}'`.
 export const migrations = new Migrations<DataModel>(components.migrations);
 export const run = migrations.runner();
 
-/** Every stored secret of a config document rewritten through `rewrite`, untouched fields kept. */
-async function rewriteSecrets(
-  config: AppConfig,
-  rewrite: (value: string) => Promise<string>,
-): Promise<Partial<AppConfig>> {
-  const auth = {
-    ...config.auth,
-    ssoProviders: config.auth.ssoProviders
-      ? await Promise.all(
-          config.auth.ssoProviders.map(async (p) => ({
-            ...p,
-            clientSecret: await rewrite(p.clientSecret),
-          })),
-        )
-      : undefined,
-    socialProviders: config.auth.socialProviders
-      ? await Promise.all(
-          config.auth.socialProviders.map(async (p) => ({
-            ...p,
-            clientSecret: await rewrite(p.clientSecret),
-          })),
-        )
-      : undefined,
-  };
-  const email = config.email
-    ? {
-        ...config.email,
-        brevoApiKey: await rewrite(config.email.brevoApiKey ?? ''),
-        brevoWebhookSecret: await rewrite(config.email.brevoWebhookSecret ?? ''),
-        smtpPass: await rewrite(config.email.smtpPass ?? ''),
-      }
-    : undefined;
-  return { auth, ...(email ? { email } : {}) };
+type Rewrite = (value: string) => Promise<string>;
+
+/** Every stored secret of a config document rewritten through `rewrite`; absent fields stay absent. */
+async function rewriteSecrets(config: AppConfig, rewrite: Rewrite): Promise<Partial<AppConfig>> {
+  const auth = { ...config.auth };
+  if (config.auth.ssoProviders) {
+    auth.ssoProviders = await Promise.all(
+      config.auth.ssoProviders.map(async (p) => ({
+        ...p,
+        clientSecret: await rewrite(p.clientSecret),
+      })),
+    );
+  }
+  if (config.auth.socialProviders) {
+    auth.socialProviders = await Promise.all(
+      config.auth.socialProviders.map(async (p) => ({
+        ...p,
+        clientSecret: await rewrite(p.clientSecret),
+      })),
+    );
+  }
+  if (!config.email) return { auth };
+  const email = { ...config.email };
+  for (const field of ['brevoApiKey', 'brevoWebhookSecret', 'smtpPass'] as const) {
+    const value = config.email[field];
+    if (value !== undefined) email[field] = await rewrite(value);
+  }
+  return { auth, email };
 }
 
 /** Secrets written before SECRETS_KEY existed become ciphertext; already encrypted ones are left alone. */

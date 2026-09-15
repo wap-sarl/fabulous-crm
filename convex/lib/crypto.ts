@@ -60,8 +60,6 @@ function readKeys(): string[] {
   );
 }
 
-export const secretsKeyConfigured = (): boolean => readKeys().length > 0;
-
 export const isEncryptedSecret = (value: string): boolean => value.startsWith(`${SECRET_VERSION}:`);
 
 /** Ciphertext for a stored secret; the clear value when no key is configured (community edition), with one warning. */
