@@ -103,7 +103,7 @@ export const resendInvitation = settingsMutation({
     if (invite.status !== 'pending') throw new Error('invitation_not_pending');
 
     const cfg = await ctx.db.query('appConfig').first();
-    if (!isEmailProviderConfigured(resolveEmailProvider(cfg))) {
+    if (!isEmailProviderConfigured(await resolveEmailProvider(cfg))) {
       throw new Error('email_not_configured');
     }
 

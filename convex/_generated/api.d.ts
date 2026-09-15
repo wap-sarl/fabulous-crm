@@ -140,6 +140,7 @@ import type * as lib_timeConstants from "../lib/timeConstants.js";
 import type * as lib_timeline from "../lib/timeline.js";
 import type * as lib_userUtils from "../lib/userUtils.js";
 import type * as lib_visibility from "../lib/visibility.js";
+import type * as migrations from "../migrations.js";
 import type * as seed_devEmployee from "../seed/devEmployee.js";
 import type * as setup_helpers from "../setup/helpers.js";
 import type * as setup_mutations from "../setup/mutations.js";
@@ -284,6 +285,7 @@ declare const fullApi: ApiFromModules<{
   "lib/timeline": typeof lib_timeline;
   "lib/userUtils": typeof lib_userUtils;
   "lib/visibility": typeof lib_visibility;
+  migrations: typeof migrations;
   "seed/devEmployee": typeof seed_devEmployee;
   "setup/helpers": typeof setup_helpers;
   "setup/mutations": typeof setup_mutations;
@@ -331,4 +333,5 @@ export declare const components: {
   dealsByOwnerStage: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByOwnerStage">;
   dealsByOwnerStatus: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"dealsByOwnerStatus">;
   rateLimiter: import("@convex-dev/rate-limiter/_generated/component.js").ComponentApi<"rateLimiter">;
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
 };

@@ -58,7 +58,7 @@ export const runWorkflowActionStep = internalAction({
       const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
 
       if (step.kind === 'email') {
-        const provider = resolveEmailProvider(cfg);
+        const provider = await resolveEmailProvider(cfg);
         if (!isEmailProviderConfigured(provider)) {
           await complete('failed', "Fournisseur d'e-mail non configuré — envoi impossible.");
           return;
@@ -78,7 +78,7 @@ export const runWorkflowActionStep = internalAction({
       }
 
       if (step.kind === 'sms') {
-        const brevo = resolveBrevo(cfg);
+        const brevo = await resolveBrevo(cfg);
         if (!brevo.smsAvailable) {
           await complete('failed', 'Compte Brevo non configuré — envoi SMS impossible.');
           return;

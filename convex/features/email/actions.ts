@@ -22,7 +22,7 @@ export const sendProviderEmail = internalAction({
   },
   handler: async (ctx, args) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const provider = resolveEmailProvider(cfg);
+    const provider = await resolveEmailProvider(cfg);
     const result = await sendEmail(provider, {
       to: [{ email: args.to }],
       subject: args.subject,
@@ -46,7 +46,7 @@ export const sendTestEmail = employeeAction({
   args: { to: v.string() },
   handler: async (ctx, args) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const provider = resolveEmailProvider(cfg);
+    const provider = await resolveEmailProvider(cfg);
     const result = await sendEmail(provider, {
       to: [{ email: args.to }],
       subject: '[CRM] E-mail de test',

@@ -2,7 +2,7 @@ import { query } from '../../_generated/server';
 import { settingsQuery, employeeQuery } from '../../_lib/auth';
 import { isSetupComplete } from '../../setup/helpers';
 import { SOCIAL_PROVIDERS } from '../../_lib/socialProviders';
-import { resolveBrevo, resolveEmailProvider, isEmailProviderConfigured } from '../../lib';
+import { emailPresence } from '../../lib';
 import { extensions } from '../../extensions';
 import { loadLifecycleConfig } from '../../lib/lifecycle';
 import {
@@ -117,11 +117,11 @@ export const getAdminConfig = settingsQuery({
       // never leave the server. `smsAvailable` is derived from Brevo credentials.
       email: (() => {
         const e = cfg.email;
-        const brevo = resolveBrevo(cfg);
+        const brevo = emailPresence(cfg);
         return {
           provider: e?.provider ?? 'brevo',
-          hasBrevoApiKey: brevo.apiKey.length > 0,
-          hasBrevoWebhookSecret: brevo.webhookSecret.length > 0,
+          hasBrevoApiKey: brevo.hasBrevoApiKey,
+          hasBrevoWebhookSecret: brevo.hasBrevoWebhookSecret,
           brevoSmsSender: e?.brevoSmsSender ?? '',
           smtpHost: e?.smtpHost ?? '',
           smtpPort: e?.smtpPort ?? null,
@@ -149,11 +149,11 @@ export const getEmailCapabilities = employeeQuery({
   args: {},
   handler: async (ctx) => {
     const cfg = await ctx.db.query('appConfig').first();
-    const brevo = resolveBrevo(cfg);
+    const presence = emailPresence(cfg);
     return {
       emailProvider: cfg?.email?.provider ?? 'brevo',
-      smsAvailable: brevo.smsAvailable,
-      emailConfigured: isEmailProviderConfigured(resolveEmailProvider(cfg)),
+      smsAvailable: presence.smsAvailable,
+      emailConfigured: presence.emailConfigured,
     };
   },
 });
