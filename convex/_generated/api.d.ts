@@ -130,6 +130,7 @@ import type * as lib_leadScoring from "../lib/leadScoring.js";
 import type * as lib_leadSearch from "../lib/leadSearch.js";
 import type * as lib_leadSignals from "../lib/leadSignals.js";
 import type * as lib_lifecycle from "../lib/lifecycle.js";
+import type * as lib_observers from "../lib/observers.js";
 import type * as lib_owners from "../lib/owners.js";
 import type * as lib_properties from "../lib/properties.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
@@ -275,6 +276,7 @@ declare const fullApi: ApiFromModules<{
   "lib/leadSearch": typeof lib_leadSearch;
   "lib/leadSignals": typeof lib_leadSignals;
   "lib/lifecycle": typeof lib_lifecycle;
+  "lib/observers": typeof lib_observers;
   "lib/owners": typeof lib_owners;
   "lib/properties": typeof lib_properties;
   "lib/rateLimits": typeof lib_rateLimits;

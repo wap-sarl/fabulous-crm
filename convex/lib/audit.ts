@@ -1,7 +1,7 @@
 import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import type { AuditLogAction, AuditLogEntityType } from '../_lib/validators/auditLogs';
-import { notifyChange } from './gates';
+import { notifyChange } from './observers';
 
 export type AuditActor = { userId?: Id<'users'>; apiKeyId?: Id<'apiKeys'> };
 

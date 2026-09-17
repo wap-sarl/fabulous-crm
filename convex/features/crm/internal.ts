@@ -316,10 +316,7 @@ export const handleSmsEvent = internalMutation({
       entityType: 'lead',
       entityId: lead._id,
       action: 'update',
-      metadata: {
-        source: 'sms_stop',
-        changes: { marketingConsent: { old: lead.marketingConsent, new: marketingConsent } },
-      },
+      metadata: { source: 'sms_stop', changes: computeChanges(lead, { marketingConsent }) },
     });
 
     // System note (no createdBy) so the opt-out is visible in the lead timeline.

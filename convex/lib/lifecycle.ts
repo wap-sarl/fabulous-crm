@@ -1,6 +1,6 @@
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
-import { notifyChange } from './gates';
+import { notifyChange } from './observers';
 import {
   isLifecycleRegression,
   lifecycleStageIndex,

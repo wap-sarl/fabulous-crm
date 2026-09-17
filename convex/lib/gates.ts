@@ -2,14 +2,13 @@ import type { FunctionArgs, SchedulableFunctionReference } from 'convex/server';
 import { extensions } from '../extensions';
 import type { ActionCtx, MutationCtx } from '../_generated/server';
 import {
-  type RecordChange,
   refusalCode,
   SCHEDULED_WORK_RETRY_MS,
   type ScheduledWorkKind,
   type SendInfo,
 } from './extensionTypes';
 
-// Every invocation of the extension seam by the core goes through here, named after the unit it bills (docs/extensions.md).
+// Every gate of the extension seam is invoked from here, named after the unit it bills (docs/extensions.md); the observers live in observers.ts.
 
 /** Leads about to become live; nothing is asked when none does. */
 export async function gateLeadCreate(
@@ -54,45 +53,4 @@ export async function deferUnlessAllowed<F extends SchedulableFunctionReference>
   if (await extensions.beforeScheduledWork(ctx, { kind })) return false;
   await ctx.scheduler.runAfter(SCHEDULED_WORK_RETRY_MS, fn, args);
   return true;
-}
-
-/** A failing hook leaves at most one audit row this often, so an import of thousands of rows cannot flood the table. */
-const HOOK_FAILURE_TRACE_MS = 60 * 60 * 1000;
-export const HOOK_FAILURE_ENTITY_ID = 'extensions:afterChange';
-
-/** Tells the overlay a record changed; an overlay bug must never cost the CRM its write, nor go unseen. */
-export async function notifyChange(ctx: MutationCtx, change: RecordChange): Promise<void> {
-  try {
-    await extensions.afterChange(ctx, change);
-  } catch (error) {
-    const code = refusalCode(error);
-    console.error('afterChange failed', change.type, code);
-    try {
-      const last = await ctx.db
-        .query('auditLogs')
-        .withIndex('by_entity', (q) =>
-          q.eq('entityType', 'appConfig').eq('entityId', HOOK_FAILURE_ENTITY_ID),
-        )
-        .order('desc')
-        .first();
-      if (last && Date.now() - last.timestamp < HOOK_FAILURE_TRACE_MS) return;
-      // Inserted directly: going through logAudit would call the failing hook again.
-      await ctx.db.insert('auditLogs', {
-        entityType: 'appConfig',
-        entityId: HOOK_FAILURE_ENTITY_ID,
-        action: 'update',
-        timestamp: Date.now(),
-        metadata: {
-          event: 'afterChange_failed',
-          code,
-          change:
-            change.type === 'audit'
-              ? { type: 'audit', entityType: change.entityType, action: change.action }
-              : { type: 'lifecycle' },
-        },
-      });
-    } catch (traceError) {
-      console.error('afterChange failure not traced', refusalCode(traceError));
-    }
-  }
 }

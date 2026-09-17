@@ -2,6 +2,7 @@ import type { HttpRouter } from 'convex/server';
 import { ConvexError } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { AuditLogAction, AuditLogEntityType } from '../_lib/validators/auditLogs';
+import type { LifecycleChangeSource } from '../_lib/validators/lifecycle';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../_generated/server';
 
 /** The background entry points that ask before running (`beforeScheduledWork`). */
@@ -39,9 +40,10 @@ export type RecordChange =
   | {
       type: 'lifecycle';
       leadId: Id<'leads'>;
+      // Stage keys of the instance's lifecycle configuration: free strings, not a fixed union.
       from: string | undefined;
       to: string;
-      source: string;
+      source: LifecycleChangeSource;
     };
 
 export interface ApiRefusal {

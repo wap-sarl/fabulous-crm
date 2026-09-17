@@ -4,7 +4,7 @@ import { ConvexError } from 'convex/values';
 import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensionTypes';
 import { api, internal } from '../../convex/_generated/api';
 import { extensions, setExtensionsForTests } from '../../convex/extensions';
-import { HOOK_FAILURE_ENTITY_ID } from '../../convex/lib/gates';
+import { HOOK_FAILURE_ENTITY_ID, notifyChange } from '../../convex/lib/observers';
 import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
 
 afterEach(() => setExtensionsForTests(null));
@@ -633,5 +633,53 @@ describe('extension seam', () => {
       ),
     );
     expect(after).toHaveLength(2);
+  });
+
+  test('a broken afterChange costs one trace lookup per mutation, not one per change', async () => {
+    setExtensionsForTests({
+      afterChange: async () => {
+        throw new Error('overlay bug');
+      },
+    });
+    let reads = 0;
+    let inserts = 0;
+    const fakeCtx = () =>
+      ({
+        db: {
+          query: () => ({
+            withIndex: () => ({
+              order: () => ({
+                first: async () => {
+                  reads++;
+                  return null;
+                },
+              }),
+            }),
+          }),
+          insert: async () => {
+            inserts++;
+          },
+        },
+      }) as unknown as Parameters<typeof notifyChange>[0];
+    const change = {
+      type: 'lifecycle',
+      leadId: 'l',
+      from: undefined,
+      to: 'lead',
+      source: 'import',
+    };
+    const error = console.error;
+    console.error = () => {};
+    try {
+      // One mutation, a thousand rows of an import: the hourly cap is looked up once.
+      const importCtx = fakeCtx();
+      for (let i = 0; i < 1000; i++) await notifyChange(importCtx, change as never);
+      expect({ reads, inserts }).toEqual({ reads: 1, inserts: 1 });
+      // The next mutation looks again.
+      await notifyChange(fakeCtx(), change as never);
+      expect(reads).toBe(2);
+    } finally {
+      console.error = error;
+    }
   });
 });
