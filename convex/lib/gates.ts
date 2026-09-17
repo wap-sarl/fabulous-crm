@@ -8,7 +8,7 @@ import {
   type SendInfo,
 } from './extensionTypes';
 
-// Every invocation of the extension seam by the core goes through here, named after the unit it bills (docs/extensions.md).
+// Every gate of the extension seam is invoked from here, named after the unit it bills (docs/extensions.md); the observers live in observers.ts.
 
 /** Leads about to become live; nothing is asked when none does. */
 export async function gateLeadCreate(

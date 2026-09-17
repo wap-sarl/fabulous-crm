@@ -4,6 +4,7 @@ import { ConvexError } from 'convex/values';
 import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensionTypes';
 import { api, internal } from '../../convex/_generated/api';
 import { extensions, setExtensionsForTests } from '../../convex/extensions';
+import { HOOK_FAILURE_ENTITY_ID, notifyChange } from '../../convex/lib/observers';
 import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
 
 afterEach(() => setExtensionsForTests(null));
@@ -485,5 +486,200 @@ describe('extension seam', () => {
     });
     expect((await t.run((ctx) => ctx.db.get(stepId)))?.status).toBe('pending');
     expect(await scheduledLater('runWorkflowActionStep', { stepId })).toHaveLength(1);
+  });
+
+  test('afterChange sees UI, API, import and system writes, the audit entry first, then the lifecycle transition', async () => {
+    const { t, as } = await setup();
+    const seen: string[] = [];
+    setExtensionsForTests({
+      afterChange: async (_ctx, change) => {
+        seen.push(
+          change.type === 'audit'
+            ? `${change.entityType}.${change.action}${change.apiKeyId ? ' (api)' : change.userId ? ' (user)' : ' (system)'}`
+            : `lifecycle ${change.from ?? '-'}>${change.to} (${change.source})`,
+        );
+      },
+    });
+    const drain = () => seen.splice(0);
+    // The UI: a creation is one audited write, then one lifecycle entry.
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    });
+    expect(drain()).toEqual(['lead.create (user)', 'lifecycle ->lead (manual)']);
+    await as.mutation(api.features.crm.mutations.updateLead, {
+      leadId,
+      lifecycleStage: 'customer',
+    });
+    expect(drain()).toEqual(['lead.update (user)', 'lifecycle lead>customer (manual)']);
+    // The public API, same order.
+    const { key } = await as.mutation(api.features.api.mutations.createApiKey, {
+      name: 'k',
+      scopes: ['contacts:write'],
+    });
+    drain();
+    const created = await t.fetch('/api/v1/contacts', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName: 'Grace', lastName: 'Hopper', email: 'grace@example.com' }),
+    });
+    expect(created.status).toBe(201);
+    expect(drain()).toEqual(['lead.create (api)', 'lifecycle ->lead (api)']);
+    // A CSV import: every created row is audited (it was not before), every updated one too.
+    await as.mutation(api.features.crm.mutations.importLeads, {
+      rows: [
+        { firstName: 'Linus', lastName: 'T', email: 'linus@example.com' },
+        { firstName: 'Grace', lastName: 'Hopper-Murray', email: 'grace@example.com' },
+      ],
+    });
+    expect(drain()).toEqual([
+      'lead.create (user)',
+      'lifecycle ->lead (import)',
+      'lead.update (user)',
+    ]);
+    // A soft-deleted contact the import brings back is a change even when no field differs.
+    const goneId = await seedLead(t, {
+      firstName: 'Back',
+      lastName: 'Again',
+      email: 'gone@example.com',
+      deletedAt: Date.now(),
+    });
+    await as.mutation(api.features.crm.mutations.importLeads, {
+      rows: [{ firstName: 'Back', lastName: 'Again', email: 'gone@example.com' }],
+    });
+    expect(drain()).toEqual(['lead.update (user)']);
+    const revival = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter((a) => a.entityId === goneId).pop(),
+    );
+    expect(revival?.metadata).toMatchObject({ revived: true });
+    // The system: a consent change through the preference link is audited now, so the hook hears of it.
+    const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
+    await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+      token,
+      channels: ['email'],
+    });
+    expect(drain()).toEqual(['lead.update (system)']);
+    const audit = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter((a) => a.entityId === leadId).pop(),
+    );
+    expect(audit?.metadata).toEqual({
+      source: 'public_link',
+      changes: { marketingConsent: { old: [], new: ['email'] } },
+    });
+  });
+
+  test('a throwing afterChange never costs the write, and leaves one audit trace an hour', async () => {
+    const { t, as } = await setup();
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    });
+    setExtensionsForTests({
+      afterChange: async (ctx) => {
+        // Convex has no savepoint: what the hook wrote before throwing is committed with the CRM's write.
+        await ctx.db.insert('leadNotes', {
+          leadId,
+          content: 'half-done',
+          isPinned: false,
+          updatedAt: Date.now(),
+        });
+        throw new Error('overlay bug');
+      },
+    });
+    const error = console.error;
+    const logged: unknown[][] = [];
+    console.error = (...args: unknown[]) => void logged.push(args);
+    try {
+      await as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'kept' });
+      await as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'kept again' });
+    } finally {
+      console.error = error;
+    }
+    expect((await t.run((ctx) => ctx.db.get(leadId)))?.comment).toBe('kept again');
+    expect(logged).toEqual([
+      ['afterChange failed', 'audit', 'overlay bug'],
+      ['afterChange failed', 'audit', 'overlay bug'],
+    ]);
+    // The hook's partial state stands too: swallowed is not rolled back.
+    const notes = await t.run((ctx) => ctx.db.query('leadNotes').collect());
+    expect(notes.map((n) => n.content)).toEqual(['half-done', 'half-done']);
+    // One durable trace, not one per failure: an import of thousands of rows cannot flood the table.
+    const traces = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => a.entityId === HOOK_FAILURE_ENTITY_ID,
+      ),
+    );
+    expect(traces).toHaveLength(1);
+    expect(traces[0]).toMatchObject({
+      entityType: 'appConfig',
+      action: 'update',
+      metadata: {
+        event: 'afterChange_failed',
+        code: 'overlay bug',
+        change: { type: 'audit', entityType: 'lead', action: 'update' },
+      },
+    });
+    // The trace is older than an hour: the next failure leaves a new one.
+    await t.run((ctx) => ctx.db.patch(traces[0]!._id, { timestamp: Date.now() - 61 * 60 * 1000 }));
+    console.error = () => {};
+    try {
+      await as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'later' });
+    } finally {
+      console.error = error;
+    }
+    const after = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => a.entityId === HOOK_FAILURE_ENTITY_ID,
+      ),
+    );
+    expect(after).toHaveLength(2);
+  });
+
+  test('a broken afterChange costs one trace lookup per mutation, not one per change', async () => {
+    setExtensionsForTests({
+      afterChange: async () => {
+        throw new Error('overlay bug');
+      },
+    });
+    let reads = 0;
+    let inserts = 0;
+    const fakeCtx = () =>
+      ({
+        db: {
+          query: () => ({
+            withIndex: () => ({
+              order: () => ({
+                first: async () => {
+                  reads++;
+                  return null;
+                },
+              }),
+            }),
+          }),
+          insert: async () => {
+            inserts++;
+          },
+        },
+      }) as unknown as Parameters<typeof notifyChange>[0];
+    const change = {
+      type: 'lifecycle',
+      leadId: 'l',
+      from: undefined,
+      to: 'lead',
+      source: 'import',
+    };
+    const error = console.error;
+    console.error = () => {};
+    try {
+      // One mutation, a thousand rows of an import: the hourly cap is looked up once.
+      const importCtx = fakeCtx();
+      for (let i = 0; i < 1000; i++) await notifyChange(importCtx, change as never);
+      expect({ reads, inserts }).toEqual({ reads: 1, inserts: 1 });
+      // The next mutation looks again.
+      await notifyChange(fakeCtx(), change as never);
+      expect(reads).toBe(2);
+    } finally {
+      console.error = error;
+    }
   });
 });

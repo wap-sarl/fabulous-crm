@@ -1,6 +1,7 @@
 import type { Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 import type { AuditLogAction, AuditLogEntityType } from '../_lib/validators/auditLogs';
+import { notifyChange } from './observers';
 
 export type AuditActor = { userId?: Id<'users'>; apiKeyId?: Id<'apiKeys'> };
 
@@ -35,6 +36,15 @@ export async function logAudit(
     userId: params.userId,
     apiKeyId: params.apiKeyId,
     timestamp: Date.now(),
+    metadata: params.metadata,
+  });
+  await notifyChange(params.ctx, {
+    type: 'audit',
+    entityType: params.entityType,
+    entityId: params.entityId,
+    action: params.action,
+    userId: params.userId,
+    apiKeyId: params.apiKeyId,
     metadata: params.metadata,
   });
 }

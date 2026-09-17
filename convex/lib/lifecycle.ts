@@ -1,5 +1,6 @@
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
+import { notifyChange } from './observers';
 import {
   isLifecycleRegression,
   lifecycleStageIndex,
@@ -64,6 +65,13 @@ export async function insertLifecycleHistory(
     source: meta.source,
     changedBy: meta.changedBy,
     workflowId: meta.workflowId,
+  });
+  await notifyChange(ctx, {
+    type: 'lifecycle',
+    leadId,
+    from: transition.from,
+    to: transition.to,
+    source: meta.source,
   });
 }
 

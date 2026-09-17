@@ -157,13 +157,6 @@ export const mergeLeads = employeeMutation({
 
     const changes = computeChanges(survivor, filterUndefined(updates));
     await ctx.db.patch(survivor._id, { ...updates, ...updateAuditFields(ctx.userId) });
-    if (lifecycleChange) {
-      await insertLifecycleHistory(ctx, survivor._id, lifecycleChange, {
-        source: 'manual',
-        changedBy: ctx.userId,
-      });
-    }
-
     const { moreLeft } = await repointLeadRows(ctx, absorbed._id, survivor._id);
     if (moreLeft) {
       await ctx.scheduler.runAfter(0, internal.features.duplicates.internal.repointMergedLead, {
@@ -194,6 +187,12 @@ export const mergeLeads = employeeMutation({
         changes,
       },
     });
+    if (lifecycleChange) {
+      await insertLifecycleHistory(ctx, survivor._id, lifecycleChange, {
+        source: 'manual',
+        changedBy: ctx.userId,
+      });
+    }
 
     if (changes) {
       const changedFields = diffLeadFilterFields(survivor, updates);

@@ -11,6 +11,7 @@ export const extensions: Extensions = {
   beforeWorkflowRun: (ctx, workflow) => active.beforeWorkflowRun(ctx, workflow),
   beforeApiRequest: (ctx, key, method) => active.beforeApiRequest(ctx, key, method),
   beforeScheduledWork: (ctx, info) => active.beforeScheduledWork(ctx, info),
+  afterChange: (ctx, change) => active.afterChange(ctx, change),
   registerHttpRoutes: (http) => active.registerHttpRoutes(http),
 };
 

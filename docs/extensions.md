@@ -24,6 +24,7 @@ tables; everything else in the repository stays untouched.
 | `beforeWorkflowRun(ctx, workflow)` | every enrollment | `false` skips the enrollment; the host write succeeds |
 | `beforeApiRequest(ctx, key, method)` | after API authentication and rate limits | a `{ status, code, message, details? }` answers instead of the route |
 | `beforeScheduledWork(ctx, { kind })` | the background entry points: `campaign_prepare` (`prepareCampaignBatch`), `campaign_drain` (`sendCampaignBatch`), `workflow_step` (`executeStep`), `workflow_action` (`runWorkflowActionStep`) | `false` defers: the same function is rescheduled `SCHEDULED_WORK_RETRY_MS` (15 min) later and nothing changes, so background work pauses and resumes on its own |
+| `afterChange(ctx, change)` | through `notifyChange` in `convex/lib/observers.ts`: `logAudit` (every audited write of any entity: UI, public API, CSV import, workflows, system events) and `insertLifecycleHistory` (every lifecycle transition, whatever moved the lead) | none: an observer. It runs in the writer's transaction; what it throws is swallowed and traced, the write stands (see Changes) |
 | `registerHttpRoutes(http)` | `convex/http.ts`, before the `/api/v1/` routes | register extra routes |
 
 The recipient count of a campaign is not known at creation: resolving it means scanning
@@ -34,7 +35,8 @@ marked `failed`. Overlays that reserve quota should do it at `prepared`.
 
 ## What each gate is asked to bill
 
-The core invokes the seam from one place, `convex/lib/gates.ts`, whose helpers are named after
+The core invokes the gates from one place, `convex/lib/gates.ts` (the `afterChange` observer
+lives in `convex/lib/observers.ts`), whose helpers are named after
 the unit they bill: `gateLeadCreate`, `gateInvitation`, `requireSendAllowed` and `trySend`, and
 `deferUnlessAllowed` for the background entry points.
 
@@ -52,6 +54,57 @@ at intent, charge at effect.
 | `beforeSend`, workflow | one message | effect |
 | `beforeWorkflowRun` | one enrollment | effect |
 | `beforeApiRequest` | one authenticated request | effect |
+
+## Changes
+
+`afterChange` is how an overlay learns that something changed (outgoing webhooks, a search
+index, a sync). A `change` is either `{ type: 'audit', entityType, entityId, action, userId?,
+apiKeyId?, metadata? }`, the audit entry just written (`metadata.changes` carries the old and new
+values of an update, `metadata.source` names a system writer: `import`, `workflow`,
+`tracked_link`, `sms_stop`, `public_link`), or `{ type: 'lifecycle', leadId, from, to, source }`.
+
+**What it reports.** Every write the CRM audits: contacts, companies, deals, activities, notes,
+lists and the rest, made from the UI, the public API, a CSV import (created and updated rows
+alike, a soft-deleted contact brought back being an `update` with `metadata.revived`), a
+workflow's `update_property` step, a tracked-link click, an SMS STOP or the
+preference link; and every lifecycle transition, including those no audit entry accompanies
+(a won deal, a score threshold, a workflow's `set_lifecycle_stage`). **What it does not.**
+Derived fields written without an audit entry: the score, `lastActivityAt` and the other
+behavioural signals (the activity, the open or the click that moved them is what gets
+reported), the search text, the duplicate keys and the aggregates. Cascades are reported by their cause only: a merge
+is one `merge` on the survivor and one `delete` on the absorbed contact, not one update per
+deal and activity re-parented; a deleted company is one `delete`, not one update per contact
+detached from it. System notes (the STOP and tracked-link timeline notes) are not audited.
+
+**Order and duplicates.** A contact's creation produces two changes, a manual stage change
+too: the audit entry always comes first, then the lifecycle transition, in the UI, the API,
+the import and the merge alike. Nothing orders the changes of different records within one
+mutation. An overlay that emits one event per record should coalesce by record within the
+transaction (key: `entityType` + `entityId`).
+
+**Volume.** A CSV import calls the hook once per row, inside one mutation. Scheduling one
+function per change would hit Convex's per-transaction limits on a large import: batch per
+transaction, never per change.
+
+**Failure.** The hook is an observer: what it throws never reaches the writer. Swallowed is
+not rolled back, though. Convex has no savepoint, so whatever the hook wrote before throwing is
+committed with the CRM's write. A hook must therefore be all-or-nothing on its side, or catch
+its own errors. The pattern to use is the **outbox**: one cheap insert into an overlay table
+inside the transaction, and the delivery, the retries and anything that can fail in a scheduled
+function reading that table. With an outbox the only way to fail is for the transaction itself
+to be in trouble.
+
+The core does not alert. A failure is logged (`afterChange failed`) and leaves one row in
+`auditLogs` (`entityType: 'appConfig'`, `entityId: 'extensions:afterChange'`,
+`metadata.event: 'afterChange_failed'` with the code and the kind of change), at most one an
+hour so a failing hook under a large import cannot flood the table, and the cap is looked up
+once per mutation, so that import does not pay one read per row either. An overlay that must not
+lose events watches that row, or its own outbox, itself.
+
+**Imports.** `lib/audit.ts` and `lib/lifecycle.ts` reach the overlay through `lib/observers.ts` and
+`convex/extensions.ts`. The hook is looked up when it is called, not when the modules load, so
+an overlay importing from `convex/lib` closes no cycle, as long as it reads nothing from those
+modules at its own top level.
 
 ## Refusals
 

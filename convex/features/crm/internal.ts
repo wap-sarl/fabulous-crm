@@ -3,7 +3,7 @@ import { loadLifecycleConfig } from '../../lib/lifecycle';
 import { internalQuery, type MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
 import { internalMutation } from '../../_lib/functions';
-import { toBrevoRecipient } from '../../lib';
+import { computeChanges, logAudit, toBrevoRecipient } from '../../lib';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
   CampaignEvent,
@@ -304,11 +304,19 @@ export const handleSmsEvent = internalMutation({
     if (!lead || lead.deletedAt !== undefined) return;
     if (!lead.marketingConsent.includes('sms')) return;
 
+    const marketingConsent = lead.marketingConsent.filter((channel) => channel !== 'sms');
     await ctx.db.patch(lead._id, {
-      marketingConsent: lead.marketingConsent.filter((channel) => channel !== 'sms'),
+      marketingConsent,
       consentUpdatedAt: Date.now(),
       consentSource: 'sms_stop',
       updatedAt: Date.now(),
+    });
+    await logAudit({
+      ctx,
+      entityType: 'lead',
+      entityId: lead._id,
+      action: 'update',
+      metadata: { source: 'sms_stop', changes: computeChanges(lead, { marketingConsent }) },
     });
 
     // System note (no createdBy) so the opt-out is visible in the lead timeline.
@@ -535,6 +543,16 @@ export const handleTrackedLinkClick = internalMutation({
       if (patch) {
         const changedFields = diffLeadFilterFields(lead, patch);
         await ctx.db.patch(lead._id, { ...patch, updatedAt: now });
+        const changes = computeChanges(lead, patch);
+        if (changes) {
+          await logAudit({
+            ctx,
+            entityType: 'lead',
+            entityId: lead._id,
+            action: 'update',
+            metadata: { source: 'tracked_link', campaignId: tokenRow.campaignId, changes },
+          });
+        }
         if (changedFields.length > 0) {
           await dispatchWorkflowTrigger(ctx, lead._id, {
             type: 'lead_property_changed',

@@ -192,6 +192,60 @@ describe('enrollment', () => {
 });
 
 describe('run execution guards', () => {
+  test('an update_property step is audited as a system write naming the workflow', async () => {
+    const { t, emp } = await setup();
+    const as = asIdentity(t, emp.identity);
+    const workflowId = await as.mutation(api.features.workflows.mutations.createWorkflow, {
+      name: 'Marque',
+      trigger: { type: 'consent_updated' },
+      allowReEnrollment: true,
+      nodes: [
+        {
+          id: 'n1',
+          type: 'update_property' as const,
+          target: { kind: 'standard' as const, field: 'comment' as const },
+          value: 'vu par le workflow',
+        },
+      ],
+      startNodeId: 'n1',
+    });
+    await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+      workflowId,
+      status: 'active',
+    });
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Prop',
+      lastName: 'Step',
+      email: 'prop@example.com',
+    });
+    const runId = await t.run((ctx) =>
+      ctx.db.insert('workflowRuns', {
+        workflowId,
+        leadId,
+        status: 'active',
+        triggerType: 'consent_updated',
+        enrolledAt: Date.now(),
+        currentNodeId: 'n1',
+        stepCount: 0,
+      }),
+    );
+    await t.mutation(internal.features.workflows.internal.executeStep, { runId, nodeId: 'n1' });
+
+    expect((await t.run((ctx) => ctx.db.get(leadId)))?.comment).toBe('vu par le workflow');
+    const audits = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => (a.metadata as { source?: string } | undefined)?.source === 'workflow',
+      ),
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ entityType: 'lead', entityId: leadId, action: 'update' });
+    expect(audits[0]!.userId).toBeUndefined();
+    expect(audits[0]!.metadata).toMatchObject({
+      workflowId,
+      changes: { comment: { new: 'vu par le workflow' } },
+    });
+  });
+
   test('executeStep fails the run at MAX_STEPS_PER_RUN', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);

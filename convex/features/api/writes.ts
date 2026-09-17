@@ -228,13 +228,13 @@ async function insertContact(
     customProperties,
     updatedAt: Date.now(),
   });
+  await logAudit({ ctx, apiKeyId, entityType: 'lead', entityId: leadId, action: 'create' });
   await insertLifecycleHistory(
     ctx,
     leadId,
     { from: undefined, to: lifecycleStage },
     { source: 'api' },
   );
-  await logAudit({ ctx, apiKeyId, entityType: 'lead', entityId: leadId, action: 'create' });
   await dispatchWorkflowTrigger(ctx, leadId, { type: 'lead_created' });
   return leadId;
 }
@@ -376,9 +376,6 @@ export const updateContact = internalMutation({
       const { updates: real, patch } = patchOf(lead, updates);
       const changes = computeChanges(lead, real);
       await ctx.db.patch(lead._id, { ...patch, updatedAt: Date.now() });
-      if (lifecycleChange) {
-        await insertLifecycleHistory(ctx, lead._id, lifecycleChange, { source: 'api' });
-      }
       if (changes) {
         await logAudit({
           ctx,
@@ -388,6 +385,11 @@ export const updateContact = internalMutation({
           action: 'update',
           metadata: { changes },
         });
+      }
+      if (lifecycleChange) {
+        await insertLifecycleHistory(ctx, lead._id, lifecycleChange, { source: 'api' });
+      }
+      if (changes) {
         const changedFields = diffLeadFilterFields(lead, patch);
         if (changedFields.length > 0) {
           await dispatchWorkflowTrigger(ctx, lead._id, {

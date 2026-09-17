@@ -143,6 +143,14 @@ function fetchRows<T>(
   return limit === undefined ? query.collect() : query.take(limit);
 }
 
+/** Who signs an audit entry no employee or API key made: the system writer named by `metadata.source`. */
+const SYSTEM_ACTOR: Record<string, string> = {
+  public_link: 'Lien de préférences',
+  sms_stop: 'Réponse STOP par SMS',
+  tracked_link: 'Lien de campagne',
+  workflow: 'Workflow',
+};
+
 type SourceFactory = (
   ctx: QueryCtx,
   leadId: Id<'leads'>,
@@ -381,14 +389,14 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
         build: async () => {
           if (log.action === 'delete') return null;
           const metadata = log.metadata as
-            | { changes?: Record<string, unknown>; absorbedLeadName?: string }
+            | { changes?: Record<string, unknown>; absorbedLeadName?: string; source?: string }
             | undefined;
           return {
             kind: 'audit',
             id: log._id,
             at: log._creationTime,
             action: log.action,
-            userName: await actorName(log),
+            userName: (await actorName(log)) ?? SYSTEM_ACTOR[metadata?.source ?? ''] ?? null,
             fields: Object.keys(metadata?.changes ?? {}),
             absorbedLeadName: metadata?.absorbedLeadName ?? null,
           };
