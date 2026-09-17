@@ -1,6 +1,7 @@
 import type { HttpRouter } from 'convex/server';
 import { ConvexError } from 'convex/values';
-import type { Doc } from '../_generated/dataModel';
+import type { Doc, Id } from '../_generated/dataModel';
+import type { AuditLogAction, AuditLogEntityType } from '../_lib/validators/auditLogs';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../_generated/server';
 
 /** The background entry points that ask before running (`beforeScheduledWork`). */
@@ -23,6 +24,25 @@ export function refusalCode(error: unknown): string {
   }
   return error instanceof Error ? error.message : String(error);
 }
+
+/** Something changed: an audited write of any entity, or a lead's lifecycle transition whatever caused it. */
+export type RecordChange =
+  | {
+      type: 'audit';
+      entityType: AuditLogEntityType;
+      entityId: string;
+      action: AuditLogAction;
+      userId?: Id<'users'>;
+      apiKeyId?: Id<'apiKeys'>;
+      metadata?: unknown;
+    }
+  | {
+      type: 'lifecycle';
+      leadId: Id<'leads'>;
+      from: string | undefined;
+      to: string;
+      source: string;
+    };
 
 export interface ApiRefusal {
   status: number;
@@ -57,6 +77,8 @@ export interface Extensions {
     ctx: MutationCtx | ActionCtx,
     info: { kind: ScheduledWorkKind },
   ): Promise<boolean>;
+  /** A record changed, in the writer's transaction; an observer, not a gate: what it throws is logged and swallowed. */
+  afterChange(ctx: MutationCtx, change: RecordChange): Promise<void>;
   /** Extra HTTP routes, registered before the public API prefix routes. */
   registerHttpRoutes(http: HttpRouter): void;
 }
@@ -70,6 +92,7 @@ export const defaultExtensions: Extensions = {
   beforeWorkflowRun: async () => true,
   beforeApiRequest: async () => null,
   beforeScheduledWork: async () => true,
+  afterChange: async () => {},
   registerHttpRoutes: () => {},
 }; /** Campaign sends are checked at creation (count 1), on every preparation page with the running count, and on retries. */
 export type SendInfo =

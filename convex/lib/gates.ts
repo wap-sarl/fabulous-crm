@@ -2,6 +2,7 @@ import type { FunctionArgs, SchedulableFunctionReference } from 'convex/server';
 import { extensions } from '../extensions';
 import type { ActionCtx, MutationCtx } from '../_generated/server';
 import {
+  type RecordChange,
   refusalCode,
   SCHEDULED_WORK_RETRY_MS,
   type ScheduledWorkKind,
@@ -53,4 +54,13 @@ export async function deferUnlessAllowed<F extends SchedulableFunctionReference>
   if (await extensions.beforeScheduledWork(ctx, { kind })) return false;
   await ctx.scheduler.runAfter(SCHEDULED_WORK_RETRY_MS, fn, args);
   return true;
+}
+
+/** Tells the overlay a record changed; an overlay bug must never cost the CRM its write. */
+export async function notifyChange(ctx: MutationCtx, change: RecordChange): Promise<void> {
+  try {
+    await extensions.afterChange(ctx, change);
+  } catch (error) {
+    console.error('afterChange failed', change.type, refusalCode(error));
+  }
 }

@@ -4,7 +4,14 @@ import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
-import { appOrigin, deleteListMember, insertListMember, isNotDeleted, logAudit } from '../../lib';
+import {
+  appOrigin,
+  computeChanges,
+  deleteListMember,
+  insertListMember,
+  isNotDeleted,
+  logAudit,
+} from '../../lib';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { loadLeadFilterExtras } from '../crm/leadTableFilters';
 import { buildLeadParams, buildLeadTargetPatch } from '../crm/leadTargets';
@@ -238,6 +245,16 @@ export const executeStep = internalMutation({
             ? [targetAsFilterField(node.target)]
             : [];
           await ctx.db.patch(lead._id, { ...patch, updatedAt: Date.now() });
+          const changes = computeChanges(lead, patch);
+          if (changes) {
+            await logAudit({
+              ctx,
+              entityType: 'lead',
+              entityId: lead._id,
+              action: 'update',
+              metadata: { source: 'workflow', workflowId: workflow._id, changes },
+            });
+          }
           await logStep(ctx, run, node, 'success');
           if (changedFields.length > 0) {
             await dispatchWorkflowTrigger(

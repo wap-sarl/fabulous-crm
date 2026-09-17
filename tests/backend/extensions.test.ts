@@ -486,4 +486,75 @@ describe('extension seam', () => {
     expect((await t.run((ctx) => ctx.db.get(stepId)))?.status).toBe('pending');
     expect(await scheduledLater('runWorkflowActionStep', { stepId })).toHaveLength(1);
   });
+
+  test('afterChange sees UI, API and system writes and lifecycle transitions, and never costs the write', async () => {
+    const { t, as } = await setup();
+    const seen: string[] = [];
+    setExtensionsForTests({
+      afterChange: async (_ctx, change) => {
+        seen.push(
+          change.type === 'audit'
+            ? `${change.entityType}.${change.action}${change.apiKeyId ? ' (api)' : change.userId ? ' (user)' : ' (system)'}`
+            : `lifecycle ${change.from ?? '-'}>${change.to} (${change.source})`,
+        );
+      },
+    });
+    // The UI: a creation is one audited write and one lifecycle entry.
+    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+    });
+    expect(seen).toEqual(['lifecycle ->lead (manual)', 'lead.create (user)']);
+    seen.length = 0;
+    await as.mutation(api.features.crm.mutations.updateLead, {
+      leadId,
+      lifecycleStage: 'customer',
+    });
+    expect(seen.sort()).toEqual(['lead.update (user)', 'lifecycle lead>customer (manual)']);
+    // The public API.
+    seen.length = 0;
+    const { key } = await as.mutation(api.features.api.mutations.createApiKey, {
+      name: 'k',
+      scopes: ['contacts:write'],
+    });
+    seen.length = 0;
+    const created = await t.fetch('/api/v1/contacts', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ firstName: 'Grace', lastName: 'Hopper', email: 'grace@example.com' }),
+    });
+    expect(created.status).toBe(201);
+    expect(seen).toContain('lead.create (api)');
+    // The system: a consent change through the preference link is audited now, so the hook hears of it.
+    seen.length = 0;
+    const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
+    await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+      token,
+      channels: ['email'],
+    });
+    expect(seen).toEqual(['lead.update (system)']);
+    const audit = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter((a) => a.entityId === leadId).pop(),
+    );
+    expect(audit?.metadata).toEqual({
+      source: 'public_link',
+      changes: { marketingConsent: { old: [], new: ['email'] } },
+    });
+    // An observer, not a gate: a hook that throws is logged and the write stands.
+    setExtensionsForTests({
+      afterChange: async () => {
+        throw new Error('overlay bug');
+      },
+    });
+    const error = console.error;
+    const logged: unknown[][] = [];
+    console.error = (...args: unknown[]) => void logged.push(args);
+    try {
+      await as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'kept' });
+    } finally {
+      console.error = error;
+    }
+    expect((await t.run((ctx) => ctx.db.get(leadId)))?.comment).toBe('kept');
+    expect(logged[0]).toEqual(['afterChange failed', 'audit', 'overlay bug']);
+  });
 });

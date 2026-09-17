@@ -24,6 +24,7 @@ tables; everything else in the repository stays untouched.
 | `beforeWorkflowRun(ctx, workflow)` | every enrollment | `false` skips the enrollment; the host write succeeds |
 | `beforeApiRequest(ctx, key, method)` | after API authentication and rate limits | a `{ status, code, message, details? }` answers instead of the route |
 | `beforeScheduledWork(ctx, { kind })` | the background entry points: `campaign_prepare` (`prepareCampaignBatch`), `campaign_drain` (`sendCampaignBatch`), `workflow_step` (`executeStep`), `workflow_action` (`runWorkflowActionStep`) | `false` defers: the same function is rescheduled `SCHEDULED_WORK_RETRY_MS` (15 min) later and nothing changes, so background work pauses and resumes on its own |
+| `afterChange(ctx, change)` | `logAudit` (every audited write of any entity: UI, public API, CSV import, workflows, system events) and `insertLifecycleHistory` (every lifecycle transition, whatever moved the lead) | none: an observer. It runs in the writer's transaction; what it throws is logged and swallowed, the write stands |
 | `registerHttpRoutes(http)` | `convex/http.ts`, before the `/api/v1/` routes | register extra routes |
 
 The recipient count of a campaign is not known at creation: resolving it means scanning
@@ -52,6 +53,18 @@ at intent, charge at effect.
 | `beforeSend`, workflow | one message | effect |
 | `beforeWorkflowRun` | one enrollment | effect |
 | `beforeApiRequest` | one authenticated request | effect |
+
+## Changes
+
+`afterChange` is how an overlay learns that something changed (outgoing webhooks, a search
+index, a sync). A `change` is either `{ type: 'audit', entityType, entityId, action, userId?,
+apiKeyId?, metadata? }`, the audit entry just written (`metadata.changes` carries the old and new
+values of an update, `metadata.source` names a system writer: `workflow`, `tracked_link`,
+`sms_stop`, `public_link`), or `{ type: 'lifecycle', leadId, from, to, source }`. A manual stage
+change produces both. Every lead, company, deal and activity write is audited, system-made ones
+included, so the hook misses none; load the record from `ctx` if the overlay needs more than
+the entry. Keep it cheap and idempotent-friendly: it runs on every write, inside its
+transaction, and must leave the heavy lifting to a scheduled function.
 
 ## Refusals
 

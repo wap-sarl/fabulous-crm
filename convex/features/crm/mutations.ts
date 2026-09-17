@@ -1273,6 +1273,16 @@ export const updateConsentByToken = mutation({
       consentSource: 'public_link',
       updatedAt: Date.now(),
     });
+    await logAudit({
+      ctx,
+      entityType: 'lead',
+      entityId: lead._id,
+      action: 'update',
+      metadata: {
+        source: 'public_link',
+        changes: { marketingConsent: { old: lead.marketingConsent, new: channels } },
+      },
+    });
 
     await dispatchWorkflowTrigger(ctx, lead._id, { type: 'consent_updated' });
 
