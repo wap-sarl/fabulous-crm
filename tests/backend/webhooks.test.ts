@@ -232,6 +232,70 @@ describe('SMS STOP', () => {
     expect(notes).toHaveLength(1);
     expect(notes[0].content).toContain('STOP');
     expect(notes[0].createdBy).toBeUndefined(); // system note, no author
+
+    // A system write is audited like any other, without a user, so afterChange hears of it.
+    const audits = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => (a.metadata as { source?: string } | undefined)?.source === 'sms_stop',
+      ),
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]).toMatchObject({ entityType: 'lead', entityId: leadId, action: 'update' });
+    expect(audits[0]!.userId).toBeUndefined();
+    expect(audits[0]!.metadata).toEqual({
+      source: 'sms_stop',
+      changes: { marketingConsent: { old: ['email', 'sms'], new: ['email'] } },
+    });
+    // The timeline signs the entry with the system writer, never with an empty actor.
+    const timeline = await asIdentity(t, emp.identity).query(
+      api.features.timeline.queries.listLeadTimeline,
+      { leadId, kinds: ['audit'], paginationOpts: { numItems: 20, cursor: null } },
+    );
+    const signed = timeline.page.flatMap((e) => (e.kind === 'audit' ? [e.userName] : []));
+    expect(signed).toContain('Réponse STOP par SMS');
+    expect(signed).toContain('Lien de préférences');
+    expect(signed).not.toContain(null);
+  });
+
+  test('a tracked-link click that changes the lead is audited, a click that changes nothing is not', async () => {
+    const { t, emp } = await setup();
+    const { leadId } = await seedSmsSend(t, emp);
+    const token = await t.run(async (ctx) => {
+      const send = (await ctx.db.query('campaignSends').collect())[0]!;
+      await ctx.db.patch(send.campaignId, {
+        trackedLinks: [
+          {
+            key: 'flag',
+            label: 'Intéressé',
+            target: { kind: 'standard', field: 'comment' },
+            value: 'intéressé',
+          },
+        ],
+      });
+      await ctx.db.insert('campaignLinkTokens', {
+        token: 'tok-1',
+        campaignId: send.campaignId,
+        sendId: send._id,
+        leadId,
+        linkKey: 'flag',
+      });
+      return 'tok-1';
+    });
+    const click = () =>
+      t.mutation(internal.features.crm.internal.handleTrackedLinkClick, { token });
+    await click();
+    await click();
+    const audits = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => (a.metadata as { source?: string } | undefined)?.source === 'tracked_link',
+      ),
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.metadata).toMatchObject({
+      source: 'tracked_link',
+      changes: { comment: { new: 'intéressé' } },
+    });
+    expect((await t.run((ctx) => ctx.db.get(leadId)))?.comment).toBe('intéressé');
   });
 
   test('a replayed STOP is idempotent: consent and note are not duplicated', async () => {
@@ -253,6 +317,12 @@ describe('SMS STOP', () => {
     const lead = await t.run((ctx) => ctx.db.get(leadId));
     expect(lead?.marketingConsent).toEqual(['email']);
     expect(await t.run((ctx) => ctx.db.query('leadNotes').collect())).toHaveLength(1);
+    const stops = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => (a.metadata as { source?: string } | undefined)?.source === 'sms_stop',
+      ),
+    );
+    expect(stops).toHaveLength(1);
     // The replay (same eventAt) was deduplicated in the event log too.
     const events = await t.run((ctx) => ctx.db.query('campaignEvents').collect());
     expect(events.filter((e) => e.type === 'unsubscribed')).toHaveLength(1);

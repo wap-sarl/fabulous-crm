@@ -184,13 +184,7 @@ export const createLead = employeeMutation({
       customProperties,
       ...createAuditFields(ctx.userId),
     });
-    await insertLifecycleHistory(
-      ctx,
-      leadId,
-      { from: undefined, to: lifecycleStage },
-      { source: 'manual', changedBy: ctx.userId },
-    );
-
+    // The audit entry first, whatever else the write records: afterChange consumers see `create` before the rest.
     await logAudit({
       ctx,
       userId: ctx.userId,
@@ -198,6 +192,12 @@ export const createLead = employeeMutation({
       entityId: leadId,
       action: 'create',
     });
+    await insertLifecycleHistory(
+      ctx,
+      leadId,
+      { from: undefined, to: lifecycleStage },
+      { source: 'manual', changedBy: ctx.userId },
+    );
 
     await dispatchWorkflowTrigger(ctx, leadId, { type: 'lead_created' });
 
@@ -267,13 +267,6 @@ export const updateLead = employeeMutation({
       ...(filtered.companyId === null ? { companyId: undefined } : {}),
       ...updateAuditFields(ctx.userId),
     });
-    if (lifecycleChange) {
-      await insertLifecycleHistory(ctx, leadId, lifecycleChange, {
-        source: 'manual',
-        changedBy: ctx.userId,
-      });
-    }
-
     if (changes) {
       await logAudit({
         ctx,
@@ -283,6 +276,15 @@ export const updateLead = employeeMutation({
         action: 'update',
         metadata: { changes },
       });
+    }
+    if (lifecycleChange) {
+      await insertLifecycleHistory(ctx, leadId, lifecycleChange, {
+        source: 'manual',
+        changedBy: ctx.userId,
+      });
+    }
+
+    if (changes) {
       const changedFields = diffLeadFilterFields(lead, filtered);
       if (changedFields.length > 0) {
         await dispatchWorkflowTrigger(ctx, leadId, {
@@ -465,8 +467,20 @@ export const importLeads = employeeMutation({
           ...updateAuditFields(ctx.userId),
         };
         // Revive a soft-deleted lead (patching undefined removes the field).
-        if (existing.deletedAt != null) patchData.deletedAt = undefined;
+        const revived = existing.deletedAt != null;
+        if (revived) patchData.deletedAt = undefined;
         await ctx.db.patch(existing._id, patchData);
+        // A revival is a change even when no field differs, as in the API upsert.
+        if (changes || revived) {
+          await logAudit({
+            ctx,
+            userId: ctx.userId,
+            entityType: 'lead',
+            entityId: existing._id,
+            action: 'update',
+            metadata: { changes, ...(revived ? { revived: true } : {}) },
+          });
+        }
         if (lifecycleChange) {
           await insertLifecycleHistory(ctx, existing._id, lifecycleChange, {
             source: 'import',
@@ -475,14 +489,6 @@ export const importLeads = employeeMutation({
         }
 
         if (changes) {
-          await logAudit({
-            ctx,
-            userId: ctx.userId,
-            entityType: 'lead',
-            entityId: existing._id,
-            action: 'update',
-            metadata: { changes },
-          });
           const changedFields = diffLeadFilterFields(existing, updates);
           if (changedFields.length > 0) {
             await dispatchWorkflowTrigger(
@@ -537,6 +543,14 @@ export const importLeads = employeeMutation({
         lifecycleStage,
         customProperties,
         ...createAuditFields(ctx.userId),
+      });
+      await logAudit({
+        ctx,
+        userId: ctx.userId,
+        entityType: 'lead',
+        entityId: leadId,
+        action: 'create',
+        metadata: { source: 'import' },
       });
       await insertLifecycleHistory(
         ctx,
