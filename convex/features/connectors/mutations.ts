@@ -2,11 +2,13 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
 import { connectorProviderValidator } from '../../_lib/validators/connectors';
+import { logAudit } from '../../lib';
 import {
+  discardPendingAccount,
   PROVIDERS,
   randomToken,
   redirectUri,
-  resolveCredentials,
+  resolveClientId,
   sha256Base64Url,
   signState,
   STATE_TTL_MS,
@@ -16,8 +18,8 @@ import {
 export const startConnection = employeeMutation({
   args: { provider: connectorProviderValidator },
   handler: async (ctx, { provider }) => {
-    const credentials = await resolveCredentials(await ctx.db.query('appConfig').first(), provider);
-    if (!credentials) throw new Error('connector_not_configured');
+    const clientId = resolveClientId(await ctx.db.query('appConfig').first(), provider);
+    if (!clientId) throw new Error('connector_not_configured');
     const now = Date.now();
     const nonce = randomToken();
     const codeVerifier = randomToken(48);
@@ -37,7 +39,7 @@ export const startConnection = employeeMutation({
     const endpoints = PROVIDERS[provider];
     const url = new URL(endpoints.authorizeUrl);
     url.search = new URLSearchParams({
-      client_id: credentials.clientId,
+      client_id: clientId,
       redirect_uri: redirectUri(),
       response_type: 'code',
       scope: endpoints.scopes.join(' '),
@@ -47,6 +49,52 @@ export const startConnection = employeeMutation({
       ...endpoints.authorizeParams,
     }).toString();
     return { url: url.toString() };
+  },
+});
+
+/** Claims the grant the callback parked: only the signed-in user who started the connection gets the account. */
+export const finishConnection = employeeMutation({
+  args: { token: v.string() },
+  returns: v.union(
+    v.object({ ok: v.literal(true), provider: connectorProviderValidator }),
+    v.object({ ok: v.literal(false), error: v.string() }),
+  ),
+  handler: async (ctx, { token }) => {
+    const tokenHash = await sha256Base64Url(token);
+    const pending = await ctx.db
+      .query('connectorPendingAccounts')
+      .withIndex('by_tokenHash', (q) => q.eq('tokenHash', tokenHash))
+      .unique();
+    if (!pending) return { ok: false as const, error: 'invalid_finish' };
+    const now = Date.now();
+    // Refusals return rather than throw: a throw would roll the discard back and leave the token usable.
+    if (pending.userId !== ctx.userId || pending.expiresAt < now) {
+      await discardPendingAccount(ctx, pending);
+      const error = pending.userId !== ctx.userId ? 'account_mismatch' : 'invalid_finish';
+      return { ok: false as const, error };
+    }
+    await ctx.db.delete(pending._id);
+    const { _id, _creationTime, tokenHash: _hash, expiresAt: _expiry, ...grant } = pending;
+    // One account per user and provider: connecting again replaces it.
+    const existing = await ctx.db
+      .query('connectorAccounts')
+      .withIndex('by_user_provider', (q) =>
+        q.eq('userId', ctx.userId).eq('provider', grant.provider),
+      )
+      .unique();
+    const fields = { ...grant, status: 'active' as const, lastError: undefined, updatedAt: now };
+    if (existing) await ctx.db.patch(existing._id, fields);
+    const accountId =
+      existing?._id ?? (await ctx.db.insert('connectorAccounts', { ...fields, connectedAt: now }));
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'connectorAccount',
+      entityId: accountId,
+      action: existing ? 'update' : 'create',
+      metadata: { provider: grant.provider, scopes: grant.scopes },
+    });
+    return { ok: true as const, provider: grant.provider };
   },
 });
 

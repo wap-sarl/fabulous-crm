@@ -26,4 +26,6 @@ Features that need more (calendar, e-mail) will ask for their own scopes when th
 say so here. Refresh and access tokens are stored encrypted (`SECRETS_KEY`), are never returned
 to the browser, and are revoked at the provider on disconnection when it offers an endpoint for
 that. The authorisation code is exchanged by the deployment itself, with PKCE; a callback
-dispatcher in front of it only forwards the code and cannot redeem it.
+dispatcher in front of it only forwards the code and cannot redeem it. The callback never links
+an account by itself: the grant waits behind a one-time token that only the signed-in user who
+started the connection can claim, so a consent URL sent to someone else yields nothing.

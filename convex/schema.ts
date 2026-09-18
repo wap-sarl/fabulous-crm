@@ -14,7 +14,11 @@ import { propertyDefinitionValidator } from './_lib/validators/properties';
 import { leadListValidator, leadListMemberValidator } from './_lib/validators/leadLists';
 import { scoringRuleValidator, scoringStateValidator } from './_lib/validators/scoring';
 import { appConfigValidator } from './_lib/validators/appConfig';
-import { connectorAccountValidator, connectorStateValidator } from './_lib/validators/connectors';
+import {
+  connectorAccountValidator,
+  connectorPendingAccountValidator,
+  connectorStateValidator,
+} from './_lib/validators/connectors';
 import { invitationValidator } from './_lib/validators/invitations';
 import { lifecycleStageHistoryValidator } from './_lib/validators/lifecycle';
 import { companyValidator } from './_lib/validators/companies';
@@ -331,13 +335,16 @@ const tables = {
 
   apiKeys: defineTable(apiKeyValidator).index('by_keyId', ['keyId']),
 
-  // Connector foundation: a user's account at a provider (tokens as ciphertext), and the connections in progress.
+  // Connector foundation: a user's account at a provider (tokens as ciphertext), the connections in progress, the grants awaiting their owner.
   connectorAccounts: defineTable(connectorAccountValidator).index('by_user_provider', [
     'userId',
     'provider',
   ]),
   connectorStates: defineTable(connectorStateValidator)
     .index('by_nonceHash', ['nonceHash'])
+    .index('by_expiresAt', ['expiresAt']),
+  connectorPendingAccounts: defineTable(connectorPendingAccountValidator)
+    .index('by_tokenHash', ['tokenHash'])
     .index('by_expiresAt', ['expiresAt']),
 
   apiIdempotencyKeys: defineTable(apiIdempotencyKeyValidator)

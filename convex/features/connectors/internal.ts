@@ -2,7 +2,12 @@ import { v } from 'convex/values';
 import { internalMutation, internalQuery } from '../../_generated/server';
 import { connectorProviderValidator } from '../../_lib/validators/connectors';
 import { decryptSecret, encryptSecret, logAudit } from '../../lib';
-import { resolveCredentials, sha256Base64Url } from '../../lib/connectors';
+import {
+  discardPendingAccount,
+  FINISH_TTL_MS,
+  resolveCredentials,
+  sha256Base64Url,
+} from '../../lib/connectors';
 
 /** A state is good for one callback: consuming it deletes it, so a replayed callback finds nothing. */
 export const consumeState = internalMutation({
@@ -34,9 +39,10 @@ export const credentialsFor = internalQuery({
     await resolveCredentials(await ctx.db.query('appConfig').first(), provider),
 });
 
-/** One account per user and provider: connecting again replaces it. Tokens are stored as ciphertext. */
-export const storeAccount = internalMutation({
+/** The exchanged grant waits here, tokens as ciphertext, until the user who started the connection claims it (`finishConnection`). */
+export const storePending = internalMutation({
   args: {
+    tokenHash: v.string(),
     userId: v.id('users'),
     provider: connectorProviderValidator,
     providerAccountId: v.string(),
@@ -46,34 +52,22 @@ export const storeAccount = internalMutation({
     accessToken: v.optional(v.string()),
     accessTokenExpiresAt: v.optional(v.number()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const now = Date.now();
-    const existing = await ctx.db
-      .query('connectorAccounts')
-      .withIndex('by_user_provider', (q) =>
-        q.eq('userId', args.userId).eq('provider', args.provider),
-      )
-      .unique();
-    const fields = {
+    // Grants nobody claimed are swept a few at a time, and revoked at the provider.
+    const stale = await ctx.db
+      .query('connectorPendingAccounts')
+      .withIndex('by_expiresAt', (q) => q.lt('expiresAt', now))
+      .take(20);
+    for (const row of stale) await discardPendingAccount(ctx, row);
+    await ctx.db.insert('connectorPendingAccounts', {
       ...args,
       refreshToken: await encryptSecret(args.refreshToken),
       accessToken: args.accessToken ? await encryptSecret(args.accessToken) : undefined,
-      status: 'active' as const,
-      lastError: undefined,
-      updatedAt: now,
-    };
-    if (existing) await ctx.db.patch(existing._id, fields);
-    const accountId =
-      existing?._id ?? (await ctx.db.insert('connectorAccounts', { ...fields, connectedAt: now }));
-    await logAudit({
-      ctx,
-      userId: args.userId,
-      entityType: 'connectorAccount',
-      entityId: accountId,
-      action: existing ? 'update' : 'create',
-      metadata: { provider: args.provider, scopes: args.scopes },
+      expiresAt: now + FINISH_TTL_MS,
     });
-    return accountId;
+    return null;
   },
 });
 
@@ -135,7 +129,8 @@ export const removeAccount = internalMutation({
   },
   handler: async (ctx, { accountId, revoked, error }) => {
     const account = await ctx.db.get(accountId);
-    if (!account) return;
+    // Reconnected while the revocation was in flight: the row now holds a fresh grant.
+    if (account?.status !== 'revoking') return;
     await ctx.db.delete(accountId);
     await logAudit({
       ctx,

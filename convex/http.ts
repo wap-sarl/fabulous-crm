@@ -180,7 +180,7 @@ http.route({
 });
 
 // Connectors: where the provider (or a callback dispatcher, OAUTH_CALLBACK_BASE) sends the browser back with the code.
-// The code is exchanged here; the browser then lands on the integrations page with the outcome.
+// The code is exchanged here; the browser then lands on the integrations page, which claims the account.
 http.route({
   path: '/connectors/callback',
   method: 'GET',
@@ -200,13 +200,19 @@ http.route({
     if (!code || !state) {
       return back(`error=${encodeURIComponent(params.get('error') ?? 'missing_code')}`);
     }
-    const outcome = await ctx.runAction(internal.features.connectors.actions.completeConnection, {
-      code,
-      state,
-    });
-    return back(
-      outcome.ok ? `connected=${outcome.provider}` : `error=${encodeURIComponent(outcome.error)}`,
-    );
+    try {
+      const outcome = await ctx.runAction(internal.features.connectors.actions.completeConnection, {
+        code,
+        state,
+      });
+      // No session reaches this origin: the page finishes the connection, signed in, with the one-time token.
+      return back(
+        outcome.ok ? `finish=${outcome.finish}` : `error=${encodeURIComponent(outcome.error)}`,
+      );
+    } catch (e) {
+      console.error('[connectors] callback failed', e);
+      return back('error=internal');
+    }
   }),
 });
 

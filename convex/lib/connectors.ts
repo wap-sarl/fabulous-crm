@@ -1,9 +1,14 @@
 // Connector foundation: provider catalogue, the signed OAuth state, PKCE, and where the credentials come from.
+import { internal } from '../_generated/api';
+import type { Doc } from '../_generated/dataModel';
+import type { MutationCtx } from '../_generated/server';
 import type { AppConfig } from '../_lib/validators/appConfig';
-import type { ConnectorProvider } from '../_lib/validators/connectors';
+import { CONNECTOR_PROVIDERS, type ConnectorProvider } from '../_lib/validators/connectors';
 import { decryptSecret, timingSafeEqual } from './crypto';
 
 export const STATE_TTL_MS = 10 * 60 * 1000;
+/** How long an exchanged grant waits for the signed-in user to claim it. */
+export const FINISH_TTL_MS = 5 * 60 * 1000;
 /** Access tokens are refreshed this long before they expire. */
 export const ACCESS_TOKEN_MARGIN_MS = 60 * 1000;
 
@@ -104,7 +109,7 @@ export async function verifyState(state: string, now = Date.now()): Promise<Stat
   try {
     const payload = JSON.parse(fromBase64Url(body)) as StatePayload;
     if (typeof payload.n !== 'string' || typeof payload.e !== 'number') return null;
-    if (!(payload.p in PROVIDERS) || payload.e * 1000 < now) return null;
+    if (!CONNECTOR_PROVIDERS.includes(payload.p) || payload.e * 1000 < now) return null;
     return payload;
   } catch {
     return null;
@@ -154,6 +159,18 @@ export function credentialsSource(
     : null;
 }
 
+/** The client id alone, for the consent URL: the secret is neither read nor decrypted. */
+export function resolveClientId(
+  config: Pick<AppConfig, 'connectors'> | null,
+  provider: ConnectorProvider,
+): string | null {
+  const source = credentialsSource(config, provider);
+  if (source === 'own')
+    return config?.connectors?.find((c) => c.provider === provider)?.clientId ?? null;
+  if (source === 'managed') return process.env[`${ENV_PREFIX[provider]}_CLIENT_ID`] ?? null;
+  return null;
+}
+
 /** The OAuth app to use: the deployment's own when configured and enabled, else the environment's. */
 export async function resolveCredentials(
   config: Pick<AppConfig, 'connectors'> | null,
@@ -181,7 +198,10 @@ export async function resolveCredentials(
 }
 
 /** The claims of an ID token received straight from the token endpoint over TLS: read, not verified. */
-export function idTokenClaims(idToken: string | undefined): { sub?: string; email?: string } {
+export function idTokenClaims(
+  provider: ConnectorProvider,
+  idToken: string | undefined,
+): { sub?: string; email?: string } {
   const payload = idToken?.split('.')[1];
   if (!payload) return {};
   try {
@@ -191,8 +211,22 @@ export function idTokenClaims(idToken: string | undefined): { sub?: string; emai
       email?: string;
       preferred_username?: string;
     };
-    return { sub: claims.sub ?? claims.oid, email: claims.email ?? claims.preferred_username };
+    // Microsoft's `sub` is pairwise per app registration: `oid` stays the same when the OAuth app changes.
+    const sub = provider === 'microsoft' ? (claims.oid ?? claims.sub) : claims.sub;
+    return { sub, email: claims.email ?? claims.preferred_username };
   } catch {
     return {};
   }
+}
+
+/** A grant nobody may claim any more: the row goes and the provider is told, so no live token is left behind. */
+export async function discardPendingAccount(
+  ctx: MutationCtx,
+  pending: Doc<'connectorPendingAccounts'>,
+): Promise<void> {
+  await ctx.db.delete(pending._id);
+  await ctx.scheduler.runAfter(0, internal.features.connectors.actions.revokeGrant, {
+    provider: pending.provider,
+    refreshToken: pending.refreshToken,
+  });
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useAuth, useAuthMutation, useAuthQuery } from '@crm/widgets';
@@ -31,9 +31,12 @@ const SCOPE_LABEL: Record<string, string> = {
   offline_access: 'Accès hors connexion',
 };
 
-/** What the callback reports in `?error=`: ours, or the provider's own code. */
+/** What the callback reports in `?error=` (ours, or the provider's own code) and what finishing may refuse. */
 const CONNECTION_ERRORS: Record<string, string> = {
   invalid_state: 'La demande de connexion a expiré ou n’est pas valide. Recommencez.',
+  invalid_finish: 'La demande de connexion a expiré ou n’est pas valide. Recommencez.',
+  account_mismatch:
+    'Cette connexion a été démarrée par un autre utilisateur : le compte n’a pas été lié.',
   access_denied: 'Vous avez refusé l’accès chez le fournisseur.',
   no_refresh_token:
     'Le fournisseur n’a pas accordé d’accès durable. Retirez l’accès de cette application dans votre compte, puis recommencez.',
@@ -124,8 +127,13 @@ function ProviderApps() {
   };
 
   const copy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-    toast.success('Adresse copiée.');
+    // The clipboard is refused outside a secure context.
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Adresse copiée.');
+    } catch {
+      toast.error('Copie impossible : sélectionnez l’adresse à la main.');
+    }
   };
 
   return (
@@ -222,20 +230,29 @@ export function IntegrationsPage() {
   const overview = useAuthQuery(api.features.connectors.queries.overview, {});
   const startConnection = useAuthMutation(api.features.connectors.mutations.startConnection);
   const disconnect = useAuthMutation(api.features.connectors.mutations.disconnect);
+  const finishConnection = useAuthMutation(api.features.connectors.mutations.finishConnection);
+  const finishing = useRef<string | null>(null);
   const [toDisconnect, setToDisconnect] = useState<{ provider: Provider; label: string } | null>(
     null,
   );
   const [busy, setBusy] = useState<Provider | null>(null);
 
-  // The callback lands here with its outcome; say it once, then clean the address.
+  // The callback lands here with a one-time token to claim the account, or an error; then the address is cleaned.
   useEffect(() => {
-    const connected = params.get('connected');
+    const finish = params.get('finish');
     const error = params.get('error');
-    if (!connected && !error) return;
-    if (connected) toast.success('Compte connecté.');
-    else toast.error(CONNECTION_ERRORS[error as string] ?? 'La connexion a échoué. Recommencez.');
+    if (!finish && !error) return;
+    const failed = (code: string | null) =>
+      toast.error(CONNECTION_ERRORS[code ?? ''] ?? 'La connexion a échoué. Recommencez.');
+    // StrictMode runs the effect twice, the token is good once.
+    if (finish && finishing.current !== finish) {
+      finishing.current = finish;
+      finishConnection({ token: finish })
+        .then((outcome) => (outcome.ok ? toast.success('Compte connecté.') : failed(outcome.error)))
+        .catch(() => failed(null));
+    } else if (!finish) failed(error);
     navigate('/settings/integrations', { replace: true });
-  }, [params, navigate]);
+  }, [params, navigate, finishConnection]);
 
   const connect = async (provider: Provider) => {
     setBusy(provider);

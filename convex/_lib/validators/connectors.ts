@@ -46,3 +46,17 @@ export const connectorStateValidator = v.object({
   codeVerifier: v.string(),
   expiresAt: v.number(),
 });
+
+/** An exchanged grant waiting for its owner: claimed once, with the finish token (hashed), by the user who started the connection. */
+export const connectorPendingAccountValidator = v.object({
+  tokenHash: v.string(),
+  userId: v.id('users'),
+  provider: connectorProviderValidator,
+  providerAccountId: v.string(),
+  email: v.optional(v.string()),
+  scopes: v.array(v.string()),
+  refreshToken: v.string(),
+  accessToken: v.optional(v.string()),
+  accessTokenExpiresAt: v.optional(v.number()),
+  expiresAt: v.number(),
+});

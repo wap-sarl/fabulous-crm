@@ -1,11 +1,18 @@
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { internalAction } from '../../_generated/server';
+import { decryptSecret } from '../../lib';
+import {
+  type ConnectorProvider,
+  connectorProviderValidator,
+} from '../../_lib/validators/connectors';
 import {
   ACCESS_TOKEN_MARGIN_MS,
   idTokenClaims,
   PROVIDERS,
+  randomToken,
   redirectUri,
+  sha256Base64Url,
   verifyState,
 } from '../../lib/connectors';
 
@@ -30,11 +37,30 @@ async function postForm(url: string, fields: Record<string, string>): Promise<To
   return body;
 }
 
+/** Tells the provider a grant is over, when it has an endpoint for that. */
+async function revokeAtProvider(
+  provider: ConnectorProvider,
+  refreshToken: string,
+): Promise<{ revoked: boolean; error?: string }> {
+  const revokeUrl = PROVIDERS[provider].revokeUrl;
+  if (!revokeUrl) return { revoked: false };
+  try {
+    const response = await fetch(revokeUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ token: refreshToken }).toString(),
+    });
+    return response.ok ? { revoked: true } : { revoked: false, error: `http_${response.status}` };
+  } catch (e) {
+    return { revoked: false, error: String(e).slice(0, 200) };
+  }
+}
+
 export type ConnectionOutcome =
-  | { ok: true; provider: string }
+  | { ok: true; provider: string; finish: string }
   | { ok: false; error: string; provider?: string };
 
-/** The callback's work: the state is checked and consumed, then the code is exchanged here, with the PKCE verifier. */
+/** The callback's work: the state is checked and consumed, the code exchanged here with the PKCE verifier, the grant parked. */
 export const completeConnection = internalAction({
   args: { code: v.string(), state: v.string() },
   handler: async (ctx, { code, state }): Promise<ConnectionOutcome> => {
@@ -63,9 +89,12 @@ export const completeConnection = internalAction({
     }
     // Without a refresh token the connection would die with the access token.
     if (!tokens.refresh_token) return { ok: false, error: 'no_refresh_token', provider };
-    const claims = idTokenClaims(tokens.id_token);
+    const claims = idTokenClaims(provider, tokens.id_token);
     if (!claims.sub) return { ok: false, error: 'no_account_identity', provider };
-    await ctx.runMutation(internal.features.connectors.internal.storeAccount, {
+    // The callback carries no session: whoever comes back with this token must be the user who started.
+    const finish = randomToken();
+    await ctx.runMutation(internal.features.connectors.internal.storePending, {
+      tokenHash: await sha256Base64Url(finish),
       userId: pending.userId,
       provider,
       providerAccountId: claims.sub,
@@ -75,7 +104,7 @@ export const completeConnection = internalAction({
       accessToken: tokens.access_token,
       accessTokenExpiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : undefined,
     });
-    return { ok: true, provider };
+    return { ok: true, provider, finish };
   },
 });
 
@@ -131,28 +160,24 @@ export const revokeAndRemove = internalAction({
     const account = await ctx.runQuery(internal.features.connectors.internal.accountSecrets, {
       accountId,
     });
-    if (!account) return null;
-    const revokeUrl = PROVIDERS[account.provider].revokeUrl;
-    let revoked = false;
-    let error: string | undefined;
-    if (revokeUrl) {
-      try {
-        const response = await fetch(revokeUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({ token: account.refreshToken }).toString(),
-        });
-        revoked = response.ok;
-        if (!response.ok) error = `http_${response.status}`;
-      } catch (e) {
-        error = String(e).slice(0, 200);
-      }
-    }
+    // Reconnected since: the row holds a fresh grant, which stays.
+    if (account?.status !== 'revoking') return null;
+    const { revoked, error } = await revokeAtProvider(account.provider, account.refreshToken);
     await ctx.runMutation(internal.features.connectors.internal.removeAccount, {
       accountId,
       revoked,
       error,
     });
+    return null;
+  },
+});
+
+/** Revokes a grant that never became an account (claimed by nobody, or by the wrong user); the token arrives as stored. */
+export const revokeGrant = internalAction({
+  args: { provider: connectorProviderValidator, refreshToken: v.string() },
+  returns: v.null(),
+  handler: async (_ctx, { provider, refreshToken }) => {
+    await revokeAtProvider(provider, await decryptSecret(refreshToken));
     return null;
   },
 });

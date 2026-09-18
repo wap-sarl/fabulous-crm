@@ -105,6 +105,14 @@ const start = async (as: As, provider: 'google' | 'microsoft' = 'google') =>
 const callback = (t: T, query: Record<string, string>) =>
   t.fetch(`/connectors/callback?${new URLSearchParams(query)}`, { method: 'GET' });
 const accounts = (t: T) => t.run((ctx) => ctx.db.query('connectorAccounts').collect());
+const pendings = (t: T) => t.run((ctx) => ctx.db.query('connectorPendingAccounts').collect());
+const finishOf = (response: Response) =>
+  new URL(response.headers.get('Location')!).searchParams.get('finish')!;
+const finish = (as: As, token: string) =>
+  as.mutation(api.features.connectors.mutations.finishConnection, { token });
+/** The whole return trip: the callback parks the grant, the signed-in page claims it. */
+const connect = async (t: T, as: As, state: string, code = 'auth-code') =>
+  finish(as, finishOf(await callback(t, { code, state })));
 const challengeOf = async (verifier: string) =>
   Buffer.from(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))).toString(
     'base64url',
@@ -133,11 +141,14 @@ describe('connector state', () => {
     expect(await verifyState(state)).toBeNull();
     const unknown = await signState({ ...payload, p: 'dropbox' as never });
     expect(await verifyState(unknown)).toBeNull();
+    // A name every object inherits is not a provider.
+    const inherited = await signState({ ...payload, p: 'constructor' as never });
+    expect(await verifyState(inherited)).toBeNull();
   });
 });
 
 describe('connecting an account', () => {
-  test('the consent URL carries a one-time state and a PKCE challenge; the callback exchanges the code here and stores ciphertext', async () => {
+  test('the consent URL carries a one-time state and a PKCE challenge; the callback exchanges the code here, the signed-in user claims the account', async () => {
     const { t, as, emp } = await setup();
     const url = await start(as);
     expect(url.origin + url.pathname).toBe('https://accounts.google.com/o/oauth2/v2/auth');
@@ -161,8 +172,8 @@ describe('connecting an account', () => {
 
     const response = await callback(t, { code: 'auth-code', state });
     expect(response.status).toBe(302);
-    expect(response.headers.get('Location')).toBe(
-      'https://crm.example.com/settings/integrations?connected=google',
+    expect(response.headers.get('Location')).toMatch(
+      /^https:\/\/crm\.example\.com\/settings\/integrations\?finish=[\w-]{43}$/,
     );
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(requests).toEqual([
@@ -178,6 +189,14 @@ describe('connecting an account', () => {
         },
       },
     ]);
+    // The callback links nothing: the grant waits as ciphertext under the hash of the finish token.
+    expect(await accounts(t)).toEqual([]);
+    const [parked] = await pendings(t);
+    expect(parked).toMatchObject({ userId: emp.userId, expiresAt: Date.now() + 5 * 60_000 });
+    expect(JSON.stringify(parked)).not.toMatch(/refresh-1|access-1/);
+    expect(JSON.stringify(parked)).not.toContain(finishOf(response));
+    expect(await finish(as, finishOf(response))).toEqual({ ok: true, provider: 'google' });
+    expect(await pendings(t)).toEqual([]);
     const [account] = await accounts(t);
     expect(account).toMatchObject({
       userId: emp.userId,
@@ -208,10 +227,83 @@ describe('connecting an account', () => {
     expect(await t.run((ctx) => ctx.db.query('connectorStates').collect())).toEqual([]);
   });
 
+  test('only the user who started the connection can claim it: anyone else burns the token and the grant is revoked', async () => {
+    const { t, as } = await setup();
+    const victim = asIdentity(
+      t,
+      (await seedEmployee(t, { email: 'victim@example.com', sessionTtlMs: 30 * 24 * 3600_000 }))
+        .identity,
+    );
+    // The attacker starts, the victim consents and lands on the page with the token.
+    const state = (await start(as)).searchParams.get('state')!;
+    const token = finishOf(await callback(t, { code: 'auth-code', state }));
+    expect(await finish(victim, token)).toEqual({ ok: false, error: 'account_mismatch' });
+    expect(await pendings(t)).toEqual([]);
+    // Burnt for everyone, the attacker included.
+    expect(await finish(as, token)).toEqual({ ok: false, error: 'invalid_finish' });
+    expect(await accounts(t)).toEqual([]);
+    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    expect(requests.at(-1)).toEqual({
+      url: 'https://oauth2.googleapis.com/revoke',
+      form: { token: 'refresh-1' },
+    });
+    await expect(finish(t as unknown as As, token)).rejects.toThrow();
+  });
+
+  test('a finish token is good once and for five minutes; an unclaimed grant is swept and revoked', async () => {
+    const { t, as } = await setup();
+    const first = finishOf(
+      await callback(t, { code: 'c', state: (await start(as)).searchParams.get('state')! }),
+    );
+    expect(await finish(as, first)).toEqual({ ok: true, provider: 'google' });
+    expect(await finish(as, first)).toEqual({ ok: false, error: 'invalid_finish' });
+    expect(await finish(as, 'never-issued')).toEqual({ ok: false, error: 'invalid_finish' });
+    const late = finishOf(
+      await callback(t, { code: 'c', state: (await start(as)).searchParams.get('state')! }),
+    );
+    jest.setSystemTime(new Date(Date.now() + 5 * 60_000 + 1));
+    expect(await finish(as, late)).toEqual({ ok: false, error: 'invalid_finish' });
+    expect(await pendings(t)).toEqual([]);
+    // Nobody came back for this one: the next callback sweeps it.
+    await callback(t, { code: 'c', state: (await start(as)).searchParams.get('state')! });
+    jest.setSystemTime(new Date(Date.now() + 5 * 60_000 + 1));
+    await callback(t, { code: 'c', state: (await start(as)).searchParams.get('state')! });
+    expect(await pendings(t)).toHaveLength(1);
+    requests.length = 0;
+    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    expect(requests.filter((r) => r.url.endsWith('/revoke'))).toHaveLength(2);
+    expect(await accounts(t)).toHaveLength(1);
+  });
+
+  test('a callback that fails unexpectedly still lands on the page', async () => {
+    const { t, as } = await setup();
+    const state = (await start(as)).searchParams.get('state')!;
+    const mocked = globalThis.fetch;
+    globalThis.fetch = (async () => {
+      throw new Error('network down');
+    }) as unknown as typeof fetch;
+    const error = console.error;
+    console.error = () => {};
+    const response = await callback(t, { code: 'c', state });
+    console.error = error;
+    globalThis.fetch = mocked;
+    expect(response.status).toBe(302);
+    expect(response.headers.get('Location')).toBe(
+      'https://crm.example.com/settings/integrations?error=internal',
+    );
+  });
+
+  test('starting a connection never touches the client secret', async () => {
+    const { as } = await setup();
+    // Without the key the stored secret cannot be decrypted: the consent URL needs only the client id.
+    delete process.env.SECRETS_KEY;
+    expect((await start(as)).searchParams.get('client_id')).toBe('own-google-id');
+  });
+
   test('a replayed, expired, forged or foreign callback is refused and exchanges nothing', async () => {
     const { t, as } = await setup();
     const state = (await start(as)).searchParams.get('state')!;
-    await callback(t, { code: 'auth-code', state });
+    await connect(t, as, state);
     expect(requests).toHaveLength(1);
     const location = async (query: Record<string, string>) =>
       (await callback(t, query)).headers.get('Location');
@@ -288,7 +380,7 @@ describe('connecting an account', () => {
     expect(Buffer.from(state.split('.')[0]!, 'base64url').toString()).not.toContain('codeVerifier');
     // The dispatcher forwards the browser here with the same code and state.
     const response = await callback(t, { code: 'auth-code', state });
-    expect(response.headers.get('Location')).toMatch(/connected=google$/);
+    expect(response.headers.get('Location')).toMatch(/\?finish=[\w-]+$/);
     expect(requests[0]!.form.redirect_uri).toBe('https://auth.fabulous-crm.test/oauth/callback');
   });
 
@@ -314,10 +406,15 @@ describe('connecting an account', () => {
       status: 200,
       body: {
         ...GRANT,
-        id_token: idToken({ oid: 'ms-oid-1', preferred_username: 'ada@corp.example' }),
+        // `sub` changes with the app registration, `oid` does not.
+        id_token: idToken({
+          sub: 'pairwise-sub',
+          oid: 'ms-oid-1',
+          preferred_username: 'ada@corp.example',
+        }),
       },
     };
-    await callback(t, { code: 'c', state: url.searchParams.get('state')! });
+    await connect(t, as, url.searchParams.get('state')!, 'c');
     expect(requests.at(-1)!.form.client_secret).toBe('managed-ms-secret');
     expect((await accounts(t)).find((a) => a.provider === 'microsoft')).toMatchObject({
       providerAccountId: 'ms-oid-1',
@@ -338,7 +435,7 @@ describe('tokens', () => {
   async function connected() {
     const ctx = await setup();
     const state = (await start(ctx.as)).searchParams.get('state')!;
-    await callback(ctx.t, { code: 'c', state });
+    await connect(ctx.t, ctx.as, state, 'c');
     const [account] = await accounts(ctx.t);
     requests.length = 0;
     return { ...ctx, accountId: account!._id as Id<'connectorAccounts'> };
@@ -412,6 +509,25 @@ describe('tokens', () => {
     await expect(
       as.mutation(api.features.connectors.mutations.disconnect, { provider: 'google' }),
     ).rejects.toThrow(/connector_account_not_found/);
+  });
+
+  test('reconnecting before the revocation ran keeps the fresh grant: nothing is revoked nor removed', async () => {
+    const { t, as, accountId } = await connected();
+    await as.mutation(api.features.connectors.mutations.disconnect, { provider: 'google' });
+    tokenAnswer = { status: 200, body: { ...GRANT, refresh_token: 'refresh-new' } };
+    await connect(t, as, (await start(as)).searchParams.get('state')!);
+    requests.length = 0;
+    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    expect(requests).toEqual([]);
+    expect(await accounts(t)).toMatchObject([{ _id: accountId, status: 'active' }]);
+    // The revocation had already read the old token when the user reconnected: the row stays all the same.
+    await as.mutation(api.features.connectors.mutations.disconnect, { provider: 'google' });
+    await t.run((ctx) => ctx.db.patch(accountId, { status: 'active' }));
+    await t.mutation(internal.features.connectors.internal.removeAccount, {
+      accountId,
+      revoked: true,
+    });
+    expect(await accounts(t)).toHaveLength(1);
   });
 });
 
