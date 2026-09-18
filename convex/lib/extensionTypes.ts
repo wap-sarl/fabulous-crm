@@ -58,6 +58,8 @@ export interface Extensions {
   beforeEmployeeCall(ctx: QueryCtx | MutationCtx | ActionCtx): Promise<void>;
   /** Extra fields merged into `getPublicConfig`, readable before login. */
   publicConfig(ctx: QueryCtx): Promise<Record<string, unknown>>;
+  /** A sign-in code is about to be e-mailed; throw to refuse: nothing is sent (a code never sent cannot be used) and the requester is told nothing. */
+  beforeSignInCode(ctx: ActionCtx, info: { email: string }): Promise<void>;
   /** Invitation about to be created or accepted; `pending` counts the open ones; throw to refuse. */
   beforeInvitation(
     ctx: MutationCtx,
@@ -88,6 +90,7 @@ export interface Extensions {
 export const defaultExtensions: Extensions = {
   beforeEmployeeCall: async () => {},
   publicConfig: async () => ({}),
+  beforeSignInCode: async () => {},
   beforeInvitation: async () => {},
   beforeLeadCreate: async () => {},
   beforeSend: async () => {},

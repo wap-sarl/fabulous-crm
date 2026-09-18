@@ -1,24 +1,13 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button, Input, Label, OtpInput } from '@crm/design-system';
+import { describeSignInError, emailCodeForm, SIGN_IN_GENERIC_ERROR } from '@crm/lib/errors';
 import { zEmailSchema } from '@crm/lib/types';
 import { CheckCircle, Mail, ArrowLeft } from 'lucide-react';
 import { AuthLayout } from '../layouts/AuthLayout';
 import { usePublicConfig } from '../config';
 import { authClient, isSocialProvider } from './betterAuthClient';
 import { ProviderIcon } from './providerIcons';
-
-const GENERIC_ERROR = 'Une erreur est survenue. Veuillez réessayer.';
-
-/** Map a Better Auth error to a user-facing French message. */
-function messageForError(err: { code?: string; message?: string } | null): string {
-  const code = err?.code ?? err?.message ?? '';
-  if (code === 'not_invited' || code === 'FORBIDDEN')
-    return "Cette adresse n'est pas autorisée. Demandez une invitation à un administrateur.";
-  if (code.includes('OTP') || code.includes('otp') || code === 'INVALID_OTP')
-    return 'Code incorrect ou expiré. Veuillez réessayer.';
-  return GENERIC_ERROR;
-}
 
 export interface LoginPageProps {
   /** Where to navigate after a successful login. */
@@ -47,7 +36,7 @@ export function LoginPage({
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
-  const magicLinkEnabled = config?.auth.magicLink ?? true;
+  const { shown: magicLinkEnabled, notice: emailCodeNotice } = emailCodeForm(config, searchParams);
   const socialProviders = config?.auth.socialProviders.filter((p) => p.configured) ?? [];
   const ssoProviders = config?.auth.customSsoProviders ?? [];
   const hasOauthProvider = socialProviders.length > 0 || ssoProviders.length > 0;
@@ -101,7 +90,7 @@ export function LoginPage({
       type: 'sign-in',
     });
     if (sendError) {
-      setError(messageForError(sendError));
+      setError(describeSignInError(sendError));
       return false;
     }
     return true;
@@ -121,7 +110,7 @@ export function LoginPage({
     try {
       if (await sendOtp()) setEmailSent(true);
     } catch {
-      setError(GENERIC_ERROR);
+      setError(SIGN_IN_GENERIC_ERROR);
     } finally {
       setIsSubmitting(false);
     }
@@ -136,7 +125,7 @@ export function LoginPage({
     try {
       if (await sendOtp()) setResendSuccess(true);
     } catch {
-      setError(GENERIC_ERROR);
+      setError(SIGN_IN_GENERIC_ERROR);
     } finally {
       setIsResending(false);
     }
@@ -159,13 +148,13 @@ export function LoginPage({
         otp: code,
       });
       if (verifyError) {
-        setOtpError(messageForError(verifyError));
+        setOtpError(describeSignInError(verifyError));
         setOtpValue('');
         return;
       }
       navigate(homePath, { replace: true });
     } catch {
-      setOtpError(GENERIC_ERROR);
+      setOtpError(SIGN_IN_GENERIC_ERROR);
       setOtpValue('');
     } finally {
       setIsVerifyingOtp(false);
@@ -260,7 +249,7 @@ export function LoginPage({
       <div className="space-y-5">
         {urlError && !error && (
           <p className="text-center text-sm text-destructive" role="alert">
-            {messageForError({ code: urlError })}
+            {describeSignInError({ code: urlError })}
           </p>
         )}
 
@@ -343,6 +332,7 @@ export function LoginPage({
             <p className="text-center text-sm text-faint">
               Un lien de connexion sécurisé vous sera envoyé par e-mail.
             </p>
+            {emailCodeNotice && <p className="text-center text-sm text-soft">{emailCodeNotice}</p>}
           </form>
         )}
 

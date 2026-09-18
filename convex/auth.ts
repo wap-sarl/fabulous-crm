@@ -18,7 +18,8 @@ import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } fr
 import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
 import { internalQuery, query } from './_generated/server';
 import { resolveRoleAccess } from './lib/roles';
-import { gateInvitation } from './lib/gates';
+import { refusalCode } from './lib/extensionTypes';
+import { gateInvitation, gateSignInCode } from './lib/gates';
 import { countPendingInvitations } from './lib/invitations';
 
 /**
@@ -204,6 +205,14 @@ async function sendSignInOtp(
 
   const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
   if (cfg && cfg.auth.magicLinkEnabled === false) return; // method disabled by admin
+
+  // Extension seam. Better Auth sends in the background and answers the same either way, so a refusal is silent by nature.
+  try {
+    await gateSignInCode(ctx, email);
+  } catch (error) {
+    console.warn(`[sign-in] code not sent, refused by the extension seam: ${refusalCode(error)}`);
+    return;
+  }
 
   const appUrl = (cfg?.appUrl || appOrigin()).replace(/\/+$/, '');
   const params = new URLSearchParams({ email, otp });
