@@ -31,7 +31,8 @@ Register the redirect address shown on the page in the provider's console. Reque
    (`sub`; `oid` for Microsoft, whose `sub` changes with the app registration). It links
    nothing yet: the grant is parked in `connectorPendingAccounts`, tokens as ciphertext
    (`lib/crypto.ts`), under the hash of a one-time **finish token**, five minutes to live. The
-   browser lands on « Intégrations » with `?finish=<token>` or `?error=`.
+   browser lands on « Intégrations » with `#finish=<token>` (a fragment: it reaches neither a
+   server log nor a referrer) or `?error=`.
 4. The page calls `finishConnection({ token })`, signed in. The account is linked only when the
    caller is the user who started the connection: one account per user and provider. Anyone
    else, or a late token, burns it, and the parked grant is revoked at the provider; so is a

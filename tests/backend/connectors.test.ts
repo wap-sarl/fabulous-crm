@@ -107,7 +107,7 @@ const callback = (t: T, query: Record<string, string>) =>
 const accounts = (t: T) => t.run((ctx) => ctx.db.query('connectorAccounts').collect());
 const pendings = (t: T) => t.run((ctx) => ctx.db.query('connectorPendingAccounts').collect());
 const finishOf = (response: Response) =>
-  new URL(response.headers.get('Location')!).searchParams.get('finish')!;
+  new URLSearchParams(new URL(response.headers.get('Location')!).hash.slice(1)).get('finish')!;
 const finish = (as: As, token: string) =>
   as.mutation(api.features.connectors.mutations.finishConnection, { token });
 /** The whole return trip: the callback parks the grant, the signed-in page claims it. */
@@ -173,7 +173,7 @@ describe('connecting an account', () => {
     const response = await callback(t, { code: 'auth-code', state });
     expect(response.status).toBe(302);
     expect(response.headers.get('Location')).toMatch(
-      /^https:\/\/crm\.example\.com\/settings\/integrations\?finish=[\w-]{43}$/,
+      /^https:\/\/crm\.example\.com\/settings\/integrations#finish=[\w-]{43}$/,
     );
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(requests).toEqual([
@@ -380,7 +380,7 @@ describe('connecting an account', () => {
     expect(Buffer.from(state.split('.')[0]!, 'base64url').toString()).not.toContain('codeVerifier');
     // The dispatcher forwards the browser here with the same code and state.
     const response = await callback(t, { code: 'auth-code', state });
-    expect(response.headers.get('Location')).toMatch(/\?finish=[\w-]+$/);
+    expect(response.headers.get('Location')).toMatch(/#finish=[\w-]+$/);
     expect(requests[0]!.form.redirect_uri).toBe('https://auth.fabulous-crm.test/oauth/callback');
   });
 

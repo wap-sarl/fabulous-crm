@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useAuth, useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
@@ -227,6 +227,7 @@ export function IntegrationsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
+  const { hash } = useLocation();
   const overview = useAuthQuery(api.features.connectors.queries.overview, {});
   const startConnection = useAuthMutation(api.features.connectors.mutations.startConnection);
   const disconnect = useAuthMutation(api.features.connectors.mutations.disconnect);
@@ -237,9 +238,9 @@ export function IntegrationsPage() {
   );
   const [busy, setBusy] = useState<Provider | null>(null);
 
-  // The callback lands here with a one-time token to claim the account, or an error; then the address is cleaned.
+  // The callback lands here with a one-time token (in the fragment) to claim the account, or an error; then the address is cleaned.
   useEffect(() => {
-    const finish = params.get('finish');
+    const finish = new URLSearchParams(hash.slice(1)).get('finish');
     const error = params.get('error');
     if (!finish && !error) return;
     const failed = (code: string | null) =>
@@ -252,7 +253,7 @@ export function IntegrationsPage() {
         .catch(() => failed(null));
     } else if (!finish) failed(error);
     navigate('/settings/integrations', { replace: true });
-  }, [params, navigate, finishConnection]);
+  }, [params, hash, navigate, finishConnection]);
 
   const connect = async (provider: Provider) => {
     setBusy(provider);

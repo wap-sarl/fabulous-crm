@@ -186,11 +186,11 @@ http.route({
   method: 'GET',
   handler: httpAction(async (ctx, request) => {
     const params = new URL(request.url).searchParams;
-    const back = (query: string) =>
+    const back = (suffix: string) =>
       new Response(null, {
         status: 302,
         headers: {
-          Location: `${appOrigin()}/settings/integrations?${query}`,
+          Location: `${appOrigin()}/settings/integrations${suffix}`,
           'Cache-Control': 'no-store',
         },
       });
@@ -198,20 +198,20 @@ http.route({
     const state = params.get('state');
     // The user refused, or the provider failed: its error code is all there is to show.
     if (!code || !state) {
-      return back(`error=${encodeURIComponent(params.get('error') ?? 'missing_code')}`);
+      return back(`?error=${encodeURIComponent(params.get('error') ?? 'missing_code')}`);
     }
     try {
       const outcome = await ctx.runAction(internal.features.connectors.actions.completeConnection, {
         code,
         state,
       });
-      // No session reaches this origin: the page finishes the connection, signed in, with the one-time token.
+      // No session reaches this origin: the page finishes the connection, signed in. A fragment reaches no server log nor referrer.
       return back(
-        outcome.ok ? `finish=${outcome.finish}` : `error=${encodeURIComponent(outcome.error)}`,
+        outcome.ok ? `#finish=${outcome.finish}` : `?error=${encodeURIComponent(outcome.error)}`,
       );
     } catch (e) {
       console.error('[connectors] callback failed', e);
-      return back('error=internal');
+      return back('?error=internal');
     }
   }),
 });
