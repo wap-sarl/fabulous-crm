@@ -1,3 +1,5 @@
+import { CONNECTOR_PROVIDERS } from '../../_lib/validators/connectors';
+import { credentialsSource, PROVIDERS, redirectUriOrNull } from '../../lib/connectors';
 import { query } from '../../_generated/server';
 import { settingsQuery, employeeQuery } from '../../_lib/auth';
 import { isSetupComplete } from '../../setup/helpers';
@@ -112,6 +114,19 @@ export const getAdminConfig = settingsQuery({
           enabled: p.enabled,
         })),
       },
+      // Connector OAuth apps: the secret becomes a presence flag; `managed` tells that the host supplies credentials.
+      connectors: CONNECTOR_PROVIDERS.map((provider) => {
+        const own = cfg.connectors?.find((c) => c.provider === provider);
+        return {
+          provider,
+          label: PROVIDERS[provider].label,
+          clientId: own?.clientId ?? '',
+          hasClientSecret: (own?.clientSecret.length ?? 0) > 0,
+          enabled: own?.enabled ?? false,
+          source: credentialsSource(cfg, provider),
+          redirectUri: redirectUriOrNull(),
+        };
+      }),
       // Email/SMS delivery config. Secrets → presence flags (env fallback folded
       // in so a pre-migration deployment reads as "configured"); the real values
       // never leave the server. `smsAvailable` is derived from Brevo credentials.

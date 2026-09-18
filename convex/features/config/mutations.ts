@@ -1,3 +1,4 @@
+import { type ConnectorConfig, connectorProviderValidator } from '../../_lib/validators/connectors';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
@@ -60,6 +61,14 @@ const ssoProviderInput = v.object({
  * OIDC: `clientSecret` omitted/empty keeps the existing stored secret (matched
  * by `id`).
  */
+/** A connector OAuth app as the settings send it: an omitted or empty secret keeps the stored one. */
+const connectorInput = v.object({
+  provider: connectorProviderValidator,
+  clientId: v.string(),
+  clientSecret: v.optional(v.string()),
+  enabled: v.boolean(),
+});
+
 const socialProviderInput = v.object({
   id: v.string(),
   clientId: v.string(),
@@ -105,6 +114,7 @@ export const updateConfig = settingsMutation({
     attachmentsMaxSizeBytes: v.optional(v.number()),
     attachmentsRetentionDays: v.optional(v.number()),
     listsMaxDynamicLists: v.optional(v.number()),
+    connectors: v.optional(v.array(connectorInput)),
   },
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
@@ -192,6 +202,27 @@ export const updateConfig = settingsMutation({
         )
       : undefined;
 
+    const mergedConnectors: ConnectorConfig[] | undefined = args.connectors
+      ? await Promise.all(
+          args.connectors.map(async (c) => {
+            const existing = cfg.connectors?.find((e) => e.provider === c.provider);
+            return {
+              provider: c.provider,
+              clientId: c.clientId.trim(),
+              clientSecret:
+                c.clientSecret && c.clientSecret.length > 0
+                  ? await encryptSecret(c.clientSecret)
+                  : (existing?.clientSecret ?? ''),
+              enabled: c.enabled,
+            };
+          }),
+        )
+      : undefined;
+    // An enabled connector nobody could use would only fail at the first connection.
+    if (mergedConnectors?.some((c) => c.enabled && (!c.clientId || !c.clientSecret))) {
+      throw new Error('connector_credentials_required');
+    }
+
     // Email config: same secret-preservation rule — an omitted/empty secret
     // keeps the stored value (matched on the existing config, singleton).
     let mergedEmail: EmailConfig | undefined;
@@ -245,6 +276,7 @@ export const updateConfig = settingsMutation({
       ...(args.listsMaxDynamicLists !== undefined && {
         lists: { ...cfg.lists, maxDynamicLists: args.listsMaxDynamicLists },
       }),
+      ...(mergedConnectors !== undefined && { connectors: mergedConnectors }),
       updatedAt: Date.now(),
       updatedBy: ctx.userId,
     });
@@ -262,11 +294,13 @@ export const updateConfig = settingsMutation({
             k !== 'ssoProviders' &&
             k !== 'socialProviders' &&
             k !== 'email' &&
+            k !== 'connectors' &&
             (args as Record<string, unknown>)[k] !== undefined,
         ),
         ssoProviderIds: mergedSso?.map((p) => p.providerId),
         socialProviderIds: mergedSocial?.map((p) => p.id),
         emailProvider: mergedEmail?.provider,
+        connectorProviders: mergedConnectors?.map((c) => c.provider),
       },
     });
 

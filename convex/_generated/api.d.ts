@@ -21,6 +21,7 @@ import type * as _lib_validators_attachments from "../_lib/validators/attachment
 import type * as _lib_validators_auditLogs from "../_lib/validators/auditLogs.js";
 import type * as _lib_validators_companies from "../_lib/validators/companies.js";
 import type * as _lib_validators_companyRegistry from "../_lib/validators/companyRegistry.js";
+import type * as _lib_validators_connectors from "../_lib/validators/connectors.js";
 import type * as _lib_validators_crm from "../_lib/validators/crm.js";
 import type * as _lib_validators_deals from "../_lib/validators/deals.js";
 import type * as _lib_validators_duplicates from "../_lib/validators/duplicates.js";
@@ -59,6 +60,10 @@ import type * as features_companies_queries from "../features/companies/queries.
 import type * as features_config_internal from "../features/config/internal.js";
 import type * as features_config_mutations from "../features/config/mutations.js";
 import type * as features_config_queries from "../features/config/queries.js";
+import type * as features_connectors_actions from "../features/connectors/actions.js";
+import type * as features_connectors_internal from "../features/connectors/internal.js";
+import type * as features_connectors_mutations from "../features/connectors/mutations.js";
+import type * as features_connectors_queries from "../features/connectors/queries.js";
 import type * as features_crm_actions from "../features/crm/actions.js";
 import type * as features_crm_internal from "../features/crm/internal.js";
 import type * as features_crm_leadMatching from "../features/crm/leadMatching.js";
@@ -109,6 +114,7 @@ import type * as lib_companies from "../lib/companies.js";
 import type * as lib_companyAggregates from "../lib/companyAggregates.js";
 import type * as lib_companyDomains from "../lib/companyDomains.js";
 import type * as lib_companySearch from "../lib/companySearch.js";
+import type * as lib_connectors from "../lib/connectors.js";
 import type * as lib_crypto from "../lib/crypto.js";
 import type * as lib_dbHelpers from "../lib/dbHelpers.js";
 import type * as lib_dealAggregates from "../lib/dealAggregates.js";
@@ -167,6 +173,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/auditLogs": typeof _lib_validators_auditLogs;
   "_lib/validators/companies": typeof _lib_validators_companies;
   "_lib/validators/companyRegistry": typeof _lib_validators_companyRegistry;
+  "_lib/validators/connectors": typeof _lib_validators_connectors;
   "_lib/validators/crm": typeof _lib_validators_crm;
   "_lib/validators/deals": typeof _lib_validators_deals;
   "_lib/validators/duplicates": typeof _lib_validators_duplicates;
@@ -205,6 +212,10 @@ declare const fullApi: ApiFromModules<{
   "features/config/internal": typeof features_config_internal;
   "features/config/mutations": typeof features_config_mutations;
   "features/config/queries": typeof features_config_queries;
+  "features/connectors/actions": typeof features_connectors_actions;
+  "features/connectors/internal": typeof features_connectors_internal;
+  "features/connectors/mutations": typeof features_connectors_mutations;
+  "features/connectors/queries": typeof features_connectors_queries;
   "features/crm/actions": typeof features_crm_actions;
   "features/crm/internal": typeof features_crm_internal;
   "features/crm/leadMatching": typeof features_crm_leadMatching;
@@ -255,6 +266,7 @@ declare const fullApi: ApiFromModules<{
   "lib/companyAggregates": typeof lib_companyAggregates;
   "lib/companyDomains": typeof lib_companyDomains;
   "lib/companySearch": typeof lib_companySearch;
+  "lib/connectors": typeof lib_connectors;
   "lib/crypto": typeof lib_crypto;
   "lib/dbHelpers": typeof lib_dbHelpers;
   "lib/dealAggregates": typeof lib_dealAggregates;

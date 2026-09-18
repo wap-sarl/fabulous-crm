@@ -29,13 +29,23 @@ async function rewriteSecrets(config: AppConfig, rewrite: Rewrite): Promise<Part
       })),
     );
   }
-  if (!config.email) return { auth };
+  const connectors = config.connectors
+    ? {
+        connectors: await Promise.all(
+          config.connectors.map(async (c) => ({
+            ...c,
+            clientSecret: await rewrite(c.clientSecret),
+          })),
+        ),
+      }
+    : {};
+  if (!config.email) return { auth, ...connectors };
   const email = { ...config.email };
   for (const field of ['brevoApiKey', 'brevoWebhookSecret', 'smtpPass'] as const) {
     const value = config.email[field];
     if (value !== undefined) email[field] = await rewrite(value);
   }
-  return { auth, email };
+  return { auth, email, ...connectors };
 }
 
 /** Secrets written before SECRETS_KEY existed become ciphertext; already encrypted ones are left alone. */
@@ -54,4 +64,27 @@ export const rotateAppConfigSecrets = migrations.define({
     await rewriteSecrets(config, async (value) =>
       value ? await encryptSecret(await decryptSecret(value)) : value,
     ),
+});
+
+/** Connector tokens follow the same two steps as the config's secrets: encrypt what was written in clear, then rotate. */
+export const encryptConnectorTokens = migrations.define({
+  table: 'connectorAccounts',
+  migrateOne: async (_ctx, account) => ({
+    refreshToken: isEncryptedSecret(account.refreshToken)
+      ? account.refreshToken
+      : await encryptSecret(account.refreshToken),
+    ...(account.accessToken && !isEncryptedSecret(account.accessToken)
+      ? { accessToken: await encryptSecret(account.accessToken) }
+      : {}),
+  }),
+});
+
+export const rotateConnectorTokens = migrations.define({
+  table: 'connectorAccounts',
+  migrateOne: async (_ctx, account) => ({
+    refreshToken: await encryptSecret(await decryptSecret(account.refreshToken)),
+    ...(account.accessToken
+      ? { accessToken: await encryptSecret(await decryptSecret(account.accessToken)) }
+      : {}),
+  }),
 });

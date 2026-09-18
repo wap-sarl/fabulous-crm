@@ -4,7 +4,7 @@ import { internal } from './_generated/api';
 import { authComponent, createAuth } from './auth';
 import { extensions } from './extensions';
 import { registerApiRoutes } from './features/api/routes';
-import { resolveBrevo, timingSafeEqual } from './lib';
+import { appOrigin, resolveBrevo, timingSafeEqual } from './lib';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -176,6 +176,37 @@ http.route({
       return new Response(null, { status: 302, headers: { Location: result.redirectUrl } });
     }
     return htmlResponse('Merci, vous pouvez fermer cet onglet.', 200);
+  }),
+});
+
+// Connectors: where the provider (or a callback dispatcher, OAUTH_CALLBACK_BASE) sends the browser back with the code.
+// The code is exchanged here; the browser then lands on the integrations page with the outcome.
+http.route({
+  path: '/connectors/callback',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const params = new URL(request.url).searchParams;
+    const back = (query: string) =>
+      new Response(null, {
+        status: 302,
+        headers: {
+          Location: `${appOrigin()}/settings/integrations?${query}`,
+          'Cache-Control': 'no-store',
+        },
+      });
+    const code = params.get('code');
+    const state = params.get('state');
+    // The user refused, or the provider failed: its error code is all there is to show.
+    if (!code || !state) {
+      return back(`error=${encodeURIComponent(params.get('error') ?? 'missing_code')}`);
+    }
+    const outcome = await ctx.runAction(internal.features.connectors.actions.completeConnection, {
+      code,
+      state,
+    });
+    return back(
+      outcome.ok ? `connected=${outcome.provider}` : `error=${encodeURIComponent(outcome.error)}`,
+    );
   }),
 });
 
