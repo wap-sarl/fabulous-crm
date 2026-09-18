@@ -20,6 +20,7 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('apiKey'),
   v.literal('workflow'),
   v.literal('workflowRun'),
+  v.literal('connectorAccount'),
 );
 
 export const auditLogActionValidator = v.union(

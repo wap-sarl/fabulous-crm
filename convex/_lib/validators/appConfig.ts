@@ -1,4 +1,5 @@
 import { type Infer, v } from 'convex/values';
+import { connectorConfigValidator } from './connectors';
 import { attachmentsConfigValidator } from './attachments';
 import { lifecycleConfigValidator } from './lifecycle';
 
@@ -109,6 +110,8 @@ export const appConfigValidator = v.object({
   lifecycle: v.optional(lifecycleConfigValidator),
   attachments: v.optional(attachmentsConfigValidator),
   lists: v.optional(v.object({ maxDynamicLists: v.optional(v.number()) })),
+  // The deployment's own OAuth apps for connectors; absent, the environment may supply managed ones (lib/connectors.ts).
+  connectors: v.optional(v.array(connectorConfigValidator)),
   updatedAt: v.number(),
   updatedBy: v.optional(v.id('users')),
 });

@@ -12,6 +12,7 @@ import {
   Milestone,
   Palette,
   Paperclip,
+  Plug,
   ShieldCheck,
   SlidersHorizontal,
   Users,
@@ -50,6 +51,8 @@ export const NAV_ITEMS: ShellNavItem[] = [
     : []),
   // Lists are available to every employee; the other settings screens need the role's `settings` switch.
   { label: 'Listes', icon: <ListChecks />, path: '/settings/lists', position: 'bottom' },
+  // Connecting one's own account is for every employee; the page shows the OAuth apps to admins only.
+  { label: 'Intégrations', icon: <Plug />, path: '/settings/integrations', position: 'bottom' },
   settings({ label: 'Équipe', icon: <UsersRound />, path: '/settings/team' }),
   settings({ label: 'Rôles et accès', icon: <ShieldCheck />, path: '/settings/roles' }),
   settings({ label: 'Apparence', icon: <Palette />, path: '/settings/branding' }),
