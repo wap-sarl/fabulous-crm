@@ -16,6 +16,16 @@ export interface FrontendExtensions {
   ShellGuard: ComponentType<{ children: ReactNode }> | null;
   /** A user message for one of the overlay's refusal codes (`describeError`), null for the rest. */
   describeRefusal?: (refusal: Refusal) => string | null;
+  /** The login page asks before showing the e-mail code form; `config` is the public config, the overlay's own fields included. */
+  loginMethods?: (config: Record<string, unknown>, search: URLSearchParams) => LoginMethods | null;
+}
+
+/** What an overlay may decide about the login page; an absent field keeps the page's own rule. */
+export interface LoginMethods {
+  /** `false` hides the e-mail code form; the providers (social, SSO) stay. */
+  emailCode?: boolean;
+  /** A sentence shown with the e-mail code form, e.g. who may use it: a refused code request is silent, this is where to say so. */
+  emailCodeNotice?: string;
 }
 
 /** A refusal as the client sees it: the code, and the structured data of a ConvexError when there is one. */

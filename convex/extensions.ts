@@ -5,6 +5,7 @@ let active: Extensions = defaultExtensions;
 export const extensions: Extensions = {
   beforeEmployeeCall: (ctx) => active.beforeEmployeeCall(ctx),
   publicConfig: (ctx) => active.publicConfig(ctx),
+  beforeSignInCode: (ctx, info) => active.beforeSignInCode(ctx, info),
   beforeInvitation: (ctx, info) => active.beforeInvitation(ctx, info),
   beforeLeadCreate: (ctx, info) => active.beforeLeadCreate(ctx, info),
   beforeSend: (ctx, info) => active.beforeSend(ctx, info),
