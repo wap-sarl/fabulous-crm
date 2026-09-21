@@ -12,6 +12,8 @@ const realFetch = globalThis.fetch;
 let mails: string[] = [];
 let providerDelayMs = 0;
 const opened: T[] = [];
+/** An address no other test file uses. */
+const RECIPIENT = 'ada.sign-in-seam@example.com';
 /** The delivery is scheduled: let it run to its end. */
 const delivered = async (t: T) => {
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -26,10 +28,11 @@ beforeEach(() => {
   const mine: string[] = [];
   mails = mine;
   providerDelayMs = 0;
-  globalThis.fetch = (async (input: string | URL | Request) => {
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
-    // Another file's background work must neither be counted nor reach the network.
-    if (!url.includes('brevo.com')) return new Response(null, { status: 503 });
+    // Another file's background work must neither be counted nor reach the network: only our recipient's mail is ours.
+    const ours = url.includes('brevo.com') && String(init?.body ?? '').includes(RECIPIENT);
+    if (!ours) return new Response(null, { status: 503 });
     if (providerDelayMs) await new Promise((resolve) => setTimeout(resolve, providerDelayMs));
     mine.push(url);
     return new Response(JSON.stringify({ messageId: 'm1' }), { status: 201 });
@@ -51,7 +54,7 @@ afterEach(async () => {
 async function setup() {
   const t = createTestConvex();
   opened.push(t);
-  await seedEmployee(t, { email: 'ada@example.com', role: 'member' });
+  await seedEmployee(t, { email: RECIPIENT, role: 'member' });
   await t.run((ctx) =>
     ctx.db.insert('appConfig', {
       organizationName: 'Test',
@@ -94,15 +97,15 @@ describe('sign-in seam', () => {
         seen.push(info);
       },
     });
-    expect((await requestCode(t, 'Ada@Example.com')).status).toBe(200);
+    expect((await requestCode(t, RECIPIENT.toUpperCase())).status).toBe(200);
     await delivered(t);
-    expect(seen).toEqual([{ email: 'ada@example.com', type: 'sign-in' }]);
+    expect(seen).toEqual([{ email: RECIPIENT, type: 'sign-in' }]);
     expect(mails).toHaveLength(1);
   });
 
   test('a refusal sends nothing, and the requester is told nothing: same answer as a code that went out', async () => {
     const t = await setup();
-    const sent = await requestCode(t, 'ada@example.com');
+    const sent = await requestCode(t, RECIPIENT);
     await delivered(t);
     expect(mails).toHaveLength(1);
     setExtensionsForTests({
@@ -112,22 +115,22 @@ describe('sign-in seam', () => {
     });
     let refused: Response | undefined;
     const warned = await capturingWarnings(async () => {
-      refused = await requestCode(t, 'ada@example.com');
+      refused = await requestCode(t, RECIPIENT);
       await delivered(t);
     });
     expect(mails).toHaveLength(1);
     expect(refused!.status).toBe(sent.status);
     expect(await refused!.json()).toEqual(await sent.json());
     expect(warned).toContain('sign_in_code_refused');
-    expect(warned).not.toContain('ada@example.com');
+    expect(warned).not.toContain(RECIPIENT);
   });
 
   test('the log is the core’s to keep clean: a plain error, or a code carrying the address, is logged as unknown', async () => {
     const t = await setup();
     for (const refusal of [
-      new Error('refused for ada@example.com'),
-      new ConvexError({ code: 'refused for ada@example.com' }),
-      new ConvexError('ada@example.com'),
+      new Error(`refused for ${RECIPIENT}`),
+      new ConvexError({ code: `refused for ${RECIPIENT}` }),
+      new ConvexError(RECIPIENT),
     ]) {
       setExtensionsForTests({
         beforeSignInCode: async () => {
@@ -135,11 +138,11 @@ describe('sign-in seam', () => {
         },
       });
       const warned = await capturingWarnings(async () => {
-        await requestCode(t, 'ada@example.com');
+        await requestCode(t, RECIPIENT);
         await delivered(t);
       });
       expect(warned).toContain('refused by the extension seam: unknown');
-      expect(warned).not.toContain('ada@example.com');
+      expect(warned).not.toContain(RECIPIENT);
     }
     expect(mails).toEqual([]);
   });
@@ -149,7 +152,7 @@ describe('sign-in seam', () => {
     providerDelayMs = 400;
     const timed = async () => {
       const start = performance.now();
-      await requestCode(t, 'ada@example.com');
+      await requestCode(t, RECIPIENT);
       return performance.now() - start;
     };
     const accepted = await timed();
@@ -185,7 +188,7 @@ describe('sign-in seam', () => {
         asked += 1;
       },
     });
-    await requestCode(t, 'ada@example.com');
+    await requestCode(t, RECIPIENT);
     await delivered(t);
     expect(asked).toBe(0);
     expect(mails).toEqual([]);
