@@ -5,7 +5,12 @@ import { authComponent, createAuth } from './auth';
 import { extensions } from './extensions';
 import { registerApiRoutes } from './features/api/routes';
 import { appOrigin, resolveBrevo, timingSafeEqual } from './lib';
-import { providerErrorDescription, verifyState } from './lib/connectors';
+import {
+  providerErrorDescription,
+  randomToken,
+  sha256Base64Url,
+  verifyState,
+} from './lib/connectors';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -197,18 +202,23 @@ http.route({
       });
     const code = params.get('code');
     const state = params.get('state');
-    const failed = (error: string, description: string | null) =>
-      back(
-        `?${new URLSearchParams({ error, ...(description ? { error_description: description } : {}) })}`,
-      );
-    // The user refused, or the provider failed: its error code, and what it said about it.
+    const failedWith = (error: string) => back(`?error=${encodeURIComponent(error)}`);
+    // The user refused, or the provider failed.
     if (!code || !state) {
-      // Anyone can craft this address: free text is only carried for a state signed here, so a sentence shown in the CRM always comes from a connection it started.
-      const description =
-        state && (await verifyState(state))
-          ? providerErrorDescription(params.get('error_description'))
-          : null;
-      return failed(params.get('error') ?? 'missing_code', description);
+      const error = (params.get('error') ?? 'missing_code').slice(0, 100);
+      const description = providerErrorDescription(params.get('error_description'));
+      const payload = state && description ? await verifyState(state) : null;
+      if (!payload || !description) return failedWith(error);
+      // Free text never travels in the page's address, which anyone can craft: it waits behind a one-time token for the user who started.
+      const failed = randomToken();
+      const parked = await ctx.runMutation(internal.features.connectors.internal.failFromState, {
+        nonce: payload.n,
+        tokenHash: await sha256Base64Url(failed),
+        provider: payload.p,
+        error,
+        description,
+      });
+      return parked ? back(`#failed=${failed}`) : failedWith(error);
     }
     try {
       const outcome = await ctx.runAction(internal.features.connectors.actions.completeConnection, {
@@ -216,12 +226,11 @@ http.route({
         state,
       });
       // No session reaches this origin: the page finishes the connection, signed in. A fragment reaches no server log nor referrer.
-      return outcome.ok
-        ? back(`#finish=${outcome.finish}`)
-        : failed(outcome.error, outcome.description ?? null);
+      if (outcome.ok) return back(`#finish=${outcome.finish}`);
+      return outcome.failed ? back(`#failed=${outcome.failed}`) : failedWith(outcome.error);
     } catch (e) {
       console.error('[connectors] callback failed', e);
-      return failed('internal', null);
+      return failedWith('internal');
     }
   }),
 });

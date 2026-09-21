@@ -60,3 +60,13 @@ export const connectorPendingAccountValidator = v.object({
   accessTokenExpiresAt: v.optional(v.number()),
   expiresAt: v.number(),
 });
+
+/** What a provider said about a failed connection, waiting for the user who started it: free text never travels in an address, only its one-time token (hashed here) does. */
+export const connectorFailureValidator = v.object({
+  tokenHash: v.string(),
+  userId: v.id('users'),
+  provider: connectorProviderValidator,
+  error: v.string(),
+  description: v.string(),
+  expiresAt: v.number(),
+});

@@ -98,6 +98,24 @@ export const finishConnection = employeeMutation({
   },
 });
 
+/** What the provider said about a connection that failed, handed once to the signed-in user who started it; null for anyone or anything else. */
+export const claimFailure = employeeMutation({
+  args: { token: v.string() },
+  returns: v.union(v.object({ error: v.string(), description: v.string() }), v.null()),
+  handler: async (ctx, { token }) => {
+    const tokenHash = await sha256Base64Url(token);
+    const failure = await ctx.db
+      .query('connectorFailures')
+      .withIndex('by_tokenHash', (q) => q.eq('tokenHash', tokenHash))
+      .unique();
+    if (!failure) return null;
+    // Returned, never thrown: a throw would roll the deletion back and leave the token usable.
+    await ctx.db.delete(failure._id);
+    if (failure.userId !== ctx.userId || failure.expiresAt < Date.now()) return null;
+    return { error: failure.error, description: failure.description };
+  },
+});
+
 /** Disconnects the caller's account: hidden at once, revoked at the provider, then removed. */
 export const disconnect = employeeMutation({
   args: { provider: connectorProviderValidator },

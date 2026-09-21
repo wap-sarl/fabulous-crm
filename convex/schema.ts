@@ -16,6 +16,7 @@ import { scoringRuleValidator, scoringStateValidator } from './_lib/validators/s
 import { appConfigValidator } from './_lib/validators/appConfig';
 import {
   connectorAccountValidator,
+  connectorFailureValidator,
   connectorPendingAccountValidator,
   connectorStateValidator,
 } from './_lib/validators/connectors';
@@ -344,6 +345,9 @@ const tables = {
     .index('by_nonceHash', ['nonceHash'])
     .index('by_expiresAt', ['expiresAt']),
   connectorPendingAccounts: defineTable(connectorPendingAccountValidator)
+    .index('by_tokenHash', ['tokenHash'])
+    .index('by_expiresAt', ['expiresAt']),
+  connectorFailures: defineTable(connectorFailureValidator)
     .index('by_tokenHash', ['tokenHash'])
     .index('by_expiresAt', ['expiresAt']),
 

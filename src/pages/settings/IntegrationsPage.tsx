@@ -220,30 +220,43 @@ export function IntegrationsPage() {
   const startConnection = useAuthMutation(api.features.connectors.mutations.startConnection);
   const disconnect = useAuthMutation(api.features.connectors.mutations.disconnect);
   const finishConnection = useAuthMutation(api.features.connectors.mutations.finishConnection);
-  const finishing = useRef<string | null>(null);
+  const claimFailure = useAuthMutation(api.features.connectors.mutations.claimFailure);
+  const claiming = useRef<string | null>(null);
   const [toDisconnect, setToDisconnect] = useState<{ provider: Provider; label: string } | null>(
     null,
   );
   const [busy, setBusy] = useState<Provider | null>(null);
 
-  // The callback lands here with a one-time token (in the fragment) to claim the account, or an error; then the address is cleaned.
+  // The callback lands here with a one-time token in the fragment (the account to claim, or what the provider said), or an error code; then the address is cleaned.
   useEffect(() => {
-    const finish = new URLSearchParams(hash.slice(1)).get('finish');
+    const fragment = new URLSearchParams(hash.slice(1));
+    const finish = fragment.get('finish');
+    const failedToken = fragment.get('failed');
     const error = params.get('error');
-    if (!finish && !error) return;
+    if (!finish && !failedToken && !error) return;
+    // Only a code is ever read from the address: free text comes from the server, claimed with the token.
     const failed = (code: string | null, providerDescription: string | null = null) => {
       const { message, description } = describeConnectionError(code, providerDescription);
       toast.error(message, description ? { description } : undefined);
     };
-    // StrictMode runs the effect twice, the token is good once.
-    if (finish && finishing.current !== finish) {
-      finishing.current = finish;
-      finishConnection({ token: finish })
-        .then((outcome) => (outcome.ok ? toast.success('Compte connecté.') : failed(outcome.error)))
-        .catch(() => failed(null));
-    } else if (!finish) failed(error, params.get('error_description'));
+    const token = finish ?? failedToken;
+    // StrictMode runs the effect twice, a token is good once.
+    if (token && claiming.current !== token) {
+      claiming.current = token;
+      if (finish) {
+        finishConnection({ token: finish })
+          .then((outcome) =>
+            outcome.ok ? toast.success('Compte connecté.') : failed(outcome.error),
+          )
+          .catch(() => failed(null));
+      } else {
+        claimFailure({ token })
+          .then((failure) => failed(failure?.error ?? null, failure?.description ?? null))
+          .catch(() => failed(null));
+      }
+    } else if (!token) failed(error);
     navigate('/settings/integrations', { replace: true });
-  }, [params, hash, navigate, finishConnection]);
+  }, [params, hash, navigate, finishConnection, claimFailure]);
 
   const connect = async (provider: Provider) => {
     setBusy(provider);

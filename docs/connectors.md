@@ -32,8 +32,8 @@ Register the redirect address shown on the page in the provider's console. Reque
    nothing yet: the grant is parked in `connectorPendingAccounts`, tokens as ciphertext
    (`lib/crypto.ts`), under the hash of a one-time **finish token**, five minutes to live. The
    browser lands on « Intégrations » with `#finish=<token>` (a fragment: it reaches neither a
-   server log nor a referrer) or `?error=`, with `&error_description=` when the provider said
-   something (below).
+   server log nor a referrer), `?error=<code>`, or `#failed=<token>` when the provider said
+   something about a failure (below).
 4. The page calls `finishConnection({ token })`, signed in. The account is linked only when the
    caller is the user who started the connection: one account per user and provider. Anyone
    else, or a late token, burns it, and the parked grant is revoked at the provider; so is a
@@ -62,15 +62,26 @@ belt and braces, the property comes from here.
 A refusal by the user or a failure at the provider comes back as `error` and, often,
 `error_description`. The page maps the codes it knows (ours, and `access_denied`) to its own
 sentences; for any other code it shows a generic message with the provider's words under it,
-attributed (« Message du fournisseur : … »). Two rules keep that free text harmless:
+attributed (« Message du fournisseur : … »).
 
-- it is made one line, stripped of control characters and cut at 300 characters
-  (`providerErrorDescription`), URL-encoded in the redirect and rendered as text by React;
-- **the callback only carries it for a `state` signed by this deployment and not expired.**
-  Anyone can craft an address to `/connectors/callback`; without a state of ours no sentence
-  is carried, so text shown inside the CRM always belongs to a connection the CRM started in
-  the last ten minutes. The description of a failed code exchange comes from the deployment's
-  own request to the token endpoint and needs no such check.
+**Free text never travels in an address.** Both `/connectors/callback` and
+`/settings/integrations` can be crafted by anyone and sent to a signed-in user, so whatever
+the page read from its own query string could be made to say anything inside the CRM. The
+page therefore reads **a code and nothing else** from its address (`?error=`), and the
+provider's words take the same road as a connected account:
+
+1. The callback makes the description one line, strips control characters and cuts it at 300
+   characters (`providerErrorDescription`). It keeps it only for a `state` signed here, not
+   expired, **whose connection is still open**: the state row is consumed (the refused
+   connection is over) and the text is parked in `connectorFailures` for the user who started,
+   under the hash of a one-time token, five minutes to live. A failed code exchange parks
+   what the token endpoint said the same way, for the same user.
+2. The browser lands on « Intégrations » with `#failed=<token>`.
+3. The page calls `claimFailure({ token })`, signed in. The text is returned once, only to the
+   user who started the connection; anyone else, a second call or a late one gets nothing and
+   burns the token. Rows nobody claimed are swept by a later failure.
+
+Without a description, or without a state of ours, the landing is `?error=<code>` as before.
 
 ### Why the callback does not link the account
 
@@ -101,7 +112,7 @@ providers refuse wildcard redirect addresses, so one registered callback serves 
 - Route on `t`, refuse an expired or badly signed state, and redirect the browser to that
   deployment's `/connectors/callback?code=…&state=…` (or `?error=…&state=…`, with the provider's
   `error_description` next to `error` when there is one: forward the `state` with it, the
-  deployment only shows the description of a state it signed).
+  deployment only keeps the description of a connection it started and that is still open).
 - Never exchange the code. It could not: the exchange needs the client secret and the PKCE
   verifier, and the verifier never leaves this deployment. Replay protection also stays here
   (the nonce is consumed by the deployment), so a dispatcher may stay stateless.
