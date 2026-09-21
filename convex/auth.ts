@@ -16,9 +16,10 @@ import { decryptSecret } from './lib/crypto';
 import type { SsoProvider } from './_lib/validators/appConfig';
 import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } from './lib';
 import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
-import { internalAction, internalQuery, query } from './_generated/server';
+import { internalAction, internalMutation, internalQuery, query } from './_generated/server';
 import { resolveRoleAccess } from './lib/roles';
 import { gateInvitation, gateSignInCode } from './lib/gates';
+import { traceHookFailure } from './lib/observers';
 import { countPendingInvitations } from './lib/invitations';
 
 /**
@@ -183,12 +184,36 @@ function buildSocialProviders(ctx: GenericCtx<DataModel>): BetterAuthOptions['so
   return providers;
 }
 
-/** What a refusal leaves in the log: the overlay's code when it is one, never a message that could carry the address. */
-function loggableRefusal(error: unknown): string {
-  const code =
-    error instanceof ConvexError ? (error.data as { code?: unknown } | null)?.code : null;
-  return typeof code === 'string' && /^[a-z0-9_.:-]{1,64}$/i.test(code) ? code : 'unknown';
+export const SIGN_IN_HOOK_FAILURE_ENTITY_ID = 'extensions:beforeSignInCode';
+
+/** What the hook's throw means: a `ConvexError` is a refusal (its code, when it looks like one); anything else is an overlay bug. */
+function readSignInCodeThrow(
+  error: unknown,
+  email: string,
+): { refusal: string } | { failure: string } {
+  if (error instanceof ConvexError) {
+    const code = (error.data as { code?: unknown } | null)?.code;
+    return {
+      refusal: typeof code === 'string' && /^[a-z0-9_.:-]{1,64}$/i.test(code) ? code : 'unknown',
+    };
+  }
+  // The operator needs the message to fix the overlay; the address, should it be quoted there, is taken out.
+  const text = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  return { failure: text.replaceAll(email, '<address>').slice(0, 200) };
 }
+
+/** A broken sign-in hook stops every code: besides the error log, one audit row an hour says so where an admin looks. */
+export const traceSignInHookFailure = internalMutation({
+  args: { failure: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { failure }) => {
+    await traceHookFailure(ctx, SIGN_IN_HOOK_FAILURE_ENTITY_ID, {
+      event: 'beforeSignInCode_failed',
+      failure,
+    });
+    return null;
+  },
+});
 
 /**
  * A sign-in code was issued: hand its delivery to the scheduler and return. Better Auth awaits this
@@ -218,13 +243,19 @@ export const deliverSignInCode = internalAction({
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     if (cfg && cfg.auth.magicLinkEnabled === false) return null; // method disabled by admin
 
-    // Extension seam: the log names the refusal, never the address.
+    // Extension seam. Silence for the requester either way; the operator must tell a refusal from a broken overlay.
     try {
       await gateSignInCode(ctx, { email, type: 'sign-in' });
     } catch (error) {
-      console.warn(
-        `[sign-in] code not sent, refused by the extension seam: ${loggableRefusal(error)}`,
+      const thrown = readSignInCodeThrow(error, email);
+      if ('refusal' in thrown) {
+        console.warn(`[sign-in] code not sent, refused by the extension seam: ${thrown.refusal}`);
+        return null;
+      }
+      console.error(
+        `[sign-in] seam bug, code not sent (nobody can sign in by code): ${thrown.failure}`,
       );
+      await ctx.runMutation(internal.auth.traceSignInHookFailure, { failure: thrown.failure });
       return null;
     }
 

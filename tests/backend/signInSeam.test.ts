@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { ConvexError } from 'convex/values';
+import { internal } from '../../convex/_generated/api';
+import { SIGN_IN_HOOK_FAILURE_ENTITY_ID } from '../../convex/auth';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { describeSignInError, emailCodeForm } from '../../src/lib/errors';
 import { extensions as frontend } from '../../src/extensions';
@@ -75,18 +77,19 @@ const requestCode = (t: T, email: string) =>
     body: JSON.stringify({ email, type: 'sign-in' }),
   });
 
-/** Runs `fn` with console.warn captured, restored whatever happens. */
-async function capturingWarnings(fn: () => Promise<void>): Promise<string> {
-  const warn = console.warn;
+/** Runs `fn` with console.warn (or console.error) captured, restored whatever happens. */
+async function capturing(level: 'warn' | 'error', fn: () => Promise<void>): Promise<string> {
+  const original = console[level];
   const lines: string[] = [];
-  console.warn = (...parts: unknown[]) => void lines.push(parts.join(' '));
+  console[level] = (...parts: unknown[]) => void lines.push(parts.join(' '));
   try {
     await fn();
   } finally {
-    console.warn = warn;
+    console[level] = original;
   }
   return lines.join('\n');
 }
+const capturingWarnings = (fn: () => Promise<void>) => capturing('warn', fn);
 
 describe('sign-in seam', () => {
   test('beforeSignInCode sees the normalised e-mail and why the code goes out; by default it goes out', async () => {
@@ -125,10 +128,9 @@ describe('sign-in seam', () => {
     expect(warned).not.toContain(RECIPIENT);
   });
 
-  test('the log is the core’s to keep clean: a plain error, or a code carrying the address, is logged as unknown', async () => {
+  test('the log is the core’s to keep clean: a refusal whose code carries the address, or has none, is logged as unknown', async () => {
     const t = await setup();
     for (const refusal of [
-      new Error(`refused for ${RECIPIENT}`),
       new ConvexError({ code: `refused for ${RECIPIENT}` }),
       new ConvexError(RECIPIENT),
     ]) {
@@ -144,6 +146,63 @@ describe('sign-in seam', () => {
       expect(warned).toContain('refused by the extension seam: unknown');
       expect(warned).not.toContain(RECIPIENT);
     }
+    expect(mails).toEqual([]);
+  });
+
+  test('an overlay bug is not a refusal: still silent for the requester, loud for the operator, traced once an hour', async () => {
+    const t = await setup();
+    const sent = await requestCode(t, RECIPIENT);
+    await delivered(t);
+    setExtensionsForTests({
+      beforeSignInCode: async () => {
+        throw new TypeError(`cannot read properties of undefined (looking up ${RECIPIENT})`);
+      },
+    });
+    let broken: Response | undefined;
+    const warned = await capturingWarnings(async () => {
+      const errors = await capturing('error', async () => {
+        broken = await requestCode(t, RECIPIENT);
+        await delivered(t);
+        await requestCode(t, RECIPIENT);
+        await delivered(t);
+      });
+      expect(errors).toContain('seam bug, code not sent');
+      expect(errors).toContain('TypeError: cannot read properties of undefined');
+      expect(errors).toContain('<address>');
+      expect(errors).not.toContain(RECIPIENT);
+    });
+    // Not a refusal: nothing at the warning level.
+    expect(warned).not.toContain('refused by the extension seam');
+    expect(broken!.status).toBe(sent.status);
+    expect(await broken!.json()).toEqual(await sent.json());
+    expect(mails).toHaveLength(1);
+    const traces = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => a.entityId === SIGN_IN_HOOK_FAILURE_ENTITY_ID,
+      ),
+    );
+    // Two failures within the hour, one row; a refusal leaves none.
+    expect(traces).toHaveLength(1);
+    expect(traces[0]!.metadata).toMatchObject({ event: 'beforeSignInCode_failed' });
+    expect(JSON.stringify(traces)).not.toContain(RECIPIENT);
+  });
+
+  test('the hook gets a usable action ctx: it can run a query of its own before deciding', async () => {
+    const t = await setup();
+    const seen: (string | undefined)[] = [];
+    setExtensionsForTests({
+      beforeSignInCode: async (ctx) => {
+        const config = await ctx.runQuery(internal.features.config.internal.getConfig);
+        seen.push(config?.organizationName);
+        if (config?.organizationName === 'Test') throw new ConvexError({ code: 'by_query' });
+      },
+    });
+    const warned = await capturingWarnings(async () => {
+      await requestCode(t, RECIPIENT);
+      await delivered(t);
+    });
+    expect(seen).toEqual(['Test']);
+    expect(warned).toContain('refused by the extension seam: by_query');
     expect(mails).toEqual([]);
   });
 

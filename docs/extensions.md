@@ -134,11 +134,21 @@ way to sort addresses. Two facts make it so:
   the scheduled function's arguments, which hold nothing the `verification` table does not.
 
 A refusal therefore cannot reach the login page as an error. Say who may use the form with
-`loginMethods` (Frontend), not with an error. The deployment's log gets the refusal's code, and
-the core keeps it clean: only the `code` of a `ConvexError`, when it looks like a code, is
-written; a plain error or anything else is logged as `unknown`, so an overlay cannot leak the
-address there by accident. Do the same work whatever the answer if the hook's own log or side
-effects could be observed.
+`loginMethods` (Frontend), not with an error.
+
+**A refusal is a `ConvexError`; anything else is a bug.** For the requester both are the same
+silence. For the operator they are not: a refusal is a warning carrying its code (only a `code`
+that looks like one is written, `unknown` otherwise, so an overlay cannot leak the address
+there by accident); a `TypeError`, a query that no longer exists or any other throw means
+nobody can sign in by code, so it is logged as an error (« seam bug, code not sent », the
+error's name and message, the address taken out if the message quotes it) and leaves a durable
+trace where an admin looks: one `auditLogs` row an hour at most, `appConfig` /
+`extensions:beforeSignInCode`, like a failing `afterChange`. Throw a `ConvexError` to refuse,
+never a plain `Error`.
+
+The hook is given the address and the type, **nothing else**: not the page's query string, not
+the requester's IP. The way in an overlay opens with `loginMethods` is presentation only; the
+decision here can only rest on who the address belongs to (a role, a domain, an invitation).
 
 What goes through the hook: every sign-in code, which includes the **first sign-in of an invited
 person** (the invitation e-mail carries no code, it sends them to the login page where they ask
