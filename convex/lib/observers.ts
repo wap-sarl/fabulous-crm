@@ -21,31 +21,38 @@ export async function notifyChange(ctx: MutationCtx, change: RecordChange): Prom
     if (traced.has(ctx)) return;
     traced.add(ctx);
     try {
-      const last = await ctx.db
-        .query('auditLogs')
-        .withIndex('by_entity', (q) =>
-          q.eq('entityType', 'appConfig').eq('entityId', HOOK_FAILURE_ENTITY_ID),
-        )
-        .order('desc')
-        .first();
-      if (last && Date.now() - last.timestamp < HOOK_FAILURE_TRACE_MS) return;
-      // Inserted directly: going through logAudit would call the failing hook again.
-      await ctx.db.insert('auditLogs', {
-        entityType: 'appConfig',
-        entityId: HOOK_FAILURE_ENTITY_ID,
-        action: 'update',
-        timestamp: Date.now(),
-        metadata: {
-          event: 'afterChange_failed',
-          code,
-          change:
-            change.type === 'audit'
-              ? { type: 'audit', entityType: change.entityType, action: change.action }
-              : { type: 'lifecycle' },
-        },
+      await traceHookFailure(ctx, HOOK_FAILURE_ENTITY_ID, {
+        event: 'afterChange_failed',
+        code,
+        change:
+          change.type === 'audit'
+            ? { type: 'audit', entityType: change.entityType, action: change.action }
+            : { type: 'lifecycle' },
       });
     } catch (traceError) {
       console.error('afterChange failure not traced', refusalCode(traceError));
     }
   }
+}
+
+/** The durable trace of a failing hook: at most one audit row per `entityId` every HOOK_FAILURE_TRACE_MS. */
+export async function traceHookFailure(
+  ctx: MutationCtx,
+  entityId: string,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  const last = await ctx.db
+    .query('auditLogs')
+    .withIndex('by_entity', (q) => q.eq('entityType', 'appConfig').eq('entityId', entityId))
+    .order('desc')
+    .first();
+  if (last && Date.now() - last.timestamp < HOOK_FAILURE_TRACE_MS) return;
+  // Inserted directly: going through logAudit would call the observers again.
+  await ctx.db.insert('auditLogs', {
+    entityType: 'appConfig',
+    entityId,
+    action: 'update',
+    timestamp: Date.now(),
+    metadata,
+  });
 }

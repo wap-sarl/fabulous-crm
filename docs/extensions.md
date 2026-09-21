@@ -18,6 +18,7 @@ tables; everything else in the repository stays untouched.
 |---|---|---|
 | `beforeEmployeeCall(ctx)` | first line of `employeeQuery`, `employeeMutation`, `settingsQuery`, `settingsMutation`, `employeeAction` | throw to refuse the call |
 | `publicConfig(ctx)` | `getPublicConfig`, before login | fields merged into the public config (core fields win) |
+| `beforeSignInCode(ctx, { email, type })` | `deliverSignInCode` in `convex/auth.ts`, the scheduled action that e-mails a sign-in code: after the per-address rate limit and the `magicLinkEnabled` toggle, before anything is sent; `email` is trimmed and lower-cased, `type` is `'sign-in'` | throw to refuse: nothing is sent and **the requester is told nothing**, neither by the answer nor by its speed (see Sign-in) |
 | `beforeInvitation(ctx, { stage, pending })` | invitation creation (`stage: 'create'`) and acceptance in the Better Auth provisioning hook (`stage: 'accept'`); `pending` = open invitations | throw to refuse |
 | `beforeLeadCreate(ctx, { count, source })` | a lead becoming live: creation (`crm`), CSV import (`import`, `count` = the rows of the import, updates and invalid rows included, by decision: no matching pass before the gate) and the public API (`api`, creation and revival by upsert) | throw to refuse |
 | `beforeSend(ctx, info)` | campaigns at four stages — `create` (`count: 1`, before any recipient is materialised), `preparing` (each 200-lead preparation page, `count` = recipients with a contact so far), `prepared` (last page, final count) and `resend` (retry of one send or resend of all, `count` = messages re-queued) — and each workflow send step (`count: 1`) | throw to refuse: `create` and `resend` propagate the error to the caller; `preparing` / `prepared` mark the campaign `failed` with the code in `failureReason`; a workflow step is logged `skipped` with the code |
@@ -106,6 +107,64 @@ lose events watches that row, or its own outbox, itself.
 an overlay importing from `convex/lib` closes no cycle, as long as it reads nothing from those
 modules at its own top level.
 
+## Sign-in
+
+`beforeSignInCode` is the seam's one point of contact with sign-in, and it is enough for the
+e-mail code method: a code nobody received cannot be used, so nothing needs to happen at
+verification. (The code does exist: Better Auth stores it in its `verification` table before
+asking for it to be sent, and the request counted against the rate limits. Nobody knows it, and
+it expires like any other.)
+
+**A refusal is silent, in content and in time.** The hook decides on an address typed by anyone,
+so neither the answer nor its speed may depend on the decision, or the login page becomes a
+way to sort addresses. Two facts make it so:
+
+- Better Auth answers `send-verification-otp` the same way whatever `sendVerificationOTP` does,
+  but it **awaits** it: `plugins/email-otp/routes.mjs` calls
+  `ctx.context.runInBackgroundOrAwait(opts.sendVerificationOTP(…))`, and
+  `context/create-context.mjs` only runs it in the background when
+  `advanced.backgroundTasks.handler` is set; otherwise it awaits and swallows what is thrown
+  (better-auth 1.6.15). That handler is not set here, and should not be: a promise left running
+  after a Convex HTTP action answered has no guarantee of finishing. So a decision taken in
+  `sendVerificationOTP` would show in the response time.
+- So `sendVerificationOTP` does one thing for every address: it hands the delivery to the
+  scheduler (`deliverSignInCode`) and returns. The rate limit, the toggle, this hook, the dev
+  whitelist and the provider call all run in that scheduled action, out of the request's path,
+  and a scheduled function is durable where an un-awaited promise is not. The code travels in
+  the scheduled function's arguments, which hold nothing the `verification` table does not.
+  The surface differs, though: those arguments show in the Convex dashboard (the scheduled
+  functions list, the logs), where the table has to be looked for. Same readers, whoever
+  operates the deployment; do not be surprised to see a six-digit code there, it lives twenty
+  minutes.
+
+A refusal therefore cannot reach the login page as an error. Say who may use the form with
+`loginMethods` (Frontend), not with an error.
+
+**A refusal is a `ConvexError`; anything else is a bug.** For the requester both are the same
+silence. For the operator they are not: a refusal is a warning carrying its code (only a `code`
+that looks like one is written, `unknown` otherwise, so an overlay cannot leak the address
+there by accident); a `TypeError`, a query that no longer exists or any other throw means
+nobody can sign in by code, so it is logged as an error (« seam bug, code not sent », the
+error's name and message, the address taken out if the message quotes it) and leaves a durable
+trace where an admin looks: one `auditLogs` row an hour at most, `appConfig` /
+`extensions:beforeSignInCode`, like a failing `afterChange`. Throw a `ConvexError` to refuse,
+never a plain `Error`.
+
+The hook is given the address and the type, **nothing else**: not the page's query string, not
+the requester's IP. The way in an overlay opens with `loginMethods` is presentation only; the
+decision here can only rest on who the address belongs to (a role, a domain, an invitation).
+
+What goes through the hook: every sign-in code, which includes the **first sign-in of an invited
+person** (the invitation e-mail carries no code, it sends them to the login page where they ask
+for one). An overlay that refuses codes for some people also keeps their invitees from coming
+in that way; they sign in with a provider instead. `type` says why the code goes out, in Better
+Auth's terms; only `'sign-in'` is wired, since the CRM has neither passwords nor address
+verification, and the field is there so the contract does not have to change when that does.
+Providers (social, SSO) are not asked: an overlay that wants people to use them only has to
+refuse the code.
+
+The hook runs in an action: no `ctx.db`, use `ctx.runQuery` on a function of the overlay's own.
+
 ## Refusals
 
 A hook refuses by throwing. Throw a `ConvexError` whose data is `{ code, ...details }` to give
@@ -131,10 +190,23 @@ rolls the caller back. Keep them cheap; they run on every call.
 - `ShellGuard`: a component wrapping the shell; render `children` to show the app, or
   something else (a billing page, a maintenance notice) to replace it.
 - `describeRefusal`: optional; turns one of the overlay's refusal codes (with the ConvexError
-  data) into a user message, null for codes it does not own.
+  data) into a user message, null for codes it does not own. The login page asks it first for
+  every sign-in error (`describeSignInError`), with the error's message then its code: a
+  refusal thrown by `beforeInvitation` at acceptance surfaces there, and so do Better Auth's own
+  messages in clear (« Invalid email »). **Match codes exactly**, never with `includes`.
+- `loginMethods(config, search)`: optional; the login page asks before showing the e-mail code
+  form. `config` is the public config, the overlay's `publicConfig` fields included; `search` is
+  the page's query string, so the overlay can keep a way in of its choosing. `{ emailCode: false }`
+  hides the form (the providers stay); `{ emailCodeNotice }` puts a sentence under it. It can only
+  narrow: a method the deployment disabled stays disabled. While the public config loads, a page
+  whose overlay defines `loginMethods` shows no form (none that could vanish a moment later).
+  Hiding the form is presentation, the enforcement is `beforeSignInCode`. The page's rendering
+  is not covered by tests (there is no frontend harness); its decisions are two pure functions,
+  which are.
 
 ## Tests
 
 `setExtensionsForTests(overrides)` in `convex/extensions.ts` swaps hooks for the duration of a
 `bun:test` case, since the functions run in-process; pass `null` to restore the defaults. See
-`tests/backend/extensions.test.ts`.
+`tests/backend/extensions.test.ts`, and `tests/backend/signInSeam.test.ts` for the sign-in hook
+(through Better Auth's own route) and the login page's two functions.

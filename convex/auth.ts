@@ -5,7 +5,7 @@ import { convex, crossDomain } from '@convex-dev/better-auth/plugins';
 import { createClient, type GenericCtx } from '@convex-dev/better-auth';
 import { isActionCtx } from '@convex-dev/better-auth/utils';
 import { makeFunctionReference } from 'convex/server';
-import { v } from 'convex/values';
+import { ConvexError, v } from 'convex/values';
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
@@ -16,9 +16,10 @@ import { decryptSecret } from './lib/crypto';
 import type { SsoProvider } from './_lib/validators/appConfig';
 import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } from './lib';
 import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
-import { internalQuery, query } from './_generated/server';
+import { internalAction, internalMutation, internalQuery, query } from './_generated/server';
 import { resolveRoleAccess } from './lib/roles';
-import { gateInvitation } from './lib/gates';
+import { gateInvitation, gateSignInCode } from './lib/gates';
+import { traceHookFailure } from './lib/observers';
 import { countPendingInvitations } from './lib/invitations';
 
 /**
@@ -183,45 +184,101 @@ function buildSocialProviders(ctx: GenericCtx<DataModel>): BetterAuthOptions['so
   return providers;
 }
 
+export const SIGN_IN_HOOK_FAILURE_ENTITY_ID = 'extensions:beforeSignInCode';
+
+/** What the hook's throw means: a `ConvexError` is a refusal (its code, when it looks like one); anything else is an overlay bug. */
+function readSignInCodeThrow(
+  error: unknown,
+  email: string,
+): { refusal: string } | { failure: string } {
+  if (error instanceof ConvexError) {
+    const code = (error.data as { code?: unknown } | null)?.code;
+    return {
+      refusal: typeof code === 'string' && /^[a-z0-9_.:-]{1,64}$/i.test(code) ? code : 'unknown',
+    };
+  }
+  // The operator needs the message to fix the overlay; the address, should it be quoted there, is taken out.
+  const text = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  return { failure: text.replaceAll(email, '<address>').slice(0, 200) };
+}
+
+/** A broken sign-in hook stops every code: besides the error log, one audit row an hour says so where an admin looks. */
+export const traceSignInHookFailure = internalMutation({
+  args: { failure: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { failure }) => {
+    await traceHookFailure(ctx, SIGN_IN_HOOK_FAILURE_ENTITY_ID, {
+      event: 'beforeSignInCode_failed',
+      failure,
+    });
+    return null;
+  },
+});
+
 /**
- * Send a passwordless sign-in email through Brevo. Runs inside the Better Auth
- * request handler (an action ctx), so it can read the runtime `appConfig` for
- * the magic-link toggle + sender overrides. The 6-digit OTP rides in the link's
- * query string (`?otp=`) so clicking it lands on `/auth/continue` and signs in.
+ * A sign-in code was issued: hand its delivery to the scheduler and return. Better Auth awaits this
+ * (better-auth 1.6.15, `runInBackgroundOrAwait` without a `backgroundTasks` handler), so anything
+ * decided here per address (the seam's refusal, the dev whitelist) would show in the response time.
  */
 async function sendSignInOtp(
   ctx: GenericCtx<DataModel>,
   { email, otp }: { email: string; otp: string },
 ): Promise<void> {
-  // Sending needs an action ctx: to read the config and to run the node email
-  // action (SMTP uses nodemailer, which can't be imported here). Non-action ctx
-  // (schema gen etc.) never actually sends a sign-in email.
+  // Non-action ctx (schema gen etc.) never sends a sign-in email.
   if (!isActionCtx(ctx)) return;
-
-  if (!(await enforceRateLimit(ctx, 'otpEmail', email))) {
-    throw new Error('Trop de demandes de code. Réessayez dans quelques minutes.');
-  }
-
-  const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-  if (cfg && cfg.auth.magicLinkEnabled === false) return; // method disabled by admin
-
-  const appUrl = (cfg?.appUrl || appOrigin()).replace(/\/+$/, '');
-  const params = new URLSearchParams({ email, otp });
-  const confirmUrl = `${appUrl}/auth/continue?${params.toString()}`;
-
-  if (!isEmailWhitelisted(email, process.env.DEV_WHITELIST_EMAILS)) {
-    console.warn(`[DEV WHITELIST] Sign-in email blocked: ${email}`);
-    return;
-  }
-
-  // Dispatch through the active email provider (Brevo API or SMTP). The sender
-  // identity is resolved from appConfig inside the action (resolveEmailProvider).
-  await ctx.runAction(internal.features.email.actions.sendProviderEmail, {
-    to: email,
-    subject: LOGIN_EMAIL.subject,
-    htmlContent: generateEmailHtml(confirmUrl, LOGIN_EMAIL, LOGIN_ACCENT),
-  });
+  await ctx.scheduler.runAfter(0, internal.auth.deliverSignInCode, { email, otp });
 }
+
+/**
+ * Decides whether the code goes out, and sends it through the active provider. The 6-digit OTP
+ * rides in the link's query string (`?otp=`) so clicking it lands on `/auth/continue` and signs in.
+ * Every refusal is silent: the requester got the same answer, at the same speed, either way.
+ */
+export const deliverSignInCode = internalAction({
+  args: { email: v.string(), otp: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { email, otp }) => {
+    if (!(await enforceRateLimit(ctx, 'otpEmail', email))) return null;
+
+    const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
+    if (cfg && cfg.auth.magicLinkEnabled === false) return null; // method disabled by admin
+
+    // Extension seam. Silence for the requester either way; the operator must tell a refusal from a broken overlay.
+    try {
+      await gateSignInCode(ctx, { email, type: 'sign-in' });
+    } catch (error) {
+      const thrown = readSignInCodeThrow(error, email);
+      if ('refusal' in thrown) {
+        console.warn(`[sign-in] code not sent, refused by the extension seam: ${thrown.refusal}`);
+        return null;
+      }
+      console.error(
+        `[sign-in] seam bug, code not sent (nobody can sign in by code): ${thrown.failure}`,
+      );
+      await ctx.runMutation(internal.auth.traceSignInHookFailure, { failure: thrown.failure });
+      return null;
+    }
+
+    if (!isEmailWhitelisted(email, process.env.DEV_WHITELIST_EMAILS)) {
+      console.warn(`[DEV WHITELIST] Sign-in email blocked: ${email}`);
+      return null;
+    }
+
+    const appUrl = (cfg?.appUrl || appOrigin()).replace(/\/+$/, '');
+    const params = new URLSearchParams({ email, otp });
+    // Dispatch through the active email provider (Brevo API or SMTP); the sender is resolved inside the action.
+    await ctx.runAction(internal.features.email.actions.sendProviderEmail, {
+      to: email,
+      subject: LOGIN_EMAIL.subject,
+      htmlContent: generateEmailHtml(
+        `${appUrl}/auth/continue?${params.toString()}`,
+        LOGIN_EMAIL,
+        LOGIN_ACCENT,
+      ),
+    });
+    return null;
+  },
+});
 
 /**
  * The `genericOAuth` block for custom OIDC/SSO issuers, built from the DB config
