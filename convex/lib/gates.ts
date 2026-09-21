@@ -6,13 +6,14 @@ import {
   SCHEDULED_WORK_RETRY_MS,
   type ScheduledWorkKind,
   type SendInfo,
+  type SignInCodeInfo,
 } from './extensionTypes';
 
 // Every gate of the extension seam is invoked from here, named after the unit it bills (docs/extensions.md); the observers live in observers.ts.
 
-/** A sign-in code about to be e-mailed; the caller turns a refusal into silence, as the sign-in request answers the same either way. */
-export async function gateSignInCode(ctx: ActionCtx, email: string): Promise<void> {
-  await extensions.beforeSignInCode(ctx, { email });
+/** A code about to be e-mailed, asked from the scheduled delivery so the sign-in request answers the same, as fast, either way. */
+export async function gateSignInCode(ctx: ActionCtx, info: SignInCodeInfo): Promise<void> {
+  await extensions.beforeSignInCode(ctx, info);
 }
 
 /** Leads about to become live; nothing is asked when none does. */

@@ -24,7 +24,7 @@ export function describeError(error: unknown, fallback: string): string {
 
 export const SIGN_IN_GENERIC_ERROR = 'Une erreur est survenue. Veuillez réessayer.';
 
-/** A Better Auth sign-in error as a French message: the overlay's own codes first, then the core's. */
+/** A Better Auth sign-in error as a French message: the overlay's own codes first (it sees Better Auth's messages too), then the core's. */
 export function describeSignInError(err: { code?: string; message?: string } | null): string {
   // A refusal from the seam travels as the error's message, under Better Auth's own `code`.
   for (const code of [err?.message, err?.code]) {
@@ -44,11 +44,11 @@ export function emailCodeForm(
   config: { auth: { magicLink: boolean } } | undefined,
   search: URLSearchParams,
 ): { shown: boolean; notice: string | null } {
-  const own = config?.auth.magicLink ?? true;
-  const decided: LoginMethods | null | undefined = config
-    ? extensions.loginMethods?.(config as Record<string, unknown>, search)
-    : null;
+  // An overlay decides from the config: until it arrives nothing is shown, rather than a form that may vanish.
+  if (!config) return { shown: !extensions.loginMethods, notice: null };
+  const decided: LoginMethods | null =
+    extensions.loginMethods?.(config as Record<string, unknown>, search) ?? null;
   // A method the deployment disabled stays disabled, whatever the overlay answers.
-  const shown = own && decided?.emailCode !== false;
+  const shown = config.auth.magicLink && decided?.emailCode !== false;
   return { shown, notice: shown ? (decided?.emailCodeNotice ?? null) : null };
 }

@@ -53,13 +53,19 @@ export interface ApiRefusal {
   details?: unknown;
 }
 
+/** Why a code is going out, as Better Auth names it; only `sign-in` is wired today (the CRM has no password nor address verification). */
+export interface SignInCodeInfo {
+  email: string;
+  type: 'sign-in';
+}
+
 export interface Extensions {
   /** First thing every employee, settings and employee-action wrapper does; throw to refuse. */
   beforeEmployeeCall(ctx: QueryCtx | MutationCtx | ActionCtx): Promise<void>;
   /** Extra fields merged into `getPublicConfig`, readable before login. */
   publicConfig(ctx: QueryCtx): Promise<Record<string, unknown>>;
-  /** A sign-in code is about to be e-mailed; throw to refuse: nothing is sent (a code never sent cannot be used) and the requester is told nothing. */
-  beforeSignInCode(ctx: ActionCtx, info: { email: string }): Promise<void>;
+  /** A code is about to be e-mailed; throw to refuse: nothing is sent (a code nobody received cannot be used) and the requester is told nothing. */
+  beforeSignInCode(ctx: ActionCtx, info: SignInCodeInfo): Promise<void>;
   /** Invitation about to be created or accepted; `pending` counts the open ones; throw to refuse. */
   beforeInvitation(
     ctx: MutationCtx,

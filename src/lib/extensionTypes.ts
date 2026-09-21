@@ -14,7 +14,7 @@ export interface FrontendExtensions {
   navItems: ShellNavItem[];
   /** Wraps the whole authenticated shell; may render something else instead of its children. */
   ShellGuard: ComponentType<{ children: ReactNode }> | null;
-  /** A user message for one of the overlay's refusal codes (`describeError`), null for the rest. */
+  /** A user message for one of the overlay's refusal codes (`describeError`), null for the rest: match codes exactly, other errors' messages pass through here too. */
   describeRefusal?: (refusal: Refusal) => string | null;
   /** The login page asks before showing the e-mail code form; `config` is the public config, the overlay's own fields included. */
   loginMethods?: (config: Record<string, unknown>, search: URLSearchParams) => LoginMethods | null;

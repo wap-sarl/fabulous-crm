@@ -336,7 +336,7 @@ export function LoginPage({
           </form>
         )}
 
-        {!magicLinkEnabled && !hasOauthProvider && (
+        {config !== undefined && !magicLinkEnabled && !hasOauthProvider && (
           <p className="text-center text-sm text-soft">
             Aucune méthode de connexion n'est configurée.
           </p>
