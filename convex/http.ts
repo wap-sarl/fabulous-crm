@@ -5,6 +5,7 @@ import { authComponent, createAuth } from './auth';
 import { extensions } from './extensions';
 import { registerApiRoutes } from './features/api/routes';
 import { appOrigin, resolveBrevo, timingSafeEqual } from './lib';
+import { providerErrorDescription, verifyState } from './lib/connectors';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -196,9 +197,18 @@ http.route({
       });
     const code = params.get('code');
     const state = params.get('state');
-    // The user refused, or the provider failed: its error code is all there is to show.
+    const failed = (error: string, description: string | null) =>
+      back(
+        `?${new URLSearchParams({ error, ...(description ? { error_description: description } : {}) })}`,
+      );
+    // The user refused, or the provider failed: its error code, and what it said about it.
     if (!code || !state) {
-      return back(`?error=${encodeURIComponent(params.get('error') ?? 'missing_code')}`);
+      // Anyone can craft this address: free text is only carried for a state signed here, so a sentence shown in the CRM always comes from a connection it started.
+      const description =
+        state && (await verifyState(state))
+          ? providerErrorDescription(params.get('error_description'))
+          : null;
+      return failed(params.get('error') ?? 'missing_code', description);
     }
     try {
       const outcome = await ctx.runAction(internal.features.connectors.actions.completeConnection, {
@@ -206,12 +216,12 @@ http.route({
         state,
       });
       // No session reaches this origin: the page finishes the connection, signed in. A fragment reaches no server log nor referrer.
-      return back(
-        outcome.ok ? `#finish=${outcome.finish}` : `?error=${encodeURIComponent(outcome.error)}`,
-      );
+      return outcome.ok
+        ? back(`#finish=${outcome.finish}`)
+        : failed(outcome.error, outcome.description ?? null);
     } catch (e) {
       console.error('[connectors] callback failed', e);
-      return back('?error=internal');
+      return failed('internal', null);
     }
   }),
 });

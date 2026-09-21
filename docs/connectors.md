@@ -32,7 +32,8 @@ Register the redirect address shown on the page in the provider's console. Reque
    nothing yet: the grant is parked in `connectorPendingAccounts`, tokens as ciphertext
    (`lib/crypto.ts`), under the hash of a one-time **finish token**, five minutes to live. The
    browser lands on « Intégrations » with `#finish=<token>` (a fragment: it reaches neither a
-   server log nor a referrer) or `?error=`.
+   server log nor a referrer) or `?error=`, with `&error_description=` when the provider said
+   something (below).
 4. The page calls `finishConnection({ token })`, signed in. The account is linked only when the
    caller is the user who started the connection: one account per user and provider. Anyone
    else, or a late token, burns it, and the parked grant is revoked at the provider; so is a
@@ -46,6 +47,30 @@ Register the redirect address shown on the page in the provider's console. Reque
 6. Disconnecting hides the account at once, revokes the grant at the provider when it has an
    endpoint for that (Google; Microsoft has none for a refresh token), then deletes the row.
    A user who reconnects before that ran keeps the fresh grant: the revocation steps aside.
+
+### The authorisation code never reaches a page
+
+`/connectors/callback` is an HTTP action: it renders nothing and answers with a redirect of its
+own (`Cache-Control: no-store`). No page therefore ever has the code in its address, so no
+referrer can carry it and no script on a page can read it; the code is spent server-side
+before the browser lands anywhere. The finish token travels in the fragment for the same
+reason. A dispatcher in front (below) forwards with `Referrer-Policy: no-referrer`; that is
+belt and braces, the property comes from here.
+
+### When the provider says no
+
+A refusal by the user or a failure at the provider comes back as `error` and, often,
+`error_description`. The page maps the codes it knows (ours, and `access_denied`) to its own
+sentences; for any other code it shows a generic message with the provider's words under it,
+attributed (« Message du fournisseur : … »). Two rules keep that free text harmless:
+
+- it is made one line, stripped of control characters and cut at 300 characters
+  (`providerErrorDescription`), URL-encoded in the redirect and rendered as text by React;
+- **the callback only carries it for a `state` signed by this deployment and not expired.**
+  Anyone can craft an address to `/connectors/callback`; without a state of ours no sentence
+  is carried, so text shown inside the CRM always belongs to a connection the CRM started in
+  the last ten minutes. The description of a failed code exchange comes from the deployment's
+  own request to the token endpoint and needs no such check.
 
 ### Why the callback does not link the account
 
@@ -74,7 +99,9 @@ providers refuse wildcard redirect addresses, so one registered callback serves 
   The JSON is `{ "t": <OAUTH_CALLBACK_TENANT>, "p": "google"|"microsoft", "n": <nonce>, "e": <expiry, Unix seconds> }`;
   the MAC is computed over the base64url body, under the key `"connector-state:" + OAUTH_STATE_SECRET`.
 - Route on `t`, refuse an expired or badly signed state, and redirect the browser to that
-  deployment's `/connectors/callback?code=…&state=…` (or `?error=…&state=…`).
+  deployment's `/connectors/callback?code=…&state=…` (or `?error=…&state=…`, with the provider's
+  `error_description` next to `error` when there is one: forward the `state` with it, the
+  deployment only shows the description of a state it signed).
 - Never exchange the code. It could not: the exchange needs the client secret and the PKCE
   verifier, and the verifier never leaves this deployment. Replay protection also stays here
   (the nonce is consumed by the deployment), so a dispatcher may stay stateless.

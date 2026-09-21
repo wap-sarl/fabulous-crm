@@ -10,6 +10,7 @@ import {
   ACCESS_TOKEN_MARGIN_MS,
   idTokenClaims,
   PROVIDERS,
+  providerErrorDescription,
   randomToken,
   redirectUri,
   sha256Base64Url,
@@ -58,7 +59,8 @@ async function revokeAtProvider(
 
 export type ConnectionOutcome =
   | { ok: true; provider: string; finish: string }
-  | { ok: false; error: string; provider?: string };
+  // `description`: what the provider's token endpoint said, when it said something.
+  | { ok: false; error: string; provider?: string; description?: string };
 
 /** The callback's work: the state is checked and consumed, the code exchanged here with the PKCE verifier, the grant parked. */
 export const completeConnection = internalAction({
@@ -85,7 +87,12 @@ export const completeConnection = internalAction({
       code_verifier: pending.codeVerifier,
     });
     if (tokens.error || !tokens.access_token) {
-      return { ok: false, error: tokens.error ?? 'token_exchange_failed', provider };
+      return {
+        ok: false,
+        error: tokens.error ?? 'token_exchange_failed',
+        provider,
+        description: providerErrorDescription(tokens.error_description) ?? undefined,
+      };
     }
     // Without a refresh token the connection would die with the access token.
     if (!tokens.refresh_token) return { ok: false, error: 'no_refresh_token', provider };

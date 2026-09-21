@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { signState, verifyState } from '../../convex/lib/connectors';
+import {
+  PROVIDER_ERROR_DESCRIPTION_MAX,
+  providerErrorDescription,
+  signState,
+  verifyState,
+} from '../../convex/lib/connectors';
+import { describeConnectionError } from '../../src/lib/connectors';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 const ENV = [
@@ -347,6 +353,75 @@ describe('connecting an account', () => {
     );
     expect(requests).toHaveLength(1);
     expect(await accounts(t)).toHaveLength(1);
+  });
+
+  test('the provider’s own words reach the page: bounded, encoded, and only for a connection this deployment started', async () => {
+    const { t, as } = await setup();
+    const state = (await start(as)).searchParams.get('state')!;
+    const landing = async (query: Record<string, string>) =>
+      new URL((await callback(t, query)).headers.get('Location')!);
+    // The user refused at the provider: the code and what the provider said about it, the state being ours.
+    const refused = await landing({
+      error: 'access_denied',
+      error_description: 'The user  denied\nthe request & closed the window',
+      state,
+    });
+    expect(Object.fromEntries(refused.searchParams)).toEqual({
+      error: 'access_denied',
+      error_description: 'The user denied the request & closed the window',
+    });
+    expect(refused.search).toContain('request+%26+closed');
+    // Bounded, whatever arrives.
+    const long = await landing({
+      error: 'server_error',
+      error_description: 'x'.repeat(2000),
+      state,
+    });
+    expect(long.searchParams.get('error_description')).toHaveLength(PROVIDER_ERROR_DESCRIPTION_MAX);
+    // Without a description, as before.
+    expect((await landing({ error: 'access_denied', state })).search).toBe('?error=access_denied');
+    // Anyone can craft the address: without a state signed here, no free text is carried into the CRM.
+    const forged = 'Votre compte est bloqué, appelez le 0800…';
+    for (const bad of [
+      {},
+      { state: 'garbage' },
+      {
+        state: await signState({
+          t: '',
+          p: 'google',
+          n: 'n',
+          e: Math.floor(Date.now() / 1000) - 1,
+        }),
+      },
+    ]) {
+      const crafted = await landing({ error: 'access_denied', error_description: forged, ...bad });
+      expect(crafted.search).toBe('?error=access_denied');
+    }
+    // A failed exchange carries what the token endpoint said, from the server's own request.
+    tokenAnswer = {
+      status: 400,
+      body: { error: 'invalid_grant', error_description: 'Code was already redeemed.' },
+    };
+    const failed = await landing({ code: 'c', state });
+    expect(Object.fromEntries(failed.searchParams)).toEqual({
+      error: 'invalid_grant',
+      error_description: 'Code was already redeemed.',
+    });
+    expect(providerErrorDescription(' \u0000\t ')).toBeNull();
+    expect(providerErrorDescription(undefined)).toBeNull();
+  });
+
+  test('the page says our sentence for a code it knows, and attributes the provider’s words otherwise', () => {
+    expect(describeConnectionError('access_denied', 'The user denied the request')).toEqual({
+      message: 'Vous avez refusé l’accès chez le fournisseur.',
+      description: null,
+    });
+    expect(describeConnectionError('server_error', ' Try again later. ')).toEqual({
+      message: 'La connexion a échoué. Recommencez.',
+      description: 'Message du fournisseur : Try again later.',
+    });
+    expect(describeConnectionError('server_error', null).description).toBeNull();
+    expect(describeConnectionError(null, '  ').description).toBeNull();
   });
 
   test('a grant without a refresh token, or a failed exchange, stores nothing', async () => {
