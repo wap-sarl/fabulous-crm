@@ -132,6 +132,10 @@ way to sort addresses. Two facts make it so:
   whitelist and the provider call all run in that scheduled action, out of the request's path,
   and a scheduled function is durable where an un-awaited promise is not. The code travels in
   the scheduled function's arguments, which hold nothing the `verification` table does not.
+  The surface differs, though: those arguments show in the Convex dashboard (the scheduled
+  functions list, the logs), where the table has to be looked for. Same readers, whoever
+  operates the deployment; do not be surprised to see a six-digit code there, it lives twenty
+  minutes.
 
 A refusal therefore cannot reach the login page as an error. Say who may use the form with
 `loginMethods` (Frontend), not with an error.

@@ -10,9 +10,9 @@ import { createTestConvex, seedEmployee, type T } from './helpers';
 const ENV = ['SITE_URL', 'CONVEX_SITE_URL', 'BETTER_AUTH_SECRET', 'DEV_WHITELIST_EMAILS'] as const;
 let saved: Record<string, string | undefined> = {};
 const realFetch = globalThis.fetch;
-/** Every request the deployment made to the e-mail provider, and how long the provider takes to answer. */
+/** Every mail the provider answered for, and a gate it waits on before answering, when a test holds one. */
 let mails: string[] = [];
-let providerDelayMs = 0;
+let providerGate: Promise<void> | null = null;
 const opened: T[] = [];
 /** An address no other test file uses. */
 const RECIPIENT = 'ada.sign-in-seam@example.com';
@@ -29,13 +29,13 @@ beforeEach(() => {
   delete process.env.DEV_WHITELIST_EMAILS;
   const mine: string[] = [];
   mails = mine;
-  providerDelayMs = 0;
+  providerGate = null;
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     // Another file's background work must neither be counted nor reach the network: only our recipient's mail is ours.
     const ours = url.includes('brevo.com') && String(init?.body ?? '').includes(RECIPIENT);
     if (!ours) return new Response(null, { status: 503 });
-    if (providerDelayMs) await new Promise((resolve) => setTimeout(resolve, providerDelayMs));
+    if (providerGate) await providerGate;
     mine.push(url);
     return new Response(JSON.stringify({ messageId: 'm1' }), { status: 201 });
   }) as typeof fetch;
@@ -206,33 +206,47 @@ describe('sign-in seam', () => {
     expect(mails).toEqual([]);
   });
 
-  test('the request never waits for the decision nor for the provider, so its duration says nothing about the address', async () => {
+  test('the request never waits for the decision nor for the provider: it returns while each is still held', async () => {
     const t = await setup();
-    providerDelayMs = 400;
-    const timed = async () => {
-      const start = performance.now();
+    // No clock: were the request waiting for what is held here, it would never return and the test would time out.
+    let release: () => void = () => {};
+    const hold = () =>
+      new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    try {
+      providerGate = hold();
       await requestCode(t, RECIPIENT);
-      return performance.now() - start;
-    };
-    const accepted = await timed();
-    // The request is back and nothing went out yet: the delivery runs on its own, then the mail leaves.
-    expect(mails).toEqual([]);
-    await delivered(t);
-    expect(mails).toHaveLength(1);
-    setExtensionsForTests({
-      beforeSignInCode: async () => {
-        throw new ConvexError({ code: 'sign_in_code_refused' });
-      },
-    });
-    const refused = await capturingWarnings(async () => {
-      expect(await timed()).toBeLessThan(providerDelayMs / 2);
+      expect(mails).toEqual([]);
+      release();
       await delivered(t);
-    });
-    // Both answered before the provider could have: neither branch is in the request's path.
-    expect(accepted).toBeLessThan(providerDelayMs / 2);
-    expect(refused).toContain('sign_in_code_refused');
-    await delivered(t);
-    expect(mails).toHaveLength(1);
+      expect(mails).toHaveLength(1);
+
+      providerGate = null;
+      const held = hold();
+      let asked = 0;
+      let decided = 0;
+      setExtensionsForTests({
+        beforeSignInCode: async () => {
+          asked += 1;
+          await held;
+          decided += 1;
+          throw new ConvexError({ code: 'sign_in_code_refused' });
+        },
+      });
+      const warned = await capturingWarnings(async () => {
+        await requestCode(t, RECIPIENT);
+        // The answer is back and the overlay has not decided yet.
+        expect(decided).toBe(0);
+        release();
+        await delivered(t);
+      });
+      expect([asked, decided]).toEqual([1, 1]);
+      expect(warned).toContain('sign_in_code_refused');
+      expect(mails).toHaveLength(1);
+    } finally {
+      release();
+    }
   });
 
   test('the hook is not asked when the deployment turned the method off', async () => {
