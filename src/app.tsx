@@ -29,6 +29,7 @@ import { EmailPage } from './pages/settings/EmailPage';
 import { PropertiesPage } from './pages/settings/PropertiesPage';
 import { DuplicatesPage } from './pages/leads/DuplicatesPage';
 import { FilesPage } from './pages/settings/FilesPage';
+import { RetentionPage } from './pages/settings/RetentionPage';
 import { RolesPage } from './pages/settings/RolesPage';
 import { RequireModule } from './features/access/components/RequireModule';
 import { LeadListsPage } from './pages/settings/LeadListsPage';
@@ -106,6 +107,7 @@ function AppRoutes() {
             <Route path="/settings/integrations" element={<IntegrationsPage />} />
             <Route path="/settings/pipelines" element={<PipelinesPage />} />
             <Route path="/settings/files" element={<FilesPage />} />
+            <Route path="/settings/retention" element={<RetentionPage />} />
             <Route path="/settings/roles" element={<RolesPage />} />
             <Route path="/design-system" element={<DesignSystemPage />} />
             {extensions.routes.map((route) => (

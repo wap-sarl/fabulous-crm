@@ -21,6 +21,8 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('workflow'),
   v.literal('workflowRun'),
   v.literal('connectorAccount'),
+  // One row per nightly purge run, with its counts (features/retention).
+  v.literal('retention'),
 );
 
 export const auditLogActionValidator = v.union(

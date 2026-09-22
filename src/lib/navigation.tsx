@@ -2,6 +2,7 @@ import {
   Building2,
   Gauge,
   Handshake,
+  Hourglass,
   KanbanSquare,
   KeyRound,
   LayoutGrid,
@@ -63,4 +64,5 @@ export const NAV_ITEMS: ShellNavItem[] = [
   settings({ label: 'Clés d’API', icon: <KeyRound />, path: '/settings/api' }),
   settings({ label: 'Pipelines', icon: <KanbanSquare />, path: '/settings/pipelines' }),
   settings({ label: 'Fichiers', icon: <Paperclip />, path: '/settings/files' }),
+  settings({ label: 'Conservation', icon: <Hourglass />, path: '/settings/retention' }),
 ];

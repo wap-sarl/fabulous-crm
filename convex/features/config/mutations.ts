@@ -1,4 +1,5 @@
 import { type ConnectorConfig, connectorProviderValidator } from '../../_lib/validators/connectors';
+import { isWithinRetentionBounds, RETENTION_KEYS } from '../../_lib/validators/retention';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
@@ -114,6 +115,9 @@ export const updateConfig = settingsMutation({
     attachmentsMaxSizeBytes: v.optional(v.number()),
     attachmentsRetentionDays: v.optional(v.number()),
     listsMaxDynamicLists: v.optional(v.number()),
+    retentionSoftDeleteDays: v.optional(v.number()),
+    retentionEventDays: v.optional(v.number()),
+    retentionAuditDays: v.optional(v.number()),
     connectors: v.optional(v.array(connectorInput)),
   },
   handler: async (ctx, args) => {
@@ -202,6 +206,19 @@ export const updateConfig = settingsMutation({
         )
       : undefined;
 
+    const retentionArgs = {
+      softDeleteDays: args.retentionSoftDeleteDays,
+      eventDays: args.retentionEventDays,
+      auditDays: args.retentionAuditDays,
+    };
+    for (const key of RETENTION_KEYS) {
+      const days = retentionArgs[key];
+      if (days !== undefined && !isWithinRetentionBounds(key, days)) {
+        throw new Error(`retention_out_of_bounds:${key}`);
+      }
+    }
+    const retentionChanged = RETENTION_KEYS.some((key) => retentionArgs[key] !== undefined);
+
     const mergedConnectors: ConnectorConfig[] | undefined = args.connectors
       ? await Promise.all(
           args.connectors.map(async (c) => {
@@ -277,6 +294,11 @@ export const updateConfig = settingsMutation({
         lists: { ...cfg.lists, maxDynamicLists: args.listsMaxDynamicLists },
       }),
       ...(mergedConnectors !== undefined && { connectors: mergedConnectors }),
+      ...(retentionChanged && {
+        retention: Object.fromEntries(
+          RETENTION_KEYS.map((key) => [key, retentionArgs[key] ?? cfg.retention?.[key]]),
+        ),
+      }),
       updatedAt: Date.now(),
       updatedBy: ctx.userId,
     });
