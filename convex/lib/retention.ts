@@ -55,6 +55,12 @@ export const emptyCounts = (): PurgeCounts =>
 export const addCounts = (a: PurgeCounts, b: PurgeCounts): PurgeCounts =>
   Object.fromEntries(PURGE_COUNT_KEYS.map((key) => [key, a[key] + b[key]])) as PurgeCounts;
 
+export const newPageState = (): PageState => ({
+  counts: emptyCounts(),
+  budget: PURGE_WRITE_BUDGET,
+  moreLeft: false,
+});
+
 export interface PageState {
   counts: PurgeCounts;
   /** Writes still allowed on this page. */
@@ -133,7 +139,7 @@ async function unlink<T extends { _id: Id<'deals'> | Id<'activities'> | Id<'lead
 }
 
 /** Everything a lead owns goes with it; a live deal or activity only loses its link. Returns whether the lead may go now. */
-async function purgeLeadRows(ctx: MutationCtx, state: PageState, leadId: Id<'leads'>) {
+export async function purgeLeadRows(ctx: MutationCtx, state: PageState, leadId: Id<'leads'>) {
   let pending = false;
   pending ||= await purgeRelated(ctx, state, (limit) =>
     ctx.db

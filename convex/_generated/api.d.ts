@@ -33,6 +33,7 @@ import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js
 import type * as _lib_validators_properties from "../_lib/validators/properties.js";
 import type * as _lib_validators_propertyTypes from "../_lib/validators/propertyTypes.js";
 import type * as _lib_validators_retention from "../_lib/validators/retention.js";
+import type * as _lib_validators_rgpd from "../_lib/validators/rgpd.js";
 import type * as _lib_validators_roles from "../_lib/validators/roles.js";
 import type * as _lib_validators_scoring from "../_lib/validators/scoring.js";
 import type * as _lib_validators_shared from "../_lib/validators/shared.js";
@@ -88,6 +89,10 @@ import type * as features_properties_mutations from "../features/properties/muta
 import type * as features_properties_queries from "../features/properties/queries.js";
 import type * as features_retention_internal from "../features/retention/internal.js";
 import type * as features_retention_queries from "../features/retention/queries.js";
+import type * as features_rgpd_actions from "../features/rgpd/actions.js";
+import type * as features_rgpd_internal from "../features/rgpd/internal.js";
+import type * as features_rgpd_mutations from "../features/rgpd/mutations.js";
+import type * as features_rgpd_queries from "../features/rgpd/queries.js";
 import type * as features_roles_mutations from "../features/roles/mutations.js";
 import type * as features_roles_queries from "../features/roles/queries.js";
 import type * as features_scoring_internal from "../features/scoring/internal.js";
@@ -190,6 +195,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/properties": typeof _lib_validators_properties;
   "_lib/validators/propertyTypes": typeof _lib_validators_propertyTypes;
   "_lib/validators/retention": typeof _lib_validators_retention;
+  "_lib/validators/rgpd": typeof _lib_validators_rgpd;
   "_lib/validators/roles": typeof _lib_validators_roles;
   "_lib/validators/scoring": typeof _lib_validators_scoring;
   "_lib/validators/shared": typeof _lib_validators_shared;
@@ -245,6 +251,10 @@ declare const fullApi: ApiFromModules<{
   "features/properties/queries": typeof features_properties_queries;
   "features/retention/internal": typeof features_retention_internal;
   "features/retention/queries": typeof features_retention_queries;
+  "features/rgpd/actions": typeof features_rgpd_actions;
+  "features/rgpd/internal": typeof features_rgpd_internal;
+  "features/rgpd/mutations": typeof features_rgpd_mutations;
+  "features/rgpd/queries": typeof features_rgpd_queries;
   "features/roles/mutations": typeof features_roles_mutations;
   "features/roles/queries": typeof features_roles_queries;
   "features/scoring/internal": typeof features_scoring_internal;

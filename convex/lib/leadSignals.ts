@@ -31,10 +31,11 @@ export async function stampLeadSignal(
 ): Promise<void> {
   const lead = await ctx.db.get(leadId);
   if (!lead || lead.deletedAt !== undefined) return;
+  const tracked = !lead.excludeFromProfiling;
 
   const patch: Partial<Doc<'leads'>> = {};
   if ((lead.lastActivityAt ?? 0) < at) patch.lastActivityAt = at;
-  if (kind !== 'activity') {
+  if (kind !== 'activity' && tracked) {
     const { lastField, countField } = SIGNAL_COLUMNS[kind];
     patch[countField] = (lead[countField] ?? 0) + 1;
     if ((lead[lastField] ?? 0) < at) patch[lastField] = at;

@@ -1,3 +1,4 @@
+import { rgpdRequestValidator } from './_lib/validators/rgpd';
 import { defineSchema, defineTable } from 'convex/server';
 import { extensionTables } from './extensionsSchema';
 import { userValidator } from './_lib/validators/users';
@@ -419,6 +420,9 @@ const tables = {
     .index('by_run', ['runId'])
     // Finished steps past their retention, per outcome, for the purge.
     .index('by_status_startedAt', ['status', 'startedAt']),
+
+  // The RGPD requests handled, one row each, kept after the contact is gone (validators/rgpd.ts).
+  rgpdRequests: defineTable(rgpdRequestValidator).index('by_lead', ['leadId']),
 
   // Singleton runtime config (org basics + SSO providers). Read with `.first()`.
   appConfig: defineTable(appConfigValidator),

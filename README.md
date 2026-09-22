@@ -172,6 +172,34 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
 - **Consentement RGPD** : page publique `/consent/:token` permettant à un lead
   de modifier ou révoquer ses consentements marketing (email, téléphone,
   postal), sans authentification.
+- **Droits des personnes (RGPD)** : sur la fiche d'un lead, carte « Droits de la
+  personne » réservée aux détenteurs du droit *Paramètres* (`features/rgpd`),
+  chaque action consignée dans le journal d'audit et dans la table
+  `rgpdRequests` (type, demandeur, contact, date, résultat ; l'identifiant du
+  contact y survit à son effacement, sans autre donnée). **Procédure** : la
+  demande arrive par n'importe quel canal ; un administrateur l'exécute depuis
+  la fiche **dans le mois** qui suit (article 12 du RGPD), et répond à la
+  personne avec le résultat. *Droit d'accès* : « Exporter ses données »
+  produit une archive JSON de tout ce que le CRM détient sur la personne
+  (fiche, entreprise, notes, listes, historique de statut, transactions et
+  activités liées, envois et événements de chaque campagne, enrôlements et
+  étapes de workflow, score et règles qui y contribuent, fichiers joints
+  (métadonnées), journal d'audit), rien sur d'autres personnes ; 2 000 lignes
+  par table au plus, l'archive dit quelles tables ont été tronquées. *Droit
+  d'opposition au profilage* : l'interrupteur arrête le scoring (score et
+  détail effacés, plus jamais recalculés) et les compteurs comportementaux
+  (ouvertures, clics, formulaires, pages vues) sans toucher à la fiche ; il se
+  lève de la même façon. *Droit à l'effacement* : après confirmation, la fiche
+  et tout ce qui lui appartient sont supprimés définitivement, par étapes
+  planifiées (même cascade que la purge de rétention : notes, envois, jetons de
+  liens et événements de campagne, enrôlements et étapes de workflow,
+  historique de statut, appartenances aux listes, paires de doublons, fichiers
+  et leurs blobs, journal d'audit de la fiche, de ses notes et de ses
+  enrôlements) ; une transaction ou une activité liée reste, sans lien, car
+  elle appartient à l'organisation ; il ne reste qu'une ligne d'audit anonyme
+  (identifiant, date, `rgpd: erasure`) et la ligne de `rgpdRequests`. Un lead
+  déjà dans la corbeille peut être effacé ; les sauvegardes s'éteignent avec
+  leur rétention (`docs/`). L'API publique n'expose pas ces actions.
 - **Auth** : magic link par email (Brevo) + code OTP, sessions stockées en base
   avec token en localStorage. Seuls les utilisateurs `employee` accèdent au CRM.
 - **API publique REST** : `/api/v1/` sur l'origine `.convex.site`, clés d'API à

@@ -45,6 +45,8 @@ export const leadValidator = v.object({
   companyId: v.optional(v.id('companies')),
 
   isRedFlagged: v.boolean(),
+  // Right to object (RGPD): no score, no behavioural counters, the contact itself untouched.
+  excludeFromProfiling: v.optional(v.boolean()),
 
   lifecycleStage: v.optional(v.string()),
 

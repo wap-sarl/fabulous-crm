@@ -25,6 +25,7 @@ import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfi
 import { LeadLifecycleCard } from '../../features/leads/components/LeadLifecycleCard';
 import { LeadScoreBadge } from '../../features/leads/components/LeadScoreBadge';
 import { LeadScoreCard } from '../../features/leads/components/LeadScoreCard';
+import { LeadRgpdCard } from '../../features/leads/components/LeadRgpdCard';
 import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
 import { LogCallDialog } from '../../features/activities/components/ActivityDialogs';
@@ -217,6 +218,12 @@ export function LeadDetailPage() {
               Copier le lien de consentement
             </Button>
           </Card>
+
+          <LeadRgpdCard
+            leadId={lead._id}
+            fullName={fullName}
+            excludeFromProfiling={lead.excludeFromProfiling ?? false}
+          />
         </div>
       </div>
 
