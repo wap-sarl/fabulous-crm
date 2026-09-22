@@ -4,7 +4,14 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { RETENTION_BOUNDS } from '../../convex/_lib/validators/retention';
 import crons from '../../convex/crons';
 import { setExtensionsForTests } from '../../convex/extensions';
-import { DAY_MS, PURGE_CASCADE_BATCH, PURGE_ENTITY_PAGE } from '../../convex/lib/retention';
+import {
+  DAY_MS,
+  emptyCounts,
+  PURGE_CASCADE_BATCH,
+  PURGE_ENTITY_PAGE,
+  PURGE_WRITE_BUDGET,
+  purgePage,
+} from '../../convex/lib/retention';
 import { insertListMember } from '../../convex/lib/leadListMembers';
 import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
 
@@ -236,6 +243,13 @@ describe('retention purge', () => {
         invitedAt: daysAgo(10),
         expiresAt: NOW + DAY_MS,
       });
+      // No expiry at all: never expired.
+      await ctx.db.insert('invitations', {
+        email: 'open-ended@example.com',
+        role: 'member',
+        status: 'pending',
+        invitedAt: daysAgo(900),
+      });
       await ctx.db.insert('invitations', {
         email: 'accepted@example.com',
         role: 'member',
@@ -305,7 +319,7 @@ describe('retention purge', () => {
     expect(await count(t, 'workflowRunSteps')).toBe(2);
     // Only the closed campaign past its retention lost its tokens.
     expect(await count(t, 'campaignLinkTokens')).toBe(2);
-    expect(await count(t, 'invitations')).toBe(2);
+    expect(await count(t, 'invitations')).toBe(3);
     expect(await count(t, 'apiIdempotencyKeys')).toBe(1);
     // One old audit row gone, one written by the run.
     expect(await count(t, 'auditLogs')).toBe(auditBefore);
@@ -540,5 +554,59 @@ describe('retention purge', () => {
     // The safety-net recount ran after the purge: the list carries a later stamp.
     const list = await t.run((ctx) => ctx.db.get(listId));
     expect(list?.lastRecalcAt ?? 0).toBeGreaterThan(stampBefore);
+  });
+
+  test('one page never writes more than its budget, whatever the local caps add up to', async () => {
+    const { t } = await setup();
+    // 20 leads with 150 notes each: every local cap is respected, the sum is not.
+    for (let i = 0; i < PURGE_ENTITY_PAGE; i += 1) {
+      const id = await seedLead(t, { email: `budget-${i}@example.com` });
+      await t.run(async (ctx) => {
+        for (let n = 0; n < 150; n += 1) {
+          await ctx.db.insert('leadNotes', {
+            leadId: id,
+            content: `n${n}`,
+            isPinned: false,
+            updatedAt: NOW,
+          });
+        }
+      });
+      await trash(t, id, 40);
+    }
+    const rowsBefore = (await count(t, 'leads')) + (await count(t, 'leadNotes'));
+    const policy = { softDeleteDays: 30, eventDays: 365, auditDays: 730 };
+    const page = await t.run((ctx) => purgePage(ctx, policy, NOW));
+    const rowsAfter = (await count(t, 'leads')) + (await count(t, 'leadNotes'));
+    expect(rowsBefore - rowsAfter).toBeLessThanOrEqual(PURGE_WRITE_BUDGET);
+    expect(rowsBefore - rowsAfter).toBeGreaterThan(PURGE_WRITE_BUDGET - PURGE_CASCADE_BATCH);
+    expect(page.moreLeft).toBe(true);
+    // The run then takes what the manual page left, and reports exactly that.
+    await purge(t);
+    expect(await count(t, 'leads')).toBe(0);
+    expect(await count(t, 'leadNotes')).toBe(0);
+    const [report] = await reports(t);
+    expect((report?.counts.related ?? 0) + (report?.counts.leads ?? 0)).toBe(rowsAfter);
+  });
+
+  test('the policy and the reference time are frozen on the first page: a setting changed mid-run does not apply', async () => {
+    const { t, as } = await setup();
+    await as.mutation(api.features.config.mutations.updateConfig, { retentionSoftDeleteDays: 5 });
+    const week = await seedLead(t, { email: 'week@example.com' });
+    await trash(t, week, 7);
+    // A continuation page arrives with the policy of its first page, 30 days, while the settings now say 5.
+    await t.mutation(internal.features.retention.internal.runPurge, {
+      startedAt: NOW,
+      page: 2,
+      counts: emptyCounts(),
+      policy: { softDeleteDays: 30, eventDays: 365, auditDays: 730 },
+    });
+    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    expect(await t.run((ctx) => ctx.db.get(week))).not.toBeNull();
+    const [report] = await reports(t);
+    expect(report).toMatchObject({ pages: 2, policy: { softDeleteDays: 30 } });
+    // The next run starts a fresh page and reads the settings.
+    await purge(t);
+    expect(await t.run((ctx) => ctx.db.get(week))).toBeNull();
+    expect((await reports(t)).at(-1)).toMatchObject({ pages: 1, policy: { softDeleteDays: 5 } });
   });
 });

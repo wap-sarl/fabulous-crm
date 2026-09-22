@@ -8,6 +8,8 @@ import { deleteListMember } from './leadListMembers';
 
 // The nightly purge, one bounded page at a time; features/retention/internal.ts chains the pages.
 
+/** Rows written (deleted or patched) per page, whatever the tables: the one bound the transaction sees. */
+export const PURGE_WRITE_BUDGET = 2000;
 /** Soft-deleted entities examined per page: each may drag hundreds of related rows along. */
 export const PURGE_ENTITY_PAGE = 20;
 /** Rows deleted per event table per page. */
@@ -17,6 +19,15 @@ export const PURGE_CASCADE_BATCH = 200;
 /** Pages a run may chain before it stops and reports itself truncated. */
 export const PURGE_MAX_PAGES = 200;
 export const DAY_MS = 24 * 60 * 60 * 1000;
+
+const FINISHED_STEPS = [
+  'success',
+  'failed',
+  'skipped_no_consent',
+  'skipped_no_email',
+  'skipped_no_phone',
+  'skipped',
+] as const;
 
 export const PURGE_COUNT_KEYS = [
   'leads',
@@ -44,21 +55,27 @@ export const emptyCounts = (): PurgeCounts =>
 export const addCounts = (a: PurgeCounts, b: PurgeCounts): PurgeCounts =>
   Object.fromEntries(PURGE_COUNT_KEYS.map((key) => [key, a[key] + b[key]])) as PurgeCounts;
 
-interface PageState {
+export interface PageState {
   counts: PurgeCounts;
-  /** Some table still held rows past a full batch: another page is needed. */
+  /** Writes still allowed on this page. */
+  budget: number;
+  /** Some table still held rows past a full batch, or the budget ran out: another page is needed. */
   moreLeft: boolean;
 }
 
-/** Applies `act` to a batch; a full batch means the table may hold more. */
-async function drain<T extends { _id: Id<'leads'> | string }>(
+/** How many rows a query may take: its own cap, never more than the page's remaining budget. */
+const room = (state: PageState, cap: number): number => Math.max(0, Math.min(cap, state.budget));
+
+/** Applies `act` to a batch taken with `limit` rows of room; a full batch means the table may hold more. */
+async function drain<T>(
   state: PageState,
   rows: T[],
-  batch: number,
+  limit: number,
   act: (row: T) => Promise<void>,
 ): Promise<boolean> {
   for (const row of rows) await act(row);
-  const full = rows.length >= batch;
+  state.budget -= rows.length;
+  const full = rows.length >= limit;
   if (full) state.moreLeft = true;
   return full;
 }
@@ -69,130 +86,179 @@ async function purgeAttachmentsOf(
   entityType: AttachmentEntityType,
   entityId: string,
 ): Promise<boolean> {
+  const limit = room(state, PURGE_CASCADE_BATCH);
+  if (limit === 0) return true;
   const rows = await ctx.db
     .query('attachments')
     .withIndex('by_entity', (q) => q.eq('entityType', entityType).eq('entityId', entityId))
-    .take(PURGE_CASCADE_BATCH);
+    .take(limit);
   state.counts.attachments += rows.length;
-  return drain(state, rows, PURGE_CASCADE_BATCH, async (attachment) => {
+  return drain(state, rows, limit, async (attachment) => {
     await fileStore(attachment.provider).delete(ctx, attachment);
     await ctx.db.delete(attachment._id);
   });
 }
 
+type Related =
+  | 'leadNotes'
+  | 'lifecycleStageHistory'
+  | 'dealStageHistory'
+  | 'campaignEvents'
+  | 'leadDuplicates';
+
+/** Deletes one batch of related rows; a query the page has no room for counts as pending. */
+async function purgeRelated(
+  ctx: MutationCtx,
+  state: PageState,
+  query: (limit: number) => Promise<{ _id: Id<Related> }[]>,
+): Promise<boolean> {
+  const limit = room(state, PURGE_CASCADE_BATCH);
+  if (limit === 0) return true;
+  const rows = await query(limit);
+  state.counts.related += rows.length;
+  return drain(state, rows, limit, (row) => ctx.db.delete(row._id));
+}
+
+/** Unlinks one batch of rows that outlive the entity (a deal or an activity keeps its own life). */
+async function unlink<T extends { _id: Id<'deals'> | Id<'activities'> | Id<'leads'> }>(
+  ctx: MutationCtx,
+  state: PageState,
+  query: (limit: number) => Promise<T[]>,
+  patch: Record<string, undefined>,
+): Promise<boolean> {
+  const limit = room(state, PURGE_CASCADE_BATCH);
+  if (limit === 0) return true;
+  const rows = await query(limit);
+  return drain(state, rows, limit, (row) => ctx.db.patch(row._id, patch));
+}
+
 /** Everything a lead owns goes with it; a live deal or activity only loses its link. Returns whether the lead may go now. */
 async function purgeLeadRows(ctx: MutationCtx, state: PageState, leadId: Id<'leads'>) {
   let pending = false;
-  const gone = async (
-    rows: {
-      _id:
-        | Id<'leadNotes'>
-        | Id<'campaignEvents'>
-        | Id<'lifecycleStageHistory'>
-        | Id<'leadDuplicates'>;
-    }[],
-  ) => {
-    state.counts.related += rows.length;
-    return drain(state, rows, PURGE_CASCADE_BATCH, (row) => ctx.db.delete(row._id));
-  };
-  pending ||= await gone(
-    await ctx.db
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
       .query('leadNotes')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(PURGE_CASCADE_BATCH),
+      .take(limit),
   );
-  pending ||= await gone(
-    await ctx.db
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
       .query('campaignEvents')
       .withIndex('by_lead_eventAt', (q) => q.eq('leadId', leadId))
-      .take(PURGE_CASCADE_BATCH),
+      .take(limit),
   );
-  pending ||= await gone(
-    await ctx.db
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
       .query('lifecycleStageHistory')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(PURGE_CASCADE_BATCH),
+      .take(limit),
   );
   for (const index of ['by_leadA', 'by_leadB'] as const) {
     const field = index === 'by_leadA' ? 'leadAId' : 'leadBId';
-    pending ||= await gone(
-      await ctx.db
+    pending ||= await purgeRelated(ctx, state, (limit) =>
+      ctx.db
         .query('leadDuplicates')
         .withIndex(index, (q) => q.eq(field, leadId))
-        .take(PURGE_CASCADE_BATCH),
+        .take(limit),
     );
   }
-  const sends = await ctx.db
-    .query('campaignSends')
-    .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-    .take(PURGE_CASCADE_BATCH);
-  state.counts.related += sends.length;
-  pending ||= await drain(state, sends, PURGE_CASCADE_BATCH, async (send) => {
-    // A send carries at most one token per tracked link.
-    const tokens = await ctx.db
-      .query('campaignLinkTokens')
-      .withIndex('by_send', (q) => q.eq('sendId', send._id))
-      .collect();
-    for (const token of tokens) await ctx.db.delete(token._id);
-    state.counts.related += tokens.length;
-    await ctx.db.delete(send._id);
-  });
-  const runs = await ctx.db
-    .query('workflowRuns')
-    .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-    .take(PURGE_CASCADE_BATCH);
-  state.counts.related += runs.length;
-  pending ||= await drain(state, runs, PURGE_CASCADE_BATCH, async (run) => {
-    // Bounded by MAX_STEPS_PER_RUN; a wait still scheduled finds no run and does nothing.
-    const steps = await ctx.db
-      .query('workflowRunSteps')
-      .withIndex('by_run', (q) => q.eq('runId', run._id))
-      .collect();
-    for (const step of steps) await ctx.db.delete(step._id);
-    state.counts.related += steps.length;
-    await ctx.db.delete(run._id);
-  });
-  const memberships = await ctx.db
-    .query('leadListMembers')
-    .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-    .take(PURGE_CASCADE_BATCH);
-  state.counts.related += memberships.length;
-  pending ||= await drain(state, memberships, PURGE_CASCADE_BATCH, (member) =>
-    deleteListMember(ctx, member),
-  );
+  const sendRoom = room(state, PURGE_CASCADE_BATCH);
+  if (sendRoom === 0) pending = true;
+  else {
+    const sends = await ctx.db
+      .query('campaignSends')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(sendRoom);
+    state.counts.related += sends.length;
+    pending ||= await drain(state, sends, sendRoom, async (send) => {
+      // A send carries at most one token per tracked link.
+      const tokens = await ctx.db
+        .query('campaignLinkTokens')
+        .withIndex('by_send', (q) => q.eq('sendId', send._id))
+        .collect();
+      for (const token of tokens) await ctx.db.delete(token._id);
+      state.counts.related += tokens.length;
+      state.budget -= tokens.length;
+      await ctx.db.delete(send._id);
+    });
+  }
+  const runRoom = room(state, PURGE_CASCADE_BATCH);
+  if (runRoom === 0) pending = true;
+  else {
+    const runs = await ctx.db
+      .query('workflowRuns')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(runRoom);
+    state.counts.related += runs.length;
+    pending ||= await drain(state, runs, runRoom, async (run) => {
+      // Bounded by MAX_STEPS_PER_RUN; a wait still scheduled finds no run and does nothing.
+      const steps = await ctx.db
+        .query('workflowRunSteps')
+        .withIndex('by_run', (q) => q.eq('runId', run._id))
+        .collect();
+      for (const step of steps) await ctx.db.delete(step._id);
+      state.counts.related += steps.length;
+      state.budget -= steps.length;
+      await ctx.db.delete(run._id);
+    });
+  }
+  const memberRoom = room(state, PURGE_CASCADE_BATCH);
+  if (memberRoom === 0) pending = true;
+  else {
+    const memberships = await ctx.db
+      .query('leadListMembers')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(memberRoom);
+    state.counts.related += memberships.length;
+    pending ||= await drain(state, memberships, memberRoom, (member) =>
+      deleteListMember(ctx, member),
+    );
+  }
   pending ||= await purgeAttachmentsOf(ctx, state, 'lead', leadId);
-  const deals = await ctx.db
-    .query('deals')
-    .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-    .take(PURGE_CASCADE_BATCH);
-  pending ||= await drain(state, deals, PURGE_CASCADE_BATCH, (deal) =>
-    ctx.db.patch(deal._id, { leadId: undefined }),
+  pending ||= await unlink(
+    ctx,
+    state,
+    (limit) =>
+      ctx.db
+        .query('deals')
+        .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+        .take(limit),
+    { leadId: undefined },
   );
-  const activities = await ctx.db
-    .query('activities')
-    .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-    .take(PURGE_CASCADE_BATCH);
-  pending ||= await drain(state, activities, PURGE_CASCADE_BATCH, (activity) =>
-    ctx.db.patch(activity._id, { leadId: undefined }),
+  pending ||= await unlink(
+    ctx,
+    state,
+    (limit) =>
+      ctx.db
+        .query('activities')
+        .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+        .take(limit),
+    { leadId: undefined },
   );
   return !pending;
 }
 
 async function purgeCompanyRows(ctx: MutationCtx, state: PageState, companyId: Id<'companies'>) {
   let pending = false;
-  const leads = await ctx.db
-    .query('leads')
-    .withIndex('by_company', (q) => q.eq('companyId', companyId))
-    .take(PURGE_CASCADE_BATCH);
-  pending ||= await drain(state, leads, PURGE_CASCADE_BATCH, (lead) =>
-    ctx.db.patch(lead._id, { companyId: undefined }),
+  pending ||= await unlink(
+    ctx,
+    state,
+    (limit) =>
+      ctx.db
+        .query('leads')
+        .withIndex('by_company', (q) => q.eq('companyId', companyId))
+        .take(limit),
+    { companyId: undefined },
   );
-  const activities = await ctx.db
-    .query('activities')
-    .withIndex('by_company', (q) => q.eq('companyId', companyId))
-    .take(PURGE_CASCADE_BATCH);
-  pending ||= await drain(state, activities, PURGE_CASCADE_BATCH, (activity) =>
-    ctx.db.patch(activity._id, { companyId: undefined }),
+  pending ||= await unlink(
+    ctx,
+    state,
+    (limit) =>
+      ctx.db
+        .query('activities')
+        .withIndex('by_company', (q) => q.eq('companyId', companyId))
+        .take(limit),
+    { companyId: undefined },
   );
   pending ||= await purgeAttachmentsOf(ctx, state, 'company', companyId);
   return !pending;
@@ -200,18 +266,21 @@ async function purgeCompanyRows(ctx: MutationCtx, state: PageState, companyId: I
 
 async function purgeDealRows(ctx: MutationCtx, state: PageState, dealId: Id<'deals'>) {
   let pending = false;
-  const history = await ctx.db
-    .query('dealStageHistory')
-    .withIndex('by_deal', (q) => q.eq('dealId', dealId))
-    .take(PURGE_CASCADE_BATCH);
-  state.counts.related += history.length;
-  pending ||= await drain(state, history, PURGE_CASCADE_BATCH, (row) => ctx.db.delete(row._id));
-  const activities = await ctx.db
-    .query('activities')
-    .withIndex('by_deal', (q) => q.eq('dealId', dealId))
-    .take(PURGE_CASCADE_BATCH);
-  pending ||= await drain(state, activities, PURGE_CASCADE_BATCH, (activity) =>
-    ctx.db.patch(activity._id, { dealId: undefined }),
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
+      .query('dealStageHistory')
+      .withIndex('by_deal', (q) => q.eq('dealId', dealId))
+      .take(limit),
+  );
+  pending ||= await unlink(
+    ctx,
+    state,
+    (limit) =>
+      ctx.db
+        .query('activities')
+        .withIndex('by_deal', (q) => q.eq('dealId', dealId))
+        .take(limit),
+    { dealId: undefined },
   );
   pending ||= await purgeAttachmentsOf(ctx, state, 'deal', dealId);
   return !pending;
@@ -220,103 +289,147 @@ async function purgeDealRows(ctx: MutationCtx, state: PageState, dealId: Id<'dea
 type Trashed = 'leads' | 'companies' | 'deals' | 'activities';
 
 /** The soft-deleted rows of a table past their retention, oldest first; a missing `deletedAt` sorts below any number and stays out. */
-const trashOf = (ctx: MutationCtx, table: Trashed, cutoff: number) =>
+const trashOf = (ctx: MutationCtx, table: Trashed, cutoff: number, limit: number) =>
   ctx.db
     .query(table)
     .withIndex('by_deletedAt', (q) => q.gt('deletedAt', 0).lt('deletedAt', cutoff))
-    .take(PURGE_ENTITY_PAGE);
+    .take(limit);
 
-/** One page of the purge: every table gets a bounded share; `moreLeft` asks for another page. */
+/** Deletes one batch of aged rows read straight from an index range; nothing is scanned past the batch. */
+async function purgeAged(
+  ctx: MutationCtx,
+  state: PageState,
+  key: keyof PurgeCounts,
+  query: (limit: number) => Promise<
+    {
+      _id:
+        | Id<'campaignEvents'>
+        | Id<'workflowRunSteps'>
+        | Id<'campaignLinkTokens'>
+        | Id<'invitations'>
+        | Id<'apiIdempotencyKeys'>
+        | Id<'auditLogs'>;
+    }[]
+  >,
+): Promise<void> {
+  const limit = room(state, PURGE_ROW_PAGE);
+  if (limit === 0) {
+    state.moreLeft = true;
+    return;
+  }
+  const rows = await query(limit);
+  state.counts[key] += rows.length;
+  await drain(state, rows, limit, (row) => ctx.db.delete(row._id));
+}
+
+/**
+ * One page of the purge, `at` being the run's reference time: every table gets a share of one write budget,
+ * every query reads its rows straight from an index range, and `moreLeft` asks for another page.
+ */
 export async function purgePage(
   ctx: MutationCtx,
   policy: RetentionPolicy,
-  now: number,
+  at: number,
 ): Promise<PageState> {
-  const state: PageState = { counts: emptyCounts(), moreLeft: false };
-  const trashCutoff = now - policy.softDeleteDays * DAY_MS;
-  const eventCutoff = now - policy.eventDays * DAY_MS;
-  const auditCutoff = now - policy.auditDays * DAY_MS;
+  const state: PageState = { counts: emptyCounts(), budget: PURGE_WRITE_BUDGET, moreLeft: false };
+  const trashCutoff = at - policy.softDeleteDays * DAY_MS;
+  const eventCutoff = at - policy.eventDays * DAY_MS;
+  const auditCutoff = at - policy.auditDays * DAY_MS;
 
-  for (const lead of await trashOf(ctx, 'leads', trashCutoff)) {
+  for (const lead of await trashOf(ctx, 'leads', trashCutoff, room(state, PURGE_ENTITY_PAGE))) {
+    if (state.budget <= 0) break;
     if (await purgeLeadRows(ctx, state, lead._id as Id<'leads'>)) {
       await ctx.db.delete(lead._id);
+      state.budget -= 1;
       state.counts.leads += 1;
     }
   }
-  for (const company of await trashOf(ctx, 'companies', trashCutoff)) {
+  for (const company of await trashOf(
+    ctx,
+    'companies',
+    trashCutoff,
+    room(state, PURGE_ENTITY_PAGE),
+  )) {
+    if (state.budget <= 0) break;
     if (await purgeCompanyRows(ctx, state, company._id as Id<'companies'>)) {
       await ctx.db.delete(company._id);
+      state.budget -= 1;
       state.counts.companies += 1;
     }
   }
-  for (const deal of await trashOf(ctx, 'deals', trashCutoff)) {
+  for (const deal of await trashOf(ctx, 'deals', trashCutoff, room(state, PURGE_ENTITY_PAGE))) {
+    if (state.budget <= 0) break;
     if (await purgeDealRows(ctx, state, deal._id as Id<'deals'>)) {
       await ctx.db.delete(deal._id);
+      state.budget -= 1;
       state.counts.deals += 1;
     }
   }
-  const activities = await trashOf(ctx, 'activities', trashCutoff);
+  const activityRoom = room(state, PURGE_ENTITY_PAGE);
+  const activities = await trashOf(ctx, 'activities', trashCutoff, activityRoom);
   state.counts.activities += activities.length;
-  await drain(state, activities, PURGE_ENTITY_PAGE, (row) => ctx.db.delete(row._id));
+  await drain(state, activities, activityRoom, (row) => ctx.db.delete(row._id));
   // Anything still in the trash past its date, left behind by the page or waiting on its cascade, asks for another page.
   for (const table of ['leads', 'companies', 'deals', 'activities'] as const) {
-    if ((await trashOf(ctx, table, trashCutoff)).length > 0) state.moreLeft = true;
+    if ((await trashOf(ctx, table, trashCutoff, 1)).length > 0) state.moreLeft = true;
   }
 
-  const events = await ctx.db
-    .query('campaignEvents')
-    .withIndex('by_eventAt', (q) => q.lt('eventAt', eventCutoff))
-    .take(PURGE_ROW_PAGE);
-  state.counts.campaignEvents += events.length;
-  await drain(state, events, PURGE_ROW_PAGE, (row) => ctx.db.delete(row._id));
-
-  // A step still pending belongs to a run still parked on it, whatever its age.
-  const steps = await ctx.db
-    .query('workflowRunSteps')
-    .withIndex('by_startedAt', (q) => q.lt('startedAt', eventCutoff))
-    .filter((q) => q.neq(q.field('status'), 'pending'))
-    .take(PURGE_ROW_PAGE);
-  state.counts.workflowRunSteps += steps.length;
-  await drain(state, steps, PURGE_ROW_PAGE, (row) => ctx.db.delete(row._id));
-
+  await purgeAged(ctx, state, 'campaignEvents', (limit) =>
+    ctx.db
+      .query('campaignEvents')
+      .withIndex('by_eventAt', (q) => q.lt('eventAt', eventCutoff))
+      .take(limit),
+  );
+  // A step still pending belongs to a run still parked on it, whatever its age: only finished outcomes are read.
+  for (const status of FINISHED_STEPS) {
+    await purgeAged(ctx, state, 'workflowRunSteps', (limit) =>
+      ctx.db
+        .query('workflowRunSteps')
+        .withIndex('by_status_startedAt', (q) =>
+          q.eq('status', status).lt('startedAt', eventCutoff),
+        )
+        .take(limit),
+    );
+  }
   // The tracked links of a closed campaign redirect until the campaign's retention is over; campaigns are few.
   for (const status of ['sent', 'failed'] as const) {
     const closed = await ctx.db
       .query('campaigns')
-      .withIndex('by_status', (q) => q.eq('status', status))
-      .filter((q) => q.lt(q.field('updatedAt'), eventCutoff))
+      .withIndex('by_status_updatedAt', (q) => q.eq('status', status).lt('updatedAt', eventCutoff))
       .collect();
     for (const campaign of closed) {
-      const tokens = await ctx.db
-        .query('campaignLinkTokens')
-        .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
-        .take(PURGE_ROW_PAGE);
-      state.counts.campaignLinkTokens += tokens.length;
-      await drain(state, tokens, PURGE_ROW_PAGE, (row) => ctx.db.delete(row._id));
+      if (state.budget <= 0) {
+        state.moreLeft = true;
+        break;
+      }
+      await purgeAged(ctx, state, 'campaignLinkTokens', (limit) =>
+        ctx.db
+          .query('campaignLinkTokens')
+          .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
+          .take(limit),
+      );
     }
   }
-
-  const invitations = await ctx.db
-    .query('invitations')
-    .withIndex('by_status', (q) => q.eq('status', 'pending'))
-    .filter((q) => q.lt(q.field('expiresAt'), now))
-    .take(PURGE_ROW_PAGE);
-  state.counts.invitations += invitations.length;
-  await drain(state, invitations, PURGE_ROW_PAGE, (row) => ctx.db.delete(row._id));
-
-  const keys = await ctx.db
-    .query('apiIdempotencyKeys')
-    .withIndex('by_expiresAt', (q) => q.lt('expiresAt', now))
-    .take(PURGE_ROW_PAGE);
-  state.counts.apiIdempotencyKeys += keys.length;
-  await drain(state, keys, PURGE_ROW_PAGE, (row) => ctx.db.delete(row._id));
-
-  const audits = await ctx.db
-    .query('auditLogs')
-    .withIndex('by_timestamp', (q) => q.lt('timestamp', auditCutoff))
-    .take(PURGE_ROW_PAGE);
-  state.counts.auditLogs += audits.length;
-  await drain(state, audits, PURGE_ROW_PAGE, (row) => ctx.db.delete(row._id));
-
+  // An invitation without an expiry sorts below any number in the index and stays.
+  await purgeAged(ctx, state, 'invitations', (limit) =>
+    ctx.db
+      .query('invitations')
+      .withIndex('by_status_expiresAt', (q) =>
+        q.eq('status', 'pending').gt('expiresAt', 0).lt('expiresAt', at),
+      )
+      .take(limit),
+  );
+  await purgeAged(ctx, state, 'apiIdempotencyKeys', (limit) =>
+    ctx.db
+      .query('apiIdempotencyKeys')
+      .withIndex('by_expiresAt', (q) => q.lt('expiresAt', at))
+      .take(limit),
+  );
+  await purgeAged(ctx, state, 'auditLogs', (limit) =>
+    ctx.db
+      .query('auditLogs')
+      .withIndex('by_timestamp', (q) => q.lt('timestamp', auditCutoff))
+      .take(limit),
+  );
   return state;
 }

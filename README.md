@@ -120,9 +120,10 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   campagne, le journal des étapes de workflow et les liens suivis des campagnes
   terminées (365 jours par défaut, 30 à 3650), le journal d'audit (730 jours par
   défaut, 90 à 3650), ainsi que les invitations expirées et les clés
-  d'idempotence de l'API périmées. La purge travaille par lots bornés (20
-  fiches, 500 lignes par table, 200 lignes rattachées par fiche et par lot) et
-  s'enchaîne jusqu'à épuisement ; une fiche aux centaines de lignes rattachées
+  d'idempotence de l'API périmées. La purge travaille par lots bornés (un budget de 2 000 écritures par lot, 20
+  fiches, 500 lignes par table, 200 lignes rattachées par fiche et par lot,
+  chaque requête lue directement dans une plage d'index) et s'enchaîne jusqu'à
+  épuisement, la politique et l'instant de référence étant figés au premier lot ; une fiche aux centaines de lignes rattachées
   est vidée sur plusieurs lots avant de disparaître. Chaque exécution laisse une
   ligne d'audit (`retention` / `purge`) avec ses compteurs, affichée sur la page,
   et relance le recalcul complet des listes dynamiques par sécurité. Une

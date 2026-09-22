@@ -257,7 +257,9 @@ const tables = {
   invitations: defineTable(invitationValidator)
     .index('by_email', ['email'])
     .index('by_email_status', ['email', 'status'])
-    .index('by_status', ['status']),
+    .index('by_status', ['status'])
+    // The purge reads expired pending invitations straight from the index.
+    .index('by_status_expiresAt', ['status', 'expiresAt']),
 
   auditLogs: defineTable(auditLogValidator)
     .index('by_entity', ['entityType', 'entityId'])
@@ -362,7 +364,10 @@ const tables = {
 
   scoringState: defineTable(scoringStateValidator),
 
-  campaigns: defineTable(campaignValidator).index('by_status', ['status']),
+  campaigns: defineTable(campaignValidator)
+    .index('by_status', ['status'])
+    // Closed campaigns past their retention, for the purge of their tracked links.
+    .index('by_status_updatedAt', ['status', 'updatedAt']),
 
   campaignSends: defineTable(campaignSendValidator)
     .index('by_campaign', ['campaignId'])
@@ -412,7 +417,8 @@ const tables = {
   // Append-only per-run step log (≤ MAX_STEPS_PER_RUN rows per run).
   workflowRunSteps: defineTable(workflowRunStepValidator)
     .index('by_run', ['runId'])
-    .index('by_startedAt', ['startedAt']),
+    // Finished steps past their retention, per outcome, for the purge.
+    .index('by_status_startedAt', ['status', 'startedAt']),
 
   // Singleton runtime config (org basics + SSO providers). Read with `.first()`.
   appConfig: defineTable(appConfigValidator),

@@ -20,6 +20,12 @@ export const retentionConfigValidator = v.object({
 });
 export type RetentionConfig = Infer<typeof retentionConfigValidator>;
 export type RetentionPolicy = Record<RetentionKey, number>;
+/** A policy frozen for one purge run, carried from page to page. */
+export const retentionPolicyValidator = v.object({
+  softDeleteDays: v.number(),
+  eventDays: v.number(),
+  auditDays: v.number(),
+});
 
 /** The policy in force: the configured days, the defaults for the rest. */
 export function retentionPolicyOf(config: Pick<AppConfig, 'retention'> | null): RetentionPolicy {
