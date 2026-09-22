@@ -1,6 +1,10 @@
 import { v } from 'convex/values';
-import { internalMutation, internalQuery } from '../../_generated/server';
-import { connectorProviderValidator } from '../../_lib/validators/connectors';
+import type { Id } from '../../_generated/dataModel';
+import { internalMutation, internalQuery, type MutationCtx } from '../../_generated/server';
+import {
+  type ConnectorProvider,
+  connectorProviderValidator,
+} from '../../_lib/validators/connectors';
 import { decryptSecret, encryptSecret, logAudit } from '../../lib';
 import {
   discardPendingAccount,
@@ -29,6 +33,56 @@ export const consumeState = internalMutation({
     await ctx.db.delete(state._id);
     if (state.provider !== provider || state.expiresAt < now) return null;
     return { userId: state.userId, codeVerifier: state.codeVerifier };
+  },
+});
+
+const failureArgs = {
+  tokenHash: v.string(),
+  provider: connectorProviderValidator,
+  error: v.string(),
+  description: v.string(),
+};
+
+async function insertFailure(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  failure: { tokenHash: string; provider: ConnectorProvider; error: string; description: string },
+): Promise<void> {
+  const now = Date.now();
+  // Failures nobody came back for are swept a few at a time.
+  const stale = await ctx.db
+    .query('connectorFailures')
+    .withIndex('by_expiresAt', (q) => q.lt('expiresAt', now))
+    .take(20);
+  for (const row of stale) await ctx.db.delete(row._id);
+  await ctx.db.insert('connectorFailures', { ...failure, userId, expiresAt: now + FINISH_TTL_MS });
+}
+
+/** The provider refused and sent the state back: the connection is over (the state is consumed), and its words wait for the user who started it. */
+export const failFromState = internalMutation({
+  args: { nonce: v.string(), ...failureArgs },
+  returns: v.boolean(),
+  handler: async (ctx, { nonce, ...failure }) => {
+    const nonceHash = await sha256Base64Url(nonce);
+    const state = await ctx.db
+      .query('connectorStates')
+      .withIndex('by_nonceHash', (q) => q.eq('nonceHash', nonceHash))
+      .unique();
+    if (!state) return false;
+    await ctx.db.delete(state._id);
+    if (state.provider !== failure.provider || state.expiresAt < Date.now()) return false;
+    await insertFailure(ctx, state.userId, failure);
+    return true;
+  },
+});
+
+/** The code exchange failed after the state was consumed: what the token endpoint said waits for the same user. */
+export const storeFailure = internalMutation({
+  args: { userId: v.id('users'), ...failureArgs },
+  returns: v.null(),
+  handler: async (ctx, { userId, ...failure }) => {
+    await insertFailure(ctx, userId, failure);
+    return null;
   },
 });
 

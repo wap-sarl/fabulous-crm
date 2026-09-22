@@ -116,6 +116,19 @@ export async function verifyState(state: string, now = Date.now()): Promise<Stat
   }
 }
 
+export const PROVIDER_ERROR_DESCRIPTION_MAX = 300;
+
+/** A provider's `error_description` made safe to carry in a URL and show as text: one line, no control characters, bounded; null when empty. */
+export function providerErrorDescription(raw: string | null | undefined): string | null {
+  const text = (raw ?? '')
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: control characters are exactly what is removed
+    .replace(/[\u0000-\u001f\u007f]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, PROVIDER_ERROR_DESCRIPTION_MAX);
+  return text || null;
+}
+
 /** Where the provider sends the browser back: a dispatcher's single callback when one is configured, else this deployment. */
 export function redirectUri(): string {
   const dispatcher = (process.env.OAUTH_CALLBACK_BASE ?? '').trim().replace(/\/+$/, '');

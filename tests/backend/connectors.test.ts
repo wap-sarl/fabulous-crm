@@ -1,7 +1,13 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { signState, verifyState } from '../../convex/lib/connectors';
+import {
+  PROVIDER_ERROR_DESCRIPTION_MAX,
+  providerErrorDescription,
+  signState,
+  verifyState,
+} from '../../convex/lib/connectors';
+import { describeConnectionError } from '../../src/lib/connectors';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 const ENV = [
@@ -347,6 +353,135 @@ describe('connecting an account', () => {
     );
     expect(requests).toHaveLength(1);
     expect(await accounts(t)).toHaveLength(1);
+  });
+
+  test('the provider’s own words never travel in an address: they wait behind a one-time token for the user who started', async () => {
+    const { t, as } = await setup();
+    const other = asIdentity(
+      t,
+      (await seedEmployee(t, { email: 'other@example.com', sessionTtlMs: 30 * 24 * 3600_000 }))
+        .identity,
+    );
+    const landing = async (query: Record<string, string>) =>
+      new URL((await callback(t, query)).headers.get('Location')!);
+    const failedTokenOf = (url: URL) => new URLSearchParams(url.hash.slice(1)).get('failed');
+    const claim = (who: As, token: string) =>
+      who.mutation(api.features.connectors.mutations.claimFailure, { token });
+    const failures = () => t.run((ctx) => ctx.db.query('connectorFailures').collect());
+
+    // The user refused at the provider, which says why: no text in the address, a token in the fragment.
+    const state = (await start(as)).searchParams.get('state')!;
+    const refused = await landing({
+      error: 'server_error',
+      error_description: 'The  service is\ndown & will be back',
+      state,
+    });
+    expect(refused.search).toBe('');
+    const token = failedTokenOf(refused)!;
+    expect(token).toMatch(/^[\w-]{43}$/);
+    const [parked] = await failures();
+    expect(parked).toMatchObject({
+      error: 'server_error',
+      description: 'The service is down & will be back',
+      expiresAt: Date.now() + 5 * 60_000,
+    });
+    expect(JSON.stringify(parked)).not.toContain(token);
+    // The refused connection is over: its state is consumed.
+    expect(await t.run((ctx) => ctx.db.query('connectorStates').collect())).toEqual([]);
+    // Someone else holding the token learns nothing, and burns it.
+    expect(await claim(other, token)).toBeNull();
+    expect(await claim(as, token)).toBeNull();
+    expect(await failures()).toEqual([]);
+
+    // The user who started claims it, once.
+    const second = (await start(as)).searchParams.get('state')!;
+    const again = failedTokenOf(
+      await landing({ error: 'server_error', error_description: 'x'.repeat(2000), state: second }),
+    )!;
+    const claimed = await claim(as, again);
+    expect(claimed?.error).toBe('server_error');
+    expect(claimed?.description).toHaveLength(PROVIDER_ERROR_DESCRIPTION_MAX);
+    expect(await claim(as, again)).toBeNull();
+    expect(await claim(as, 'never-issued')).toBeNull();
+
+    // Anyone can craft the callback's address: without a state signed here and still open, the sentence goes nowhere.
+    const forged = 'Votre compte est bloqué, appelez le 0800…';
+    for (const bad of [
+      {},
+      { state: 'garbage' },
+      {
+        state: await signState({
+          t: '',
+          p: 'google',
+          n: 'n',
+          e: Math.floor(Date.now() / 1000) - 1,
+        }),
+      },
+      {
+        state: await signState({
+          t: '',
+          p: 'google',
+          n: 'no-such-connection',
+          e: Math.floor(Date.now() / 1000) + 60,
+        }),
+      },
+      // Replayed: the state of the first refusal was consumed.
+      { state },
+    ]) {
+      const crafted = await landing({ error: 'access_denied', error_description: forged, ...bad });
+      expect(crafted.search + crafted.hash).toBe('?error=access_denied');
+    }
+    expect(await failures()).toEqual([]);
+    // Without a description nothing is parked, and the state stays for the dispatcher's or the user's next move.
+    const third = (await start(as)).searchParams.get('state')!;
+    expect((await landing({ error: 'access_denied', state: third })).search).toBe(
+      '?error=access_denied',
+    );
+
+    // A failed exchange: what the token endpoint said waits the same way, for the same user.
+    tokenAnswer = {
+      status: 400,
+      body: { error: 'invalid_grant', error_description: 'Code was already redeemed.' },
+    };
+    const failed = await landing({ code: 'c', state: third });
+    expect(failed.search).toBe('');
+    expect(await claim(as, failedTokenOf(failed)!)).toEqual({
+      error: 'invalid_grant',
+      description: 'Code was already redeemed.',
+    });
+    // An expired one is gone.
+    const fourth = (await start(as)).searchParams.get('state')!;
+    const late = failedTokenOf(await landing({ code: 'c', state: fourth }))!;
+    jest.setSystemTime(new Date(Date.now() + 5 * 60_000 + 1));
+    expect(await claim(as, late)).toBeNull();
+    expect(providerErrorDescription(' \u0000\t ')).toBeNull();
+    expect(providerErrorDescription(undefined)).toBeNull();
+  });
+
+  test('the page reads no free text from its own address, which anyone can craft and send to a signed-in user', async () => {
+    const page = await Bun.file(
+      `${import.meta.dir}/../../src/pages/settings/IntegrationsPage.tsx`,
+    ).text();
+    expect(page).not.toContain('error_description');
+    // The only parameters it reads: the error code, and the two one-time tokens of the fragment.
+    expect([...page.matchAll(/\.get\('([a-z_]+)'\)/g)].map((m) => m[1]).sort()).toEqual([
+      'error',
+      'failed',
+      'finish',
+    ]);
+  });
+
+  test('the page says our sentence for a code it knows, and attributes the provider’s words otherwise', () => {
+    expect(describeConnectionError('access_denied', 'The user denied the request')).toEqual({
+      message: 'Vous avez refusé l’accès chez le fournisseur.',
+      description: null,
+    });
+    expect(describeConnectionError('server_error', ' Try again later. ')).toEqual({
+      message: 'La connexion a échoué. Recommencez.',
+      description: 'Message du fournisseur : Try again later.',
+    });
+    expect(describeConnectionError('server_error', null).description).toBeNull();
+    expect(describeConnectionError(null, '  ').description).toBeNull();
   });
 
   test('a grant without a refresh token, or a failed exchange, stores nothing', async () => {

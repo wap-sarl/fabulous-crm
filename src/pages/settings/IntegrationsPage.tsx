@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { useAuth, useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
+import { describeConnectionError } from '@crm/lib/connectors';
 import { describeError } from '@crm/lib/errors';
 import {
   Badge,
@@ -29,19 +30,6 @@ const SCOPE_LABEL: Record<string, string> = {
   email: 'Adresse e-mail',
   profile: 'Profil',
   offline_access: 'Accès hors connexion',
-};
-
-/** What the callback reports in `?error=` (ours, or the provider's own code) and what finishing may refuse. */
-const CONNECTION_ERRORS: Record<string, string> = {
-  invalid_state: 'La demande de connexion a expiré ou n’est pas valide. Recommencez.',
-  invalid_finish: 'La demande de connexion a expiré ou n’est pas valide. Recommencez.',
-  account_mismatch:
-    'Cette connexion a été démarrée par un autre utilisateur : le compte n’a pas été lié.',
-  access_denied: 'Vous avez refusé l’accès chez le fournisseur.',
-  no_refresh_token:
-    'Le fournisseur n’a pas accordé d’accès durable. Retirez l’accès de cette application dans votre compte, puis recommencez.',
-  provider_not_configured: 'Ce fournisseur n’est pas configuré.',
-  no_account_identity: 'Le fournisseur n’a pas indiqué de quel compte il s’agit.',
 };
 
 const appSchema = z
@@ -232,28 +220,43 @@ export function IntegrationsPage() {
   const startConnection = useAuthMutation(api.features.connectors.mutations.startConnection);
   const disconnect = useAuthMutation(api.features.connectors.mutations.disconnect);
   const finishConnection = useAuthMutation(api.features.connectors.mutations.finishConnection);
-  const finishing = useRef<string | null>(null);
+  const claimFailure = useAuthMutation(api.features.connectors.mutations.claimFailure);
+  const claiming = useRef<string | null>(null);
   const [toDisconnect, setToDisconnect] = useState<{ provider: Provider; label: string } | null>(
     null,
   );
   const [busy, setBusy] = useState<Provider | null>(null);
 
-  // The callback lands here with a one-time token (in the fragment) to claim the account, or an error; then the address is cleaned.
+  // The callback lands here with a one-time token in the fragment (the account to claim, or what the provider said), or an error code; then the address is cleaned.
   useEffect(() => {
-    const finish = new URLSearchParams(hash.slice(1)).get('finish');
+    const fragment = new URLSearchParams(hash.slice(1));
+    const finish = fragment.get('finish');
+    const failedToken = fragment.get('failed');
     const error = params.get('error');
-    if (!finish && !error) return;
-    const failed = (code: string | null) =>
-      toast.error(CONNECTION_ERRORS[code ?? ''] ?? 'La connexion a échoué. Recommencez.');
-    // StrictMode runs the effect twice, the token is good once.
-    if (finish && finishing.current !== finish) {
-      finishing.current = finish;
-      finishConnection({ token: finish })
-        .then((outcome) => (outcome.ok ? toast.success('Compte connecté.') : failed(outcome.error)))
-        .catch(() => failed(null));
-    } else if (!finish) failed(error);
+    if (!finish && !failedToken && !error) return;
+    // Only a code is ever read from the address: free text comes from the server, claimed with the token.
+    const failed = (code: string | null, providerDescription: string | null = null) => {
+      const { message, description } = describeConnectionError(code, providerDescription);
+      toast.error(message, description ? { description } : undefined);
+    };
+    const token = finish ?? failedToken;
+    // StrictMode runs the effect twice, a token is good once.
+    if (token && claiming.current !== token) {
+      claiming.current = token;
+      if (finish) {
+        finishConnection({ token: finish })
+          .then((outcome) =>
+            outcome.ok ? toast.success('Compte connecté.') : failed(outcome.error),
+          )
+          .catch(() => failed(null));
+      } else {
+        claimFailure({ token })
+          .then((failure) => failed(failure?.error ?? null, failure?.description ?? null))
+          .catch(() => failed(null));
+      }
+    } else if (!token) failed(error);
     navigate('/settings/integrations', { replace: true });
-  }, [params, hash, navigate, finishConnection]);
+  }, [params, hash, navigate, finishConnection, claimFailure]);
 
   const connect = async (provider: Provider) => {
     setBusy(provider);
