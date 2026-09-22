@@ -41,6 +41,7 @@ export type {
 } from '../../convex/_lib/validators/duplicates';
 export type { DuplicateLeadSummary } from '../../convex/features/duplicates/queries';
 export type { Attachment, AttachmentEntityType } from '../../convex/_lib/validators/attachments';
+export { RETENTION_BOUNDS, type RetentionKey } from '../../convex/_lib/validators/retention';
 export {
   ATTACHMENT_MAX_BYTES_CEILING,
   ATTACHMENT_RETENTION_MAX_DAYS,

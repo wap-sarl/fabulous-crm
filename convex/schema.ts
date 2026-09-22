@@ -257,7 +257,9 @@ const tables = {
   invitations: defineTable(invitationValidator)
     .index('by_email', ['email'])
     .index('by_email_status', ['email', 'status'])
-    .index('by_status', ['status']),
+    .index('by_status', ['status'])
+    // The purge reads expired pending invitations straight from the index.
+    .index('by_status_expiresAt', ['status', 'expiresAt']),
 
   auditLogs: defineTable(auditLogValidator)
     .index('by_entity', ['entityType', 'entityId'])
@@ -275,6 +277,8 @@ const tables = {
     // Duplicate detection candidates (lib/duplicates.ts): same phone / name block.
     .index('by_dedupe_phone', ['dedupe.phone'])
     .index('by_dedupe_block', ['dedupe.block'])
+    // The nightly purge reads the trash oldest first (lib/retention.ts).
+    .index('by_deletedAt', ['deletedAt'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
 
   // Potential duplicate pairs found by a scan (see leadDuplicateValidator).
@@ -300,6 +304,7 @@ const tables = {
     .index('by_country_registrationNumber', ['country', 'registrationNumber'])
     .index('by_vatNumber', ['vatNumber'])
     .index('by_name', ['name'])
+    .index('by_deletedAt', ['deletedAt'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
 
   pipelines: defineTable(pipelineValidator),
@@ -307,7 +312,8 @@ const tables = {
   deals: defineTable(dealValidator)
     .index('by_pipeline_stage', ['pipelineId', 'stageKey'])
     .index('by_pipeline_status', ['pipelineId', 'status'])
-    .index('by_lead', ['leadId']),
+    .index('by_lead', ['leadId'])
+    .index('by_deletedAt', ['deletedAt']),
 
   dealStageHistory: defineTable(dealStageHistoryValidator).index('by_deal', ['dealId']),
 
@@ -317,7 +323,8 @@ const tables = {
     .index('by_team_status_dueAt', ['teamId', 'status', 'dueAt'])
     .index('by_lead', ['leadId'])
     .index('by_company', ['companyId'])
-    .index('by_deal', ['dealId']),
+    .index('by_deal', ['dealId'])
+    .index('by_deletedAt', ['deletedAt']),
 
   propertyDefinitions: defineTable(propertyDefinitionValidator).index('by_entityType', [
     'entityType',
@@ -357,7 +364,10 @@ const tables = {
 
   scoringState: defineTable(scoringStateValidator),
 
-  campaigns: defineTable(campaignValidator).index('by_status', ['status']),
+  campaigns: defineTable(campaignValidator)
+    .index('by_status', ['status'])
+    // Closed campaigns past their retention, for the purge of their tracked links.
+    .index('by_status_updatedAt', ['status', 'updatedAt']),
 
   campaignSends: defineTable(campaignSendValidator)
     .index('by_campaign', ['campaignId'])
@@ -373,7 +383,9 @@ const tables = {
   // by the public GET /l/<token> HTTP route.
   campaignLinkTokens: defineTable(campaignLinkTokenValidator)
     .index('by_token', ['token'])
-    .index('by_send', ['sendId']),
+    .index('by_send', ['sendId'])
+    // The purge drops the tokens of a closed campaign once its retention is over.
+    .index('by_campaign', ['campaignId']),
 
   // Append-only delivery/engagement event log (see campaignEventValidator).
   // `by_campaign_eventAt` drives the campaign page's desc-ordered paginated
@@ -382,7 +394,8 @@ const tables = {
   campaignEvents: defineTable(campaignEventValidator)
     .index('by_campaign_eventAt', ['campaignId', 'eventAt'])
     .index('by_send', ['sendId'])
-    .index('by_lead_eventAt', ['leadId', 'eventAt']),
+    .index('by_lead_eventAt', ['leadId', 'eventAt'])
+    .index('by_eventAt', ['eventAt']),
 
   // Free-text notes attached to a lead (many per lead, pinnable). See crm validators.
   leadNotes: defineTable(leadNoteValidator).index('by_lead', ['leadId']),
@@ -402,7 +415,10 @@ const tables = {
     .index('by_lead', ['leadId']),
 
   // Append-only per-run step log (≤ MAX_STEPS_PER_RUN rows per run).
-  workflowRunSteps: defineTable(workflowRunStepValidator).index('by_run', ['runId']),
+  workflowRunSteps: defineTable(workflowRunStepValidator)
+    .index('by_run', ['runId'])
+    // Finished steps past their retention, per outcome, for the purge.
+    .index('by_status_startedAt', ['status', 'startedAt']),
 
   // Singleton runtime config (org basics + SSO providers). Read with `.first()`.
   appConfig: defineTable(appConfigValidator),

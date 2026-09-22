@@ -109,6 +109,25 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   (`convex/lib/fileStorage.ts`) ; chaque ligne porte déjà la clé
   `type/identifiant/dossier/nom` d'un stockage objet, pour migrer vers S3 en
   copiant les blobs clé par clé.
+- **Conservation des données** : une purge nocturne (`convex/crons.ts`, 03:30 UTC,
+  `features/retention`) efface ce qui dépasse les durées configurées dans
+  *Paramètres → Conservation* (`appConfig.retention`) : les fiches supprimées
+  (leads, entreprises, transactions, activités ; 30 jours par défaut, 1 à 365)
+  avec tout ce qui s'y rattache (notes, envois et événements de campagne, liens
+  suivis, enrôlements et étapes de workflow, historique de statut, appartenances
+  aux listes, paires de doublons, fichiers joints et leurs blobs ; une transaction
+  ou une activité encore vivante perd seulement son lien), les événements de
+  campagne, le journal des étapes de workflow et les liens suivis des campagnes
+  terminées (365 jours par défaut, 30 à 3650), le journal d'audit (730 jours par
+  défaut, 90 à 3650), ainsi que les invitations expirées et les clés
+  d'idempotence de l'API périmées. La purge travaille par lots bornés (un budget de 2 000 écritures par lot, 20
+  fiches, 500 lignes par table, 200 lignes rattachées par fiche et par lot,
+  chaque requête lue directement dans une plage d'index) et s'enchaîne jusqu'à
+  épuisement, la politique et l'instant de référence étant figés au premier lot ; une fiche aux centaines de lignes rattachées
+  est vidée sur plusieurs lots avant de disparaître. Chaque exécution laisse une
+  ligne d'audit (`retention` / `purge`) avec ses compteurs, affichée sur la page,
+  et relance le recalcul complet des listes dynamiques par sécurité. Une
+  extension peut différer la purge (`beforeScheduledWork`, `retention_purge`).
 - **Doublons** : détection des leads en double par téléphone normalisé
   (E.164), e-mail, nom + code postal et distance de Levenshtein sur le nom
   (clés `dedupe` estampillées par le trigger des leads, index dédiés). Analyse

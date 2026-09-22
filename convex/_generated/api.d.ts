@@ -32,6 +32,7 @@ import type * as _lib_validators_leadLists from "../_lib/validators/leadLists.js
 import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js";
 import type * as _lib_validators_properties from "../_lib/validators/properties.js";
 import type * as _lib_validators_propertyTypes from "../_lib/validators/propertyTypes.js";
+import type * as _lib_validators_retention from "../_lib/validators/retention.js";
 import type * as _lib_validators_roles from "../_lib/validators/roles.js";
 import type * as _lib_validators_scoring from "../_lib/validators/scoring.js";
 import type * as _lib_validators_shared from "../_lib/validators/shared.js";
@@ -41,6 +42,7 @@ import type * as _lib_validators_users from "../_lib/validators/users.js";
 import type * as _lib_validators_workflows from "../_lib/validators/workflows.js";
 import type * as auth from "../auth.js";
 import type * as auth_emailTemplates from "../auth/emailTemplates.js";
+import type * as crons from "../crons.js";
 import type * as extensions from "../extensions.js";
 import type * as extensionsSchema from "../extensionsSchema.js";
 import type * as features_activities_mutations from "../features/activities/mutations.js";
@@ -84,6 +86,8 @@ import type * as features_invitations_queries from "../features/invitations/quer
 import type * as features_practitionerInfo_actions from "../features/practitionerInfo/actions.js";
 import type * as features_properties_mutations from "../features/properties/mutations.js";
 import type * as features_properties_queries from "../features/properties/queries.js";
+import type * as features_retention_internal from "../features/retention/internal.js";
+import type * as features_retention_queries from "../features/retention/queries.js";
 import type * as features_roles_mutations from "../features/roles/mutations.js";
 import type * as features_roles_queries from "../features/roles/queries.js";
 import type * as features_scoring_internal from "../features/scoring/internal.js";
@@ -140,6 +144,7 @@ import type * as lib_observers from "../lib/observers.js";
 import type * as lib_owners from "../lib/owners.js";
 import type * as lib_properties from "../lib/properties.js";
 import type * as lib_rateLimits from "../lib/rateLimits.js";
+import type * as lib_retention from "../lib/retention.js";
 import type * as lib_roles from "../lib/roles.js";
 import type * as lib_smsUtils from "../lib/smsUtils.js";
 import type * as lib_smtpUtils from "../lib/smtpUtils.js";
@@ -184,6 +189,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/lifecycle": typeof _lib_validators_lifecycle;
   "_lib/validators/properties": typeof _lib_validators_properties;
   "_lib/validators/propertyTypes": typeof _lib_validators_propertyTypes;
+  "_lib/validators/retention": typeof _lib_validators_retention;
   "_lib/validators/roles": typeof _lib_validators_roles;
   "_lib/validators/scoring": typeof _lib_validators_scoring;
   "_lib/validators/shared": typeof _lib_validators_shared;
@@ -193,6 +199,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/workflows": typeof _lib_validators_workflows;
   auth: typeof auth;
   "auth/emailTemplates": typeof auth_emailTemplates;
+  crons: typeof crons;
   extensions: typeof extensions;
   extensionsSchema: typeof extensionsSchema;
   "features/activities/mutations": typeof features_activities_mutations;
@@ -236,6 +243,8 @@ declare const fullApi: ApiFromModules<{
   "features/practitionerInfo/actions": typeof features_practitionerInfo_actions;
   "features/properties/mutations": typeof features_properties_mutations;
   "features/properties/queries": typeof features_properties_queries;
+  "features/retention/internal": typeof features_retention_internal;
+  "features/retention/queries": typeof features_retention_queries;
   "features/roles/mutations": typeof features_roles_mutations;
   "features/roles/queries": typeof features_roles_queries;
   "features/scoring/internal": typeof features_scoring_internal;
@@ -292,6 +301,7 @@ declare const fullApi: ApiFromModules<{
   "lib/owners": typeof lib_owners;
   "lib/properties": typeof lib_properties;
   "lib/rateLimits": typeof lib_rateLimits;
+  "lib/retention": typeof lib_retention;
   "lib/roles": typeof lib_roles;
   "lib/smsUtils": typeof lib_smsUtils;
   "lib/smtpUtils": typeof lib_smtpUtils;
