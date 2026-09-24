@@ -41,6 +41,8 @@ export const PURGE_COUNT_KEYS = [
   'campaignLinkTokens',
   'invitations',
   'apiIdempotencyKeys',
+  'importRows',
+  'importJobs',
   'auditLogs',
 ] as const;
 export type PurgeCounts = Record<(typeof PURGE_COUNT_KEYS)[number], number>;
@@ -314,6 +316,7 @@ async function purgeAged(
         | Id<'campaignLinkTokens'>
         | Id<'invitations'>
         | Id<'apiIdempotencyKeys'>
+        | Id<'importRows'>
         | Id<'auditLogs'>;
     }[]
   >,
@@ -431,6 +434,31 @@ export async function purgePage(
       .withIndex('by_expiresAt', (q) => q.lt('expiresAt', at))
       .take(limit),
   );
+  // A finished import keeps its rows in error (the file's cells) for the report; they go with the events.
+  for (const status of ['done', 'cancelled'] as const) {
+    const finished = await ctx.db
+      .query('importJobs')
+      .withIndex('by_status_finishedAt', (q) =>
+        q.eq('status', status).gt('finishedAt', 0).lt('finishedAt', eventCutoff),
+      )
+      .take(PURGE_ENTITY_PAGE);
+    for (const job of finished) {
+      if (state.budget <= 0) {
+        state.moreLeft = true;
+        break;
+      }
+      await purgeAged(ctx, state, 'importRows', (limit) =>
+        ctx.db
+          .query('importRows')
+          .withIndex('by_job_index', (q) => q.eq('jobId', job._id))
+          .take(limit),
+      );
+      if (state.moreLeft) break;
+      await ctx.db.delete(job._id);
+      state.budget -= 1;
+      state.counts.importJobs += 1;
+    }
+  }
   await purgeAged(ctx, state, 'auditLogs', (limit) =>
     ctx.db
       .query('auditLogs')

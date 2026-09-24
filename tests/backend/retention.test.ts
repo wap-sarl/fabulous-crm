@@ -183,7 +183,7 @@ describe('retention purge', () => {
 
   test('each table is purged past its retention and kept within it; one audit row carries the counts', async () => {
     const ctx = await setup();
-    const { t, as } = ctx;
+    const { t, as, emp } = ctx;
     const gone = await seedLead(t, { email: 'gone@example.com' });
     const kept = await seedLead(t, { email: 'kept@example.com' });
     const live = await seedLead(t, { email: 'live@example.com' });
@@ -291,6 +291,36 @@ describe('retention purge', () => {
         timestamp: daysAgo(729),
       });
     });
+    // Two finished imports, one past the events retention with its rows in error, one within it.
+    const importJob = (finishedAt: number, error: string) =>
+      t.run(async (ctx) => {
+        const jobId = await ctx.db.insert('importJobs', {
+          entity: 'lead',
+          fileName: 'f.csv',
+          status: 'done',
+          headers: ['a'],
+          targets: ['firstname'],
+          totalRows: 1,
+          invalidRows: 1,
+          batchSize: 200,
+          nextBatch: 1,
+          counts: { created: 0, updated: 0, duplicates: 0, errors: 1 },
+          finishedAt,
+          updatedAt: finishedAt,
+          createdBy: emp.userId,
+        });
+        await ctx.db.insert('importRows', {
+          jobId,
+          index: 0,
+          line: 2,
+          raw: [error],
+          outcome: 'error',
+          error,
+        });
+        return jobId;
+      });
+    const oldImport = await importJob(daysAgo(366), 'vieux');
+    const newImport = await importJob(daysAgo(364), 'récent');
     const auditBefore = await count(t, 'auditLogs');
 
     await purge(t);
@@ -321,6 +351,9 @@ describe('retention purge', () => {
     expect(await count(t, 'campaignLinkTokens')).toBe(2);
     expect(await count(t, 'invitations')).toBe(3);
     expect(await count(t, 'apiIdempotencyKeys')).toBe(1);
+    expect(await t.run((ctx) => ctx.db.get(oldImport))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(newImport))).not.toBeNull();
+    expect(await count(t, 'importRows')).toBe(1);
     // One old audit row gone, one written by the run.
     expect(await count(t, 'auditLogs')).toBe(auditBefore);
     const [report, ...others] = await reports(t);
@@ -338,6 +371,8 @@ describe('retention purge', () => {
         campaignLinkTokens: 1,
         invitations: 1,
         apiIdempotencyKeys: 1,
+        importRows: 1,
+        importJobs: 1,
         auditLogs: 1,
       },
     });

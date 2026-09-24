@@ -16,7 +16,6 @@ import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
 import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
 import { LeadsTable } from '../../features/leads/components/LeadsTable';
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
-import { CsvImportDialog } from '../../features/leads/components/CsvImportDialog';
 import type { LeadRow } from '../../features/leads/types';
 import { useLeadFieldCatalog } from '../../features/leads/hooks/useLeadFieldCatalog';
 
@@ -37,7 +36,6 @@ export function LeadsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [formOpen, setFormOpen] = useState(false);
   const [editingLead, setEditingLead] = useState<LeadRow | undefined>(undefined);
-  const [importOpen, setImportOpen] = useState(false);
 
   const employeeName = useMemo(
     () => new Map(employees.map((e) => [e._id, `${e.firstName} ${e.lastName}`])),
@@ -135,9 +133,9 @@ export function LeadsPage() {
                 </Badge>
               ) : null}
             </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Button variant="outline" onClick={() => navigate('/import?entity=lead')}>
               <Upload className="h-4 w-4" />
-              Importer CSV
+              Importer
             </Button>
             <Button onClick={openCreate} data-testid="new-lead">
               <Plus className="h-4 w-4" />
@@ -188,7 +186,6 @@ export function LeadsPage() {
       </div>
 
       <LeadFormDialog open={formOpen} onOpenChange={setFormOpen} lead={editingLead} />
-      <CsvImportDialog open={importOpen} onOpenChange={setImportOpen} />
       <ConfirmDialog
         open={pendingDelete !== null}
         onOpenChange={(open) => !open && setPendingDelete(null)}

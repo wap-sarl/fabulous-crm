@@ -210,3 +210,19 @@ export type {
 } from '../../convex/_lib/validators/workflows';
 export type { ApiScope } from '../../convex/_lib/validators/apiKeys';
 export { API_SCOPES } from '../../convex/_lib/validators/apiKeys';
+export {
+  IMPORT_BATCH_SIZE,
+  IMPORT_ENTITIES,
+  IMPORT_MAX_ROWS,
+  IMPORT_UPLOAD_CHUNK,
+} from '../../convex/_lib/validators/imports';
+export type {
+  ActivityImportRow,
+  CompanyImportRow,
+  DealImportRow,
+  ImportCounts,
+  ImportEntity,
+  ImportJobStatus,
+  ImportRowOutcome,
+  LeadImportRow,
+} from '../../convex/_lib/validators/imports';

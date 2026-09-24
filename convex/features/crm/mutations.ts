@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
 import { mutation } from '../../_lib/functions';
-import type { Doc, Id } from '../../_generated/dataModel';
+import type { Doc } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
 import {
@@ -18,7 +18,6 @@ import {
   resolveBrevo,
   isEmailProviderConfigured,
   toBrevoRecipient,
-  insertListMember,
   deleteListMember,
   stampLeadSignal,
 } from '../../lib';
@@ -27,7 +26,6 @@ import {
   propertyValueValidator,
   marketingConsentChannelValidator,
 } from '../../schema';
-import type { PropertyValue } from '../../_lib/validators/properties';
 import {
   loadPropertyDefsById,
   type PropertyDefinitionDoc,
@@ -52,7 +50,7 @@ import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators
 import { requireCompany, resolveCompanyForLead } from '../../lib/companies';
 import { requireValidAddress } from '../../lib/addresses';
 import { cleanOwnerIds } from '../../lib/owners';
-import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
+import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 import {
   DEFAULT_MAX_DYNAMIC_LISTS,
@@ -61,8 +59,15 @@ import {
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { startDynamicListRecalc } from '../../lib/dynamicLists';
 import { gateLeadCreate, requireSendAllowed } from '../../lib/gates';
+import {
+  applyLeadImport,
+  loadLeadImportCaches,
+  normalizeEmail,
+  planLeadImport,
+} from '../../lib/leadImport';
+import { leadImportRowValidator } from '../../_lib/validators/imports';
 
-const CONSENT_TOKEN_BYTES = 24;
+import { CONSENT_TOKEN_BYTES } from '../../lib/leadImport';
 // 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
 const TRACKED_LINK_TOKEN_BYTES = 8;
 
@@ -78,37 +83,6 @@ const RESERVED_PARAM_KEYS = new Set([
   'address',
   'consentUrl',
 ]);
-
-/**
- * Add a lead to a list if it isn't already a member. Idempotent across import
- * chunks and re-imported emails (same lead appearing in several chunks).
- */
-async function addLeadToList(
-  ctx: MutationCtx,
-  listId: Id<'leadLists'>,
-  leadId: Id<'leads'>,
-  userId: Id<'users'>,
-  workflows?: Doc<'workflows'>[],
-): Promise<void> {
-  const existing = await ctx.db
-    .query('leadListMembers')
-    .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
-    .first();
-  if (existing) return;
-  await insertListMember(ctx, { listId, leadId, addedBy: userId });
-  await dispatchWorkflowTrigger(
-    ctx,
-    leadId,
-    { type: 'list_membership_changed', change: 'added', listId },
-    { workflows },
-  );
-}
-
-/** Emails are stored lowercased so the import upsert can match on them. */
-export function normalizeEmail(raw: string | undefined): string | undefined {
-  const email = raw?.trim().toLowerCase();
-  return email || undefined;
-}
 
 /**
  * Shared field validators for a full lead, used by createLead and importLeads.
@@ -350,19 +324,17 @@ export const deleteLeads = employeeMutation({
 });
 
 /**
- * Bulk upsert leads. The frontend parses the CSV and resolves columns before
- * calling, so each row is already typed. Rows carrying an email are matched by
- * normalized email: a new email is inserted; an existing one (deleted or not)
- * is updated in place, reviving it if soft-deleted. Rows without an email are
- * always inserted. Updates only overwrite columns the CSV actually provided
- * and union the array fields, so existing data is never dropped.
+ * Bulk contact upsert, the primitive behind the import jobs (features/imports) and kept as a public mutation
+ * for callers with rows in hand. Match by normalized email: a new email is inserted; an existing one (deleted or
+ * not) is updated in place, reviving it if soft-deleted. Rows without an email are always inserted. Updates only
+ * overwrite columns actually provided; the rules live in lib/leadImport.ts.
  */
 export const importLeads = employeeMutation({
   args: {
     rows: v.array(
       v.object({
-        ...leadRowArgs,
-        customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
+        ...leadImportRowValidator.fields,
+        // Existing lead this row updates, picked from the duplicate preview.
         matchLeadId: v.optional(v.id('leads')),
       }),
     ),
@@ -378,198 +350,26 @@ export const importLeads = employeeMutation({
     const errors: { index: number; error: string }[] = [];
     let created = 0;
     let updated = 0;
-
-    // Load the custom-property definitions once for the whole chunk.
-    const propertyDefsById = await loadPropertyDefsById(ctx, 'lead');
-    // Active workflows, loaded once for every trigger dispatch in the loop.
-    const activeWorkflows = await loadActiveWorkflows(ctx);
-    const lifecycle = await loadLifecycleConfig(ctx);
-    // Company lookups/creations memoized across the chunk (many rows share a domain).
-    const companyCache = new Map<string, Id<'companies'>>();
-
+    const caches = await loadLeadImportCaches(ctx);
     // Every row counts, updates and invalid rows included: no matching pass before the gate, by decision.
     await gateLeadCreate(ctx, args.rows.length, 'import');
-
     for (let index = 0; index < args.rows.length; index++) {
-      const row = args.rows[index];
-      const email = normalizeEmail(row.email);
-
-      let customProperties: Record<string, PropertyValue> | undefined;
-      try {
-        requireValidAddress(row.address);
-        customProperties = sanitizeCustomProperties(propertyDefsById, row.customProperties);
-      } catch (e) {
-        errors.push({ index, error: e instanceof Error ? e.message : 'invalid_property_value' });
-        continue;
-      }
-
-      const matched = row.matchLeadId ? await ctx.db.get(row.matchLeadId) : null;
-      const existing =
-        matched ??
-        (email
-          ? await ctx.db
-              .query('leads')
-              .withIndex('by_email', (q) => q.eq('email', email))
-              .first()
-          : null);
-
-      if (existing) {
-        // Upsert: only patch columns the CSV provided (filterUndefined drops the
-        // rest, keeping existing values) and never reset the assignee.
-        const updates: Record<string, unknown> = filterUndefined({
-          firstName: row.firstName.trim(),
-          lastName: row.lastName.trim(),
-          phone: row.phone?.trim() || undefined,
-          address: row.address,
-          comment: row.comment,
-          ownerIds: row.ownerIds ? await cleanOwnerIds(ctx, row.ownerIds) : undefined,
-          isRedFlagged: row.isRedFlagged,
-        });
-
-        // Merge custom properties: provided keys overwrite, the rest are kept.
-        if (customProperties && Object.keys(customProperties).length) {
-          updates.customProperties = { ...existing.customProperties, ...customProperties };
-        }
-
-        // Company: explicit CSV data (re)attaches; otherwise a company-less
-        // lead gets the automatic email-domain match.
-        try {
-          if (row.companyId) {
-            await requireCompany(ctx, row.companyId);
-            updates.companyId = row.companyId;
-          } else if (row.company || !existing.companyId) {
-            const matched = await resolveCompanyForLead(
-              ctx,
-              row.company ?? {},
-              email,
-              { userId: ctx.userId },
-              companyCache,
-            );
-            if (matched) updates.companyId = matched;
-          }
-        } catch (e) {
-          errors.push({ index, error: e instanceof Error ? e.message : 'company_error' });
-          continue;
-        }
-
-        let lifecycleChange: { from: string | undefined; to: string } | undefined;
-        if (row.lifecycleStage !== undefined) {
-          const plan = planLifecycleTransition(lifecycle, existing, row.lifecycleStage);
-          if (plan.kind === 'change') {
-            lifecycleChange = plan;
-            updates.lifecycleStage = plan.to;
-          }
-        }
-
-        const changes = computeChanges(existing, updates);
-        const patchData: Record<string, unknown> = {
-          ...updates,
-          ...updateAuditFields(ctx.userId),
-        };
-        // Revive a soft-deleted lead (patching undefined removes the field).
-        const revived = existing.deletedAt != null;
-        if (revived) patchData.deletedAt = undefined;
-        await ctx.db.patch(existing._id, patchData);
-        // A revival is a change even when no field differs, as in the API upsert.
-        if (changes || revived) {
-          await logAudit({
-            ctx,
-            userId: ctx.userId,
-            entityType: 'lead',
-            entityId: existing._id,
-            action: 'update',
-            metadata: { changes, ...(revived ? { revived: true } : {}) },
-          });
-        }
-        if (lifecycleChange) {
-          await insertLifecycleHistory(ctx, existing._id, lifecycleChange, {
-            source: 'import',
-            changedBy: ctx.userId,
-          });
-        }
-
-        if (changes) {
-          const changedFields = diffLeadFilterFields(existing, updates);
-          if (changedFields.length > 0) {
-            await dispatchWorkflowTrigger(
-              ctx,
-              existing._id,
-              { type: 'lead_property_changed', changedFields },
-              { workflows: activeWorkflows },
-            );
-          }
-        }
-        if (args.listId) {
-          await addLeadToList(ctx, args.listId, existing._id, ctx.userId, activeWorkflows);
-        }
-        updated++;
-        continue;
-      }
-
-      let lifecycleStage: string;
-      let companyId: Id<'companies'> | undefined;
-      try {
-        lifecycleStage = initialLifecycleStage(lifecycle, row.lifecycleStage);
-        if (row.companyId) {
-          await requireCompany(ctx, row.companyId);
-          companyId = row.companyId;
-        } else {
-          companyId =
-            (await resolveCompanyForLead(
-              ctx,
-              row.company ?? {},
-              email,
-              { userId: ctx.userId },
-              companyCache,
-            )) ?? undefined;
-        }
-      } catch (e) {
-        errors.push({ index, error: e instanceof Error ? e.message : 'invalid_row' });
-        continue;
-      }
-      const leadId = await ctx.db.insert('leads', {
-        firstName: row.firstName.trim(),
-        lastName: row.lastName.trim(),
-        email,
-        phone: row.phone?.trim() || undefined,
-        address: row.address,
-        // Consent starts empty; only the lead can grant it via the public link.
-        marketingConsent: [],
-        consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
-        comment: row.comment,
-        ownerIds: row.ownerIds?.length ? await cleanOwnerIds(ctx, row.ownerIds) : [ctx.userId],
-        companyId,
-        isRedFlagged: row.isRedFlagged ?? false,
-        lifecycleStage,
-        customProperties,
-        ...createAuditFields(ctx.userId),
+      const { matchLeadId, ...row } = args.rows[index];
+      const plan = await planLeadImport(ctx, row, caches, {
+        matchId: matchLeadId,
+        detectDuplicates: false,
       });
-      await logAudit({
-        ctx,
-        userId: ctx.userId,
-        entityType: 'lead',
-        entityId: leadId,
-        action: 'create',
-        metadata: { source: 'import' },
-      });
-      await insertLifecycleHistory(
-        ctx,
-        leadId,
-        { from: undefined, to: lifecycleStage },
-        { source: 'import', changedBy: ctx.userId },
-      );
-      await dispatchWorkflowTrigger(
-        ctx,
-        leadId,
-        { type: 'lead_created' },
-        { workflows: activeWorkflows },
-      );
-      if (args.listId) {
-        await addLeadToList(ctx, args.listId, leadId, ctx.userId, activeWorkflows);
-      }
-      created++;
+      const result =
+        plan.kind === 'error'
+          ? plan
+          : await applyLeadImport(ctx, row, plan, caches, {
+              userId: ctx.userId,
+              listId: args.listId,
+            });
+      if (result.kind === 'error') errors.push({ index, error: result.error });
+      else if (result.kind === 'created') created++;
+      else updated++;
     }
-
     return { created, updated, errors };
   },
 });

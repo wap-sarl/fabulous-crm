@@ -28,6 +28,8 @@ import { BrandingPage } from './pages/settings/BrandingPage';
 import { EmailPage } from './pages/settings/EmailPage';
 import { PropertiesPage } from './pages/settings/PropertiesPage';
 import { DuplicatesPage } from './pages/leads/DuplicatesPage';
+import { ImportPage } from './pages/imports/ImportPage';
+import { ImportJobPage } from './pages/imports/ImportJobPage';
 import { FilesPage } from './pages/settings/FilesPage';
 import { RetentionPage } from './pages/settings/RetentionPage';
 import { RolesPage } from './pages/settings/RolesPage';
@@ -82,6 +84,8 @@ function AppRoutes() {
             <Route element={<RequireModule />}>
               <Route path="/leads" element={<LeadsPage />} />
               <Route path="/leads/duplicates" element={<DuplicatesPage />} />
+              <Route path="/import" element={<ImportPage />} />
+              <Route path="/import/:jobId" element={<ImportJobPage />} />
               <Route path="/leads/:leadId" element={<LeadDetailPage />} />
               <Route path="/companies" element={<CompaniesPage />} />
               <Route path="/companies/:companyId" element={<CompanyDetailPage />} />

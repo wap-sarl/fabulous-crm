@@ -40,6 +40,11 @@ import {
   workflowRunValidator,
   workflowRunStepValidator,
 } from './_lib/validators/workflows';
+import {
+  importJobValidator,
+  importMappingValidator,
+  importRowValidator,
+} from './_lib/validators/imports';
 
 // Re-export everything for consumers
 export type { Address } from './_lib/validators/shared';
@@ -428,6 +433,17 @@ const tables = {
     .index('by_lead', ['leadId'])
     // Erasures left in progress by a failed step, for the hourly resume.
     .index('by_outcome_requestedAt', ['outcome', 'requestedAt']),
+
+  // Advanced import (validators/imports.ts): saved column mappings, one job per file, its rows while they are needed.
+  importMappings: defineTable(importMappingValidator).index('by_entity', ['entity']),
+  importJobs: defineTable(importJobValidator)
+    .index('by_createdBy_updatedAt', ['createdBy', 'updatedAt'])
+    // Finished jobs past their retention, for the purge of their error rows.
+    .index('by_status_finishedAt', ['status', 'finishedAt']),
+  importRows: defineTable(importRowValidator)
+    .index('by_job_index', ['jobId', 'index'])
+    // The report lists one outcome at a time: the duplicates to decide on, the rows in error to export.
+    .index('by_job_outcome_index', ['jobId', 'outcome', 'index']),
 
   // Singleton runtime config (org basics + SSO providers). Read with `.first()`.
   appConfig: defineTable(appConfigValidator),
