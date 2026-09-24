@@ -173,9 +173,38 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
       points,
     })),
   };
+  // The person's own data: not the consent link's secret, the search and dedupe keys, nor the employees in charge.
+  const contact = {
+    _id: lead._id,
+    _creationTime: lead._creationTime,
+    firstName: lead.firstName,
+    lastName: lead.lastName,
+    email: lead.email,
+    phone: lead.phone,
+    address: lead.address,
+    marketingConsent: lead.marketingConsent,
+    consentUpdatedAt: lead.consentUpdatedAt,
+    consentSource: lead.consentSource,
+    comment: lead.comment,
+    isRedFlagged: lead.isRedFlagged,
+    excludeFromProfiling: lead.excludeFromProfiling,
+    lifecycleStage: lead.lifecycleStage,
+    lastActivityAt: lead.lastActivityAt,
+    lastEmailOpenAt: lead.lastEmailOpenAt,
+    emailOpenCount: lead.emailOpenCount,
+    lastEmailClickAt: lead.lastEmailClickAt,
+    emailClickCount: lead.emailClickCount,
+    lastFormSubmissionAt: lead.lastFormSubmissionAt,
+    formSubmissionCount: lead.formSubmissionCount,
+    lastPageViewAt: lead.lastPageViewAt,
+    pageViewCount: lead.pageViewCount,
+    customProperties: lead.customProperties,
+    updatedAt: lead.updatedAt,
+    deletedAt: lead.deletedAt,
+  };
   return {
     exportedAt: Date.now(),
-    contact: lead,
+    contact,
     company: company ? { name: company.name, domain: company.domain ?? null } : null,
     notes,
     lifecycleHistory,
@@ -258,9 +287,10 @@ export const eraseStep = internalMutation({
   handler: async (ctx, { leadId, requestId, userId }) => {
     const request = await ctx.db.get(requestId);
     if (!request || request.outcome === 'done') return null;
-    const sofar = (request.detail as { counts?: PurgeCounts } | undefined)?.counts ?? emptyCounts();
+    const detail = (request.detail ?? {}) as { counts?: PurgeCounts; resumed?: number };
+    const sofar = detail.counts ?? emptyCounts();
     const again = async (counts: PurgeCounts) => {
-      await ctx.db.patch(requestId, { detail: { counts } });
+      await ctx.db.patch(requestId, { detail: { ...detail, counts } });
       await ctx.scheduler.runAfter(0, internal.features.rgpd.internal.eraseStep, {
         leadId,
         requestId,
@@ -301,7 +331,11 @@ export const eraseStep = internalMutation({
       state.counts.leads += 1;
     }
     const counts = addCounts(sofar, state.counts);
-    await ctx.db.patch(requestId, { outcome: 'done', completedAt: Date.now(), detail: { counts } });
+    await ctx.db.patch(requestId, {
+      outcome: 'done',
+      completedAt: Date.now(),
+      detail: { ...detail, counts },
+    });
     // The one row that stays: the id and the date, nothing of the person.
     await logAudit({
       ctx,
@@ -312,5 +346,45 @@ export const eraseStep = internalMutation({
       metadata: { rgpd: 'erasure', requestId },
     });
     return null;
+  },
+});
+
+/** A step that threw leaves its request in progress with nothing scheduled; past this age it is taken up again. */
+export const ERASURE_STALL_MS = 15 * 60_000;
+
+/**
+ * Hourly: Convex does not retry a mutation that threw, so an erasure whose step failed (a blob provider error, a
+ * limit) would stay in progress for ever. The step is idempotent: scheduling it again is all it takes.
+ */
+export const resumeStalledErasures = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => {
+    const cutoff = Date.now() - ERASURE_STALL_MS;
+    const stalled = await ctx.db
+      .query('rgpdRequests')
+      .withIndex('by_outcome_requestedAt', (q) =>
+        q.eq('outcome', 'in_progress').lt('requestedAt', cutoff),
+      )
+      .take(100);
+    let resumed = 0;
+    for (const request of stalled) {
+      const leadId = ctx.db.normalizeId('leads', request.leadId);
+      if (request.type !== 'erasure' || !leadId) continue;
+      const detail = (request.detail ?? {}) as { counts?: PurgeCounts; resumed?: number };
+      const attempt = (detail.resumed ?? 0) + 1;
+      // The lead page is the only place showing an erasure in progress: a persistent failure shows in the logs.
+      console.warn(
+        `rgpd: erasure ${request._id} in progress since ${new Date(request.requestedAt).toISOString()}, scheduled again (attempt ${attempt})`,
+      );
+      await ctx.db.patch(request._id, { detail: { ...detail, resumed: attempt } });
+      await ctx.scheduler.runAfter(0, internal.features.rgpd.internal.eraseStep, {
+        leadId,
+        requestId: request._id,
+        userId: request.requestedBy,
+      });
+      resumed += 1;
+    }
+    return resumed;
   },
 });

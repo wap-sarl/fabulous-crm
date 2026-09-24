@@ -155,6 +155,11 @@ export const mergeLeads = employeeMutation({
       }
     }
 
+    // The objection to profiling follows the person, whichever record survives; the trigger clears the score.
+    const objectionCarried =
+      absorbed.excludeFromProfiling === true && survivor.excludeFromProfiling !== true;
+    if (objectionCarried) updates.excludeFromProfiling = true;
+
     const changes = computeChanges(survivor, filterUndefined(updates));
     await ctx.db.patch(survivor._id, { ...updates, ...updateAuditFields(ctx.userId) });
     const { moreLeft } = await repointLeadRows(ctx, absorbed._id, survivor._id);
@@ -187,6 +192,19 @@ export const mergeLeads = employeeMutation({
         changes,
       },
     });
+    // On the record like any objection, so the surviving contact's page says where the flag comes from.
+    if (objectionCarried) {
+      const now = Date.now();
+      await ctx.db.insert('rgpdRequests', {
+        type: 'objection',
+        leadId: survivor._id,
+        requestedBy: ctx.userId,
+        requestedAt: now,
+        completedAt: now,
+        outcome: 'done',
+        detail: { carriedFrom: absorbed._id },
+      });
+    }
     if (lifecycleChange) {
       await insertLifecycleHistory(ctx, survivor._id, lifecycleChange, {
         source: 'manual',

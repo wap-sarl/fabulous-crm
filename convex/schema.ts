@@ -424,7 +424,10 @@ const tables = {
     .index('by_lead', ['leadId']),
 
   // The RGPD requests handled, one row each, kept after the contact is gone (validators/rgpd.ts).
-  rgpdRequests: defineTable(rgpdRequestValidator).index('by_lead', ['leadId']),
+  rgpdRequests: defineTable(rgpdRequestValidator)
+    .index('by_lead', ['leadId'])
+    // Erasures left in progress by a failed step, for the hourly resume.
+    .index('by_outcome_requestedAt', ['outcome', 'requestedAt']),
 
   // Singleton runtime config (org basics + SSO providers). Read with `.first()`.
   appConfig: defineTable(appConfigValidator),

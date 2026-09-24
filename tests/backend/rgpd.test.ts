@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import { api } from '../../convex/_generated/api';
+import { api, internal } from '../../convex/_generated/api';
+import crons from '../../convex/crons';
 import type { Id } from '../../convex/_generated/dataModel';
 import { insertListMember } from '../../convex/lib/leadListMembers';
 import { syncLeadScore } from '../../convex/lib/leadScoring';
@@ -230,6 +231,20 @@ describe('RGPD rights', () => {
       leadId: ada,
     });
     expect(archive.contact._id).toBe(ada);
+    // The person's data, not the record's plumbing.
+    expect(archive.contact).toMatchObject({ firstName: 'Ada', email: ADA.email });
+    for (const key of [
+      'consentToken',
+      'searchText',
+      'dedupe',
+      'ownerIds',
+      'createdBy',
+      'updatedBy',
+    ]) {
+      expect(archive.contact).not.toHaveProperty(key);
+    }
+    const adaDoc = await t.run((ctx) => ctx.db.get(ada));
+    expect(JSON.stringify(archive)).not.toContain(adaDoc?.consentToken ?? 'consent-token');
     expect(archive.notes.map((n) => n.content)).toEqual(['Note privée de ada']);
     expect(archive.campaigns).toHaveLength(1);
     expect(archive.campaigns[0]).toMatchObject({
@@ -603,5 +618,83 @@ describe('RGPD rights', () => {
     expect((await post('ada', 'opened', NOW + 10)).status).toBe(200);
     expect(await eventsOf(ada)).toEqual(['delivered', 'opened']);
     expect((await t.run((ctx) => ctx.db.get(sends.ada)))?.openedAt).toBe(NOW + 10);
+  });
+
+  test('objection: a merge of duplicates keeps the objection of the absorbed contact, on the record', async () => {
+    const { t, as } = await setup();
+    const survivor = await seedLead(t, ADA);
+    const absorbed = await seedLead(t, BOB);
+    await as.mutation(api.features.rgpd.mutations.setProfilingExclusion, {
+      leadId: absorbed,
+      exclude: true,
+    });
+    await as.mutation(api.features.duplicates.mutations.mergeLeads, {
+      survivorId: survivor,
+      absorbedId: absorbed,
+      fields: {},
+    });
+    expect((await t.run((ctx) => ctx.db.get(survivor)))?.excludeFromProfiling).toBe(true);
+    await t.run((ctx) => stampLeadSignal(ctx, survivor, 'email_open', NOW + 1000));
+    expect((await t.run((ctx) => ctx.db.get(survivor)))?.emailOpenCount).toBeUndefined();
+    const requests = await as.query(api.features.rgpd.queries.listRequests, { leadId: survivor });
+    expect(requests.map((r) => r.type)).toEqual(['objection']);
+    const row = await t.run(async (ctx) =>
+      (await ctx.db.query('rgpdRequests').collect()).find((r) => r.leadId === survivor),
+    );
+    expect(row?.detail).toEqual({ carriedFrom: absorbed });
+
+    // The other way round: the survivor's own objection stays, and nothing new is recorded.
+    const other = await seedLead(t, {
+      firstName: 'Carl',
+      lastName: 'Sagan',
+      email: 'carl@example.com',
+    });
+    await as.mutation(api.features.duplicates.mutations.mergeLeads, {
+      survivorId: survivor,
+      absorbedId: other,
+      fields: {},
+    });
+    expect((await t.run((ctx) => ctx.db.get(survivor)))?.excludeFromProfiling).toBe(true);
+    expect(
+      await as.query(api.features.rgpd.queries.listRequests, { leadId: survivor }),
+    ).toHaveLength(1);
+  });
+
+  test('erasure: a request left in progress by a failed step is taken up again by the hourly resume', async () => {
+    const resume = Object.values(crons.crons).find((job) =>
+      JSON.stringify(job).includes('features/rgpd/internal:resumeStalledErasures'),
+    );
+    expect(resume?.schedule).toMatchObject({ type: 'hourly', minuteUTC: 20 });
+    const { t, admin } = await setup();
+    const stalled = await seedLead(t, ADA);
+    const fresh = await seedLead(t, BOB);
+    const [stalledRequest, freshRequest] = await t.run((ctx) =>
+      Promise.all([
+        ctx.db.insert('rgpdRequests', {
+          type: 'erasure',
+          leadId: stalled,
+          requestedBy: admin.userId,
+          requestedAt: NOW - 60 * 60_000,
+          outcome: 'in_progress',
+        }),
+        ctx.db.insert('rgpdRequests', {
+          type: 'erasure',
+          leadId: fresh,
+          requestedBy: admin.userId,
+          requestedAt: NOW,
+          outcome: 'in_progress',
+        }),
+      ]),
+    );
+    expect(await t.mutation(internal.features.rgpd.internal.resumeStalledErasures, {})).toBe(1);
+    await settle(t);
+    expect(await t.run((ctx) => ctx.db.get(stalled))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(stalledRequest))).toMatchObject({
+      outcome: 'done',
+      detail: { resumed: 1 },
+    });
+    // A request younger than the stall age is left to its own steps.
+    expect(await t.run((ctx) => ctx.db.get(fresh))).not.toBeNull();
+    expect((await t.run((ctx) => ctx.db.get(freshRequest)))?.outcome).toBe('in_progress');
   });
 });

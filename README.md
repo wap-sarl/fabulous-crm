@@ -184,8 +184,10 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   (fiche, entreprise, notes, listes, historique de statut, transactions et
   activités liées, envois et événements de chaque campagne, enrôlements et
   étapes de workflow, score et règles qui y contribuent, fichiers joints
-  (métadonnées), journal d'audit), rien sur d'autres personnes ; 2 000 lignes
-  par table au plus, l'archive dit quelles tables ont été tronquées. *Droit
+  (métadonnées), journal d'audit), rien sur d'autres personnes ni de technique
+  (pas de jeton de consentement, de clés de recherche ou de doublons, ni des
+  responsables) ; 2 000 lignes par table au plus, l'archive dit quelles tables
+  ont été tronquées. *Droit
   d'opposition au profilage* : l'interrupteur arrête le scoring (score et
   détail effacés, plus jamais recalculés) et tout suivi comportemental : les
   ouvertures, clics et clics de liens suivis ne sont plus enregistrés du tout
@@ -201,8 +203,11 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   et leurs blobs, journal d'audit de la fiche, de ses notes et de ses
   enrôlements) ; une transaction ou une activité liée reste, sans lien, car
   elle appartient à l'organisation ; il ne reste qu'une ligne d'audit anonyme
-  (identifiant, date, `rgpd: erasure`) et la ligne de `rgpdRequests`. Un lead
-  déjà dans la corbeille peut être effacé ; les sauvegardes s'éteignent avec
+  (identifiant, date, `rgpd: erasure`) et la ligne de `rgpdRequests`. Une
+  étape qui échoue (Convex ne réessaie pas) laisse la demande « en cours » :
+  un cron horaire la replanifie. Une fusion de doublons conserve l'opposition
+  au profilage de la fiche absorbée. Un lead déjà dans la corbeille peut être
+  effacé ; les sauvegardes s'éteignent avec
   leur rétention (`docs/`). L'API publique n'expose pas ces actions.
 - **Auth** : magic link par email (Brevo) + code OTP, sessions stockées en base
   avec token en localStorage. Seuls les utilisateurs `employee` accèdent au CRM.
