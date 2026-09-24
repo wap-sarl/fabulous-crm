@@ -23,7 +23,11 @@ import { appOrigin } from '../../lib';
 import { buildSendParams } from './mutations';
 import { loadPropertyDefsById } from '../../lib/properties';
 import { loadVisibility, scopedReader } from '../../lib/visibility';
-import { stampLeadSignal } from '../../lib/leadSignals';
+import {
+  BEHAVIOURAL_CAMPAIGN_EVENTS,
+  profilingExcluded,
+  stampLeadSignal,
+} from '../../lib/leadSignals';
 import {
   leadFilterArgs,
   loadAdvancedListMembers,
@@ -132,12 +136,24 @@ const SMS_TRIGGER_EVENT: Partial<Record<CampaignEventType, WorkflowSmsEvent>> = 
  * campaign_sms_event) — the single choke point for engagement events, so
  * webhook-replay dedup is inherited by the trigger dispatch for free.
  */
-async function insertCampaignEventIfNew(ctx: MutationCtx, event: CampaignEvent): Promise<boolean> {
+async function insertCampaignEventIfNew(
+  ctx: MutationCtx,
+  event: CampaignEvent,
+): Promise<'recorded' | 'duplicate' | 'excluded'> {
+  // The single gate for behavioural events: a contact who objected to profiling gets no row, no signal, no trigger.
+  if (
+    BEHAVIOURAL_CAMPAIGN_EVENTS.has(event.type) &&
+    profilingExcluded(await ctx.db.get(event.leadId))
+  ) {
+    return 'excluded';
+  }
   const existing = await ctx.db
     .query('campaignEvents')
     .withIndex('by_send', (q) => q.eq('sendId', event.sendId))
     .collect();
-  if (existing.some((e) => e.type === event.type && e.eventAt === event.eventAt)) return false;
+  if (existing.some((e) => e.type === event.type && e.eventAt === event.eventAt)) {
+    return 'duplicate';
+  }
   await ctx.db.insert('campaignEvents', event);
 
   if (event.type === 'opened') {
@@ -169,7 +185,7 @@ async function insertCampaignEventIfNew(ctx: MutationCtx, event: CampaignEvent):
       });
     }
   }
-  return true;
+  return 'recorded';
 }
 
 /**
@@ -196,7 +212,7 @@ export const recordBrevoEmailEvent = internalMutation({
       return;
     }
 
-    await insertCampaignEventIfNew(ctx, {
+    const outcome = await insertCampaignEventIfNew(ctx, {
       campaignId: send.campaignId,
       sendId: send._id,
       leadId: send.leadId,
@@ -205,6 +221,8 @@ export const recordBrevoEmailEvent = internalMutation({
       url: args.url,
       reason: args.reason,
     });
+    // An objection leaves the send unstamped too: nothing says the person opened or clicked.
+    if (outcome === 'excluded') return;
 
     if (args.type === 'opened' && send.openedAt === undefined) {
       await ctx.db.patch(send._id, { openedAt: args.eventAt });
@@ -506,6 +524,13 @@ export const handleTrackedLinkClick = internalMutation({
       .first();
     if (!tokenRow) return { found: false };
 
+    const campaign = await ctx.db.get(tokenRow.campaignId);
+    const link = campaign?.trackedLinks?.find((l) => l.key === tokenRow.linkKey);
+    // The person objected to profiling: the link still leads where it should, and nothing is written down.
+    if (profilingExcluded(await ctx.db.get(tokenRow.leadId))) {
+      return { found: true, redirectUrl: link?.redirectUrl };
+    }
+
     const now = Date.now();
     const firstClick = tokenRow.clickedAt === undefined;
     if (firstClick) await ctx.db.patch(tokenRow._id, { clickedAt: now });
@@ -514,9 +539,6 @@ export const handleTrackedLinkClick = internalMutation({
     if (send && send.clickedAt === undefined) {
       await ctx.db.patch(tokenRow.sendId, { clickedAt: now });
     }
-
-    const campaign = await ctx.db.get(tokenRow.campaignId);
-    const link = campaign?.trackedLinks?.find((l) => l.key === tokenRow.linkKey);
 
     // Event log: every click is recorded, unlike the first-only stamps above.
     await ctx.db.insert('campaignEvents', {

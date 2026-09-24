@@ -419,7 +419,9 @@ const tables = {
   workflowRunSteps: defineTable(workflowRunStepValidator)
     .index('by_run', ['runId'])
     // Finished steps past their retention, per outcome, for the purge.
-    .index('by_status_startedAt', ['status', 'startedAt']),
+    .index('by_status_startedAt', ['status', 'startedAt'])
+    // A contact's steps in one read, for the RGPD export.
+    .index('by_lead', ['leadId']),
 
   // The RGPD requests handled, one row each, kept after the contact is gone (validators/rgpd.ts).
   rgpdRequests: defineTable(rgpdRequestValidator).index('by_lead', ['leadId']),

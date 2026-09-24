@@ -13,12 +13,15 @@ export const exportContactData = employeeAction({
     { leadId },
   ): Promise<{ requestId: Id<'rgpdRequests'>; archive: ContactArchive }> => {
     const authUser = await authComponent.safeGetAuthUser(ctx);
-    const access: { userId: Id<'users'> } | null = authUser
-      ? await ctx.runQuery(internal.features.rgpd.internal.settingsAccessOf, {
+    const access: { userId: Id<'users'>; visible: boolean } | null = authUser
+      ? await ctx.runQuery(internal.features.rgpd.internal.exportAccessOf, {
           authId: authUser._id,
+          leadId,
         })
       : null;
     if (!access) throw new Error('Unauthorized: settings access');
+    // Out of the role's perimeter reads like a contact that does not exist, as everywhere else.
+    if (!access.visible) throw new Error('lead_not_found');
     const archive: ContactArchive | null = await ctx.runQuery(
       internal.features.rgpd.internal.collectContactData,
       { leadId },

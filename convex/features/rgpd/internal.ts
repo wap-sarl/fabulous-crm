@@ -15,20 +15,28 @@ import {
   type PurgeCounts,
   purgeLeadRows,
 } from '../../lib/retention';
-import { loadVisibility } from '../../lib/visibility';
+import { loadVisibility, moduleAllows } from '../../lib/visibility';
 
-/** Whether the signed-in employee may handle RGPD requests (the settings switch); for the export action, which has no db. */
-export const settingsAccessOf = internalQuery({
-  args: { authId: v.string() },
-  returns: v.union(v.object({ userId: v.id('users') }), v.null()),
-  handler: async (ctx, { authId }) => {
+/**
+ * Whether the signed-in employee may export this contact, for the action, which has no db: the settings switch,
+ * and the lead within the role's perimeter (a custom role may hold settings with leads at own, team or none).
+ */
+export const exportAccessOf = internalQuery({
+  args: { authId: v.string(), leadId: v.id('leads') },
+  returns: v.union(v.object({ userId: v.id('users'), visible: v.boolean() }), v.null()),
+  handler: async (ctx, { authId, leadId }) => {
     const user = await ctx.db
       .query('users')
       .withIndex('by_authId', (q) => q.eq('authId', authId))
       .first();
     if (user?.type !== 'employee' || user.deletedAt !== undefined) return null;
     const visibility = await loadVisibility(ctx, user);
-    return visibility.access.settings ? { userId: user._id } : null;
+    if (!visibility.access.settings) return null;
+    const lead = await ctx.db.get(leadId);
+    return {
+      userId: user._id,
+      visible: !!lead && moduleAllows(visibility, 'leads', lead.ownerIds),
+    };
   },
 });
 
@@ -41,63 +49,93 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     return rows;
   };
   const leadId = lead._id;
-
-  const company = lead.companyId ? await ctx.db.get(lead.companyId) : null;
-  const notes = capped(
-    'leadNotes',
-    await ctx.db
+  // The tables are independent of one another: one round of reads, every part required.
+  const [
+    company,
+    notes,
+    lifecycleHistory,
+    deals,
+    activities,
+    memberships,
+    sends,
+    events,
+    runs,
+    steps,
+    attachmentRows,
+    rules,
+    audit,
+  ] = await Promise.all([
+    lead.companyId ? ctx.db.get(lead.companyId) : Promise.resolve(null),
+    ctx.db
       .query('leadNotes')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap),
-  );
-  const lifecycleHistory = capped(
-    'lifecycleStageHistory',
-    await ctx.db
+      .take(cap)
+      .then((rows) => capped('leadNotes', rows)),
+    ctx.db
       .query('lifecycleStageHistory')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap),
-  );
-  const deals = capped(
-    'deals',
-    await ctx.db
+      .take(cap)
+      .then((rows) => capped('lifecycleStageHistory', rows)),
+    ctx.db
       .query('deals')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap),
-  );
-  const activities = capped(
-    'activities',
-    await ctx.db
+      .take(cap)
+      .then((rows) => capped('deals', rows)),
+    ctx.db
       .query('activities')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap),
-  );
-  const memberships = capped(
-    'leadListMembers',
-    await ctx.db
+      .take(cap)
+      .then((rows) => capped('activities', rows)),
+    ctx.db
       .query('leadListMembers')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap),
-  );
-  const lists: { name: string; kind: string }[] = [];
-  for (const member of memberships) {
-    const list = await ctx.db.get(member.listId);
-    if (list) lists.push({ name: list.name, kind: list.kind ?? 'static' });
-  }
-  const sends = capped(
-    'campaignSends',
-    await ctx.db
+      .take(cap)
+      .then((rows) => capped('leadListMembers', rows)),
+    ctx.db
       .query('campaignSends')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap),
-  );
-  const campaigns = [];
-  for (const send of sends) {
-    const campaign = await ctx.db.get(send.campaignId);
-    const events = await ctx.db
+      .take(cap)
+      .then((rows) => capped('campaignSends', rows)),
+    ctx.db
       .query('campaignEvents')
-      .withIndex('by_send', (q) => q.eq('sendId', send._id))
-      .take(cap);
-    campaigns.push({
+      .withIndex('by_lead_eventAt', (q) => q.eq('leadId', leadId))
+      .take(cap)
+      .then((rows) => capped('campaignEvents', rows)),
+    ctx.db
+      .query('workflowRuns')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(cap)
+      .then((rows) => capped('workflowRuns', rows)),
+    ctx.db
+      .query('workflowRunSteps')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(cap)
+      .then((rows) => capped('workflowRunSteps', rows)),
+    ctx.db
+      .query('attachments')
+      .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
+      .take(cap)
+      .then((rows) => capped('attachments', rows)),
+    // Rules are read only; the loader's ctx type is the mutation one, the query ctx reads the same table.
+    loadScoringRules(ctx as unknown as MutationCtx),
+    ctx.db
+      .query('auditLogs')
+      .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
+      .take(cap)
+      .then((rows) => capped('auditLogs', rows)),
+  ]);
+  const [listDocs, campaignDocs, workflowDocs] = await Promise.all([
+    Promise.all(memberships.map((m) => ctx.db.get(m.listId))),
+    Promise.all([...new Set(sends.map((s) => s.campaignId))].map((id) => ctx.db.get(id))),
+    Promise.all([...new Set(runs.map((r) => r.workflowId))].map((id) => ctx.db.get(id))),
+  ]);
+  const lists = listDocs.flatMap((list) =>
+    list ? [{ name: list.name, kind: list.kind ?? 'static' }] : [],
+  );
+  const campaignById = new Map(campaignDocs.flatMap((c) => (c ? [[c._id, c] as const] : [])));
+  const campaigns = sends.map((send) => {
+    const campaign = campaignById.get(send.campaignId);
+    return {
       campaign: campaign
         ? {
             name: campaign.name,
@@ -106,31 +144,19 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
           }
         : null,
       send,
-      events,
-    });
-  }
-  const runs = capped(
-    'workflowRuns',
-    await ctx.db
-      .query('workflowRuns')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap),
-  );
-  const workflows = [];
-  for (const run of runs) {
-    const workflow = await ctx.db.get(run.workflowId);
-    const steps = await ctx.db
-      .query('workflowRunSteps')
-      .withIndex('by_run', (q) => q.eq('runId', run._id))
-      .collect();
-    workflows.push({ workflow: workflow ? { name: workflow.name } : null, run, steps });
-  }
-  const attachments = (
-    await ctx.db
-      .query('attachments')
-      .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
-      .take(cap)
-  ).map((a) => ({
+      events: events.filter((e) => e.sendId === send._id),
+    };
+  });
+  const workflowById = new Map(workflowDocs.flatMap((w) => (w ? [[w._id, w] as const] : [])));
+  const workflows = runs.map((run) => {
+    const workflow = workflowById.get(run.workflowId);
+    return {
+      workflow: workflow ? { name: workflow.name } : null,
+      run,
+      steps: steps.filter((s) => s.runId === run._id),
+    };
+  });
+  const attachments = attachmentRows.map((a) => ({
     name: a.name,
     folder: a.folder,
     mimeType: a.mimeType,
@@ -138,8 +164,6 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     updatedAt: a.updatedAt,
     deletedAt: a.deletedAt ?? null,
   }));
-  // Rules are read only; the loader's ctx type is the mutation one, the query ctx reads the same table.
-  const rules = await loadScoringRules(ctx as unknown as MutationCtx);
   const scored = lead.excludeFromProfiling ? null : computeLeadScore(lead, rules, Date.now());
   const scoring = {
     excludedFromProfiling: lead.excludeFromProfiling ?? false,
@@ -149,13 +173,6 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
       points,
     })),
   };
-  const audit = capped(
-    'auditLogs',
-    await ctx.db
-      .query('auditLogs')
-      .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
-      .take(cap),
-  );
   return {
     exportedAt: Date.now(),
     contact: lead,

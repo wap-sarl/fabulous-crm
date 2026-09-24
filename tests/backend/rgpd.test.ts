@@ -5,18 +5,28 @@ import { insertListMember } from '../../convex/lib/leadListMembers';
 import { syncLeadScore } from '../../convex/lib/leadScoring';
 import { stampLeadSignal } from '../../convex/lib/leadSignals';
 import { PURGE_CASCADE_BATCH } from '../../convex/lib/retention';
+import { uniformAccess } from '../../convex/_lib/validators/access';
 import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
 
 const NOW = Date.parse('2026-09-22T10:00:00Z');
+const SECRET = 'rgpd-webhook-secret';
 const opened: T[] = [];
 beforeEach(() => {
+  process.env.BREVO_API_KEY = 'test-brevo-key';
+  process.env.BREVO_WEBHOOK_SECRET = SECRET;
   jest.useFakeTimers();
   jest.setSystemTime(new Date(NOW));
 });
 afterEach(async () => {
-  for (const t of opened.splice(0)) await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+  for (const t of opened.splice(0)) await settle(t);
   jest.useRealTimers();
 });
+
+/** Runs the scheduled work; the fake clock lands on the real time afterwards, so it goes back to NOW for the seeded sessions. */
+async function settle(t: T) {
+  await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+  jest.setSystemTime(new Date(NOW));
+}
 
 const ADA = { firstName: 'Ada', lastName: 'Lovelace', email: 'ada.rgpd@example.com' };
 const BOB = { firstName: 'Bob', lastName: 'Marley', email: 'bob.rgpd@example.com' };
@@ -257,6 +267,57 @@ describe('RGPD rights', () => {
     expect(audits).toHaveLength(1);
   });
 
+  test('access: the settings switch does not widen a role limited to its own contacts; the rights follow the visibility', async () => {
+    const { t, as, admin } = await setup();
+    const support = await seedEmployee(t, { email: 'support@example.com' });
+    const role = await as.mutation(api.features.roles.mutations.createRole, {
+      label: 'Support',
+      access: uniformAccess('own', true),
+    });
+    await as.mutation(api.features.users.mutations.setEmployeeRole, {
+      userId: support.userId,
+      role,
+    });
+    const asSupport = asIdentity(t, support.identity);
+    // An unowned contact is the pool, visible to all: Ada belongs to the admin.
+    const ada = await seedLead(t, { ...ADA, ownerIds: [admin.userId] });
+    const own = await seedLead(t, { ...BOB, ownerIds: [support.userId] });
+
+    // Out of the perimeter: the contact does not exist for this role, whatever the right.
+    await expect(
+      asSupport.action(api.features.rgpd.actions.exportContactData, { leadId: ada }),
+    ).rejects.toThrow(/lead_not_found/);
+    await expect(
+      asSupport.mutation(api.features.rgpd.mutations.eraseContact, { leadId: ada, confirm: true }),
+    ).rejects.toThrow(/lead_not_found/);
+    await expect(
+      asSupport.mutation(api.features.rgpd.mutations.setProfilingExclusion, {
+        leadId: ada,
+        exclude: true,
+      }),
+    ).rejects.toThrow(/lead_not_found/);
+    expect(await t.run((ctx) => ctx.db.query('rgpdRequests').collect())).toEqual([]);
+    expect((await t.run((ctx) => ctx.db.get(ada)))?.excludeFromProfiling).toBeUndefined();
+
+    // Its own contact: every right works as for the admin.
+    const { archive } = await asSupport.action(api.features.rgpd.actions.exportContactData, {
+      leadId: own,
+    });
+    expect(archive.contact._id).toBe(own);
+    await asSupport.mutation(api.features.rgpd.mutations.setProfilingExclusion, {
+      leadId: own,
+      exclude: true,
+    });
+    expect(await t.run((ctx) => ctx.db.get(own))).toMatchObject({ excludeFromProfiling: true });
+    await asSupport.mutation(api.features.rgpd.mutations.eraseContact, {
+      leadId: own,
+      confirm: true,
+    });
+    await settle(t);
+    expect(await t.run((ctx) => ctx.db.get(own))).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get(ada))).not.toBeNull();
+  });
+
   test('erasure: nothing of the contact remains but one anonymous audit row and the request; the other contact is untouched', async () => {
     const ctx = await setup();
     const { t, as, asMember } = ctx;
@@ -275,7 +336,7 @@ describe('RGPD rights', () => {
       confirm: true,
     });
     expect(await t.run((ctx) => ctx.db.get(requestId))).toMatchObject({ outcome: 'in_progress' });
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await settle(t);
 
     expect(await t.run((ctx) => ctx.db.get(ada))).toBeNull();
     expect(await rowsAbout(t, ada)).toBe(0);
@@ -327,7 +388,7 @@ describe('RGPD rights', () => {
       leadId: ada,
       confirm: true,
     });
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await settle(t);
     expect(await t.run((ctx) => ctx.db.get(ada))).toBeNull();
     expect(await t.run(async (ctx) => (await ctx.db.query('leadNotes').collect()).length)).toBe(0);
     const request = await t.run((ctx) => ctx.db.get(requestId));
@@ -402,5 +463,145 @@ describe('RGPD rights', () => {
     const requests = await as.query(api.features.rgpd.queries.listRequests, { leadId: ada });
     expect(requests.map((r) => r.type)).toEqual(['objection_lifted', 'objection']);
     expect(requests[0]?.requestedBy).toBe('Test User');
+  });
+
+  test('objection: opens, clicks and tracked-link clicks are turned away at the door, delivery is still logged', async () => {
+    const ctx = await setup();
+    const { t, as } = ctx;
+    const workflowId = await as.mutation(api.features.workflows.mutations.createWorkflow, {
+      name: 'Relance',
+      trigger: { type: 'campaign_email_event', event: 'opened' },
+      allowReEnrollment: false,
+      nodes: [
+        {
+          id: 'n1',
+          type: 'update_property',
+          target: { kind: 'standard', field: 'comment' },
+          value: 'a ouvert',
+        },
+      ],
+      startNodeId: 'n1',
+    });
+    await as.mutation(api.features.workflows.mutations.setWorkflowStatus, {
+      workflowId,
+      status: 'active',
+    });
+    const ada = await seedLead(t, ADA);
+    const bob = await seedLead(t, BOB);
+    const sends = await t.run(async (ctx) => {
+      const campaignId = await ctx.db.insert('campaigns', {
+        name: 'Offre',
+        channel: 'email',
+        messageType: 'marketing',
+        subject: 'Offre',
+        htmlBody: '<p>Offre</p>',
+        status: 'sent',
+        totalCount: 2,
+        sentCount: 2,
+        failedCount: 0,
+        updatedAt: NOW,
+        trackedLinks: [
+          {
+            key: 'cta',
+            label: 'Intéressé',
+            target: { kind: 'standard', field: 'lastName' },
+            value: 'Intéressée',
+            redirectUrl: 'https://example.com/offre',
+          },
+        ],
+      });
+      const out = {} as Record<'ada' | 'bob', Id<'campaignSends'>>;
+      for (const [who, leadId] of [
+        ['ada', ada],
+        ['bob', bob],
+      ] as const) {
+        out[who] = await ctx.db.insert('campaignSends', {
+          campaignId,
+          leadId,
+          email: who === 'ada' ? ADA.email : BOB.email,
+          params: {},
+          status: 'sent',
+          brevoMessageId: `msg-${who}`,
+        });
+        await ctx.db.insert('campaignLinkTokens', {
+          token: `tok-${who}`,
+          campaignId,
+          sendId: out[who],
+          leadId,
+          linkKey: 'cta',
+        });
+      }
+      return out;
+    });
+    await as.mutation(api.features.rgpd.mutations.setProfilingExclusion, {
+      leadId: ada,
+      exclude: true,
+    });
+
+    const post = (who: 'ada' | 'bob', event: string, ts: number) =>
+      t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
+        method: 'POST',
+        body: JSON.stringify({ event, 'message-id': `msg-${who}`, ts_epoch: ts }),
+      });
+    expect((await post('ada', 'opened', NOW + 1)).status).toBe(200);
+    expect((await post('ada', 'click', NOW + 2)).status).toBe(200);
+    expect((await post('ada', 'delivered', NOW + 3)).status).toBe(200);
+    expect((await post('bob', 'opened', NOW + 4)).status).toBe(200);
+    await settle(t);
+
+    // Ada: the delivery is on the record, nothing of what she did is, and no workflow saw her.
+    const eventsOf = (leadId: Id<'leads'>) =>
+      t.run(async (ctx) =>
+        (await ctx.db.query('campaignEvents').collect())
+          .filter((e) => e.leadId === leadId)
+          .map((e) => e.type),
+      );
+    expect(await eventsOf(ada)).toEqual(['delivered']);
+    const adaSend = await t.run((ctx) => ctx.db.get(sends.ada));
+    expect(adaSend?.openedAt).toBeUndefined();
+    expect(adaSend?.clickedAt).toBeUndefined();
+    const adaLead = await t.run((ctx) => ctx.db.get(ada));
+    expect(adaLead?.emailOpenCount).toBeUndefined();
+    expect(adaLead?.emailClickCount).toBeUndefined();
+    expect(adaLead?.lastEmailOpenAt).toBeUndefined();
+    expect(adaLead?.comment).toBeUndefined();
+    const runsOf = (leadId: Id<'leads'>) =>
+      t.run(async (ctx) =>
+        (await ctx.db.query('workflowRuns').collect()).filter((r) => r.leadId === leadId),
+      );
+    expect(await runsOf(ada)).toEqual([]);
+    // Bob, who did not object, is tracked as before: the test would notice a gate that closed on everyone.
+    expect(await eventsOf(bob)).toEqual(['opened']);
+    expect((await t.run((ctx) => ctx.db.get(sends.bob)))?.openedAt).toBe(NOW + 4);
+    expect((await t.run((ctx) => ctx.db.get(bob)))?.emailOpenCount).toBe(1);
+    expect(await runsOf(bob)).toHaveLength(1);
+
+    // The tracked link still leads where it should, and writes nothing about Ada.
+    const adaClick = await t.fetch('/l/tok-ada');
+    expect(adaClick.status).toBe(302);
+    expect(adaClick.headers.get('Location')).toBe('https://example.com/offre');
+    await settle(t);
+    expect(await eventsOf(ada)).toEqual(['delivered']);
+    const adaAfterClick = await t.run((ctx) => ctx.db.get(ada));
+    expect(adaAfterClick?.lastName).toBe(ADA.lastName);
+    expect(adaAfterClick?.emailClickCount).toBeUndefined();
+    const adaToken = await t.run(async (ctx) =>
+      (await ctx.db.query('campaignLinkTokens').collect()).find((r) => r.token === 'tok-ada'),
+    );
+    expect(adaToken?.clickedAt).toBeUndefined();
+    const bobClick = await t.fetch('/l/tok-bob');
+    expect(bobClick.status).toBe(302);
+    await settle(t);
+    expect(await eventsOf(bob)).toEqual(['opened', 'link_click']);
+    expect((await t.run((ctx) => ctx.db.get(bob)))?.lastName).toBe('Intéressée');
+
+    // Lifted, the next open counts again.
+    await as.mutation(api.features.rgpd.mutations.setProfilingExclusion, {
+      leadId: ada,
+      exclude: false,
+    });
+    expect((await post('ada', 'opened', NOW + 10)).status).toBe(200);
+    expect(await eventsOf(ada)).toEqual(['delivered', 'opened']);
+    expect((await t.run((ctx) => ctx.db.get(sends.ada)))?.openedAt).toBe(NOW + 10);
   });
 });

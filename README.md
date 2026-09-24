@@ -187,9 +187,13 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   (métadonnées), journal d'audit), rien sur d'autres personnes ; 2 000 lignes
   par table au plus, l'archive dit quelles tables ont été tronquées. *Droit
   d'opposition au profilage* : l'interrupteur arrête le scoring (score et
-  détail effacés, plus jamais recalculés) et les compteurs comportementaux
-  (ouvertures, clics, formulaires, pages vues) sans toucher à la fiche ; il se
-  lève de la même façon. *Droit à l'effacement* : après confirmation, la fiche
+  détail effacés, plus jamais recalculés) et tout suivi comportemental : les
+  ouvertures, clics et clics de liens suivis ne sont plus enregistrés du tout
+  (ni événement de campagne, ni marqueur sur l'envoi, ni compteur, ni
+  déclencheur de workflow, ni valeur posée par un lien suivi, qui redirige
+  simplement), les événements de délivrabilité (délivré, rebond, plainte)
+  restant consignés ; la fiche n'est pas touchée ; l'opposition se lève de la
+  même façon. *Droit à l'effacement* : après confirmation, la fiche
   et tout ce qui lui appartient sont supprimés définitivement, par étapes
   planifiées (même cascade que la purge de rétention : notes, envois, jetons de
   liens et événements de campagne, enrôlements et étapes de workflow,
