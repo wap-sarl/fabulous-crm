@@ -175,10 +175,10 @@ async function workflowWithRun(
 
 describe('retention purge', () => {
   test('the cron runs the purge every night', () => {
-    const jobs = Object.values(crons.crons);
-    expect(jobs).toHaveLength(1);
-    expect(JSON.stringify(jobs[0])).toContain('features/retention/internal:runPurge');
-    expect(jobs[0]!.schedule).toMatchObject({ type: 'daily', hourUTC: 3, minuteUTC: 30 });
+    const purge = Object.values(crons.crons).find((job) =>
+      JSON.stringify(job).includes('features/retention/internal:runPurge'),
+    );
+    expect(purge?.schedule).toMatchObject({ type: 'daily', hourUTC: 3, minuteUTC: 30 });
   });
 
   test('each table is purged past its retention and kept within it; one audit row carries the counts', async () => {

@@ -11,4 +11,12 @@ crons.daily(
   {},
 );
 
+// An erasure whose step failed is scheduled again (features/rgpd); the step is idempotent.
+crons.hourly(
+  'rgpd erasure resume',
+  { minuteUTC: 20 },
+  internal.features.rgpd.internal.resumeStalledErasures,
+  {},
+);
+
 export default crons;

@@ -110,6 +110,12 @@ export async function applyLeadScore(
   rules: Doc<'scoringRules'>[],
   opts?: { lifecycle?: LifecycleConfig; workflows?: Doc<'workflows'>[] },
 ): Promise<void> {
+  if (lead.excludeFromProfiling) {
+    if (lead.leadScore !== undefined || lead.scoreBreakdown !== undefined) {
+      await ctx.db.patch(lead._id, { leadScore: undefined, scoreBreakdown: undefined });
+    }
+    return;
+  }
   const { score, breakdown } = computeLeadScore(lead, rules, Date.now());
   const oldScore = lead.leadScore ?? 0;
 
@@ -154,7 +160,7 @@ export async function syncLeadScore(ctx: MutationCtx, change: LeadChange): Promi
   if (!lead || lead.deletedAt !== undefined) return;
   const rules = await loadScoringRules(ctx);
   // Fast path while scoring is unconfigured: no rules and nothing stored.
-  if (rules.length === 0 && lead.leadScore === undefined) return;
+  if (rules.length === 0 && lead.leadScore === undefined && !lead.excludeFromProfiling) return;
   await applyLeadScore(ctx, lead, rules);
 }
 
