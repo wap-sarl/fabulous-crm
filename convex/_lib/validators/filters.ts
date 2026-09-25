@@ -23,6 +23,8 @@ export const leadStandardFieldValidator = v.union(
   v.literal('formSubmissionCount'),
   v.literal('lastPageViewAt'),
   v.literal('pageViewCount'),
+  // The visited paths joined, so « contains » finds a page.
+  v.literal('visitedPages'),
   // List membership, resolved through the by_list_lead index at eval time.
   v.literal('listIds'),
 );

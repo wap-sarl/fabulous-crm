@@ -15,6 +15,7 @@ export const TIMELINE_FILTERS: TimelineFilter[] = [
   { value: 'activities', label: 'Activités', kinds: ['activity'] },
   { value: 'campaigns', label: 'Campagnes', kinds: ['campaign_send', 'campaign_event'] },
   { value: 'forms', label: 'Formulaires', kinds: ['form_submission'] },
+  { value: 'web', label: 'Navigation', kinds: ['page_view'] },
   { value: 'workflows', label: 'Workflows', kinds: ['workflow_run'] },
   { value: 'lifecycle', label: 'Statut', kinds: ['lifecycle'] },
   { value: 'deals', label: 'Transactions', kinds: ['deal'] },

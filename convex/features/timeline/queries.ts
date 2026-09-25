@@ -75,6 +75,12 @@ export type TimelineEvent =
       /** Submitted field labels (values stay in the CRM record, not the feed). */
       fieldLabels: string[];
     })
+  | (TimelineEventBase<'page_view'> & {
+      url: string;
+      path: string;
+      title: string | null;
+      referrer: string | null;
+    })
   | (TimelineEventBase<'workflow_run'> & {
       runId: Id<'workflowRuns'>;
       workflowId: Id<'workflows'>;
@@ -314,6 +320,31 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
             fieldLabels,
           };
         },
+      }));
+    },
+  }),
+
+  page_view: (ctx, leadId) => ({
+    kind: 'page_view',
+    load: async (w, limit) => {
+      const rows = await fetchRows(
+        ctx.db
+          .query('pageViews')
+          .withIndex('by_lead_at', (q) => withinWindow(q.eq('leadId', leadId), 'at', w))
+          .order('desc'),
+        limit,
+      );
+      return rows.map((view) => ({
+        at: view.at,
+        build: async () => ({
+          kind: 'page_view',
+          id: view._id,
+          at: view.at,
+          url: view.url,
+          path: view.path,
+          title: view.title ?? null,
+          referrer: view.referrer ?? null,
+        }),
       }));
     },
   }),

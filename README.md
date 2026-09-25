@@ -157,6 +157,27 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   secrète, `FORM_IP_HASH_SALT` ou dérivée de `BETTER_AUTH_SECRET`) et suit la
   rétention du contact ; un formulaire supprimé suit celle des fiches
   supprimées.
+- **Suivi web** (*Paramètres → Suivi web*) : un script servi par le
+  déploiement (`GET /track.js`, à insérer sur le site), un cookie de visiteur
+  `_wapv` posé sur le domaine du site après l'accord du visiteur (bandeau
+  fourni, ou le gestionnaire de consentement du site via
+  `window.wapTracking = { consent: true }` / `window.wapTrack.consent(ok)`), et
+  des balises de pages vues (`POST /track`, URL, titre, référent) limitées par
+  IP et par visiteur, validées et bornées ; « Do Not Track » est respecté par
+  le script comme par la route. Table `pageViews` (par visiteur et par
+  contact), `webVisitors`. Deux modes : **anonyme** (rien n'est rattaché à un
+  contact) ou **nominatif** (un formulaire soumis ou un lien de campagne
+  cliqué depuis ce navigateur rattache ses pages vues au contact, celles
+  d'avant comprises, par lots planifiés ; les suivantes lui arrivent
+  directement) ; le mode nominatif demande une base légale et une information
+  claire, à valider avant de l'activer. Un contact ayant fait opposition au
+  profilage ne reçoit rien. Sur le contact : `pageViewCount`, `lastPageViewAt`
+  et `visitedPages` (les 50 derniers chemins distincts), d'où le filtre « A
+  visité la page (URL contient) » des listes dynamiques et des règles de
+  scoring, et la fiche affiche les pages vues dans l'historique (filtre
+  « Navigation »). Conservation propre (`appConfig.tracking.retentionDays`,
+  7 à 395 jours, 90 par défaut) appliquée par la purge nocturne ; l'export
+  RGPD contient les pages vues, l'effacement les emporte.
 - **Doublons** : détection des leads en double par téléphone normalisé
   (E.164), e-mail, nom + code postal et distance de Levenshtein sur le nom
   (clés `dedupe` estampillées par le trigger des leads, index dédiés). Analyse

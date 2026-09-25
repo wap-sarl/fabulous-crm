@@ -61,6 +61,8 @@ export const leadValidator = v.object({
   formSubmissionCount: v.optional(v.number()),
   lastPageViewAt: v.optional(v.number()),
   pageViewCount: v.optional(v.number()),
+  // The last distinct paths the contact's browser visited, most recent last (validators/tracking.ts), for filters.
+  visitedPages: v.optional(v.array(v.string())),
   leadScore: v.optional(v.number()),
   scoreBreakdown: v.optional(v.record(v.string(), v.number())),
 

@@ -43,6 +43,7 @@ export const PURGE_COUNT_KEYS = [
   'apiIdempotencyKeys',
   'importRows',
   'importJobs',
+  'pageViews',
   'auditLogs',
 ] as const;
 export type PurgeCounts = Record<(typeof PURGE_COUNT_KEYS)[number], number>;
@@ -114,7 +115,9 @@ type Related =
   | 'campaignEvents'
   | 'leadDuplicates'
   | 'formSubmissions'
-  | 'formVisitorTokens';
+  | 'formVisitorTokens'
+  | 'pageViews'
+  | 'webVisitors';
 
 /** Deletes one batch of related rows; a query the page has no room for counts as pending. */
 async function purgeRelated(
@@ -173,6 +176,19 @@ export async function purgeLeadRows(ctx: MutationCtx, state: PageState, leadId: 
   pending ||= await purgeRelated(ctx, state, (limit) =>
     ctx.db
       .query('formVisitorTokens')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(limit),
+  );
+  // Where the person browsed, and the browsers tied to them.
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
+      .query('pageViews')
+      .withIndex('by_lead_at', (q) => q.eq('leadId', leadId))
+      .take(limit),
+  );
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
+      .query('webVisitors')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
       .take(limit),
   );
@@ -332,6 +348,8 @@ async function purgeAged(
         | Id<'invitations'>
         | Id<'apiIdempotencyKeys'>
         | Id<'importRows'>
+        | Id<'pageViews'>
+        | Id<'webVisitors'>
         | Id<'auditLogs'>;
     }[]
   >,
@@ -481,6 +499,20 @@ export async function purgePage(
       state.counts.importJobs += 1;
     }
   }
+  // Page views and idle browsers past the tracking retention (appConfig.tracking, its own duration).
+  const trackingCutoff = at - policy.trackingDays * DAY_MS;
+  await purgeAged(ctx, state, 'pageViews', (limit) =>
+    ctx.db
+      .query('pageViews')
+      .withIndex('by_at', (q) => q.lt('at', trackingCutoff))
+      .take(limit),
+  );
+  await purgeAged(ctx, state, 'pageViews', (limit) =>
+    ctx.db
+      .query('webVisitors')
+      .withIndex('by_lastSeenAt', (q) => q.lt('lastSeenAt', trackingCutoff))
+      .take(limit),
+  );
   await purgeAged(ctx, state, 'auditLogs', (limit) =>
     ctx.db
       .query('auditLogs')

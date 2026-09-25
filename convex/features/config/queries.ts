@@ -1,4 +1,5 @@
 import { retentionPolicyOf } from '../../_lib/validators/retention';
+import { trackingConfigOf } from '../../lib/tracking';
 import { CONNECTOR_PROVIDERS } from '../../_lib/validators/connectors';
 import { credentialsSource, PROVIDERS, redirectUriOrNull } from '../../lib/connectors';
 import { query } from '../../_generated/server';
@@ -89,6 +90,7 @@ export const getAdminConfig = settingsQuery({
         retentionDays: cfg.attachments?.retentionDays ?? DEFAULT_ATTACHMENT_RETENTION_DAYS,
       },
       retention: retentionPolicyOf(cfg),
+      tracking: trackingConfigOf(cfg),
       auth: {
         magicLinkEnabled: cfg.auth.magicLinkEnabled,
         // Full social-provider catalog, each merged with its stored credentials.

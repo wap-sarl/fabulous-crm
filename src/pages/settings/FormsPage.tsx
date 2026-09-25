@@ -31,6 +31,7 @@ import {
   toast,
 } from '@crm/design-system';
 import { Code2, Pencil, Plus, Trash2 } from 'lucide-react';
+import { convexSiteUrl } from '../../lib/convexSite';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import type { PropertyDefinitionRow } from '../../features/properties/types';
@@ -64,15 +65,6 @@ function saveErrorMessage(error: unknown): string {
   const message = error instanceof Error ? error.message : '';
   const known = Object.keys(SAVE_ERRORS).find((code) => message.includes(code));
   return known ? SAVE_ERRORS[known] : 'Échec de l’enregistrement du formulaire.';
-}
-
-/** Deployment origin serving the public routes (…convex.site). */
-function convexSiteUrl(): string {
-  const env = (typeof window !== 'undefined' && window.__ENV__) || {};
-  const explicit = env.VITE_CONVEX_SITE_URL ?? import.meta.env.VITE_CONVEX_SITE_URL;
-  if (explicit) return String(explicit).replace(/\/+$/, '');
-  const convexUrl = String(env.VITE_CONVEX_URL ?? import.meta.env.VITE_CONVEX_URL ?? '');
-  return convexUrl.replace(/\.convex\.cloud\/?$/, '.convex.site').replace(/\/+$/, '');
 }
 
 function CopyRow({ label, value }: { label: string; value: string }) {

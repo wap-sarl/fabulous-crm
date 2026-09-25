@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internalQuery } from '../../_generated/server';
 // Trigger-wrapped constructor: lead writes must run the lead triggers (functions.ts).
@@ -67,6 +68,8 @@ export const submitForm = internalMutation({
     renderedAt: v.optional(v.number()),
     renderSig: v.optional(v.string()),
     visitorToken: v.optional(v.string()),
+    // The tracking script's cookie id, to tie the browser's page views to the contact (named mode).
+    trackingVisitor: v.optional(v.string()),
     ipHash: v.string(),
     userAgent: v.optional(v.string()),
   },
@@ -203,6 +206,12 @@ export const submitForm = internalMutation({
       { type: 'form_submitted', formId: form._id },
       { workflows },
     );
+    if (args.trackingVisitor) {
+      await ctx.scheduler.runAfter(0, internal.features.tracking.internal.identifyVisitor, {
+        visitorId: args.trackingVisitor,
+        leadId,
+      });
+    }
 
     return {
       ok: true as const,

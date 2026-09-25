@@ -8,6 +8,7 @@ import {
   Ban,
   ClipboardList,
   Eye,
+  Globe,
   Handshake,
   Mail,
   Merge,
@@ -145,6 +146,13 @@ function present(event: TimelineEvent, lifecycleLabel: (key: string) => string):
         tone: 'green',
         title: `Formulaire · ${event.formName}`,
         detail: event.fieldLabels.join(', '),
+      };
+    case 'page_view':
+      return {
+        Icon: Globe,
+        tone: 'blue',
+        title: `Page vue · ${event.title ?? event.path}`,
+        detail: joinDetails([event.url, event.referrer ? `depuis ${event.referrer}` : null]),
       };
     case 'workflow_run':
       return {

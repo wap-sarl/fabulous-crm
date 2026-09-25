@@ -67,6 +67,9 @@ export function getFieldValue(
       return lead.lastPageViewAt;
     case 'pageViewCount':
       return lead.pageViewCount ?? 0;
+    case 'visitedPages':
+      // One text, so « contains /tarifs » reads as « visited a page whose path contains /tarifs ».
+      return lead.visitedPages?.length ? lead.visitedPages.join('\n') : undefined;
     case 'listIds':
       return extras?.memberListIds ?? [];
   }
