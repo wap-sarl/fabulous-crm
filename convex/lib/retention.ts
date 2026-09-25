@@ -112,7 +112,9 @@ type Related =
   | 'lifecycleStageHistory'
   | 'dealStageHistory'
   | 'campaignEvents'
-  | 'leadDuplicates';
+  | 'leadDuplicates'
+  | 'formSubmissions'
+  | 'formVisitorTokens';
 
 /** Deletes one batch of related rows; a query the page has no room for counts as pending. */
 async function purgeRelated(
@@ -158,6 +160,19 @@ export async function purgeLeadRows(ctx: MutationCtx, state: PageState, leadId: 
   pending ||= await purgeRelated(ctx, state, (limit) =>
     ctx.db
       .query('lifecycleStageHistory')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(limit),
+  );
+  // What the person typed into public forms, and the browser identity that ties later renders to them.
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
+      .query('formSubmissions')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(limit),
+  );
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
+      .query('formVisitorTokens')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
       .take(limit),
   );

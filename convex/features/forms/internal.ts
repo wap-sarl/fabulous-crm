@@ -6,6 +6,7 @@ import { internalMutation } from '../../_lib/functions';
 import { MAX_FILL_MS, MIN_FILL_MS, formFieldKey } from '../../_lib/validators/forms';
 import { propertyValueValidator, type PropertyValue } from '../../_lib/validators/properties';
 import { generateHexToken } from '../../lib/crypto';
+import { gateLeadCreate } from '../../lib/gates';
 import { filterUndefined } from '../../lib/dbHelpers';
 import {
   buildPublicForm,
@@ -133,6 +134,12 @@ export const submitForm = internalMutation({
         );
       }
     } else {
+      // A contact becoming live goes through the seam like every other creation; a refusal is not the visitor's business.
+      try {
+        await gateLeadCreate(ctx, 1, 'form');
+      } catch {
+        return { ok: false as const, code: 'unavailable' as const };
+      }
       const lifecycle = await loadLifecycleConfig(ctx);
       const companyId = standard.company
         ? await resolveFormCompany(ctx, standard.company, email)

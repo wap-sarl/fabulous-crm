@@ -114,8 +114,9 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   *Paramètres → Conservation* (`appConfig.retention`) : les fiches supprimées
   (leads, entreprises, transactions, activités ; 30 jours par défaut, 1 à 365)
   avec tout ce qui s'y rattache (notes, envois et événements de campagne, liens
-  suivis, enrôlements et étapes de workflow, historique de statut, appartenances
-  aux listes, paires de doublons, fichiers joints et leurs blobs ; une transaction
+  suivis, enrôlements et étapes de workflow, historique de statut, soumissions
+  de formulaires, appartenances aux listes, paires de doublons, fichiers joints
+  et leurs blobs ; une transaction
   ou une activité encore vivante perd seulement son lien), les événements de
   campagne, le journal des étapes de workflow et les liens suivis des campagnes
   terminées (365 jours par défaut, 30 à 3650), le journal d'audit (730 jours par
@@ -212,8 +213,8 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   produit une archive JSON de tout ce que le CRM détient sur la personne
   (fiche, entreprise, notes, listes, historique de statut, transactions et
   activités liées, envois et événements de chaque campagne, enrôlements et
-  étapes de workflow, score et règles qui y contribuent, fichiers joints
-  (métadonnées), journal d'audit), rien sur d'autres personnes ni de technique
+  étapes de workflow, soumissions de formulaires, score et règles qui y
+  contribuent, fichiers joints (métadonnées), journal d'audit), rien sur d'autres personnes ni de technique
   (pas de jeton de consentement, de clés de recherche ou de doublons, ni des
   responsables) ; 2 000 lignes par table au plus, l'archive dit quelles tables
   ont été tronquées. *Droit
@@ -228,7 +229,8 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   et tout ce qui lui appartient sont supprimés définitivement, par étapes
   planifiées (même cascade que la purge de rétention : notes, envois, jetons de
   liens et événements de campagne, enrôlements et étapes de workflow,
-  historique de statut, appartenances aux listes, paires de doublons, fichiers
+  historique de statut, soumissions de formulaires et jeton de visiteur,
+  appartenances aux listes, paires de doublons, fichiers
   et leurs blobs, journal d'audit de la fiche, de ses notes et de ses
   enrôlements) ; une transaction ou une activité liée reste, sans lien, car
   elle appartient à l'organisation ; il ne reste qu'une ligne d'audit anonyme

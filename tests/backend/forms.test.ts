@@ -1,7 +1,10 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { FormField, FormStandardField } from '../../convex/_lib/validators/forms';
+import { setExtensionsForTests } from '../../convex/extensions';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+
+afterEach(() => setExtensionsForTests(null));
 
 const std = (field: FormStandardField, label: string, required = false): FormField => ({
   target: { kind: 'standard', field },
@@ -307,5 +310,37 @@ describe('capture forms', () => {
     });
     expect(limited.status).toBe(429);
     expect(await liveLeads(t)).toHaveLength(0);
+  });
+
+  test('a new contact goes through the lead gate as `form`; a refusal answers `unavailable` and creates nothing', async () => {
+    const { t, as } = await setup();
+    const formId = await createAcceptanceForm(as);
+    const calls: { count: number; source: string }[] = [];
+    let refuse = true;
+    setExtensionsForTests({
+      beforeLeadCreate: async (_ctx, info) => {
+        calls.push(info);
+        if (refuse) throw new Error('contact_limit_reached');
+      },
+    });
+    const refused = await submit(t, formId, {
+      'std:firstName': 'Ada',
+      'std:email': 'ada@example.com',
+    });
+    expect(refused.status).toBe(400);
+    expect(await refused.json()).toEqual({ ok: false, code: 'unavailable' });
+    expect(await liveLeads(t)).toHaveLength(0);
+    expect(calls).toEqual([{ count: 1, source: 'form' }]);
+
+    refuse = false;
+    const accepted = await submit(t, formId, {
+      'std:firstName': 'Ada',
+      'std:email': 'ada@example.com',
+    });
+    expect(accepted.status).toBe(200);
+    expect(await liveLeads(t)).toHaveLength(1);
+    // A known e-mail updates the contact: nothing becomes live, the gate is not asked.
+    await submit(t, formId, { 'std:firstName': 'Ada L.', 'std:email': 'ada@example.com' });
+    expect(calls).toHaveLength(2);
   });
 });

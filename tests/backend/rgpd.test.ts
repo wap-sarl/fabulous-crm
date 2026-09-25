@@ -80,6 +80,15 @@ async function seedWorld({ t, as, admin }: Awaited<ReturnType<typeof setup>>) {
       failedCount: 0,
       updatedAt: NOW,
     });
+    const formId = await ctx.db.insert('forms', {
+      name: 'Contact',
+      fields: [{ target: { kind: 'standard', field: 'email' }, label: 'E-mail', required: true }],
+      buttonText: 'Envoyer',
+      afterSubmit: { kind: 'message', message: 'Merci' },
+      consentText: 'OK',
+      active: true,
+      updatedAt: NOW,
+    });
     const out: Record<string, Id<'leadNotes'> | Id<'campaignSends'> | Id<'workflowRuns'>> = {};
     for (const [who, leadId] of [
       ['ada', ada],
@@ -114,6 +123,17 @@ async function seedWorld({ t, as, admin }: Awaited<ReturnType<typeof setup>>) {
         eventAt: NOW,
       });
       await ctx.db.insert('lifecycleStageHistory', { leadId, to: 'lead', source: 'manual' });
+      await ctx.db.insert('formSubmissions', {
+        formId,
+        leadId,
+        values: {
+          'std:email': who === 'ada' ? ADA.email : BOB.email,
+          'std:comment': `Message de ${who}`,
+        },
+        ipHash: 'hash',
+        userAgent: 'TestBrowser/1.0',
+      });
+      await ctx.db.insert('formVisitorTokens', { token: `visitor-${who}`, leadId });
       await insertListMember(ctx, { listId, leadId });
       await ctx.db.insert('auditLogs', {
         entityType: 'lead',
@@ -204,6 +224,8 @@ const rowsAbout = (t: T, leadId: Id<'leads'>) =>
           'leadListMembers',
           'workflowRuns',
           'workflowRunSteps',
+          'formSubmissions',
+          'formVisitorTokens',
         ] as const
       ).map(
         async (table) =>
@@ -259,6 +281,14 @@ describe('RGPD rights', () => {
     expect(archive.lifecycleHistory).toHaveLength(1);
     expect(archive.deals.map((d) => d.title)).toEqual(['Contrat Ada']);
     expect(archive.activities.map((a) => a.title)).toEqual(['Rappeler']);
+    expect(archive.formSubmissions).toEqual([
+      {
+        form: 'Contact',
+        submittedAt: expect.any(Number),
+        values: { 'std:email': ADA.email, 'std:comment': 'Message de ada' },
+        userAgent: 'TestBrowser/1.0',
+      },
+    ]);
     expect(archive.attachments).toEqual([
       expect.objectContaining({ name: 'contrat.pdf', size: 3 }),
     ]);

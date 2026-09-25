@@ -75,7 +75,7 @@ export interface Extensions {
   /** Leads about to become live, by insertion or by reviving a soft-deleted one (`count` is an upper bound for imports); throw to refuse. */
   beforeLeadCreate(
     ctx: MutationCtx,
-    info: { count: number; source: 'crm' | 'import' | 'api' },
+    info: { count: number; source: 'crm' | 'import' | 'api' | 'form' },
   ): Promise<void>;
   /** Messages about to go out; throw to refuse (creation and resend propagate it, a preparation page fails the campaign, a workflow step is skipped). */
   beforeSend(ctx: MutationCtx, info: SendInfo): Promise<void>;
