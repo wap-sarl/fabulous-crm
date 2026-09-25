@@ -397,7 +397,7 @@ const tables = {
   scoringState: defineTable(scoringStateValidator),
 
   // Public capture forms (settings-managed). Few rows, read in full.
-  forms: defineTable(formValidator),
+  forms: defineTable(formValidator).index('by_deletedAt', ['deletedAt']),
 
   formSubmissions: defineTable(formSubmissionValidator)
     .index('by_form', ['formId'])

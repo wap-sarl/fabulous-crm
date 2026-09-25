@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api, FORM_STANDARD_FIELDS, formFieldKey } from '@crm/lib/backend';
-import type { Form, FormField, FormStandardField, Id } from '@crm/lib/backend';
+import type { Form, FormFieldInput as FormField, FormStandardField, Id } from '@crm/lib/backend';
 import {
   Button,
   Card,
@@ -116,7 +116,9 @@ function EmbedDialog({ formId, onClose }: { formId: Id<'forms'>; onClose: () => 
           <CopyRow label="URL de la page autonome (iframe)" value={`${base}/forms/${formId}`} />
           <p className="text-xs text-faint">
             Le script injecte le formulaire à l’endroit où il est placé (ou dans l’élément désigné
-            par son attribut <code>data-target</code>). Styles isolés de la page hôte.
+            par son attribut <code>data-target</code>). Styles isolés de la page hôte. Avec un
+            gestionnaire de balises (Google Tag Manager), indiquez l’élément cible avec{' '}
+            <code>data-target</code> : le script ne sait pas où il a été inséré.
           </p>
         </div>
       </DialogContent>

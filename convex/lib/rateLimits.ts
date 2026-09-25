@@ -41,6 +41,9 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   formRender: { kind: 'token bucket', rate: 60, period: MINUTE },
   // Public form submissions (POST /forms/<id>/submit), per client IP.
   formSubmit: { kind: 'token bucket', rate: 10, period: MINUTE },
+  // The same, per form, then for the whole deployment: a botnet spread over addresses still meets a ceiling.
+  formSubmitPerForm: { kind: 'token bucket', rate: 200, period: HOUR },
+  formSubmitTotal: { kind: 'token bucket', rate: 1000, period: HOUR },
 });
 
 type LimitName =
@@ -54,7 +57,9 @@ type LimitName =
   | 'apiWrite'
   | 'apiAuthFail'
   | 'formRender'
-  | 'formSubmit';
+  | 'formSubmit'
+  | 'formSubmitPerForm'
+  | 'formSubmitTotal';
 
 /**
  * Consume one unit of `name` for `key`. Returns false — and logs the overrun —

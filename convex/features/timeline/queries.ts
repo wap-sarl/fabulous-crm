@@ -11,7 +11,6 @@ import type {
   CampaignSendStatus,
 } from '../../_lib/validators/crm';
 import { type DealStatus, stageTagLabels } from '../../_lib/validators/deals';
-import { formFieldKey } from '../../_lib/validators/forms';
 import type { LifecycleChangeSource } from '../../_lib/validators/lifecycle';
 import {
   TIMELINE_KINDS,
@@ -156,6 +155,7 @@ const SYSTEM_ACTOR: Record<string, string> = {
   sms_stop: 'Réponse STOP par SMS',
   tracked_link: 'Lien de campagne',
   workflow: 'Workflow',
+  form: 'Formulaire public',
 };
 
 type SourceFactory = (
@@ -303,9 +303,7 @@ const SOURCES: Record<TimelineKind, SourceFactory> = {
           const form = await get(submission.formId);
           // Labels in form-field order (record keys come back sorted from Convex).
           const fieldLabels = form
-            ? form.fields
-                .filter((f) => submission.values[formFieldKey(f.target)] !== undefined)
-                .map((f) => f.label)
+            ? form.fields.filter((f) => submission.values[f.key] !== undefined).map((f) => f.label)
             : Object.keys(submission.values);
           return {
             kind: 'form_submission',

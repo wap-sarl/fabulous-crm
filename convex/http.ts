@@ -267,7 +267,12 @@ http.route({
 
     if (rest === undefined) {
       return new Response(formIframeHtml(formId), {
-        headers: { 'Content-Type': 'text/html; charset=utf-8' },
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          // The page loads its own script and posts to its own origin; styles are set from the script.
+          'Content-Security-Policy':
+            "default-src 'self'; style-src 'unsafe-inline'; connect-src 'self'; frame-ancestors *",
+        },
       });
     }
     if (rest === 'embed.js') {
@@ -304,7 +309,11 @@ http.route({
       return new Response('Not found', { status: 404 });
     }
     const ip = clientIpOf(request);
-    if (!(await enforceRateLimit(ctx, 'formSubmit', ip))) {
+    if (
+      !(await enforceRateLimit(ctx, 'formSubmit', ip)) ||
+      !(await enforceRateLimit(ctx, 'formSubmitPerForm', formId)) ||
+      !(await enforceRateLimit(ctx, 'formSubmitTotal', 'all'))
+    ) {
       return formJson({ ok: false, code: 'rate_limited' }, 429);
     }
     const body = (await request.json().catch(() => null)) as {
@@ -312,6 +321,7 @@ http.route({
       consent?: boolean;
       honeypot?: string;
       renderedAt?: number;
+      renderSig?: string;
       visitorToken?: string;
     } | null;
     if (!body || typeof body.values !== 'object' || body.values === null) {
@@ -331,6 +341,7 @@ http.route({
       consent: body.consent === true,
       honeypot: typeof body.honeypot === 'string' ? body.honeypot : undefined,
       renderedAt: typeof body.renderedAt === 'number' ? body.renderedAt : undefined,
+      renderSig: typeof body.renderSig === 'string' ? body.renderSig : undefined,
       visitorToken: typeof body.visitorToken === 'string' ? body.visitorToken : undefined,
       ipHash: await hashClientIp(ip),
       userAgent: request.headers.get('user-agent') ?? undefined,

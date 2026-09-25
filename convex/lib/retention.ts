@@ -309,7 +309,7 @@ async function purgeDealRows(ctx: MutationCtx, state: PageState, dealId: Id<'dea
   return !pending;
 }
 
-type Trashed = 'leads' | 'companies' | 'deals' | 'activities';
+type Trashed = 'leads' | 'companies' | 'deals' | 'activities' | 'forms';
 
 /** The soft-deleted rows of a table past their retention, oldest first; a missing `deletedAt` sorts below any number and stays out. */
 const trashOf = (ctx: MutationCtx, table: Trashed, cutoff: number, limit: number) =>
@@ -367,6 +367,13 @@ export async function purgePage(
       state.budget -= 1;
       state.counts.leads += 1;
     }
+  }
+  // A deleted form is a definition; its submissions belong to their contacts and follow them.
+  for (const form of await trashOf(ctx, 'forms', trashCutoff, room(state, PURGE_ENTITY_PAGE))) {
+    if (state.budget <= 0) break;
+    await ctx.db.delete(form._id);
+    state.budget -= 1;
+    state.counts.related += 1;
   }
   for (const company of await trashOf(
     ctx,

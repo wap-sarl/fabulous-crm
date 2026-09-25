@@ -36,11 +36,54 @@ export const formFieldTargetValidator = v.union(
 );
 
 /** One input of the form. Display order is the array order. */
+/** A field as the builder sends it; the server gives it its public key. */
+export const formFieldInputValidator = v.object({
+  target: formFieldTargetValidator,
+  label: v.string(),
+  required: v.boolean(),
+  key: v.optional(v.string()),
+});
+
+/** A field as stored: `key` is what the public definition and the submissions use, a slug of the label, unique in the form. */
 export const formFieldValidator = v.object({
   target: formFieldTargetValidator,
   label: v.string(),
   required: v.boolean(),
+  key: v.string(),
 });
+
+const FIELD_KEY_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/** A public key for a field: its label as an ASCII slug (« Prénom » → `prenom`). */
+export function slugifyFieldKey(label: string): string {
+  const slug = label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40);
+  return slug || 'champ';
+}
+
+/**
+ * Keys for the fields of a form about to be saved: a field keeps the key it had for the same target, so
+ * stored submissions stay readable; a new one gets its label's slug, suffixed until unique.
+ */
+export function assignFieldKeys<F extends { target: FormFieldTarget; label: string }>(
+  fields: F[],
+  previous: { target: FormFieldTarget; key: string }[] = [],
+): (F & { key: string })[] {
+  const kept = new Map(previous.map((f) => [formFieldKey(f.target), f.key]));
+  const used = new Set<string>();
+  return fields.map((field) => {
+    let key = kept.get(formFieldKey(field.target)) ?? slugifyFieldKey(field.label);
+    const base = key;
+    for (let n = 2; used.has(key); n++) key = `${base.slice(0, 36)}-${n}`;
+    used.add(key);
+    return { ...field, key };
+  });
+}
 
 export const formAfterSubmitValidator = v.union(
   v.object({ kind: v.literal('message'), message: v.string() }),
@@ -85,11 +128,12 @@ export const formVisitorTokenValidator = v.object({
 
 export type FormFieldTarget = Infer<typeof formFieldTargetValidator>;
 export type FormField = Infer<typeof formFieldValidator>;
+export type FormFieldInput = Infer<typeof formFieldInputValidator>;
 export type FormAfterSubmit = Infer<typeof formAfterSubmitValidator>;
 export type Form = Infer<typeof formValidator>;
 export type FormSubmission = Infer<typeof formSubmissionValidator>;
 
-/** Stable key of a field inside `values` / the public definition. */
+/** The identity of a field's target inside a form (one field per target); the public key is `field.key`. */
 export function formFieldKey(target: FormFieldTarget): string {
   return target.kind === 'standard' ? `std:${target.field}` : `cp:${target.propertyDefId}`;
 }
@@ -100,7 +144,7 @@ export function formFieldKey(target: FormFieldTarget): string {
  */
 export function validateFormShape(form: {
   name: string;
-  fields: FormField[];
+  fields: FormFieldInput[];
   buttonText: string;
   afterSubmit: FormAfterSubmit;
   consentText: string;
@@ -108,12 +152,13 @@ export function validateFormShape(form: {
   if (!form.name.trim()) return 'form_name_required';
   if (form.fields.length === 0) return 'form_fields_required';
   if (form.fields.length > MAX_FORM_FIELDS) return 'form_too_many_fields';
-  const keys = new Set<string>();
+  const targets = new Set<string>();
   for (const field of form.fields) {
     if (!field.label.trim()) return 'form_field_label_required';
-    const key = formFieldKey(field.target);
-    if (keys.has(key)) return 'form_duplicate_field';
-    keys.add(key);
+    const target = formFieldKey(field.target);
+    if (targets.has(target)) return 'form_duplicate_field';
+    targets.add(target);
+    if (field.key !== undefined && !FIELD_KEY_RE.test(field.key)) return 'form_invalid_field_key';
   }
   if (!form.buttonText.trim()) return 'form_button_text_required';
   // The GDPR checkbox is mandatory, so its sentence is too.

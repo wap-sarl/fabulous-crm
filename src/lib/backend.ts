@@ -34,6 +34,7 @@ export type { ActivityRow } from '../../convex/features/activities/queries';
 export type {
   Form,
   FormField,
+  FormFieldInput,
   FormFieldTarget,
   FormAfterSubmit,
   FormStandardField,

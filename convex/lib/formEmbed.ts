@@ -1,5 +1,10 @@
 export const FORM_EMBED_JS = `(function () {
+  // A tag manager or innerHTML injection leaves currentScript null: find the tag by its address instead.
   var script = document.currentScript;
+  if (!script || !script.src) {
+    var tags = document.querySelectorAll('script[src*="/forms/"][src$="/embed.js"]');
+    script = tags.length ? tags[tags.length - 1] : null;
+  }
   if (!script || !script.src) return;
   var src = new URL(script.src);
   var match = src.pathname.match(/^\\/forms\\/([^/]+)\\/embed\\.js$/);
@@ -37,10 +42,10 @@ export const FORM_EMBED_JS = `(function () {
     return node;
   }
 
-  function fetchDef() {
+  function fetchDef(then) {
     var url = base + '/forms/' + formId + '/def' + (visitor ? '?visitor=' + encodeURIComponent(visitor) : '');
     fetch(url).then(function (r) { return r.ok ? r.json() : null; }).then(function (def) {
-      if (def) render(def);
+      if (def) (then || render)(def);
     }).catch(function () {});
   }
 
@@ -147,8 +152,9 @@ export const FORM_EMBED_JS = `(function () {
     button.textContent = def.buttonText;
     form.appendChild(button);
 
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
+    var stamp = { ts: def.ts, sig: def.sig };
+    var retried = false;
+    function send() {
       Object.keys(errorEls).forEach(function (k) { errorEls[k].hidden = true; });
       globalErr.hidden = true;
       button.disabled = true;
@@ -161,7 +167,8 @@ export const FORM_EMBED_JS = `(function () {
           values: values,
           consent: consent.checked,
           honeypot: hp.value,
-          renderedAt: def.ts,
+          renderedAt: stamp.ts,
+          renderSig: stamp.sig,
           visitorToken: visitor
         })
       }).then(function (r) {
@@ -183,6 +190,12 @@ export const FORM_EMBED_JS = `(function () {
           container.appendChild(msg);
           return;
         }
+        // A page left open for a day: a fresh stamp, one more try, the typed values kept.
+        if (res && res.code === 'stale' && !retried) {
+          retried = true;
+          fetchDef(function (fresh) { stamp = { ts: fresh.ts, sig: fresh.sig }; setTimeout(send, 3200); });
+          return;
+        }
         button.disabled = false;
         if (res && res.errors) {
           Object.keys(res.errors).forEach(function (k) {
@@ -201,6 +214,10 @@ export const FORM_EMBED_JS = `(function () {
           : 'Une erreur est survenue. Veuillez réessayer.';
         globalErr.hidden = false;
       });
+    }
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      send();
     });
 
     container.appendChild(form);

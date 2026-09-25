@@ -2,17 +2,18 @@ import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { settingsMutation } from '../../_lib/auth';
 import {
+  assignFieldKeys,
   formAfterSubmitValidator,
-  formFieldValidator,
+  formFieldInputValidator,
   validateFormShape,
-  type FormField,
+  type FormFieldInput,
 } from '../../_lib/validators/forms';
 import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit';
 import { isNotDeleted } from '../../lib/dbHelpers';
 import { loadPropertyDefsById } from '../../lib/properties';
 
 /** Every custom target must be a live, non-computed lead property. */
-async function checkCustomTargets(ctx: MutationCtx, fields: FormField[]): Promise<void> {
+async function checkCustomTargets(ctx: MutationCtx, fields: FormFieldInput[]): Promise<void> {
   const defsById = await loadPropertyDefsById(ctx, 'lead');
   for (const field of fields) {
     if (field.target.kind !== 'custom') continue;
@@ -26,7 +27,7 @@ async function checkCustomTargets(ctx: MutationCtx, fields: FormField[]): Promis
 export const createForm = settingsMutation({
   args: {
     name: v.string(),
-    fields: v.array(formFieldValidator),
+    fields: v.array(formFieldInputValidator),
     buttonText: v.string(),
     afterSubmit: formAfterSubmitValidator,
     consentText: v.string(),
@@ -38,7 +39,7 @@ export const createForm = settingsMutation({
     await checkCustomTargets(ctx, args.fields);
     const formId = await ctx.db.insert('forms', {
       name: args.name.trim(),
-      fields: args.fields,
+      fields: assignFieldKeys(args.fields),
       buttonText: args.buttonText.trim(),
       afterSubmit: args.afterSubmit,
       consentText: args.consentText.trim(),
@@ -60,7 +61,7 @@ export const updateForm = settingsMutation({
   args: {
     formId: v.id('forms'),
     name: v.optional(v.string()),
-    fields: v.optional(v.array(formFieldValidator)),
+    fields: v.optional(v.array(formFieldInputValidator)),
     buttonText: v.optional(v.string()),
     afterSubmit: v.optional(formAfterSubmitValidator),
     consentText: v.optional(v.string()),
@@ -81,7 +82,8 @@ export const updateForm = settingsMutation({
     if (args.fields) await checkCustomTargets(ctx, args.fields);
     await ctx.db.patch(args.formId, {
       name: next.name.trim(),
-      fields: next.fields,
+      // A field keeps its public key across edits, so stored submissions stay readable.
+      fields: assignFieldKeys(next.fields, form.fields),
       buttonText: next.buttonText.trim(),
       afterSubmit: next.afterSubmit,
       consentText: next.consentText.trim(),

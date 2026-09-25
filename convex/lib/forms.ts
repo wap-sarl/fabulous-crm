@@ -1,15 +1,11 @@
+import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../_generated/server';
-import {
-  FORM_VISITOR_TOKEN_BYTES,
-  formFieldKey,
-  type FormStandardField,
-} from '../_lib/validators/forms';
+import { FORM_VISITOR_TOKEN_BYTES, type FormStandardField } from '../_lib/validators/forms';
 import { validatePropertyValue, type PropertyValue } from '../_lib/validators/properties';
 import { PROPERTY_TYPES } from '../_lib/validators/propertyTypes';
-import { normalizeCountryCode } from '../_lib/validators/companyRegistry';
 import { findCompanyByDomain } from './companies';
-import { companyDomainOfEmail, websiteOfDomain } from './companyDomains';
+import { companyDomainOfEmail } from './companyDomains';
 import { generateHexToken } from './crypto';
 import { isNotDeleted } from './dbHelpers';
 
@@ -56,8 +52,14 @@ export interface PublicFormField {
 }
 
 /** Free-text inputs are capped server-side whatever the client sends. */
-const MAX_TEXT_LENGTH = 500;
-const MAX_COMMENT_LENGTH = 2000;
+const MAX_LENGTH: Record<FormStandardField, number> = {
+  firstName: 100,
+  lastName: 100,
+  email: 254,
+  phone: 30,
+  company: 120,
+  comment: 2000,
+};
 
 export async function loadLiveForm(
   ctx: QueryCtx | MutationCtx,
@@ -92,8 +94,23 @@ export async function ensureVisitorToken(ctx: MutationCtx, leadId: Id<'leads'>):
   return token;
 }
 
+/** A token that identifies nobody, for the answers a bot gets: shaped like a real one, stored nowhere. */
+export const decoyVisitorToken = (): string => generateHexToken(FORM_VISITOR_TOKEN_BYTES);
+
+/** The live contact on that e-mail, the most recent when the address is doubled; a deleted one is a stranger to a public form. */
+export async function findLiveLeadByEmail(
+  ctx: QueryCtx | MutationCtx,
+  email: string,
+): Promise<Doc<'leads'> | null> {
+  const rows = await ctx.db
+    .query('leads')
+    .withIndex('by_email', (q) => q.eq('email', email))
+    .collect();
+  return rows.filter(isNotDeleted).sort((a, b) => b._creationTime - a._creationTime)[0] ?? null;
+}
+
 /** Whether the lead already carries a value for this form field. */
-function leadHasFieldValue(
+export function leadHasFieldValue(
   lead: Doc<'leads'>,
   target: Doc<'forms'>['fields'][number]['target'],
 ): boolean {
@@ -106,11 +123,15 @@ function leadHasFieldValue(
   return typeof value === 'string' && value.trim() !== '';
 }
 
+/** Whether the form asks for an e-mail: without one, a browser token proves nothing about who is typing. */
+export const hasEmailField = (form: Doc<'forms'>): boolean =>
+  form.fields.some((f) => f.target.kind === 'standard' && f.target.field === 'email');
+
 /**
- * The JSON the public embed renders from: resolved fields (dead custom
- * properties dropped) and, when the visitor is a known lead, the keys to skip
- * — key names only, never the lead's values (progressive profiling must not
- * leak data to whoever holds a token).
+ * The JSON the public embed renders from: resolved fields (dead custom properties dropped) and, when the visitor
+ * is a known lead, the keys to skip — key names only, never the lead's values (progressive profiling must not
+ * leak data to whoever holds a token). A form without an e-mail field skips nothing: on a shared browser the
+ * token proves nothing about who is typing.
  */
 export function buildPublicForm(
   form: Doc<'forms'>,
@@ -125,13 +146,13 @@ export function buildPublicForm(
 } {
   const fields: PublicFormField[] = [];
   const knownFields: string[] = [];
+  const known = visitorLead && hasEmailField(form) ? visitorLead : null;
   for (const field of form.fields) {
-    const key = formFieldKey(field.target);
     if (field.target.kind === 'custom') {
       const def = defsById.get(field.target.propertyDefId);
       if (!def || def.deletedAt !== undefined || def.computed) continue;
       fields.push({
-        key,
+        key: field.key,
         label: field.label,
         required: field.required,
         input: CUSTOM_INPUT[def.type],
@@ -139,13 +160,13 @@ export function buildPublicForm(
       });
     } else {
       fields.push({
-        key,
+        key: field.key,
         label: field.label,
         required: field.required,
         input: STANDARD_INPUT[field.target.field],
       });
     }
-    if (visitorLead && leadHasFieldValue(visitorLead, field.target)) knownFields.push(key);
+    if (known && leadHasFieldValue(known, field.target)) knownFields.push(field.key);
   }
   return {
     fields,
@@ -164,9 +185,8 @@ export interface CleanSubmission {
 }
 
 /**
- * Server-side validation of submitted values against the form's fields (shared
- * property validators). A required field may be absent only when the visitor's
- * lead already holds a value for it (progressive profiling skipped it).
+ * Server-side validation of submitted values against the form's fields (shared property validators). A required
+ * field may be absent only when the visitor's lead already holds a value for it (progressive profiling skipped it).
  */
 export function cleanSubmissionValues(
   form: Doc<'forms'>,
@@ -177,11 +197,12 @@ export function cleanSubmissionValues(
   const standard: Partial<Record<FormStandardField, string>> = {};
   const custom: Record<string, PropertyValue> = {};
   const errors: Record<string, string> = {};
+  const skippable = visitorLead && hasEmailField(form) ? visitorLead : null;
 
   for (const field of form.fields) {
-    const key = formFieldKey(field.target);
+    const key = field.key;
     const raw = values[key];
-    const known = visitorLead !== null && leadHasFieldValue(visitorLead, field.target);
+    const known = skippable !== null && leadHasFieldValue(skippable, field.target);
 
     if (field.target.kind === 'custom') {
       const def = defsById.get(field.target.propertyDefId);
@@ -202,13 +223,17 @@ export function cleanSubmissionValues(
       if (field.required && !known) errors[key] = 'Ce champ est requis.';
       continue;
     }
-    const max = field.target.field === 'comment' ? MAX_COMMENT_LENGTH : MAX_TEXT_LENGTH;
+    const max = MAX_LENGTH[field.target.field];
     if (text.length > max) {
       errors[key] = `Au plus ${max} caractères.`;
       continue;
     }
     if (field.target.field === 'email' && PROPERTY_TYPES.email.validate(text, {}) !== null) {
       errors[key] = 'Adresse e-mail invalide.';
+      continue;
+    }
+    if (field.target.field === 'phone' && !parsePhoneNumberFromString(text, 'FR')?.isValid()) {
+      errors[key] = 'Numéro de téléphone invalide.';
       continue;
     }
     standard[field.target.field] = text;
@@ -218,39 +243,104 @@ export function cleanSubmissionValues(
 }
 
 /**
- * Company for a form submission: match by the lead email's company domain,
- * then by exact name; otherwise create it. System write — no user to blame,
- * unlike {@link import('./companies').resolveCompanyForLead}.
+ * The company a submission may attach a contact to: the live one on the e-mail's domain, and nothing else. A name
+ * typed by an unknown visitor creates nothing and matches nothing (« Acme » must not walk into Acme); it stays in
+ * the submission for an employee to qualify.
  */
-export async function resolveFormCompany(
-  ctx: MutationCtx,
-  name: string,
+export async function companyOfSubmission(
+  ctx: QueryCtx | MutationCtx,
   email: string | undefined,
-): Promise<Id<'companies'>> {
+): Promise<Id<'companies'> | undefined> {
   const domain = companyDomainOfEmail(email);
-  if (domain) {
-    const byDomain = await findCompanyByDomain(ctx, domain);
-    if (byDomain) return byDomain._id;
-  }
-  const sameName = await ctx.db
-    .query('companies')
-    .withIndex('by_name', (q) => q.eq('name', name))
-    .take(5);
-  const byName = sameName.find(isNotDeleted);
-  if (byName) return byName._id;
-  return await ctx.db.insert('companies', {
-    name,
-    country: normalizeCountryCode(undefined),
-    domain,
-    website: domain ? websiteOfDomain(domain) : undefined,
-    ownerIds: [],
-    updatedAt: Date.now(),
-  });
+  if (!domain) return undefined;
+  return (await findCompanyByDomain(ctx, domain))?._id;
 }
 
-/** Salted SHA-256 of a client IP — correlate abuse without storing the address. */
+/** What a submission may write on a contact that already exists: the fields still empty, and nothing else. */
+export function fillableUpdates(
+  lead: Doc<'leads'>,
+  standard: CleanSubmission['standard'],
+  custom: CleanSubmission['custom'],
+  companyId: Id<'companies'> | undefined,
+): Record<string, unknown> {
+  const updates: Record<string, unknown> = {};
+  for (const field of ['firstName', 'lastName', 'phone', 'comment'] as const) {
+    const value = standard[field];
+    if (value !== undefined && !(lead[field] ?? '').trim()) updates[field] = value;
+  }
+  const missing = Object.fromEntries(
+    Object.entries(custom).filter(
+      ([id]) =>
+        !leadHasFieldValue(lead, {
+          kind: 'custom',
+          propertyDefId: id as Id<'propertyDefinitions'>,
+        }),
+    ),
+  );
+  if (Object.keys(missing).length > 0) {
+    updates.customProperties = { ...lead.customProperties, ...missing };
+  }
+  if (companyId && lead.companyId === undefined) updates.companyId = companyId;
+  return updates;
+}
+
+/** The comment a new contact starts with: what they typed, and the company they named, which no company row backs. */
+export function initialComment(
+  standard: CleanSubmission['standard'],
+  attached: boolean,
+): string | undefined {
+  const parts: string[] = [];
+  if (standard.company && !attached) parts.push(`Entreprise indiquée : ${standard.company}`);
+  if (standard.comment) parts.push(standard.comment);
+  return parts.length ? parts.join('\n') : undefined;
+}
+
+// Keys derived from the deployment's auth secret, one per purpose, as the OAuth state does without a shared key.
+async function hmacKey(purpose: string): Promise<CryptoKey> {
+  const secret = process.env.BETTER_AUTH_SECRET;
+  if (!secret) throw new Error('form_secret_missing');
+  return await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(`${purpose}:${secret}`),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+}
+
+const hex = (bytes: ArrayBuffer): string =>
+  Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
+
+/**
+ * Pseudonymised client IP: HMAC-SHA256 under a secret key, `FORM_IP_HASH_SALT` when set, else one derived from the
+ * auth secret. A known salt would let anyone hash the four billion IPv4 addresses and read the table back.
+ */
 export async function hashClientIp(ip: string): Promise<string> {
-  const salt = process.env.FORM_IP_HASH_SALT ?? 'wap-crm-forms';
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${salt}:${ip}`));
-  return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+  const salt = process.env.FORM_IP_HASH_SALT;
+  const key = salt
+    ? await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(salt),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false,
+        ['sign'],
+      )
+    : await hmacKey('form-ip');
+  return hex(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(ip)));
+}
+
+/** The render stamp a definition carries: the time, signed with the form's id so a bot cannot make one up. */
+export async function signRender(formId: string, ts: number): Promise<string> {
+  const key = await hmacKey('form-render');
+  return hex(
+    await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${formId}.${ts}`)),
+  ).slice(0, 32);
+}
+
+export async function verifyRender(formId: string, ts: number, sig: string): Promise<boolean> {
+  if (!Number.isFinite(ts) || typeof sig !== 'string' || sig.length !== 32) return false;
+  const expected = await signRender(formId, ts);
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ sig.charCodeAt(i);
+  return diff === 0;
 }

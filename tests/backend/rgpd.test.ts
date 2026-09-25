@@ -82,7 +82,14 @@ async function seedWorld({ t, as, admin }: Awaited<ReturnType<typeof setup>>) {
     });
     const formId = await ctx.db.insert('forms', {
       name: 'Contact',
-      fields: [{ target: { kind: 'standard', field: 'email' }, label: 'E-mail', required: true }],
+      fields: [
+        {
+          target: { kind: 'standard', field: 'email' },
+          label: 'E-mail',
+          required: true,
+          key: 'e-mail',
+        },
+      ],
       buttonText: 'Envoyer',
       afterSubmit: { kind: 'message', message: 'Merci' },
       consentText: 'OK',
