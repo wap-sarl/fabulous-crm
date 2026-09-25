@@ -23,6 +23,7 @@ import { useConvex } from 'convex/react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { DUPLICATE_REASON_LABEL } from '../../features/leads/lib/duplicates';
 import { downloadText, errorRowsCsv } from '../../features/imports/lib/errorCsv';
+import { describeImportError, describeJobError } from '../../features/imports/lib/errorLabels';
 import { IMPORT_SPECS } from '../../features/imports/lib/registry';
 import { JOB_STATUS_LABEL, JOB_STATUS_TONE, OUTCOME_LABEL } from './importStatus';
 
@@ -74,7 +75,10 @@ export function ImportJobPage() {
     });
     downloadText(
       `erreurs-${job.fileName.replace(/\.[^.]+$/, '')}.csv`,
-      errorRowsCsv(headers, rows),
+      errorRowsCsv(
+        headers,
+        rows.map((r) => ({ ...r, error: describeImportError(r.error) })),
+      ),
     );
     if (capped) toast.info('Le fichier contient les premières lignes en erreur seulement.');
   };
@@ -82,6 +86,8 @@ export function ImportJobPage() {
   const counts = job.counts;
   const simulated = job.status === 'simulated';
   const finished = job.status === 'done';
+  // The tiles count what the run did once it started, what the dry run would do before.
+  const ran = finished || job.status === 'running' || job.interruptedFrom === 'running';
 
   return (
     <div className="flex flex-col">
@@ -167,16 +173,17 @@ export function ImportJobPage() {
               au lot {job.nextBatch + 1}.
             </p>
             <p className="text-soft">
-              {job.error ?? 'Une erreur est survenue.'} Les lots précédents sont enregistrés ; «
-              Reprendre » repart de ce lot, sans rien écrire deux fois.
+              {job.error ? describeJobError(job.error) : 'Une erreur est survenue.'} Les lots
+              précédents sont enregistrés ; « Reprendre » repart de ce lot, sans rien écrire deux
+              fois.
             </p>
           </Card>
         )}
 
         <div className="grid gap-3 sm:grid-cols-4">
-          <Stat label={finished ? 'Créés' : 'À créer'} value={counts.created} />
-          <Stat label={finished ? 'Mis à jour' : 'À mettre à jour'} value={counts.updated} />
-          {!finished && <Stat label="Doublons probables" value={counts.duplicates} tone="amber" />}
+          <Stat label={ran ? 'Créés' : 'À créer'} value={counts.created} />
+          <Stat label={ran ? 'Mis à jour' : 'À mettre à jour'} value={counts.updated} />
+          {!ran && <Stat label="Doublons probables" value={counts.duplicates} tone="amber" />}
           <Stat label="En erreur" value={counts.errors} tone={counts.errors ? 'red' : undefined} />
         </div>
 
@@ -344,7 +351,9 @@ function RowList({
                   : ''}
               </span>
             ) : null}
-            {row.error ? <span className="text-red-600">{row.error}</span> : null}
+            {row.error ? (
+              <span className="text-red-600">{describeImportError(row.error)}</span>
+            ) : null}
           </li>
         ))}
       </ul>
