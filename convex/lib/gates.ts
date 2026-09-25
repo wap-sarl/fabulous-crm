@@ -20,7 +20,7 @@ export async function gateSignInCode(ctx: ActionCtx, info: SignInCodeInfo): Prom
 export async function gateLeadCreate(
   ctx: MutationCtx,
   count: number,
-  source: 'crm' | 'import' | 'api',
+  source: 'crm' | 'import' | 'api' | 'form',
 ): Promise<void> {
   if (count > 0) await extensions.beforeLeadCreate(ctx, { count, source });
 }

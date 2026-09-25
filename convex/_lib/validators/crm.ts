@@ -23,6 +23,8 @@ export const consentSourceValidator = v.union(
   v.literal('import'),
   // Brevo SMS webhook: the lead replied STOP to a marketing SMS.
   v.literal('sms_stop'),
+  // The lead checked the GDPR box of a public capture form.
+  v.literal('form'),
 );
 
 export const leadValidator = v.object({

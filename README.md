@@ -112,10 +112,11 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
 - **Conservation des données** : une purge nocturne (`convex/crons.ts`, 03:30 UTC,
   `features/retention`) efface ce qui dépasse les durées configurées dans
   *Paramètres → Conservation* (`appConfig.retention`) : les fiches supprimées
-  (leads, entreprises, transactions, activités ; 30 jours par défaut, 1 à 365)
+  (leads, entreprises, transactions, activités, formulaires ; 30 jours par défaut, 1 à 365)
   avec tout ce qui s'y rattache (notes, envois et événements de campagne, liens
-  suivis, enrôlements et étapes de workflow, historique de statut, appartenances
-  aux listes, paires de doublons, fichiers joints et leurs blobs ; une transaction
+  suivis, enrôlements et étapes de workflow, historique de statut, soumissions
+  de formulaires, appartenances aux listes, paires de doublons, fichiers joints
+  et leurs blobs ; une transaction
   ou une activité encore vivante perd seulement son lien), les événements de
   campagne, le journal des étapes de workflow et les liens suivis des campagnes
   terminées (365 jours par défaut, 30 à 3650), le journal d'audit (730 jours par
@@ -128,6 +129,34 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   ligne d'audit (`retention` / `purge`) avec ses compteurs, affichée sur la page,
   et relance le recalcul complet des listes dynamiques par sécurité. Une
   extension peut différer la purge (`beforeScheduledWork`, `retention_purge`).
+- **Formulaires de capture** (*Paramètres → Formulaires*) : formulaires publics
+  composés de champs standard ou de propriétés personnalisées, à intégrer par
+  un script (`GET /forms/<id>/embed.js`, l'élément cible par `data-target`,
+  indispensable avec un gestionnaire de balises) ou en iframe
+  (`GET /forms/<id>`, servie avec une CSP). Chaque champ a une clé publique
+  stable (slug de son libellé) ; les valeurs soumises sont validées côté
+  serveur avec les validateurs des propriétés (téléphone compris) et tronquées.
+  **Ce qu'une soumission peut écrire**, l'adresse n'étant la preuve de rien :
+  un e-mail inconnu (ou absent) crée un contact avec le consentement e-mail
+  coché (**simple opt-in** : la case cochée vaut consentement, sur ce contact
+  seulement) ; un contact vivant déjà connu n'est que complété (champs vides
+  remplis, rien d'écrasé, aucun consentement posé, aucun déclencheur de
+  propriété ou de consentement) et `form_submitted` est le seul déclencheur
+  de workflow qu'un formulaire tire sur lui ; son compteur de soumissions ne
+  bouge que si le navigateur est celui qui l'a créé (jeton de visiteur) ; un
+  contact supprimé est un inconnu (un nouveau contact est créé). L'entreprise
+  n'est rattachée que par le domaine de l'e-mail (jamais créée ni trouvée par
+  le nom tapé, qui reste dans la soumission et dans le commentaire du nouveau
+  contact). Profilage progressif : un jeton de visiteur (localStorage) fait
+  sauter les champs déjà connus, seulement pour un formulaire avec e-mail et
+  pour la même adresse. Chaque écriture est auditée (`source: form`).
+  Anti-abus : honeypot (réponse factice, jeton compris), temps de remplissage
+  minimum sur un horodatage signé, limites par IP, par formulaire et pour le
+  déploiement (`lib/rateLimits.ts`), passage par le seam `beforeLeadCreate`
+  (source `form`). L'adresse IP est **pseudonymisée** (HMAC sous une clé
+  secrète, `FORM_IP_HASH_SALT` ou dérivée de `BETTER_AUTH_SECRET`) et suit la
+  rétention du contact ; un formulaire supprimé suit celle des fiches
+  supprimées.
 - **Doublons** : détection des leads en double par téléphone normalisé
   (E.164), e-mail, nom + code postal et distance de Levenshtein sur le nom
   (clés `dedupe` estampillées par le trigger des leads, index dédiés). Analyse
@@ -212,8 +241,8 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   produit une archive JSON de tout ce que le CRM détient sur la personne
   (fiche, entreprise, notes, listes, historique de statut, transactions et
   activités liées, envois et événements de chaque campagne, enrôlements et
-  étapes de workflow, score et règles qui y contribuent, fichiers joints
-  (métadonnées), journal d'audit), rien sur d'autres personnes ni de technique
+  étapes de workflow, soumissions de formulaires, score et règles qui y
+  contribuent, fichiers joints (métadonnées), journal d'audit), rien sur d'autres personnes ni de technique
   (pas de jeton de consentement, de clés de recherche ou de doublons, ni des
   responsables) ; 2 000 lignes par table au plus, l'archive dit quelles tables
   ont été tronquées. *Droit
@@ -228,7 +257,8 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   et tout ce qui lui appartient sont supprimés définitivement, par étapes
   planifiées (même cascade que la purge de rétention : notes, envois, jetons de
   liens et événements de campagne, enrôlements et étapes de workflow,
-  historique de statut, appartenances aux listes, paires de doublons, fichiers
+  historique de statut, soumissions de formulaires et jeton de visiteur,
+  appartenances aux listes, paires de doublons, fichiers
   et leurs blobs, journal d'audit de la fiche, de ses notes et de ses
   enrôlements) ; une transaction ou une activité liée reste, sans lien, car
   elle appartient à l'organisation ; il ne reste qu'une ligne d'audit anonyme
@@ -361,6 +391,7 @@ d'environnement du conteneur — pas de rebuild par environnement.
 | `OAUTH_CALLBACK_TENANT` | avec `OAUTH_CALLBACK_BASE` | Identifiant de ce déploiement pour le répartiteur, placé dans l'état OAuth signé. |
 | `OAUTH_STATE_SECRET` | avec `OAUTH_CALLBACK_BASE` | Clé de signature de l'état OAuth des connecteurs, partagée avec le répartiteur. Absente : clé dérivée de `BETTER_AUTH_SECRET`. |
 | `API_KEY_HASH_SALT` | non | Sel du hachage SHA-256 des secrets de clés d'API (API REST publique `/api/v1/`, réglages → Clés d'API). Repli sur une valeur par défaut si absente — définir en prod **avant de créer la première clé** pour durcir les lignes `apiKeys` en cas de fuite de la base. Le sel entre dans chaque hachage : le changer invalide toutes les clés existantes (les secrets font 24 octets aléatoires, il ne se tourne donc jamais en routine). Générer avec `bunx convex env set API_KEY_HASH_SALT $(openssl rand -hex 16)`. |
+| `FORM_IP_HASH_SALT` | non | Clé du HMAC-SHA256 qui pseudonymise les adresses IP stockées avec les soumissions de formulaires publics (`formSubmissions.ipHash`). Absente, une clé dérivée de `BETTER_AUTH_SECRET` sert. Générer avec `bunx convex env set FORM_IP_HASH_SALT $(openssl rand -hex 16)`. |
 
 > La plupart des réglages ci-dessus (URL, expéditeur) et les identifiants des
 > fournisseurs sociaux (Google…) sont stockés dans la table Convex singleton

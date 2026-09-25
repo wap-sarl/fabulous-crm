@@ -61,6 +61,7 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     events,
     runs,
     steps,
+    submissions,
     attachmentRows,
     rules,
     audit,
@@ -112,6 +113,11 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
       .take(cap)
       .then((rows) => capped('workflowRunSteps', rows)),
     ctx.db
+      .query('formSubmissions')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(cap)
+      .then((rows) => capped('formSubmissions', rows)),
+    ctx.db
       .query('attachments')
       .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
       .take(cap)
@@ -124,11 +130,20 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
       .take(cap)
       .then((rows) => capped('auditLogs', rows)),
   ]);
-  const [listDocs, campaignDocs, workflowDocs] = await Promise.all([
+  const [listDocs, campaignDocs, workflowDocs, formDocs] = await Promise.all([
     Promise.all(memberships.map((m) => ctx.db.get(m.listId))),
     Promise.all([...new Set(sends.map((s) => s.campaignId))].map((id) => ctx.db.get(id))),
     Promise.all([...new Set(runs.map((r) => r.workflowId))].map((id) => ctx.db.get(id))),
+    Promise.all([...new Set(submissions.map((s) => s.formId))].map((id) => ctx.db.get(id))),
   ]);
+  const formById = new Map(formDocs.flatMap((f) => (f ? [[f._id, f] as const] : [])));
+  // What the person typed, under the form's name; the salted IP hash is the CRM's, not theirs.
+  const formSubmissions = submissions.map((s) => ({
+    form: formById.get(s.formId)?.name ?? null,
+    submittedAt: s._creationTime,
+    values: s.values,
+    userAgent: s.userAgent ?? null,
+  }));
   const lists = listDocs.flatMap((list) =>
     list ? [{ name: list.name, kind: list.kind ?? 'static' }] : [],
   );
@@ -213,6 +228,7 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     activities,
     campaigns,
     workflows,
+    formSubmissions,
     scoring,
     attachments,
     audit,

@@ -18,6 +18,7 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('leadList'),
   v.literal('scoringRule'),
   v.literal('apiKey'),
+  v.literal('form'),
   v.literal('workflow'),
   v.literal('workflowRun'),
   v.literal('connectorAccount'),
