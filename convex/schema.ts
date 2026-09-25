@@ -45,6 +45,7 @@ import {
   workflowRunValidator,
   workflowRunStepValidator,
 } from './_lib/validators/workflows';
+import { pageViewValidator, webVisitorValidator } from './_lib/validators/tracking';
 import {
   importJobValidator,
   importMappingValidator,
@@ -471,6 +472,18 @@ const tables = {
     .index('by_lead', ['leadId'])
     // Erasures left in progress by a failed step, for the hourly resume.
     .index('by_outcome_requestedAt', ['outcome', 'requestedAt']),
+
+  // Web tracking (validators/tracking.ts): browsers by their cookie id, and their page views.
+  webVisitors: defineTable(webVisitorValidator)
+    .index('by_visitor', ['visitorId'])
+    .index('by_lead', ['leadId'])
+    // Idle browsers past the tracking retention, for the purge.
+    .index('by_lastSeenAt', ['lastSeenAt']),
+  pageViews: defineTable(pageViewValidator)
+    .index('by_visitor_at', ['visitorId', 'at'])
+    .index('by_lead_at', ['leadId', 'at'])
+    // Views past the tracking retention, for the purge.
+    .index('by_at', ['at']),
 
   // Advanced import (validators/imports.ts): saved column mappings, one job per file, its rows while they are needed.
   importMappings: defineTable(importMappingValidator).index('by_entity', ['entity']),

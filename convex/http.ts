@@ -13,6 +13,8 @@ import {
 } from './lib/connectors';
 import { FORM_EMBED_JS, formIframeHtml } from './lib/formEmbed';
 import { hashClientIp } from './lib/forms';
+import { trackingScript } from './lib/tracking';
+import { VISITOR_ID_RE } from './_lib/validators/tracking';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -181,7 +183,9 @@ http.route({
 
     if (!result.found) return htmlResponse('Lien invalide ou expiré.', 404);
     if (result.redirectUrl) {
-      return new Response(null, { status: 302, headers: { Location: result.redirectUrl } });
+      // In named tracking, the landing page's script reads the token and ties this browser to the link's contact.
+      const location = result.named ? withLinkParam(result.redirectUrl, token) : result.redirectUrl;
+      return new Response(null, { status: 302, headers: { Location: location } });
     }
     return htmlResponse('Merci, vous pouvez fermer cet onglet.', 200);
   }),
@@ -323,6 +327,7 @@ http.route({
       renderedAt?: number;
       renderSig?: string;
       visitorToken?: string;
+      trackingVisitor?: string;
     } | null;
     if (!body || typeof body.values !== 'object' || body.values === null) {
       return formJson({ ok: false, code: 'invalid_body' }, 400);
@@ -342,6 +347,10 @@ http.route({
       honeypot: typeof body.honeypot === 'string' ? body.honeypot : undefined,
       renderedAt: typeof body.renderedAt === 'number' ? body.renderedAt : undefined,
       renderSig: typeof body.renderSig === 'string' ? body.renderSig : undefined,
+      trackingVisitor:
+        typeof body.trackingVisitor === 'string' && VISITOR_ID_RE.test(body.trackingVisitor)
+          ? body.trackingVisitor
+          : undefined,
       visitorToken: typeof body.visitorToken === 'string' ? body.visitorToken : undefined,
       ipHash: await hashClientIp(ip),
       userAgent: request.headers.get('user-agent') ?? undefined,
@@ -354,6 +363,89 @@ http.route({
 // Cross-origin preflight for the JSON submit POST.
 http.route({
   pathPrefix: '/forms/',
+  method: 'OPTIONS',
+  handler: httpAction(async () => new Response(null, { status: 204, headers: FORM_CORS })),
+});
+
+/** The tracked-link token as a query parameter of the landing URL, for the tracking script. */
+function withLinkParam(url: string, token: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.set('wapl', token);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+/*
+ * Web tracking: the script and the beacons. Both are public and CORS-open, the script runs on the customer's site.
+ * The script carries the switch, so a disabled deployment serves a no-op; it starts nothing before consent.
+ */
+http.route({
+  path: '/track.js',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const config = await ctx.runQuery(internal.features.config.internal.getTrackingConfig, {});
+    return new Response(trackingScript(new URL(request.url).origin, config.enabled), {
+      headers: {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'public, max-age=300',
+        ...FORM_CORS,
+      },
+    });
+  }),
+});
+
+http.route({
+  path: '/track',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    // Do Not Track is honoured here as well as in the script.
+    if (request.headers.get('dnt') === '1')
+      return new Response(null, { status: 204, headers: FORM_CORS });
+    const ip = clientIpOf(request);
+    if (!(await enforceRateLimit(ctx, 'trackBeacon', ip))) {
+      return new Response(null, { status: 429, headers: FORM_CORS });
+    }
+    // sendBeacon posts text/plain: the body is read as text whatever the header says.
+    let body: { v?: unknown; e?: unknown; l?: unknown } | null = null;
+    try {
+      body = JSON.parse(await request.text());
+    } catch {
+      body = null;
+    }
+    if (
+      !body ||
+      typeof body.v !== 'string' ||
+      !VISITOR_ID_RE.test(body.v) ||
+      !Array.isArray(body.e)
+    ) {
+      return new Response(null, { status: 400, headers: FORM_CORS });
+    }
+    if (!(await enforceRateLimit(ctx, 'trackVisitor', body.v))) {
+      return new Response(null, { status: 429, headers: FORM_CORS });
+    }
+    const events = body.e
+      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
+      .slice(0, 20)
+      .map((e) => ({
+        u: typeof e.u === 'string' ? e.u : '',
+        t: typeof e.t === 'string' ? e.t : undefined,
+        r: typeof e.r === 'string' ? e.r : undefined,
+        at: typeof e.at === 'number' ? e.at : undefined,
+      }));
+    await ctx.runMutation(internal.features.tracking.internal.recordBeacon, {
+      visitorId: body.v,
+      events,
+      linkToken: typeof body.l === 'string' && body.l.length <= 64 ? body.l : undefined,
+    });
+    return new Response(null, { status: 204, headers: FORM_CORS });
+  }),
+});
+
+http.route({
+  path: '/track',
   method: 'OPTIONS',
   handler: httpAction(async () => new Response(null, { status: 204, headers: FORM_CORS })),
 });

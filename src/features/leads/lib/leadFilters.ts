@@ -68,6 +68,12 @@ export function leadFilterFields(
     },
     { field: 'lastPageViewAt', label: 'A visité une page', type: 'timestamp', group: BEHAVIOUR },
     { field: 'pageViewCount', label: 'Pages vues (nombre)', type: 'number', group: BEHAVIOUR },
+    {
+      field: 'visitedPages',
+      label: 'A visité la page (URL contient)',
+      type: 'text',
+      group: BEHAVIOUR,
+    },
     { field: 'listIds', label: 'Listes', type: 'list', options: lists, group: BEHAVIOUR },
   ];
 }

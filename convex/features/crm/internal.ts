@@ -28,6 +28,7 @@ import {
   profilingExcluded,
   stampLeadSignal,
 } from '../../lib/leadSignals';
+import { loadTrackingConfig } from '../../lib/tracking';
 import {
   leadFilterArgs,
   loadAdvancedListMembers,
@@ -517,7 +518,10 @@ export const prepareCampaignBatch = internalMutation({
  */
 export const handleTrackedLinkClick = internalMutation({
   args: { token: v.string() },
-  handler: async (ctx, args): Promise<{ found: boolean; redirectUrl?: string }> => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ found: boolean; redirectUrl?: string; named?: boolean }> => {
     const tokenRow = await ctx.db
       .query('campaignLinkTokens')
       .withIndex('by_token', (q) => q.eq('token', args.token))
@@ -528,7 +532,7 @@ export const handleTrackedLinkClick = internalMutation({
     const link = campaign?.trackedLinks?.find((l) => l.key === tokenRow.linkKey);
     // The person objected to profiling: the link still leads where it should, and nothing is written down.
     if (profilingExcluded(await ctx.db.get(tokenRow.leadId))) {
-      return { found: true, redirectUrl: link?.redirectUrl };
+      return { found: true, redirectUrl: link?.redirectUrl, named: false };
     }
 
     const now = Date.now();
@@ -593,7 +597,13 @@ export const handleTrackedLinkClick = internalMutation({
       }
     }
 
-    return { found: true, redirectUrl: link?.redirectUrl };
+    // The landing page's tracking script ties the browser to this contact in named mode.
+    const tracking = await loadTrackingConfig(ctx);
+    return {
+      found: true,
+      redirectUrl: link?.redirectUrl,
+      named: tracking.enabled && tracking.mode === 'named',
+    };
   },
 });
 

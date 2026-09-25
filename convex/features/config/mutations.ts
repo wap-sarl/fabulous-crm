@@ -1,5 +1,7 @@
 import { type ConnectorConfig, connectorProviderValidator } from '../../_lib/validators/connectors';
 import { isWithinRetentionBounds, RETENTION_KEYS } from '../../_lib/validators/retention';
+import { TRACKING_RETENTION_BOUNDS, trackingModeValidator } from '../../_lib/validators/tracking';
+import { trackingConfigOf } from '../../lib/tracking';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
@@ -118,6 +120,9 @@ export const updateConfig = settingsMutation({
     retentionSoftDeleteDays: v.optional(v.number()),
     retentionEventDays: v.optional(v.number()),
     retentionAuditDays: v.optional(v.number()),
+    trackingEnabled: v.optional(v.boolean()),
+    trackingMode: v.optional(trackingModeValidator),
+    trackingRetentionDays: v.optional(v.number()),
     connectors: v.optional(v.array(connectorInput)),
   },
   handler: async (ctx, args) => {
@@ -218,6 +223,19 @@ export const updateConfig = settingsMutation({
       }
     }
     const retentionChanged = RETENTION_KEYS.some((key) => retentionArgs[key] !== undefined);
+    const trackingChanged =
+      args.trackingEnabled !== undefined ||
+      args.trackingMode !== undefined ||
+      args.trackingRetentionDays !== undefined;
+    if (
+      args.trackingRetentionDays !== undefined &&
+      (!Number.isInteger(args.trackingRetentionDays) ||
+        args.trackingRetentionDays < TRACKING_RETENTION_BOUNDS.min ||
+        args.trackingRetentionDays > TRACKING_RETENTION_BOUNDS.max)
+    ) {
+      throw new Error('tracking_retention_out_of_bounds');
+    }
+    const tracking = trackingConfigOf(cfg);
 
     const mergedConnectors: ConnectorConfig[] | undefined = args.connectors
       ? await Promise.all(
@@ -294,6 +312,13 @@ export const updateConfig = settingsMutation({
         lists: { ...cfg.lists, maxDynamicLists: args.listsMaxDynamicLists },
       }),
       ...(mergedConnectors !== undefined && { connectors: mergedConnectors }),
+      ...(trackingChanged && {
+        tracking: {
+          enabled: args.trackingEnabled ?? tracking.enabled,
+          mode: args.trackingMode ?? tracking.mode,
+          retentionDays: args.trackingRetentionDays ?? tracking.retentionDays,
+        },
+      }),
       ...(retentionChanged && {
         retention: Object.fromEntries(
           RETENTION_KEYS.map((key) => [key, retentionArgs[key] ?? cfg.retention?.[key]]),

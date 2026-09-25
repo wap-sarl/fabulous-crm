@@ -44,6 +44,9 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // The same, per form, then for the whole deployment: a botnet spread over addresses still meets a ceiling.
   formSubmitPerForm: { kind: 'token bucket', rate: 200, period: HOUR },
   formSubmitTotal: { kind: 'token bucket', rate: 1000, period: HOUR },
+  // Page-view beacons (POST /track), per client IP and per visitor id.
+  trackBeacon: { kind: 'token bucket', rate: 120, period: MINUTE },
+  trackVisitor: { kind: 'token bucket', rate: 60, period: MINUTE },
 });
 
 type LimitName =
@@ -59,7 +62,9 @@ type LimitName =
   | 'formRender'
   | 'formSubmit'
   | 'formSubmitPerForm'
-  | 'formSubmitTotal';
+  | 'formSubmitTotal'
+  | 'trackBeacon'
+  | 'trackVisitor';
 
 /**
  * Consume one unit of `name` for `key`. Returns false — and logs the overrun —
