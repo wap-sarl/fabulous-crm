@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { IMPORT_BATCH_SIZE } from '../../convex/_lib/validators/imports';
+import { ConvexError } from 'convex/values';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
 
@@ -641,5 +642,51 @@ describe('advanced import', () => {
       role: withLeads,
     });
     expect((await launch(t, asSupport, jobId)).counts.created).toBe(1);
+  });
+
+  test('a refusal that interrupts a job is stored as its data, a plain error as its first line', async () => {
+    const { t, as } = await setup();
+    const rows = [{ data: { firstName: 'A', lastName: 'B', email: 'ab@example.com' } }];
+    const refused = await upload(as, 'lead', rows);
+    await simulate(t, as, refused);
+    setExtensionsForTests({
+      beforeLeadCreate: async () => {
+        throw new ConvexError({ code: 'quota_exceeded', quota: 'contacts', limit: 8, used: 3 });
+      },
+    });
+    expect(JSON.parse((await launch(t, as, refused)).error ?? '')).toEqual({
+      code: 'quota_exceeded',
+      quota: 'contacts',
+      limit: 8,
+      used: 3,
+    });
+    setExtensionsForTests({
+      beforeLeadCreate: async () => {
+        throw new Error('Uncaught Error: boom\n    at somewhere (file.ts:1:1)');
+      },
+    });
+    const plain = await upload(as, 'lead', rows);
+    await simulate(t, as, plain);
+    expect((await launch(t, as, plain)).error).toBe('boom');
+  });
+
+  test('a deals job opened before any pipeline exists creates the default one', async () => {
+    const t = createTestConvex();
+    opened.push(t);
+    const admin = await seedEmployee(t, { email: 'admin2@example.com', role: 'admin' });
+    const as = asIdentity(t, admin.identity);
+    expect(await t.run((ctx) => ctx.db.query('pipelines').collect())).toEqual([]);
+    const jobId = await upload(as, 'deal', [{ data: { title: 'Première affaire', amount: 10 } }]);
+    expect(await t.run((ctx) => ctx.db.query('pipelines').collect())).toHaveLength(1);
+    await simulate(t, as, jobId);
+    expect((await launch(t, as, jobId)).counts).toEqual({
+      created: 1,
+      updated: 0,
+      duplicates: 0,
+      errors: 0,
+    });
+    expect((await t.run((ctx) => ctx.db.query('deals').collect()))[0]).toMatchObject({
+      stageKey: 'new',
+    });
   });
 });

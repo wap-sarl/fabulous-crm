@@ -8,6 +8,7 @@ import {
   importEntityValidator,
   importRowDataValidator,
 } from '../../_lib/validators/imports';
+import { ensureDefaultPipeline } from '../../lib/deals';
 import { loadOwnJob, requireImportAccess } from './lib';
 
 const targetsValidator = v.array(v.union(v.string(), v.null()));
@@ -81,6 +82,8 @@ export const createJob = employeeMutation({
     if (args.headers.length !== args.targets.length) throw new Error('mapping_mismatch');
     if (!Number.isInteger(args.totalRows) || args.totalRows < 1) throw new Error('import_empty');
     if (args.totalRows > IMPORT_MAX_ROWS) throw new Error('import_too_large');
+    // Deals land in the default pipeline, which otherwise only exists once someone opened the deals page.
+    if (args.entity === 'deal') await ensureDefaultPipeline(ctx, ctx.userId);
     if (args.listId) {
       if (args.entity !== 'lead') throw new Error('list_for_leads_only');
       const list = await ctx.db.get(args.listId);
