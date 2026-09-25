@@ -12,6 +12,7 @@ import {
   Megaphone,
   Milestone,
   Palette,
+  Upload,
   Paperclip,
   Plug,
   ShieldCheck,
@@ -50,6 +51,8 @@ export const NAV_ITEMS: ShellNavItem[] = [
         } satisfies ShellNavItem,
       ]
     : []),
+  // Imports are for every employee, on the modules the role may write to.
+  { label: 'Importer', icon: <Upload />, path: '/import', position: 'bottom' },
   // Lists are available to every employee; the other settings screens need the role's `settings` switch.
   { label: 'Listes', icon: <ListChecks />, path: '/settings/lists', position: 'bottom' },
   // Connecting one's own account is for every employee; the page shows the OAuth apps to admins only.

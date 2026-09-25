@@ -7,8 +7,8 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
 ## Fonctionnalités
 
 - **Leads** : création, édition, suppression (unitaire et en masse), filtres,
-  pagination, import CSV avec upsert (clé de matching : email), assignation à
-  un employé.
+  pagination, import de fichiers (voir *Import avancé*), assignation à un
+  employé.
 - **Entreprises** : organisations rattachées aux leads (`companies`,
   `leads.companyId`). Rattachement : par numéro d'immatriculation, par
   numéro de TVA (données d'entreprise explicites), puis par domaine de
@@ -135,8 +135,37 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   potentiels » avec comparaison côte à côte et fusion champ par champ : les
   notes, activités, transactions, envois, workflows et listes du doublon sont
   rattachés à la fiche conservée (mutation sous triggers, agrégats et recherche
-  exacts), entrée d'audit `merge`. L'import CSV prévisualise les correspondances
-  hors e-mail et peut mettre à jour la fiche existante.
+  exacts), entrée d'audit `merge`. La simulation d'un import signale les
+  correspondances hors e-mail (doublons probables) et l'import peut mettre à
+  jour la fiche existante.
+- **Import avancé** : page « Importer » (`/import`, bouton *Importer* sur les
+  leads, entreprises, transactions et tâches, et sur les listes) pour un fichier
+  CSV (`,` `;` ou tabulation, BOM accepté) ou Excel `.xlsx` (première feuille,
+  lue dans le navigateur par `src/features/imports/lib/readXlsx.ts`, dates
+  reconnues par leur format). Les colonnes sont associées aux champs de
+  l'entité (registres `src/features/imports/lib/*Fields.ts`, en-têtes usuels
+  reconnus, propriétés personnalisées incluses) ; une *correspondance* peut
+  être enregistrée par source (`importMappings`) et se réapplique d'elle-même
+  aux fichiers qui ont les mêmes en-têtes. Le fichier devient un *job*
+  (`importJobs`, lignes dans `importRows`) traité côté serveur par lots de 200
+  (`features/imports`, `runBatch`) : d'abord une **simulation** qui dit, ligne
+  par ligne, création, mise à jour, doublon probable ou erreur sans rien
+  écrire, puis l'**import** qui applique exactement les mêmes règles
+  (`plan`/`apply` d'un même importeur par entité, `features/imports/entities`).
+  Règles de rapprochement : lead par e-mail (fiche vivante d'abord, sinon
+  ravivée), sinon doublon probable par téléphone, nom + code postal ou nom
+  proche, tranché par une politique à l'import (mettre à jour ou créer) ;
+  entreprise par n° d'immatriculation, TVA, domaine puis nom exact ;
+  transaction par contact (e-mail) + titre, pipeline et étape par leur nom ;
+  activité par contact + titre + date, entreprise par nom. Un lot qui échoue
+  (Convex ne réessaie pas) laisse le job *interrompu* avec l'erreur ; *Reprendre*
+  repart de ce lot, les lots précédents étant validés et les lignes écrites
+  supprimées au fur et à mesure, donc jamais réécrites. Rapport : compteurs,
+  lignes en erreur avec leurs cellules d'origine et **export CSV des lignes en
+  erreur** (colonnes source + ligne + erreur) ; les jobs terminés se suppriment
+  depuis le rapport, et la purge de rétention les efface avec les événements
+  (`eventDays`). La mutation `importLeads` reste disponible (mêmes règles,
+  `lib/leadImport.ts`). Le consentement marketing n'est jamais importable.
 - **Historique unifié** : la fiche lead affiche notes, activités, envois et
   événements de campagne, inscriptions aux workflows, changements de statut,
   transactions et modifications de la fiche dans un seul fil chronologique,

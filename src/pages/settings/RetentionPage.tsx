@@ -24,7 +24,7 @@ const FIELDS: { key: RetentionKey; label: string; hint: string }[] = [
   {
     key: 'eventDays',
     label: 'Événements (jours)',
-    hint: 'Événements de campagne (ouvertures, clics, rebonds), journal des étapes de workflow et liens suivis des campagnes terminées.',
+    hint: 'Événements de campagne (ouvertures, clics, rebonds), journal des étapes de workflow, liens suivis des campagnes terminées et rapports d’import.',
   },
   {
     key: 'auditDays',
@@ -63,6 +63,8 @@ const COUNT_LABELS: Record<string, string> = {
   campaignLinkTokens: 'liens suivis',
   invitations: 'invitations expirées',
   apiIdempotencyKeys: 'clés d’idempotence',
+  importRows: 'lignes d’import en erreur',
+  importJobs: 'rapports d’import',
   auditLogs: 'lignes d’audit',
 };
 

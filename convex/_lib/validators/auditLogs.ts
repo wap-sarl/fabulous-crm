@@ -23,6 +23,7 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('connectorAccount'),
   // One row per nightly purge run, with its counts (features/retention).
   v.literal('retention'),
+  v.literal('importJob'),
 );
 
 export const auditLogActionValidator = v.union(

@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@crm/design-system';
-import { Building2, ChevronRight, Plus, Search } from 'lucide-react';
+import { Building2, ChevronRight, Plus, Search, Upload } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { countryName } from '../../lib/countries';
 import { CompanyFormDialog } from '../../features/companies/components/CompanyFormDialog';
@@ -91,10 +91,16 @@ export function CompaniesPage() {
         title="Entreprises"
         subtitle={counts ? `${counts.total} entreprise(s)` : undefined}
         actions={
-          <Button onClick={() => setFormOpen(true)} data-testid="new-company">
-            <Plus className="h-4 w-4" />
-            Nouvelle entreprise
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/import?entity=company')}>
+              <Upload className="h-4 w-4" />
+              Importer
+            </Button>
+            <Button onClick={() => setFormOpen(true)} data-testid="new-company">
+              <Plus className="h-4 w-4" />
+              Nouvelle entreprise
+            </Button>
+          </div>
         }
       />
 

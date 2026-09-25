@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { ActivityRow, Id } from '@crm/lib/backend';
@@ -15,7 +15,7 @@ import {
   Skeleton,
   toast,
 } from '@crm/design-system';
-import { Plus } from 'lucide-react';
+import { Plus, Upload } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useEmployees } from '../../lib/hooks/useEmployees';
 import { useTeams } from '../../lib/hooks/useTeams';
@@ -41,6 +41,7 @@ const SKELETON_ROWS = ['s1', 's2', 's3', 's4'];
 
 export function TasksPage() {
   usePageTitle('Tâches');
+  const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const bucket = (TASK_BUCKETS.find((b) => b.value === searchParams.get('bucket'))?.value ??
@@ -127,10 +128,16 @@ export function TasksPage() {
             : undefined
         }
         actions={
-          <Button onClick={() => setFormOpen(true)} data-testid="new-task">
-            <Plus className="h-4 w-4" />
-            Nouvelle tâche
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/import?entity=activity')}>
+              <Upload className="h-4 w-4" />
+              Importer
+            </Button>
+            <Button onClick={() => setFormOpen(true)} data-testid="new-task">
+              <Plus className="h-4 w-4" />
+              Nouvelle tâche
+            </Button>
+          </div>
         }
       />
 

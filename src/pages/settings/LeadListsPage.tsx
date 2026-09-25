@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { Id, LeadAdvancedFilter } from '@crm/lib/backend';
@@ -20,7 +20,6 @@ import {
 import { ListChecks, Pencil, RefreshCw, Trash2, Upload, Zap } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useLeadActions } from '../../features/leads/hooks/useLeadActions';
-import { CsvImportDialog } from '../../features/leads/components/CsvImportDialog';
 import { AdvancedFilterGroupsEditor } from '../../features/filters/components/AdvancedFilterBuilder';
 import { countActiveRules, emptyAdvancedFilter } from '../../features/filters/lib/advancedFilter';
 import { useLeadFieldCatalog } from '../../features/leads/hooks/useLeadFieldCatalog';
@@ -253,11 +252,11 @@ export function LeadListsPage() {
   const lists = useAuthQuery(api.features.crm.queries.listLeadLists, {}) as
     | LeadListRow[]
     | undefined;
+  const navigate = useNavigate();
   const limits = useAuthQuery(api.features.crm.queries.getListLimits, {});
   const { recalcLeadList } = useLeadActions();
   const [members, setMembers] = useState<LeadListRow | null>(null);
   const [toDelete, setToDelete] = useState<LeadListRow | null>(null);
-  const [importOpen, setImportOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [toEdit, setToEdit] = useState<LeadListRow | null>(null);
 
@@ -279,9 +278,9 @@ export function LeadListsPage() {
         subtitle="Listes statiques (imports CSV) et listes dynamiques pilotées par des critères"
         actions={
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Button variant="outline" onClick={() => navigate('/import?entity=lead')}>
               <Upload className="size-4" aria-hidden="true" />
-              Importer un CSV
+              Importer un fichier
             </Button>
             <Button
               onClick={() => setEditorOpen(true)}
@@ -382,7 +381,6 @@ export function LeadListsPage() {
           }}
         />
       )}
-      <CsvImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }

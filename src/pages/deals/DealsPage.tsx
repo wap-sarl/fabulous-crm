@@ -30,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from '@crm/design-system';
-import { ChevronRight, Plus, Search } from 'lucide-react';
+import { ChevronRight, Plus, Search, Upload } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useEmployees } from '../../lib/hooks/useEmployees';
 import { DEAL_STATUSES, DEAL_STATUS_TONE, formatMoney } from '../../lib/constants';
@@ -292,10 +292,16 @@ export function DealsPage() {
             : undefined
         }
         actions={
-          <Button onClick={() => setFormOpen(true)} data-testid="new-deal" disabled={!pipeline}>
-            <Plus className="h-4 w-4" />
-            Nouvelle transaction
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => navigate('/import?entity=deal')}>
+              <Upload className="h-4 w-4" />
+              Importer
+            </Button>
+            <Button onClick={() => setFormOpen(true)} data-testid="new-deal" disabled={!pipeline}>
+              <Plus className="h-4 w-4" />
+              Nouvelle transaction
+            </Button>
+          </div>
         }
       />
 
