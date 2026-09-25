@@ -96,6 +96,7 @@ export const createJob = employeeMutation({
       mappingId: args.mappingId,
       listId: args.listId,
       totalRows: args.totalRows,
+      uploadedRows: 0,
       invalidRows: 0,
       batchSize: IMPORT_BATCH_SIZE,
       nextBatch: 0,
@@ -106,7 +107,10 @@ export const createJob = employeeMutation({
   },
 });
 
-/** One chunk of rows; a row the SPA could not build comes with its error and no data. */
+/**
+ * One chunk of rows, the next in file order: a chunk sent twice or out of order is refused, so a row exists once
+ * and the row count is the announced one. A row the SPA could not build comes with its error and no data.
+ */
 export const appendRows = employeeMutation({
   args: {
     jobId: v.id('importJobs'),
@@ -124,9 +128,11 @@ export const appendRows = employeeMutation({
   handler: async (ctx, { jobId, rows }) => {
     const job = await loadOwnJob(ctx, jobId);
     if (job.status !== 'uploading') throw new Error('import_not_uploading');
+    if (rows.length === 0) return null;
+    if (job.uploadedRows + rows.length > job.totalRows) throw new Error('import_row_out_of_range');
     let errors = 0;
-    for (const row of rows) {
-      if (row.index < 0 || row.index >= job.totalRows) throw new Error('import_row_out_of_range');
+    for (const [i, row] of rows.entries()) {
+      if (row.index !== job.uploadedRows + i) throw new Error('import_chunk_out_of_order');
       const invalid = row.data === undefined;
       if (invalid) errors += 1;
       await ctx.db.insert('importRows', {
@@ -140,6 +146,7 @@ export const appendRows = employeeMutation({
       });
     }
     await ctx.db.patch(jobId, {
+      uploadedRows: job.uploadedRows + rows.length,
       invalidRows: job.invalidRows + errors,
       counts: { ...job.counts, errors: job.counts.errors + errors },
       updatedAt: Date.now(),
@@ -155,6 +162,7 @@ export const simulateJob = employeeMutation({
   handler: async (ctx, { jobId }) => {
     const job = await loadOwnJob(ctx, jobId);
     if (job.status !== 'uploading') throw new Error('import_not_uploading');
+    if (job.uploadedRows !== job.totalRows) throw new Error('import_incomplete');
     await ctx.db.patch(jobId, {
       status: 'simulating',
       nextBatch: 0,

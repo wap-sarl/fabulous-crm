@@ -81,6 +81,8 @@ export const importJobValidator = v.object({
   // Leads only: what to do with a row that looks like an existing contact without sharing its email.
   duplicatePolicy: v.optional(v.union(v.literal('update'), v.literal('create'))),
   totalRows: v.number(),
+  // Rows received so far, in file order; the dry run waits for every one of them.
+  uploadedRows: v.number(),
   // Rows the SPA could not build; they are in error before any batch runs.
   invalidRows: v.number(),
   batchSize: v.number(),

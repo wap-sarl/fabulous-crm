@@ -301,6 +301,7 @@ describe('retention purge', () => {
           headers: ['a'],
           targets: ['firstname'],
           totalRows: 1,
+          uploadedRows: 1,
           invalidRows: 1,
           batchSize: 200,
           nextBatch: 1,

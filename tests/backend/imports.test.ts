@@ -551,4 +551,95 @@ describe('advanced import', () => {
       upload(asSupport, 'lead', [{ data: { firstName: 'A', lastName: 'B' } }]),
     ).resolves.toBeDefined();
   });
+
+  test('upload: chunks arrive once and in order, the dry run waits for every row', async () => {
+    const { t, as } = await setup();
+    const row = (index: number) => ({
+      index,
+      line: index + 2,
+      raw: ['x'],
+      data: { firstName: 'A', lastName: `B${index}`, email: `a${index}@example.com` },
+    });
+    const jobId = await as.mutation(api.features.imports.mutations.createJob, {
+      entity: 'lead',
+      fileName: 'f.csv',
+      headers: ['a'],
+      targets: [null],
+      totalRows: 4,
+    });
+    const append = (rows: ReturnType<typeof row>[]) =>
+      as.mutation(api.features.imports.mutations.appendRows, { jobId, rows });
+    await append([row(0), row(1)]);
+    // The same chunk again, a gap, a row too many: all refused, nothing doubled.
+    await expect(append([row(0), row(1)])).rejects.toThrow(/import_chunk_out_of_order/);
+    await expect(append([row(3)])).rejects.toThrow(/import_chunk_out_of_order/);
+    await expect(append([row(2), row(3), row(4)])).rejects.toThrow(/import_row_out_of_range/);
+    await expect(
+      as.mutation(api.features.imports.mutations.simulateJob, { jobId }),
+    ).rejects.toThrow(/import_incomplete/);
+    expect((await job(t, jobId))?.uploadedRows).toBe(2);
+    await append([row(2), row(3)]);
+    expect((await simulate(t, as, jobId)).counts.created).toBe(4);
+    expect(await rowsOf(t, jobId)).toHaveLength(4);
+    await expect(append([row(4)])).rejects.toThrow(/import_not_uploading/);
+  });
+
+  test('a job opened with the module is out of reach once the role loses it', async () => {
+    const { t, as } = await setup();
+    const support = await seedEmployee(t, { email: 'support@example.com' });
+    const withLeads = await as.mutation(api.features.roles.mutations.createRole, {
+      label: 'Avec leads',
+      access: {
+        leads: 'all',
+        companies: 'none',
+        deals: 'none',
+        activities: 'none',
+        campaigns: 'none',
+        workflows: 'none',
+        settings: false,
+      },
+    });
+    const withoutLeads = await as.mutation(api.features.roles.mutations.createRole, {
+      label: 'Sans leads',
+      access: {
+        leads: 'none',
+        companies: 'all',
+        deals: 'none',
+        activities: 'none',
+        campaigns: 'none',
+        workflows: 'none',
+        settings: false,
+      },
+    });
+    await as.mutation(api.features.users.mutations.setEmployeeRole, {
+      userId: support.userId,
+      role: withLeads,
+    });
+    const asSupport = asIdentity(t, support.identity);
+    const jobId = await upload(asSupport, 'lead', [
+      { data: { firstName: 'A', lastName: 'B', email: 'ab@example.com' } },
+    ]);
+    await simulate(t, asSupport, jobId);
+    await as.mutation(api.features.users.mutations.setEmployeeRole, {
+      userId: support.userId,
+      role: withoutLeads,
+    });
+    await expect(
+      asSupport.mutation(api.features.imports.mutations.launchJob, { jobId }),
+    ).rejects.toThrow(/Unauthorized: leads/);
+    await expect(asSupport.query(api.features.imports.queries.getJob, { jobId })).rejects.toThrow(
+      /Unauthorized: leads/,
+    );
+    await expect(
+      asSupport.mutation(api.features.imports.mutations.resumeJob, { jobId }),
+    ).rejects.toThrow(/Unauthorized: leads/);
+    expect((await job(t, jobId))?.status).toBe('simulated');
+    expect(await t.run((ctx) => ctx.db.query('leads').collect())).toEqual([]);
+    // Back with the module, the job goes on.
+    await as.mutation(api.features.users.mutations.setEmployeeRole, {
+      userId: support.userId,
+      role: withLeads,
+    });
+    expect((await launch(t, asSupport, jobId)).counts.created).toBe(1);
+  });
 });
