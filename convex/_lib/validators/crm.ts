@@ -283,6 +283,9 @@ export const campaignLinkTokenValidator = v.object({
   // `key` of the campaign's tracked link this token belongs to.
   linkKey: v.string(),
   clickedAt: v.optional(v.number()),
+  // Named tracking: the hash of the one-time value the last click put in the landing URL, and until when it holds.
+  identifyHash: v.optional(v.string()),
+  identifyUntil: v.optional(v.number()),
 });
 
 export type CampaignLinkToken = Infer<typeof campaignLinkTokenValidator>;

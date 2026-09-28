@@ -23,7 +23,7 @@ export const leadStandardFieldValidator = v.union(
   v.literal('formSubmissionCount'),
   v.literal('lastPageViewAt'),
   v.literal('pageViewCount'),
-  // The visited paths joined, so « contains » finds a page.
+  // The visited paths: « contains » and « equals » are asked of each path.
   v.literal('visitedPages'),
   // List membership, resolved through the by_list_lead index at eval time.
   v.literal('listIds'),
@@ -177,7 +177,8 @@ export type FilterFieldType =
   | 'boolean'
   | 'lifecycle'
   | 'assignee'
-  | 'list';
+  | 'list'
+  | 'pages';
 
 /**
  * The operators offered for a field type. Pure and dependency-free so the UI
@@ -218,6 +219,9 @@ export function operatorsForType(type: FilterFieldType): FilterOperator[] {
       return ['equals', 'notEquals', 'isEmpty', 'isNotEmpty'];
     case 'list':
       return ['equals', 'notEquals'];
+    // Visited paths: a text typed by hand, matched against each path.
+    case 'pages':
+      return ['contains', 'equals', 'isEmpty', 'isNotEmpty'];
   }
 }
 

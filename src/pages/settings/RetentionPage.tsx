@@ -65,7 +65,8 @@ const COUNT_LABELS: Record<string, string> = {
   apiIdempotencyKeys: 'clés d’idempotence',
   importRows: 'lignes d’import en erreur',
   importJobs: 'rapports d’import',
-  pageViews: 'pages vues et navigateurs',
+  pageViews: 'pages vues',
+  webVisitors: 'navigateurs inactifs',
   auditLogs: 'lignes d’audit',
 };
 

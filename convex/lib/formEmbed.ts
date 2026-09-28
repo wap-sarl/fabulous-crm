@@ -23,10 +23,19 @@ export const FORM_EMBED_JS = `(function () {
   var LS_KEY = 'wapFormVisitor';
   var visitor = null;
   try { visitor = localStorage.getItem(LS_KEY); } catch (e) {}
+  // In an iframe this page is the deployment's and the site's cookie is out of reach: the site's tracking script tells the id.
+  var toldVisitor;
+  if (window.parent !== window) {
+    window.addEventListener('message', function (ev) {
+      if (ev.source !== window.parent || !ev.data || ev.data.wap !== 'visitor') return;
+      toldVisitor = /^[0-9a-f]{32}$/.test(ev.data.id) ? ev.data.id : undefined;
+    });
+    try { window.parent.postMessage({ wap: 'visitor?' }, '*'); } catch (e) {}
+  }
   // The tracking script's cookie, when the site runs it: the submission ties this browser's views to the contact.
   function trackingVisitor() {
     var m = document.cookie.match(/(?:^|; )_wapv=([0-9a-f]{32})/);
-    return m ? m[1] : undefined;
+    return m ? m[1] : toldVisitor;
   }
 
   var S = {

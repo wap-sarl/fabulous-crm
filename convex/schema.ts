@@ -429,6 +429,8 @@ const tables = {
   campaignLinkTokens: defineTable(campaignLinkTokenValidator)
     .index('by_token', ['token'])
     .index('by_send', ['sendId'])
+    // The one-time value a click left in the landing URL, for the tracking beacon that redeems it.
+    .index('by_identifyHash', ['identifyHash'])
     // The purge drops the tokens of a closed campaign once its retention is over.
     .index('by_campaign', ['campaignId']),
 
@@ -480,7 +482,8 @@ const tables = {
     // Idle browsers past the tracking retention, for the purge.
     .index('by_lastSeenAt', ['lastSeenAt']),
   pageViews: defineTable(pageViewValidator)
-    .index('by_visitor_at', ['visitorId', 'at'])
+    // A browser's views by contact: the anonymous ones (no contact) are what an identification attaches.
+    .index('by_visitor_lead_at', ['visitorId', 'leadId', 'at'])
     .index('by_lead_at', ['leadId', 'at'])
     // Views past the tracking retention, for the purge.
     .index('by_at', ['at']),

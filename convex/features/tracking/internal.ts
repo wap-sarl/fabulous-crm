@@ -1,146 +1,156 @@
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
+import type { MutationCtx } from '../../_generated/server';
 // Trigger-wrapped: the lead patches must run the lead triggers (scoring, search).
 import { internalMutation } from '../../_lib/functions';
-import { ATTACH_BATCH, MAX_BEACON_EVENTS, VISITOR_ID_RE } from '../../_lib/validators/tracking';
+import { ATTACH_BATCH, beaconViewValidator, FLUSH_MS } from '../../_lib/validators/tracking';
 import { isNotDeleted } from '../../lib/dbHelpers';
 import { profilingExcluded } from '../../lib/leadSignals';
-import { applyViewsToLead, cleanBeaconEvent, loadTrackingConfig, pathOf } from '../../lib/tracking';
+import {
+  addMarks,
+  applyViewsToLead,
+  detachLeadTracking,
+  hasViewMarks,
+  loadTrackingConfig,
+  marksOf,
+  namedTracking,
+  NO_VIEW_MARKS,
+  refreshViewMarks,
+} from '../../lib/tracking';
 
-const beaconEventValidator = v.object({
-  u: v.string(),
-  t: v.optional(v.string()),
-  r: v.optional(v.string()),
-  at: v.optional(v.number()),
-});
+/** A contact tracking may write on: there, live, and not objecting to profiling. */
+async function trackableLead(
+  ctx: MutationCtx,
+  leadId: Id<'leads'> | undefined,
+): Promise<Doc<'leads'> | null> {
+  const lead = leadId ? await ctx.db.get(leadId) : null;
+  return lead && isNotDeleted(lead) && !profilingExcluded(lead) ? lead : null;
+}
 
-/**
- * One beacon: the browser's id, its views, and the tracked-link token the landing URL carried, if any. Views of an
- * identified browser (named mode) land on its contact and mark it; the others wait, anonymous, for an identification.
- */
+const visitorOf = (ctx: MutationCtx, visitorId: string) =>
+  ctx.db
+    .query('webVisitors')
+    .withIndex('by_visitor', (q) => q.eq('visitorId', visitorId))
+    .first();
+
+/** The contact a tracked link's one-time value stands for; the value is spent whatever comes of it. */
+async function redeemGrant(
+  ctx: MutationCtx,
+  grantHash: string,
+  now: number,
+): Promise<Id<'leads'> | undefined> {
+  const token = await ctx.db
+    .query('campaignLinkTokens')
+    .withIndex('by_identifyHash', (q) => q.eq('identifyHash', grantHash))
+    .first();
+  if (!token) return undefined;
+  await ctx.db.patch(token._id, { identifyHash: undefined, identifyUntil: undefined });
+  return (token.identifyUntil ?? 0) > now ? token.leadId : undefined;
+}
+
+const scheduleAttach = (ctx: MutationCtx, visitorId: string, leadId: Id<'leads'>) =>
+  ctx.scheduler.runAfter(0, internal.features.tracking.internal.attachViews, {
+    visitorId,
+    leadId,
+  });
+
+/** One beacon, already parsed by the route: an identified browser's views (named mode) go to its contact, the others wait. */
 export const recordBeacon = internalMutation({
   args: {
     visitorId: v.string(),
-    events: v.array(beaconEventValidator),
-    linkToken: v.optional(v.string()),
+    views: v.array(beaconViewValidator),
+    grantHash: v.optional(v.string()),
   },
   returns: v.object({ stored: v.number() }),
   handler: async (ctx, args) => {
     const config = await loadTrackingConfig(ctx);
-    if (!config.enabled || !VISITOR_ID_RE.test(args.visitorId)) return { stored: 0 };
+    if (!config.enabled || args.views.length === 0) return { stored: 0 };
     const now = Date.now();
-    const events = args.events
-      .slice(0, MAX_BEACON_EVENTS)
-      .map((e) => cleanBeaconEvent(e, now))
-      .filter((e): e is NonNullable<typeof e> => e !== null);
-    if (events.length === 0) return { stored: 0 };
+    const visitor = await visitorOf(ctx, args.visitorId);
+    const named = namedTracking(config);
+    const granted = args.grantHash ? await redeemGrant(ctx, args.grantHash, now) : undefined;
+    // A tracked link brought an unknown browser here: the link's contact is who is browsing.
+    const identified = named && !visitor?.leadId && granted !== undefined;
+    // A contact gone or objecting since, or the mode left: the browser is anonymous again.
+    const lead = named ? await trackableLead(ctx, visitor?.leadId ?? granted) : null;
+    const leadId = lead?._id;
 
-    const visitor = await ctx.db
-      .query('webVisitors')
-      .withIndex('by_visitor', (q) => q.eq('visitorId', args.visitorId))
-      .first();
-    const named = config.mode === 'named';
-    let leadId = named ? visitor?.leadId : undefined;
-    // A tracked link brought this browser here: the link's contact is who is browsing.
-    if (named && !leadId && args.linkToken) {
-      const token = await ctx.db
-        .query('campaignLinkTokens')
-        .withIndex('by_token', (q) => q.eq('token', args.linkToken as string))
-        .first();
-      const lead = token ? await ctx.db.get(token.leadId) : null;
-      if (lead && isNotDeleted(lead) && !profilingExcluded(lead)) {
-        leadId = lead._id;
-        await identify(ctx, args.visitorId, visitor, lead._id, now);
-      }
+    for (const view of args.views) {
+      await ctx.db.insert('pageViews', { visitorId: args.visitorId, leadId, ...view });
     }
-    if (leadId) {
-      const lead = await ctx.db.get(leadId);
-      // A contact gone or objecting since: the browser goes back to anonymous.
-      if (!lead || !isNotDeleted(lead) || profilingExcluded(lead)) {
-        leadId = undefined;
-        if (visitor?.leadId) await ctx.db.patch(visitor._id, { leadId: undefined });
-      }
-    }
-    for (const e of events) {
-      await ctx.db.insert('pageViews', {
+    // Views reach the contact in one write a minute at most, not one per view.
+    const pending = leadId ? addMarks(visitor?.pending, marksOf(args.views)) : undefined;
+    if (leadId && !visitor?.pending) {
+      await ctx.scheduler.runAfter(FLUSH_MS, internal.features.tracking.internal.flushVisitor, {
         visitorId: args.visitorId,
-        leadId,
-        url: e.url,
-        path: pathOf(e.url),
-        title: e.title,
-        referrer: e.referrer,
-        at: e.at,
       });
     }
     if (visitor) {
       await ctx.db.patch(visitor._id, {
+        leadId,
+        pending,
         lastSeenAt: Math.max(visitor.lastSeenAt, now),
-        views: visitor.views + events.length,
+        views: visitor.views + args.views.length,
       });
     } else {
       await ctx.db.insert('webVisitors', {
         visitorId: args.visitorId,
         leadId,
+        pending,
         firstSeenAt: now,
         lastSeenAt: now,
-        views: events.length,
+        views: args.views.length,
       });
     }
-    if (leadId) {
-      await applyViewsToLead(
-        ctx,
-        leadId,
-        events.map((e) => ({ path: pathOf(e.url), at: e.at })),
-      );
-    }
-    return { stored: events.length };
+    if (identified && leadId) await scheduleAttach(ctx, args.visitorId, leadId);
+    return { stored: args.views.length };
   },
 });
 
-/** Ties the browser to the contact and schedules the views that came before to follow. */
-async function identify(
-  ctx: Parameters<typeof applyViewsToLead>[0],
-  visitorId: string,
-  visitor: Doc<'webVisitors'> | null | undefined,
-  leadId: Id<'leads'>,
-  now: number,
-): Promise<void> {
-  if (visitor) {
-    if (visitor.leadId === leadId) return;
-    await ctx.db.patch(visitor._id, { leadId, lastSeenAt: Math.max(visitor.lastSeenAt, now) });
-  } else {
-    await ctx.db.insert('webVisitors', {
-      visitorId,
-      leadId,
-      firstSeenAt: now,
-      lastSeenAt: now,
-      views: 0,
-    });
-  }
-  await ctx.scheduler.runAfter(0, internal.features.tracking.internal.attachViews, {
-    visitorId,
-    leadId,
-  });
-}
+/** The views an identified browser sent since the last write, written on its contact. */
+export const flushVisitor = internalMutation({
+  args: { visitorId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, { visitorId }) => {
+    const visitor = await visitorOf(ctx, visitorId);
+    if (!visitor?.pending) return null;
+    await ctx.db.patch(visitor._id, { pending: undefined });
+    if (visitor.leadId) await applyViewsToLead(ctx, visitor.leadId, visitor.pending);
+    return null;
+  },
+});
 
-/**
- * A browser became a contact (a form submitted, a tracked link clicked): in named mode its anonymous views join
- * the contact, in batches. Nothing for a deleted contact, a contact who objected to profiling, or anonymous mode.
- */
+/** A form submitted from this browser: in named mode its views join the contact, the earlier ones in batches. */
 export const identifyVisitor = internalMutation({
   args: { visitorId: v.string(), leadId: v.id('leads') },
   returns: v.null(),
   handler: async (ctx, { visitorId, leadId }) => {
     const config = await loadTrackingConfig(ctx);
-    if (!config.enabled || config.mode !== 'named' || !VISITOR_ID_RE.test(visitorId)) return null;
-    const lead = await ctx.db.get(leadId);
-    if (!lead || !isNotDeleted(lead) || profilingExcluded(lead)) return null;
-    const visitor = await ctx.db
-      .query('webVisitors')
-      .withIndex('by_visitor', (q) => q.eq('visitorId', visitorId))
-      .first();
-    await identify(ctx, visitorId, visitor, leadId, Date.now());
+    if (!namedTracking(config) || !(await trackableLead(ctx, leadId))) return null;
+    const visitor = await visitorOf(ctx, visitorId);
+    if (visitor?.leadId === leadId) return null;
+    const now = Date.now();
+    if (visitor) {
+      // What waited for another contact is that contact's.
+      if (visitor.leadId && visitor.pending) {
+        await applyViewsToLead(ctx, visitor.leadId, visitor.pending);
+      }
+      await ctx.db.patch(visitor._id, {
+        leadId,
+        pending: undefined,
+        lastSeenAt: Math.max(visitor.lastSeenAt, now),
+      });
+    } else {
+      await ctx.db.insert('webVisitors', {
+        visitorId,
+        leadId,
+        firstSeenAt: now,
+        lastSeenAt: now,
+        views: 0,
+      });
+    }
+    await scheduleAttach(ctx, visitorId, leadId);
     return null;
   },
 });
@@ -150,25 +160,78 @@ export const attachViews = internalMutation({
   args: { visitorId: v.string(), leadId: v.id('leads') },
   returns: v.null(),
   handler: async (ctx, { visitorId, leadId }) => {
+    const visitor = await visitorOf(ctx, visitorId);
+    // The browser changed hands, the contact objected or went, the mode changed: nothing more is attached.
+    if (visitor?.leadId !== leadId || !(await trackableLead(ctx, leadId))) return null;
+    if (!namedTracking(await loadTrackingConfig(ctx))) return null;
     const rows = await ctx.db
       .query('pageViews')
-      .withIndex('by_visitor_at', (q) => q.eq('visitorId', visitorId))
-      .filter((q) => q.eq(q.field('leadId'), undefined))
+      .withIndex('by_visitor_lead_at', (q) => q.eq('visitorId', visitorId).eq('leadId', undefined))
       .take(ATTACH_BATCH);
+    if (rows.length === 0) return null;
     for (const row of rows) await ctx.db.patch(row._id, { leadId });
     // These views came before the contact was known: their paths go in front of the ones already there.
-    await applyViewsToLead(
-      ctx,
-      leadId,
-      rows.map((r) => ({ path: r.path, at: r.at })),
-      true,
-    );
-    if (rows.length === ATTACH_BATCH) {
-      await ctx.scheduler.runAfter(0, internal.features.tracking.internal.attachViews, {
-        visitorId,
-        leadId,
-      });
+    await applyViewsToLead(ctx, leadId, marksOf(rows), true);
+    // Until a pass finds nothing: a view that slipped in between two batches is swept too.
+    await scheduleAttach(ctx, visitorId, leadId);
+    return null;
+  },
+});
+
+/** An objection's continuation: the contact's remaining browsers and views made anonymous, batch after batch. */
+export const detachLead = internalMutation({
+  args: { leadId: v.id('leads') },
+  returns: v.null(),
+  handler: async (ctx, { leadId }) => {
+    if (await detachLeadTracking(ctx, leadId)) {
+      await ctx.scheduler.runAfter(0, internal.features.tracking.internal.detachLead, { leadId });
     }
+    return null;
+  },
+});
+
+/** The mode left named: every browser and view goes back to anonymous and the contacts lose their marks, in batches. */
+export const detachAll = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    // Back to named before the end: what is still attached stays.
+    if ((await loadTrackingConfig(ctx)).mode === 'named') return null;
+    const attached = '' as Id<'leads'>;
+    const visitors = await ctx.db
+      .query('webVisitors')
+      .withIndex('by_lead', (q) => q.gt('leadId', attached))
+      .take(ATTACH_BATCH);
+    const views = await ctx.db
+      .query('pageViews')
+      .withIndex('by_lead_at', (q) => q.gt('leadId', attached))
+      .take(ATTACH_BATCH);
+    const leadIds = new Set<Id<'leads'>>();
+    for (const row of visitors) {
+      if (row.leadId) leadIds.add(row.leadId);
+      await ctx.db.patch(row._id, { leadId: undefined, pending: undefined });
+    }
+    for (const row of views) {
+      if (row.leadId) leadIds.add(row.leadId);
+      await ctx.db.patch(row._id, { leadId: undefined });
+    }
+    for (const leadId of leadIds) {
+      const lead = await ctx.db.get(leadId);
+      if (lead && hasViewMarks(lead)) await ctx.db.patch(leadId, NO_VIEW_MARKS);
+    }
+    if (visitors.length === ATTACH_BATCH || views.length === ATTACH_BATCH) {
+      await ctx.scheduler.runAfter(0, internal.features.tracking.internal.detachAll, {});
+    }
+    return null;
+  },
+});
+
+/** After a purge: the marks of the contacts whose views went, rebuilt from the views that are left. */
+export const refreshLeadViews = internalMutation({
+  args: { leads: v.array(v.object({ leadId: v.id('leads'), removed: v.number() })) },
+  returns: v.null(),
+  handler: async (ctx, { leads }) => {
+    for (const { leadId, removed } of leads) await refreshViewMarks(ctx, leadId, removed);
     return null;
   },
 });

@@ -13,8 +13,8 @@ import {
 } from './lib/connectors';
 import { FORM_EMBED_JS, formIframeHtml } from './lib/formEmbed';
 import { hashClientIp } from './lib/forms';
-import { trackingScript } from './lib/tracking';
-import { VISITOR_ID_RE } from './_lib/validators/tracking';
+import { parseBeacon, readCapped, trackingScript } from './lib/tracking';
+import { LINK_GRANT_PARAM, MAX_BEACON_BYTES, VISITOR_ID_RE } from './_lib/validators/tracking';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -177,14 +177,20 @@ http.route({
       return htmlResponse('Trop de requêtes, réessayez dans un instant.', 429);
     }
     const token = new URL(request.url).pathname.slice('/l/'.length);
+    // The link's own token never reaches the landing URL: a one-time value does, and only its hash is kept.
+    const grant = randomToken();
     const result = token
-      ? await ctx.runMutation(internal.features.crm.internal.handleTrackedLinkClick, { token })
+      ? await ctx.runMutation(internal.features.crm.internal.handleTrackedLinkClick, {
+          token,
+          grantHash: await sha256Base64Url(grant),
+        })
       : { found: false as const, redirectUrl: undefined };
 
     if (!result.found) return htmlResponse('Lien invalide ou expiré.', 404);
     if (result.redirectUrl) {
-      // In named tracking, the landing page's script reads the token and ties this browser to the link's contact.
-      const location = result.named ? withLinkParam(result.redirectUrl, token) : result.redirectUrl;
+      const location = result.identify
+        ? withLinkParam(result.redirectUrl, grant)
+        : result.redirectUrl;
       return new Response(null, { status: 302, headers: { Location: location } });
     }
     return htmlResponse('Merci, vous pouvez fermer cet onglet.', 200);
@@ -367,27 +373,24 @@ http.route({
   handler: httpAction(async () => new Response(null, { status: 204, headers: FORM_CORS })),
 });
 
-/** The tracked-link token as a query parameter of the landing URL, for the tracking script. */
-function withLinkParam(url: string, token: string): string {
+/** The click's one-time value as a query parameter of the landing URL, for the tracking script. */
+function withLinkParam(url: string, grant: string): string {
   try {
     const u = new URL(url);
-    u.searchParams.set('wapl', token);
+    u.searchParams.set(LINK_GRANT_PARAM, grant);
     return u.toString();
   } catch {
     return url;
   }
 }
 
-/*
- * Web tracking: the script and the beacons. Both are public and CORS-open, the script runs on the customer's site.
- * The script carries the switch, so a disabled deployment serves a no-op; it starts nothing before consent.
- */
+// Web tracking: the script and the beacons, public; the script runs on the customer's site and starts nothing before consent.
 http.route({
   path: '/track.js',
   method: 'GET',
   handler: httpAction(async (ctx, request) => {
     const config = await ctx.runQuery(internal.features.config.internal.getTrackingConfig, {});
-    return new Response(trackingScript(new URL(request.url).origin, config.enabled), {
+    return new Response(trackingScript(new URL(request.url).origin, config), {
       headers: {
         'Content-Type': 'application/javascript; charset=utf-8',
         'Cache-Control': 'public, max-age=300',
@@ -397,57 +400,50 @@ http.route({
   }),
 });
 
+const beaconResponse = (status: number) => new Response(null, { status, headers: FORM_CORS });
+
 http.route({
   path: '/track',
   method: 'POST',
   handler: httpAction(async (ctx, request) => {
-    // Do Not Track is honoured here as well as in the script.
-    if (request.headers.get('dnt') === '1')
-      return new Response(null, { status: 204, headers: FORM_CORS });
-    const ip = clientIpOf(request);
-    if (!(await enforceRateLimit(ctx, 'trackBeacon', ip))) {
-      return new Response(null, { status: 429, headers: FORM_CORS });
+    // Global Privacy Control and Do Not Track are honoured here as well as in the script.
+    if (request.headers.get('sec-gpc') === '1' || request.headers.get('dnt') === '1') {
+      return beaconResponse(204);
     }
+    if (!(await enforceRateLimit(ctx, 'trackBeacon', clientIpOf(request)))) {
+      return beaconResponse(429);
+    }
+    const config = await ctx.runQuery(internal.features.config.internal.getTrackingConfig, {});
+    if (!config.enabled) return beaconResponse(204);
+    // Only the sites the script was set up for; a browser always says where a beacon comes from.
+    const origin = request.headers.get('origin');
+    if (!origin || !config.allowedOrigins.includes(origin)) return beaconResponse(403);
     // sendBeacon posts text/plain: the body is read as text whatever the header says.
-    let body: { v?: unknown; e?: unknown; l?: unknown } | null = null;
-    try {
-      body = JSON.parse(await request.text());
-    } catch {
-      body = null;
-    }
+    const text = await readCapped(request, MAX_BEACON_BYTES);
+    if (text === null) return beaconResponse(413);
+    const beacon = parseBeacon(text, origin, Date.now());
+    if (!beacon) return beaconResponse(400);
+    if (beacon.views.length === 0) return beaconResponse(204);
+    // Per browser, then for the whole deployment, counted in views: many addresses still meet a ceiling.
     if (
-      !body ||
-      typeof body.v !== 'string' ||
-      !VISITOR_ID_RE.test(body.v) ||
-      !Array.isArray(body.e)
+      !(await enforceRateLimit(ctx, 'trackVisitor', beacon.visitorId)) ||
+      !(await enforceRateLimit(ctx, 'trackTotal', 'all', beacon.views.length))
     ) {
-      return new Response(null, { status: 400, headers: FORM_CORS });
+      return beaconResponse(429);
     }
-    if (!(await enforceRateLimit(ctx, 'trackVisitor', body.v))) {
-      return new Response(null, { status: 429, headers: FORM_CORS });
-    }
-    const events = body.e
-      .filter((e): e is Record<string, unknown> => !!e && typeof e === 'object')
-      .slice(0, 20)
-      .map((e) => ({
-        u: typeof e.u === 'string' ? e.u : '',
-        t: typeof e.t === 'string' ? e.t : undefined,
-        r: typeof e.r === 'string' ? e.r : undefined,
-        at: typeof e.at === 'number' ? e.at : undefined,
-      }));
     await ctx.runMutation(internal.features.tracking.internal.recordBeacon, {
-      visitorId: body.v,
-      events,
-      linkToken: typeof body.l === 'string' && body.l.length <= 64 ? body.l : undefined,
+      visitorId: beacon.visitorId,
+      views: beacon.views,
+      grantHash: beacon.grant ? await sha256Base64Url(beacon.grant) : undefined,
     });
-    return new Response(null, { status: 204, headers: FORM_CORS });
+    return beaconResponse(204);
   }),
 });
 
 http.route({
   path: '/track',
   method: 'OPTIONS',
-  handler: httpAction(async () => new Response(null, { status: 204, headers: FORM_CORS })),
+  handler: httpAction(async () => beaconResponse(204)),
 });
 
 // Public REST API (/api/v1/): see features/api/routes.ts.

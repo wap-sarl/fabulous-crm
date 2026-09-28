@@ -5,6 +5,7 @@ import type { AttachmentEntityType } from '../_lib/validators/attachments';
 import type { RetentionPolicy } from '../_lib/validators/retention';
 import { fileStore } from './fileStorage';
 import { deleteListMember } from './leadListMembers';
+import { scheduleViewRefresh } from './tracking';
 
 // The nightly purge, one bounded page at a time; features/retention/internal.ts chains the pages.
 
@@ -44,6 +45,7 @@ export const PURGE_COUNT_KEYS = [
   'importRows',
   'importJobs',
   'pageViews',
+  'webVisitors',
   'auditLogs',
 ] as const;
 export type PurgeCounts = Record<(typeof PURGE_COUNT_KEYS)[number], number>;
@@ -55,8 +57,11 @@ export const purgeCountsValidator = v.object(
 );
 export const emptyCounts = (): PurgeCounts =>
   Object.fromEntries(PURGE_COUNT_KEYS.map((key) => [key, 0])) as PurgeCounts;
+// A run started before a key existed carries counts without it.
 export const addCounts = (a: PurgeCounts, b: PurgeCounts): PurgeCounts =>
-  Object.fromEntries(PURGE_COUNT_KEYS.map((key) => [key, a[key] + b[key]])) as PurgeCounts;
+  Object.fromEntries(
+    PURGE_COUNT_KEYS.map((key) => [key, (a[key] ?? 0) + (b[key] ?? 0)]),
+  ) as PurgeCounts;
 
 export const newPageState = (): PageState => ({
   counts: emptyCounts(),
@@ -348,7 +353,6 @@ async function purgeAged(
         | Id<'invitations'>
         | Id<'apiIdempotencyKeys'>
         | Id<'importRows'>
-        | Id<'pageViews'>
         | Id<'webVisitors'>
         | Id<'auditLogs'>;
     }[]
@@ -501,13 +505,19 @@ export async function purgePage(
   }
   // Page views and idle browsers past the tracking retention (appConfig.tracking, its own duration).
   const trackingCutoff = at - policy.trackingDays * DAY_MS;
-  await purgeAged(ctx, state, 'pageViews', (limit) =>
-    ctx.db
+  const viewRoom = room(state, PURGE_ROW_PAGE);
+  if (viewRoom === 0) state.moreLeft = true;
+  else {
+    const views = await ctx.db
       .query('pageViews')
       .withIndex('by_at', (q) => q.lt('at', trackingCutoff))
-      .take(limit),
-  );
-  await purgeAged(ctx, state, 'pageViews', (limit) =>
+      .take(viewRoom);
+    state.counts.pageViews += views.length;
+    await drain(state, views, viewRoom, (row) => ctx.db.delete(row._id));
+    // What the contact shows of its visits follows: the filters stop matching pages whose views are gone.
+    await scheduleViewRefresh(ctx, views);
+  }
+  await purgeAged(ctx, state, 'webVisitors', (limit) =>
     ctx.db
       .query('webVisitors')
       .withIndex('by_lastSeenAt', (q) => q.lt('lastSeenAt', trackingCutoff))

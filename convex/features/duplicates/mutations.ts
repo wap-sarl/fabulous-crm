@@ -20,6 +20,7 @@ import { requireCompany } from '../../lib/companies';
 import { repointLeadRows } from '../../lib/duplicates';
 import { cleanOwnerIds } from '../../lib/owners';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
+import { hasViewMarks, mergedViewMarks, NO_VIEW_MARKS, stopLeadTracking } from '../../lib/tracking';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 
@@ -160,8 +161,19 @@ export const mergeLeads = employeeMutation({
       absorbed.excludeFromProfiling === true && survivor.excludeFromProfiling !== true;
     if (objectionCarried) updates.excludeFromProfiling = true;
 
+    // Page views: both contacts' marks as one, or none for a person who objected; kept out of the audited changes.
+    const excluded = survivor.excludeFromProfiling === true || objectionCarried;
+    const viewMarks = excluded
+      ? hasViewMarks(survivor) && NO_VIEW_MARKS
+      : mergedViewMarks(survivor, absorbed);
+
     const changes = computeChanges(survivor, filterUndefined(updates));
-    await ctx.db.patch(survivor._id, { ...updates, ...updateAuditFields(ctx.userId) });
+    await ctx.db.patch(survivor._id, {
+      ...updates,
+      ...viewMarks,
+      ...updateAuditFields(ctx.userId),
+    });
+    if (objectionCarried) await stopLeadTracking(ctx, survivor._id);
     const { moreLeft } = await repointLeadRows(ctx, absorbed._id, survivor._id);
     if (moreLeft) {
       await ctx.scheduler.runAfter(0, internal.features.duplicates.internal.repointMergedLead, {

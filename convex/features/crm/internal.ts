@@ -28,7 +28,8 @@ import {
   profilingExcluded,
   stampLeadSignal,
 } from '../../lib/leadSignals';
-import { loadTrackingConfig } from '../../lib/tracking';
+import { LINK_GRANT_MS } from '../../_lib/validators/tracking';
+import { loadTrackingConfig, namedTracking, onAllowedSite } from '../../lib/tracking';
 import {
   leadFilterArgs,
   loadAdvancedListMembers,
@@ -517,11 +518,12 @@ export const prepareCampaignBatch = internalMutation({
  * system lead note records the first click instead.
  */
 export const handleTrackedLinkClick = internalMutation({
-  args: { token: v.string() },
+  // `grantHash`: the hash of the one-time value the route may put in the landing URL (named tracking).
+  args: { token: v.string(), grantHash: v.optional(v.string()) },
   handler: async (
     ctx,
     args,
-  ): Promise<{ found: boolean; redirectUrl?: string; named?: boolean }> => {
+  ): Promise<{ found: boolean; redirectUrl?: string; identify?: boolean }> => {
     const tokenRow = await ctx.db
       .query('campaignLinkTokens')
       .withIndex('by_token', (q) => q.eq('token', args.token))
@@ -532,7 +534,7 @@ export const handleTrackedLinkClick = internalMutation({
     const link = campaign?.trackedLinks?.find((l) => l.key === tokenRow.linkKey);
     // The person objected to profiling: the link still leads where it should, and nothing is written down.
     if (profilingExcluded(await ctx.db.get(tokenRow.leadId))) {
-      return { found: true, redirectUrl: link?.redirectUrl, named: false };
+      return { found: true, redirectUrl: link?.redirectUrl, identify: false };
     }
 
     const now = Date.now();
@@ -597,13 +599,19 @@ export const handleTrackedLinkClick = internalMutation({
       }
     }
 
-    // The landing page's tracking script ties the browser to this contact in named mode.
+    // Named tracking, a link that lands on a tracked site: the click may identify the browser, once and for a short while.
     const tracking = await loadTrackingConfig(ctx);
-    return {
-      found: true,
-      redirectUrl: link?.redirectUrl,
-      named: tracking.enabled && tracking.mode === 'named',
-    };
+    const identify =
+      args.grantHash !== undefined &&
+      namedTracking(tracking) &&
+      onAllowedSite(tracking, link?.redirectUrl);
+    if (identify) {
+      await ctx.db.patch(tokenRow._id, {
+        identifyHash: args.grantHash,
+        identifyUntil: now + LINK_GRANT_MS,
+      });
+    }
+    return { found: true, redirectUrl: link?.redirectUrl, identify };
   },
 });
 
