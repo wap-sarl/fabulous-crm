@@ -23,12 +23,7 @@ const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
   timeStyle: 'short',
 });
 
-/**
- * Right-side drawer showing exactly what one recipient received: the campaign
- * template re-rendered with that send's stored merge values. Opened from a
- * recipient row on the campaign detail page. The send is fetched lazily (only
- * while the drawer is open) so we never render a preview for every recipient.
- */
+/** What one recipient received: the template rendered again with the merge values stored on the send, fetched only while the drawer is open. */
 export function RecipientPreviewSheet({
   sendId,
   onClose,

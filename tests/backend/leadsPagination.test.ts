@@ -1,8 +1,4 @@
-/**
- * Real cursor pagination of the leads list (#11): index selection, residual
- * per-page filtering (sparse pages), and cursor continuity. The old
- * implementation read the whole table on every call.
- */
+/** Cursor pagination of the leads list: index selection, residual filtering that leaves sparse pages, and cursor continuity. */
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
@@ -100,8 +96,7 @@ describe('listLeadsPaginated', () => {
 
   test('residual filters yield sparse pages but the cursor still finds every match', async () => {
     const { t, as } = await setup();
-    // 6 leads; the 2 matches are far apart so they land on different raw pages.
-    // (isRedFlagged is a residual predicate — search now rides its own index.)
+    // The 2 matches are far apart so they land on different raw pages; isRedFlagged is a residual predicate, no index serves it.
     await seedLead(t, { isRedFlagged: true, email: 'far-1@example.com' });
     for (let i = 0; i < 4; i++) await seedLead(t, { email: `noise-${i}@example.com` });
     await seedLead(t, { isRedFlagged: true, email: 'far-2@example.com' });

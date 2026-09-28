@@ -5,18 +5,10 @@ import type { LeadFilters } from './useLeadFilters';
 
 const PAGE_SIZE = 30;
 
-// Residual filters (search, multi-selects, advanced filter…) are applied per
-// page server-side, so a page can come back sparse — or empty — while more
-// matches exist further in the table. The hook auto-fetches to fill the first
-// screen, but caps the number of automatic fetches so a filter matching almost
-// nothing on a huge table doesn't silently walk the whole table; past the cap,
-// the user keeps going with the explicit "Charger plus".
+// Residual filters apply per page, so a page can come back sparse: the hook fetches on to fill the screen, capped so a rare match never walks a huge table unasked.
 const AUTO_FETCH_LIMIT = 10;
 
-/**
- * Filter-only query args (no sort). Also the exact `filter` shape createCampaign
- * expects — campaign recipients are resolved server-side from this filter.
- */
+/** Also the exact `filter` shape createCampaign expects: the recipients of a campaign are resolved server-side from it. */
 export function toFilterArgs(filters: LeadFilters) {
   const hasCustom = Object.keys(filters.customProperties).length > 0;
   return {
@@ -39,17 +31,10 @@ function toQueryArgs(filters: LeadFilters) {
   };
 }
 
-/**
- * Leads list driven by the URL filter/sort state, on real cursor pagination
- * (#11): the server reads one index-ordered page per request and applies the
- * residual filters to it — the table is never read whole. There is no exact
- * filtered total anymore (that needs the aggregates issue); callers gate
- * "Charger plus" on `hasMore`.
- */
+/** Cursor pagination: the server reads one index-ordered page per request, never the whole table, so there is no exact filtered total and callers rely on `hasMore`. */
 export function useLeadsPaginated(filters: LeadFilters) {
   const args = toQueryArgs(filters);
-  // usePaginatedQuery resets its cursor when args change; the key just scopes
-  // our auto-fetch budget to the current filter/sort selection.
+  // usePaginatedQuery resets its cursor when args change; the key only scopes the auto-fetch budget to the current filter and sort.
   const filterKey = JSON.stringify(args);
 
   const { results, status, loadMore } = useAuthPaginatedQuery(
@@ -85,11 +70,7 @@ export function useLeadsPaginated(filters: LeadFilters) {
   };
 }
 
-/**
- * Reactively resolve every lead matching the current filter (for building a
- * campaign "from this filter"). Returns the ids plus counts (total / with email)
- * for a live recipient preview. Sort args are irrelevant here and dropped.
- */
+/** Every lead matching the current filter, for the live recipient preview of a campaign; the sort is irrelevant here and dropped. */
 export function useMatchingLeads(filters: LeadFilters) {
   const { sortField, sortDirection, ...rest } = toQueryArgs(filters);
   void sortField;

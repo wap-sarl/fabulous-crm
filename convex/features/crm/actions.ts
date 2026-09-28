@@ -21,12 +21,7 @@ import { deferUnlessAllowed } from '../../lib/gates';
 
 const BATCH_DELAY_MS = 1000;
 
-/**
- * Brevo transactional-email events forwarded to POST /webhooks/brevo/email.
- * `uniqueOpened` is deliberately absent: we subscribe to `opened` (every open)
- * and stamp the send's first-only `openedAt` ourselves — subscribing to both
- * would double-record first opens.
- */
+/** `uniqueOpened` is left out on purpose: `opened` reports every open and the send's first-only `openedAt` is stamped here, both would record a first open twice. */
 const BREVO_EMAIL_WEBHOOK_EVENTS = [
   'delivered',
   'opened',
@@ -40,14 +35,7 @@ const BREVO_EMAIL_WEBHOOK_EVENTS = [
   'error',
 ];
 
-/**
- * Register (or update) the account-level Brevo transactional-email webhook
- * pointing at this deployment's /webhooks/brevo/email route. Idempotent — safe
- * to re-run. Run once per deployment:
- *
- *   bunx convex run features/crm/actions:registerBrevoEmailWebhook          # dev
- *   bunx convex run features/crm/actions:registerBrevoEmailWebhook --prod   # prod
- */
+/** Registers the account-level Brevo email webhook for this deployment: run once per deployment, and safe to run again. */
 export const registerBrevoEmailWebhook = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -77,16 +65,13 @@ export const registerBrevoEmailWebhook = internalAction({
     const body = JSON.stringify({
       type: 'transactional',
       description: 'WAP CRM — événements e-mail campagnes',
-      // Secret in a registration-time header, never in the URL where it
-      // would sit in proxy logs and Brevo's webhook listing.
+      // The secret goes in a header, never in the URL, where it would sit in proxy logs and in Brevo's webhook listing.
       url: endpoint,
       headers: [{ key: 'x-webhook-secret', value: secret }],
       events: BREVO_EMAIL_WEBHOOK_EVENTS,
     });
 
-    // Look for an existing webhook of ours (same endpoint, any secret) so
-    // re-runs update it instead of stacking duplicates. Brevo answers an error
-    // with code `document_not_found` instead of an empty list when none exist.
+    // A re-run updates our webhook (matched by endpoint) instead of stacking duplicates; with none, Brevo answers the error `document_not_found`, not an empty list.
     const listResponse = await fetch('https://api.brevo.com/v3/webhooks?type=transactional', {
       headers,
     });
@@ -117,17 +102,7 @@ export const registerBrevoEmailWebhook = internalAction({
   },
 });
 
-/**
- * Register (or update) the account-level Brevo transactional-SMS webhook pointing
- * at this deployment's /webhooks/brevo/sms route, so an inbound STOP fires an
- * `unsubscribed` event that revokes the lead's SMS consent (handleSmsEvent). The
- * per-message `webUrl` only reports outbound delivery, never inbound replies, so
- * this account-level webhook is what makes STOP opt-outs reach the CRM. Idempotent;
- * run once per deployment:
- *
- *   bunx convex run features/crm/actions:registerBrevoSmsWebhook          # dev
- *   bunx convex run features/crm/actions:registerBrevoSmsWebhook --prod   # prod
- */
+/** The per-message `webUrl` never reports inbound replies: this account-level webhook is what makes a STOP reach the CRM. Run once per deployment, safe to run again. */
 export const registerBrevoSmsWebhook = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -154,16 +129,10 @@ export const registerBrevoSmsWebhook = internalAction({
       type: 'transactional',
       channel: 'sms',
       description: 'WAP CRM — événements SMS entrants (STOP, réponses)',
-      // Account-level registration can carry a header — only the
-      // per-message webUrl (sendCampaignBatch) is stuck with a query secret.
+      // An account-level registration can carry a header: only the per-message webUrl (sendCampaignBatch) is stuck with a query secret.
       url: endpoint,
       headers: [{ key: 'x-webhook-secret', value: secret }],
-      // Inbound-only events. The per-message webUrl already delivers the OUTBOUND
-      // lifecycle (delivered, bounces), so subscribing to those here would
-      // double-record them. NB: Brevo's SMS *registration* strings differ from the
-      // webhook *payload* `msg_status` (verified against the API):
-      //   reply → payload "replied", unsubscribe → "unsubscribed", blacklisted → "bl".
-      // handleSmsEvent keys off the payload values.
+      // Inbound only, the per-message webUrl already reports the outbound ones; these names differ from the payload `msg_status` ("replied", "unsubscribed", "bl") that handleSmsEvent reads.
       events: ['reply', 'unsubscribe', 'blacklisted'],
     });
 
@@ -199,11 +168,7 @@ export const registerBrevoSmsWebhook = internalAction({
   },
 });
 
-/**
- * Send one batch of a campaign's pending emails via a Brevo template, record
- * the results, then reschedule itself until the queue is drained. Runs as a
- * node action so it can call the Brevo HTTP API.
- */
+/** Sends one batch of a campaign's pending sends, then reschedules itself until none is left. */
 export const sendCampaignBatch = internalAction({
   args: { campaignId: v.id('campaigns') },
   handler: async (ctx, args) => {
@@ -235,9 +200,7 @@ export const sendCampaignBatch = internalAction({
 
     const isSms = batch.channel === 'sms';
 
-    // Fail fast when the active provider can't serve this channel: SMS needs a
-    // Brevo key; Brevo email needs an API key; SMTP email needs a host. Same
-    // shape as the legacy missing-key guard — mark complete and stop.
+    // The active provider must be able to serve the channel: SMS and Brevo email need an API key, SMTP email needs a host.
     const cannotSend =
       (isSms && !brevo.smsAvailable) || (!isSms && !isEmailProviderConfigured(provider));
     if (cannotSend) {
@@ -246,8 +209,7 @@ export const sendCampaignBatch = internalAction({
           ? 'SMS campaign but no Brevo API key configured — cannot send'
           : 'Email provider not configured — cannot send campaign',
       );
-      // Surface the failure on every pending send (instead of orphaning them in
-      // `pending`) so it's visible and retry-able once the provider is fixed.
+      // Every pending send is failed, not left in `pending`: the failure shows, and can be retried once the provider is fixed.
       await ctx.runMutation(internal.features.crm.internal.failPendingSends, {
         campaignId: args.campaignId,
         error: isSms
@@ -267,18 +229,13 @@ export const sendCampaignBatch = internalAction({
       error?: string;
     }[] = [];
 
-    // Per-message webhook so Brevo notifies us of SMS events (STOP opt-outs).
-    // Brevo's per-message webhooks cannot send headers, so this is the one
-    // path where a secret travels in the URL — the DEDICATED SMS secret,
-    // so its exposure never burns the account-level one. Without a secret the
-    // feature is off and no webUrl is sent.
+    // Brevo's per-message webhooks cannot send headers, so the secret travels in the URL: the dedicated SMS one, whose exposure never burns the account-level one. No secret, no webUrl.
     const smsWebhookUrl =
       isSms && brevo.smsWebhookSecret && process.env.CONVEX_SITE_URL
         ? `${process.env.CONVEX_SITE_URL}/webhooks/brevo/sms?secret=${brevo.smsWebhookSecret}`
         : undefined;
 
-    // Pooled email dispatcher (Brevo API or SMTP) — only for custom-HTML email
-    // campaigns; SMS and Brevo-template paths don't use it. Closed after the loop.
+    // Pooled, and only for custom-HTML email campaigns: the SMS and Brevo-template paths do not use it.
     const dispatcher = !isSms && batch.htmlBody ? createEmailDispatcher(provider) : null;
 
     try {
@@ -341,9 +298,7 @@ export const sendCampaignBatch = internalAction({
           continue;
         }
 
-        // Custom (WYSIWYG) email: send the authored HTML with placeholders
-        // substituted per recipient, via the active provider (Brevo API or SMTP).
-        // Otherwise use the Brevo template path.
+        // A custom (WYSIWYG) email goes through the active provider; without an HTML body, the Brevo template path below applies.
         if (batch.htmlBody) {
           const subject = renderPlaceholders(batch.subject ?? '', send.params, false);
           const htmlContent = wrapEmailHtml(renderPlaceholders(batch.htmlBody, send.params));
@@ -370,9 +325,7 @@ export const sendCampaignBatch = internalAction({
           continue;
         }
 
-        // Brevo template merge happens server-side at Brevo — unavailable over
-        // SMTP. Only reachable if the provider was switched to SMTP mid-send
-        // (createCampaign blocks template campaigns when the provider is SMTP).
+        // Brevo merges its templates on its side, so none over SMTP: reached only when the provider was switched mid-send, createCampaign blocks the rest.
         if (provider.kind !== 'brevo') {
           results.push({
             sendId: send.sendId,
@@ -396,9 +349,7 @@ export const sendCampaignBatch = internalAction({
         });
       }
     } catch (err) {
-      // A fatal error mid-drain would otherwise leave the campaign stuck in
-      // `sending` forever. Persist what we have, fail the rest so it surfaces and
-      // stays retry-able, and finalize without rescheduling.
+      // A fatal error mid-drain would leave the campaign in `sending` forever: what was sent is recorded, the rest is failed so it can be retried.
       console.error('Campaign send batch crashed:', err);
       if (results.length > 0) {
         await ctx.runMutation(internal.features.crm.internal.recordSendResults, {

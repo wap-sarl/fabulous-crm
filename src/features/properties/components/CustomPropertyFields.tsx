@@ -17,12 +17,7 @@ interface Props {
   lastName?: string;
 }
 
-/**
- * Dynamic inputs for a record's custom properties, one per active definition
- * of its entity type. The control, its validation message and its layout come
- * from the type registry (`lib/propertyTypes.tsx`); computed definitions are
- * engine-owned and never rendered.
- */
+/** Each control comes from the type registry (`lib/propertyTypes.tsx`); computed definitions belong to the engine and are never rendered. */
 export function CustomPropertyFields({
   definitions,
   values,

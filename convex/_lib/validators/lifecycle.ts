@@ -49,10 +49,7 @@ export function lifecycleStageIndex(config: LifecycleConfig, key: string | undef
   return config.stages.findIndex((s) => s.key === key);
 }
 
-/**
- * Whether moving `from` → `to` walks back down the funnel. Leaving an unset or
- * unknown (removed) stage is never a regression, so a lead is never stuck.
- */
+/** Leaving an unset or removed stage is never a regression, so a lead is never stuck. */
 export function isLifecycleRegression(
   config: LifecycleConfig,
   from: string | undefined,
@@ -85,12 +82,7 @@ export const lifecycleChangeSourceValidator = v.union(
   v.literal('form'),
 );
 
-/**
- * Append-only log of lifecycle transitions, one row per change (the initial
- * stage included, with `from` unset). `_creationTime` is the transition time,
- * so stage-to-stage durations are the difference between consecutive rows of
- * a lead. Never patched or deleted.
- */
+/** An append-only log, one row per change (the initial stage included, `from` unset); `_creationTime` is the transition time, so a stage's duration is the gap between two rows of a lead. */
 export const lifecycleStageHistoryValidator = v.object({
   leadId: v.id('leads'),
   from: v.optional(v.string()),

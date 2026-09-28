@@ -56,11 +56,7 @@ function boundEpochMs(value: string | number, bound: 'start' | 'end'): number | 
     : ms;
 }
 
-/**
- * Both sides as same-typed comparables — a mixed timestamp/date-string pair
- * goes through epoch ms, `bound` telling which edge of a date-only value the
- * comparison targets. Null when the pair cannot be compared meaningfully.
- */
+/** Both sides as same-typed comparables: a mixed timestamp and date-string pair goes through epoch ms, `bound` being the edge of a date-only value; null when they cannot be compared. */
 function comparablePair(
   stored: unknown,
   value: unknown,
@@ -119,8 +115,7 @@ export function evalFilterRule<F extends string>(
       return equalsMatch(stored, rule.value);
     case 'contains':
       return containsMatch(stored, rule.value);
-    // A configured rule whose value can't be compared to the stored one fails
-    // closed: malformed data must exclude a lead, never enroll it (PR #68).
+    // A rule whose value can't be compared to the stored one fails closed: malformed data must exclude a lead, never enroll it.
     case 'gt':
     case 'lt': {
       // « après le 31/08 » excludes the whole day; « avant » stops at its start.

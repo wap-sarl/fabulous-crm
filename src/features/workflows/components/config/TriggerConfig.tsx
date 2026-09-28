@@ -52,11 +52,7 @@ const decodeField = (key: string): FilterField<LeadStandardField> =>
     ? { kind: 'custom', definitionId: key.slice(3) }
     : { kind: 'standard', field: key.slice(4) as LeadStandardField };
 
-/**
- * Trigger panel body: the enrollment event (grouped Select), its per-type
- * refinements, the AND/OR enrollment criteria and the re-enrollment toggle.
- * Fully controlled — the parent panel owns the draft-then-commit cycle.
- */
+/** Fully controlled: the parent panel owns the draft-then-commit cycle. */
 export function TriggerConfig({ value, onChange, definitions }: TriggerConfigProps) {
   const lists = useLeadLists();
   const leadCatalog = useLeadFieldCatalog(definitions);
@@ -65,8 +61,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
   const forms = useAuthQuery(api.features.forms.queries.listFormOptions, {}) ?? [];
   const { trigger } = value;
 
-  // The criteria editor always needs a filter object to edit; whether the
-  // stored criteria exist is decided by the active-rule count on apply (parent).
+  // The editor always needs a filter object; whether criteria are stored is decided by the parent on apply, from the active-rule count.
   const [criteriaDraft, setCriteriaDraft] = useState<LeadAdvancedFilter>(
     () => value.enrollmentCriteria ?? emptyAdvancedFilter(LEAD_FILTER_FIELDS),
   );

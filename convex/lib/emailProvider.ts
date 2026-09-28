@@ -1,11 +1,4 @@
-/**
- * Pure resolvers that turn the singleton `appConfig.email` sub-object (or its
- * absence) into the concrete credentials the send paths need, falling back to
- * the legacy env vars when a value is unset. Deterministic and side-effect-free
- * (no DB, no network) so it is safe to import from any runtime — crucially it
- * must NOT import nodemailer, which is node-only. The SMTP transport itself
- * lives in convex/lib/smtpUtils.ts ('use node').
- */
+/** Imported from any runtime, so this must never import nodemailer, which is node-only: the SMTP transport lives in lib/smtpUtils.ts. */
 
 import type { AppConfig } from '../_lib/validators/appConfig';
 import { decryptSecret } from './crypto';
@@ -27,10 +20,7 @@ export type ResolvedEmailProvider =
   | { kind: 'brevo'; apiKey: string; sender: EmailSender }
   | { kind: 'smtp'; smtp: SmtpSettings; sender: EmailSender };
 
-/**
- * `appConfig.email` as seen by a resolver. Accepts the full config doc (which
- * carries extra `_id`/`_creationTime` fields) as well as the validator type.
- */
+/** Accepts the full config document, with its `_id` and `_creationTime`, as well as the validator type. */
 type ConfigLike = Pick<AppConfig, 'email' | 'senderEmail' | 'senderName'> | null | undefined;
 
 /** A stored secret in clear, or the env fallback; stored secrets are ciphertext (lib/crypto.ts). */
@@ -46,12 +36,7 @@ function resolveSender(cfg: ConfigLike): EmailSender {
   };
 }
 
-/**
- * Resolve which provider sends outbound email and its credentials. Defaults to
- * Brevo (the only historical provider) when `email` is unset. Brevo API key and
- * SMTP fields fall back to their env vars so a deployment keeps working before
- * the settings screen is filled in.
- */
+/** Brevo when `email` is unset; the Brevo key falls back to its env var, so a deployment keeps sending before the settings screen is filled in. */
 export async function resolveEmailProvider(cfg: ConfigLike): Promise<ResolvedEmailProvider> {
   const email = cfg?.email;
   const sender = resolveSender(cfg);

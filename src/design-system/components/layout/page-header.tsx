@@ -13,17 +13,10 @@ interface PageHeaderProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'ti
   leading?: React.ReactNode;
   /** Slot after the title (status badges…) — detail variant. */
   titleExtra?: React.ReactNode;
-  /**
-   * list: page heading over the canvas. detail: white bar with bottom border.
-   * Defaults to detail when onBack is set, list otherwise.
-   */
+  /** Defaults to detail when onBack is set, list otherwise. */
   variant?: 'list' | 'detail';
 }
 
-/**
- * Per-screen header. List variant: large title + subtitle left, actions right.
- * Detail variant: white background, back button, leading slot, badges, actions.
- */
 function PageHeader({
   title,
   subtitle,

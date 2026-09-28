@@ -1,10 +1,4 @@
-/**
- * Parse CSV text into rows of string cells (RFC 4180-ish).
- *
- * Handles `"` quoted fields that may contain the delimiter, newlines and escaped quotes (`""`). The delimiter is
- * the one the header line uses most among `,`, `;` and tab (French Excel writes `;`); a leading BOM is dropped.
- * Callers skip rows whose cells are all empty.
- */
+/** Close to RFC 4180; the delimiter is the one the header line uses most (French Excel writes `;`), and rows of empty cells are left for the caller to skip. */
 export function parseCsv(text: string, delimiter?: string): string[][] {
   const source = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
   const sep = delimiter ?? detectDelimiter(source);

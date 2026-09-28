@@ -18,22 +18,13 @@ export interface ImageUploadFieldProps {
   maxBytes?: number;
   /** Returns a fresh Convex upload URL (setup-token or admin mutation). */
   onGetUploadUrl: () => Promise<string>;
-  /**
-   * Called once the POST succeeds, with the uploaded storage id and a local
-   * object-URL for the file (usable as a preview until the page reloads).
-   */
+  /** Called once the upload succeeds; the preview is a local object URL, valid until the page reloads. */
   onUploaded: (storageId: Id<'_storage'>, previewUrl: string) => void;
   /** Preview shape: 'square' (favicon) or 'wide' (logo). */
   shape?: 'square' | 'wide';
 }
 
-/**
- * File upload for a branding asset. Uses Convex's two-step upload: fetch a
- * short-lived upload URL, POST the file, then hand the returned `storageId`
- * back to the caller. Shows an instant local preview via an object URL and a
- * spinner while the upload is in flight. Shared by the setup wizard (pre-auth,
- * setup-token URL) and the admin settings screen (admin URL).
- */
+/** Convex's two-step upload: a short-lived URL, then the file; shared by the setup wizard, before sign-in, and the admin settings. */
 export function ImageUploadField({
   label,
   hint,

@@ -60,12 +60,7 @@ function decayReferenceAt(lead: Doc<'leads'>, rule: ScoringRule): number | undef
   return latest;
 }
 
-/**
- * Pure score computation: per active matching rule, `points` halved once per
- * `decayHalfLifeDays` elapsed since the rule's decay reference, rounded; the
- * sum is clamped to [MIN_LEAD_SCORE, MAX_LEAD_SCORE]. The breakdown keeps each
- * rule's rounded contribution (pre-clamp) for the lead page.
- */
+/** A rule's points halve once per half-life elapsed since its decay reference; the sum is clamped, the breakdown keeps each rounded contribution before the clamp. */
 export function computeLeadScore(
   lead: Doc<'leads'>,
   rules: Doc<'scoringRules'>[],
@@ -97,13 +92,7 @@ function sameBreakdown(a: Record<string, number> | undefined, b: Record<string, 
   return Object.keys(a).length === keys.length && keys.every((k) => a[k] === b[k]);
 }
 
-/**
- * Recompute one lead's score and apply every effect of a change: patch the
- * denormalized columns, dispatch `score_threshold_crossed`, and promote the
- * lifecycle stage when the promotion threshold is reached (upward only —
- * scores never demote). `opts` lets batched callers preload the config and
- * active workflows once.
- */
+/** Recomputes one lead's score and applies every effect of a change; a score promotes the lifecycle stage upward only, it never demotes. */
 export async function applyLeadScore(
   ctx: MutationCtx,
   lead: Doc<'leads'>,
@@ -146,13 +135,7 @@ export async function applyLeadScore(
   await applyLifecycleTransition(ctx, lead._id, plan, { source: 'score' });
 }
 
-/**
- * Incremental recomputation, registered as a `leads` trigger
- * (_lib/functions.ts) so EVERY lead write re-scores the lead: field edit,
- * import row, webhook signal stamp. Its own patch re-enters the trigger and
- * converges (same score ⇒ no write). Time drift (decay, relative dates) is the
- * nightly recomputation's job.
- */
+/** A `leads` trigger, so every lead write re-scores: its own patch re-enters it and converges, as the same score writes nothing; time drift is the nightly run's job. */
 export async function syncLeadScore(ctx: MutationCtx, change: LeadChange): Promise<void> {
   if (change.operation === 'delete') return;
   // Queued triggers hold snapshots: re-read so a stale one can't repeat the side effects.
@@ -164,11 +147,7 @@ export async function syncLeadScore(ctx: MutationCtx, change: LeadChange): Promi
   await applyLeadScore(ctx, lead, rules);
 }
 
-/**
- * Start (or restart) a full recomputation over all leads: stamp the state,
- * cancel a pending nightly run, and schedule the first page job. A fresh stamp
- * makes the pages of any older run no-ops.
- */
+/** Starts or restarts a full recomputation: a fresh stamp makes the pages of any older run no-ops. */
 export async function startScoreRecompute(ctx: MutationCtx): Promise<void> {
   const state = await ensureScoringState(ctx);
   const stamp = Date.now();

@@ -51,13 +51,7 @@ export const SEND_STATUS_TONE: Record<CampaignSendStatus, StatusTone> = Object.f
   SEND_STATUSES.map((s) => [s.value, s.tone]),
 ) as Record<CampaignSendStatus, StatusTone>;
 
-/**
- * Turn a raw provider send error into a readable French message for the campaign
- * UI. Brevo returns a JSON body like `{"code":"unauthorized","message":"Key not
- * found"}`; SMTP/other providers return plain strings. Known failures get a clear
- * message; anything else falls back to the provider's own `message`, then the raw
- * text — so the original string is never lost (surface it in a `title` tooltip).
- */
+/** Brevo returns a JSON body with `code` and `message`, other providers plain strings; an unknown failure falls back to the provider's text, never lost. */
 export function formatSendError(raw: string | undefined | null): string {
   if (!raw) return '';
   let code = '';

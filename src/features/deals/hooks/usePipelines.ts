@@ -3,10 +3,7 @@ import { useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { Doc, Id } from '@crm/lib/backend';
 
-/**
- * The instance's pipelines (default first). Creates the stock pipeline the
- * first time the deals feature is opened on an instance that has none.
- */
+/** Creates the stock pipeline the first time the deals feature is opened on an instance that has none. */
 export function usePipelines() {
   const pipelines = useAuthQuery(api.features.deals.queries.listPipelines, {});
   const ensureDefault = useAuthMutation(api.features.deals.mutations.ensureDefaultPipeline);

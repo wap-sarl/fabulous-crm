@@ -17,11 +17,7 @@ import { loadLifecycleConfig } from '../../lib/lifecycle';
 import { loadPropertyDefinitions } from '../../lib/properties';
 import { enrollLead } from './triggerDispatch';
 
-/**
- * Public workflow management. All employees can manage workflows (same policy
- * as campaigns). Structural edits require the workflow to be paused so the
- * engine never reads a graph that changes under an executing run's feet.
- */
+/** Every employee manages workflows, as for campaigns; a structural edit requires a pause, so the engine never reads a graph that changes under a run. */
 
 const PAUSE_FIRST = 'Mettez le workflow en pause avant de le modifier.';
 
@@ -80,10 +76,7 @@ export const createWorkflow = employeeMutation({
   },
 });
 
-/**
- * Full-replace update of a workflow (the editor saves its whole draft).
- * Structural fields are rejected while the workflow is active — pause first.
- */
+/** The editor saves its whole draft, so this replaces everything; a structural change is refused while the workflow is active. */
 export const updateWorkflow = employeeMutation({
   args: {
     workflowId: v.id('workflows'),
@@ -134,12 +127,7 @@ export const updateWorkflow = employeeMutation({
   },
 });
 
-/**
- * Activate or pause a workflow. Activation runs the full graph validation
- * (French error on failure). Resuming (paused → active) re-kicks the runs that
- * were parked by the pause; runs still sleeping on a wait keep their pending
- * scheduled call, which finds the workflow active again at wake time.
- */
+/** Activation validates the whole graph; a resume kicks the runs the pause parked, while a run sleeping on a wait keeps its scheduled call. */
 export const setWorkflowStatus = employeeMutation({
   args: {
     workflowId: v.id('workflows'),
@@ -184,9 +172,7 @@ export const setWorkflowStatus = employeeMutation({
         .collect();
       const now = Date.now();
       for (const run of parked) {
-        // A future wake keeps its pending scheduled call; everything else was
-        // halted by the pause and needs a kick. Duplicate kicks are no-ops
-        // (stale-nodeId and pending-step guards in executeStep).
+        // A future wake keeps its scheduled call, the rest needs a kick; a duplicate kick is a no-op thanks to the guards of executeStep.
         if (!run.currentNodeId) continue;
         if (run.wakeAt !== undefined && run.wakeAt > now) continue;
         await ctx.scheduler.runAfter(0, internal.features.workflows.internal.executeStep, {
@@ -280,13 +266,7 @@ export const cancelRun = employeeMutation({
   },
 });
 
-/**
- * Bulk « réinscrire » after a save: enroll every non-deleted lead matching the
- * workflow's enrollment criteria (no criteria = every lead) into the current
- * graph. An explicit user action, so it deliberately bypasses the
- * allowReEnrollment setting and cancels in-flight runs (they were following
- * the old version) before re-enrolling.
- */
+/** An explicit user action, so it bypasses allowReEnrollment on purpose and cancels the in-flight runs, which follow the previous graph. */
 export const reenrollMatchingLeads = employeeMutation({
   args: { workflowId: v.id('workflows') },
   handler: async (ctx, args) => {
@@ -325,10 +305,7 @@ export const reenrollMatchingLeads = employeeMutation({
   },
 });
 
-/**
- * Enroll a lead by hand (same rules as a trigger firing, minus the daily cap).
- * Doubles as the test facility while building a workflow.
- */
+/** Same rules as a trigger firing, minus the daily cap: this is also how a workflow is tested while it is built. */
 export const enrollLeadManually = employeeMutation({
   args: { workflowId: v.id('workflows'), leadId: v.id('leads') },
   handler: async (ctx, args) => {

@@ -1,11 +1,6 @@
 import { v } from 'convex/values';
 
-/**
- * Invitation-based membership allowlist. The first admin is bootstrapped by the
- * setup wizard (SETUP_TOKEN); every other user must have a `pending` invitation
- * whose email matches the verified email from their auth provider. Enforced in
- * the Better Auth `databaseHooks.user.create.before` hook (convex/auth.ts).
- */
+/** An allowlist: past the first admin the setup wizard creates, a user needs a `pending` invitation matching the verified email of their auth provider (enforced in convex/auth.ts). */
 const invitationStatusValidator = v.union(
   v.literal('pending'),
   v.literal('accepted'),

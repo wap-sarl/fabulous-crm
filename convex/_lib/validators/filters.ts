@@ -53,12 +53,7 @@ const dealStandardFieldValidator = v.union(
   v.literal('createdAt'),
 );
 
-/**
- * Comparison operator. `equals`/`notEquals`/`contains` cover text & option
- * membership; `isEmpty`/`isNotEmpty` test presence; `gt`/`lt`/`between` order
- * numbers & dates; `inLastDays`/`inNextDays`/`moreThanDaysAgo` compare a date
- * to now (value = whole days). Offered per type by {@link operatorsForType}.
- */
+/** `inLastDays`, `inNextDays` and `moreThanDaysAgo` compare a date to now, their value being whole days; {@link operatorsForType} says which operators a type offers. */
 const filterOperatorValidator = v.union(
   v.literal('equals'),
   v.literal('notEquals'),
@@ -79,11 +74,7 @@ const filterRangeValidator = v.object({
   max: v.optional(v.union(v.number(), v.string())),
 });
 
-/**
- * A rule's value. Scalar for equals/contains/gt/lt (string | number | boolean),
- * a string[] for "is one of" / option membership, or a range for `between`.
- * Absent for isEmpty/isNotEmpty.
- */
+/** A scalar for equals/contains/gt/lt, a string[] for option membership, a range for `between`; absent for isEmpty/isNotEmpty. */
 const filterRuleValueValidator = v.union(
   v.string(),
   v.number(),
@@ -159,13 +150,7 @@ export type LeadAdvancedFilter = AdvancedFilter<LeadStandardField>;
 export type CompanyAdvancedFilter = AdvancedFilter<CompanyStandardField>;
 export type DealAdvancedFilter = AdvancedFilter<DealStandardField>;
 
-/**
- * Unified "type" a rule's field resolves to, spanning custom-property types and
- * the special standard fields (`lifecycle`, `assignee`). Drives which operators and
- * which value input the builder shows. `select` covers both select and radio,
- * and every standard field whose values come from a fixed list (deal status,
- * pipeline stage, country…).
- */
+/** Decides which operators and which value input the builder shows; `select` also covers radio and every standard field whose values come from a fixed list (deal status, stage, country). */
 export type FilterFieldType =
   | 'text'
   | 'number'
@@ -180,11 +165,7 @@ export type FilterFieldType =
   | 'list'
   | 'pages';
 
-/**
- * The operators offered for a field type. Pure and dependency-free so the UI
- * (operator dropdown) and any server-side use agree. The first entry is the
- * sensible default when a field is first picked.
- */
+/** Shared by the UI and the server so both agree; the first entry is the default when a field is picked. */
 export function operatorsForType(type: FilterFieldType): FilterOperator[] {
   switch (type) {
     case 'text':

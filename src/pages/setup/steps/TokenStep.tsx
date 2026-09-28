@@ -2,10 +2,7 @@ import { Alert, AlertDescription, AlertTitle, Input, Label } from '@crm/design-s
 import { AlertTriangle } from 'lucide-react';
 import type { StepProps } from './types';
 
-/**
- * First step. If SETUP_TOKEN isn't set on the deployment the wizard is
- * fail-closed: show the command the operator must run and don't let them past.
- */
+/** The wizard fails closed: without SETUP_TOKEN on the deployment, it shows the command to run and lets nobody past. */
 export function TokenStep({
   data,
   update,

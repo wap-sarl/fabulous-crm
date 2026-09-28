@@ -15,16 +15,7 @@ import {
 import type { FilterFieldType, PropertyType, PropertyValue } from '@crm/lib/backend';
 import type { PropertyDefinitionRow } from '../types';
 
-/**
- * Frontend registry of the custom-property types — the UI half of
- * `convex/_lib/validators/propertyTypes.ts`, keyed identically
- * (`Record<PropertyType, …>` fails to compile when a key is missing on either
- * side). Every screen that varies by type reads it: the settings type picker
- * (`label`), the entity forms, workflow steps and tracked links
- * (`renderInput`), tables and detail pages (`format`), the advanced filter
- * (`filterType`), the quick toolbar (`quickFilter`) and the CSV import
- * (`coerceCsv`).
- */
+/** The UI half of `convex/_lib/validators/propertyTypes.ts`, keyed identically: `Record<PropertyType, …>` fails to compile when a key is missing on either side. */
 
 interface PropertyInputProps {
   id: string;

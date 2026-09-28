@@ -27,9 +27,7 @@ function BrandingManager() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Revert an unsaved color preview when leaving the page. BrandingHead only
-  // re-applies when the persisted config changes, so without this a previewed
-  // color would linger app-wide until reload.
+  // BrandingHead only re-applies when the saved config changes, so an unsaved preview must be reverted on leaving or it lingers app-wide.
   const persisted = config?.primaryColor ?? null;
   const persistedRef = useRef(persisted);
   persistedRef.current = persisted;

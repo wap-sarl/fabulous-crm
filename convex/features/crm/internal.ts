@@ -128,16 +128,7 @@ const SMS_TRIGGER_EVENT: Partial<Record<CampaignEventType, WorkflowSmsEvent>> = 
   unsubscribed: 'stop',
 };
 
-/**
- * Insert a campaignEvents row unless the send already has an identical
- * `(type, eventAt)` one. Brevo retries webhooks on non-2xx responses with the
- * same event timestamp, so replays are no-ops while genuine repeats (new
- * timestamps) are kept. A send's event list stays small (tens of rows).
- *
- * Fresh inserts also fan out to workflow triggers (campaign_email_event /
- * campaign_sms_event) — the single choke point for engagement events, so
- * webhook-replay dedup is inherited by the trigger dispatch for free.
- */
+/** Brevo retries a webhook with the same event timestamp, so an identical `(type, eventAt)` is a replay and is dropped; workflow triggers fire from here only, and inherit that dedup. */
 async function insertCampaignEventIfNew(
   ctx: MutationCtx,
   event: CampaignEvent,
@@ -149,6 +140,7 @@ async function insertCampaignEventIfNew(
   ) {
     return 'excluded';
   }
+  // A send has tens of events at most.
   const existing = await ctx.db
     .query('campaignEvents')
     .withIndex('by_send', (q) => q.eq('sendId', event.sendId))
@@ -190,11 +182,7 @@ async function insertCampaignEventIfNew(
   return 'recorded';
 }
 
-/**
- * Record a Brevo transactional-email webhook event (POST /webhooks/brevo/email)
- * against the send it belongs to, correlated via `brevoMessageId`. Also stamps
- * the send's first-only `openedAt`/`clickedAt` markers.
- */
+/** A Brevo email webhook event is tied to its send by `brevoMessageId`; the send's `openedAt` and `clickedAt` are first-only. */
 export const recordBrevoEmailEvent = internalMutation({
   args: {
     brevoMessageId: v.string(),
@@ -258,20 +246,11 @@ const SMS_STATUS_MARKER: Record<
   soft_bounce: 'bouncedAt',
 };
 
-/**
- * Handle a Brevo SMS webhook event. Correlated to its send by `brevoMessageId`
- * first, then by recipient phone (inbound STOP/replied events carry a fresh id
- * but always the phone). Logs a campaign event, stamps the send's first-only
- * lifecycle marker (delivered/replied/unsubscribed/bounced) that powers the SMS
- * campaign metrics, and on a STOP (`unsubscribed`/`bl` = blacklisted) revokes the
- * lead's SMS consent. Idempotent: replays find the marker/consent already set.
- */
+/** A STOP (`unsubscribed`, or `bl` for blacklisted) revokes the lead's SMS consent; a replay changes nothing, it finds the marker and the consent already set. */
 export const handleSmsEvent = internalMutation({
   args: {
     brevoMessageId: v.optional(v.string()),
-    // Recipient phone from the event (present on inbound STOP/replied). Matched
-    // against campaignSends.smsRecipient after stripping to digits — an inbound
-    // event carries a fresh messageId that never matches by_brevoMessageId.
+    // Present on inbound events, and matched against campaignSends.smsRecipient once stripped to digits.
     recipient: v.optional(v.string()),
     msgStatus: v.string(),
     eventAt: v.number(),
@@ -280,9 +259,7 @@ export const handleSmsEvent = internalMutation({
     const type = SMS_EVENT_TYPE[args.msgStatus];
     if (!type) return;
 
-    // Message id first — precise, and delivery/reply/bounce events carry the
-    // original outbound id. Fall back to phone for inbound events (a STOP arrives
-    // with a fresh id that matches no send, but always carries the recipient).
+    // The message id first, it is precise; the phone as a fallback, as a STOP arrives with a fresh id that matches no send but always carries the recipient.
     let send = args.brevoMessageId
       ? await ctx.db
           .query('campaignSends')
@@ -351,10 +328,7 @@ export const handleSmsEvent = internalMutation({
   },
 });
 
-// Leads examined per prepareCampaignBatch transaction. Each matched recipient
-// writes 1 campaignSends row plus one campaignLinkTokens row per tracked link,
-// so a 200-lead page stays far below Convex's 8,192-writes-per-transaction cap
-// even with several tracked links.
+// Each recipient writes one campaignSends row plus one campaignLinkTokens row per tracked link: 200 leads stay far below Convex's 8,192 writes per transaction.
 const PREP_BATCH = 200;
 
 export const prepareCampaignBatch = internalMutation({
@@ -365,8 +339,7 @@ export const prepareCampaignBatch = internalMutation({
     // Tests only: a small page exercises the per-page gate; production keeps PREP_BATCH.
     batchSize: v.optional(v.number()),
   },
-  // Returns the paging state so tests can drive the chain deterministically
-  // without the scheduler; production runs on the self-scheduled chain below.
+  // The paging state is returned so tests can drive the chain without the scheduler; production runs on the self-scheduled chain below.
   handler: async (ctx, args): Promise<{ isDone: boolean; continueCursor: string | null }> => {
     const campaign = await ctx.db.get(args.campaignId);
     // Deleted mid-preparation (or unexpected state): stop the chain quietly.
@@ -397,8 +370,7 @@ export const prepareCampaignBatch = internalMutation({
       .query('leads')
       .paginate({ cursor: args.cursor ?? null, numItems: args.batchSize ?? PREP_BATCH });
 
-    // List membership is resolved per page with indexed point reads — a full
-    // member-set load (loadListMemberIds) is unbounded on large lists.
+    // List membership is resolved per page with indexed point reads: loading the full member set (loadListMemberIds) is unbounded on large lists.
     const pageIds = page.page.map((lead) => lead._id);
     const listMemberIds = await loadListMemberIdsForLeads(ctx, args.filter.listIds, pageIds);
     const advancedListMembers = await loadAdvancedListMembers(
@@ -414,8 +386,7 @@ export const prepareCampaignBatch = internalMutation({
         continue;
       total++;
 
-      // Rows are inserted only for sends that actually go out (skipped recipients
-      // get dead URLs), but params/tokens are built the same way as on resend.
+      // Token rows are inserted only for sends that go out (a skipped recipient gets dead URLs), but params and tokens are built as on a resend.
       const { params, tokens: leadTokens } = buildSendParams(lead, {
         trackedLinks,
         defsById,
@@ -492,8 +463,7 @@ export const prepareCampaignBatch = internalMutation({
       return { isDone: false, continueCursor: page.continueCursor };
     }
 
-    // Last page: finalize. Any pending send (this batch or an earlier one)
-    // means there is something to deliver.
+    // Last page: a pending send, from this batch or an earlier one, means there is something to deliver.
     const hasPending = pending > 0;
     await ctx.db.patch(args.campaignId, {
       totalCount,
@@ -508,15 +478,7 @@ export const prepareCampaignBatch = internalMutation({
     return { isDone: true, continueCursor: page.continueCursor };
   },
 });
-/**
- * Handle a click on a per-recipient tracked link (public GET /l/<token> HTTP
- * route). Sets the link's configured value on the lead property targeted by
- * the link (built-in field or custom property) and
- * stamps `clickedAt` (token row + send row) on first click. Repeated clicks
- * re-apply the same value and add a campaignEvents row, nothing else. No audit
- * log — there is no authenticated user (same as updateConsentByToken); a
- * system lead note records the first click instead.
- */
+/** Behind the public GET /l/<token> route, so no authenticated user: a repeated click re-applies the same value and adds an event, and a system note records the first click. */
 export const handleTrackedLinkClick = internalMutation({
   // `grantHash`: the hash of the one-time value the route may put in the landing URL (named tracking).
   args: { token: v.string(), grantHash: v.optional(v.string()) },
@@ -563,8 +525,7 @@ export const handleTrackedLinkClick = internalMutation({
       linkKey: tokenRow.linkKey,
     });
 
-    // Apply the lead update; soft-fail (still redirect) if the lead or a
-    // custom-property definition disappeared since the campaign was sent.
+    // The redirect still happens when the lead or a custom-property definition disappeared since the campaign was sent.
     const lead = await ctx.db.get(tokenRow.leadId);
     if (link && lead && lead.deletedAt === undefined) {
       const patch = await buildLeadTargetPatch(ctx, lead, link.target, link.value);
@@ -628,12 +589,7 @@ export const markCampaignComplete = internalMutation({
   },
 });
 
-/**
- * Mark every still-`pending` send of a campaign as `failed` with a reason, and
- * bump `failedCount` accordingly. Used when the send path can't proceed (no
- * usable provider, or a fatal error mid-drain) so the failures surface in the UI
- * and become retry-able instead of orphaning rows in `pending`.
- */
+/** When the send path cannot proceed (no usable provider, a fatal error mid-drain): the pending sends are failed so they show in the UI and can be retried. */
 export const failPendingSends = internalMutation({
   args: { campaignId: v.id('campaigns'), error: v.string() },
   handler: async (ctx, args) => {

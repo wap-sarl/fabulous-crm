@@ -2,11 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 
-/**
- * Authorization wrappers (convex/_lib/auth.ts), exercised through the real
- * Better Auth component: identity claims → session lookup → employee
- * resolution. No mocks — the production code path runs end to end.
- */
+/** The authorization wrappers run against the real Better Auth component, without mocks: the production path from identity to employee. */
 describe('employeeQuery / employeeMutation', () => {
   test('rejects an unauthenticated call', async () => {
     const t = createTestConvex();

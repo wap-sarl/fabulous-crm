@@ -1,11 +1,7 @@
 import { Mail, MessageSquare } from 'lucide-react';
 import type { CampaignChannel } from '@crm/lib/backend';
 
-/**
- * Read-only chip showing a campaign's channel. Kept in one place so the list and
- * detail views can't drift back to an email-only hardcode. Absent channel (legacy
- * rows) reads as e-mail, matching the schema default.
- */
+/** One place for the list and the detail views, so neither hardcodes e-mail; a missing channel reads as e-mail, the schema default. */
 export function CampaignChannelBadge({ channel }: { channel?: CampaignChannel }) {
   const isSms = channel === 'sms';
   const Icon = isSms ? MessageSquare : Mail;

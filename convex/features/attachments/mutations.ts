@@ -57,12 +57,7 @@ const auditMeta = (attachment: Doc<'attachments'>) => ({
   key: attachment.key,
 });
 
-/**
- * Step 1 of an upload: the browser declares the file, the server checks the
- * record exists and the size fits the configured cap, then hands back the
- * short-lived upload URL. The cap is enforced again on the stored blob in
- * createAttachment, so a client cannot lie its way past it.
- */
+/** Step 1 of an upload: the declared size is checked here, and again on the stored blob in createAttachment, so a client cannot lie its way past the cap. */
 export const generateAttachmentUploadUrl = employeeMutation({
   args: {
     entityType: attachmentEntityTypeValidator,
@@ -77,11 +72,7 @@ export const generateAttachmentUploadUrl = employeeMutation({
   },
 });
 
-/**
- * Step 2: register the uploaded blob as an attachment of the record. An
- * oversized blob is deleted and reported as `too_large` rather than thrown:
- * a throwing mutation rolls back its writes, the delete included.
- */
+/** Step 2 of an upload: an oversized blob is deleted and reported as `too_large`, not thrown, as a throwing mutation rolls back its writes, the delete included. */
 export const createAttachment = employeeMutation({
   args: {
     entityType: attachmentEntityTypeValidator,

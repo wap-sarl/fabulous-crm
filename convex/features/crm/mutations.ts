@@ -71,8 +71,7 @@ import { CONSENT_TOKEN_BYTES } from '../../lib/leadImport';
 // 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
 const TRACKED_LINK_TOKEN_BYTES = 8;
 
-// Params injected for every recipient (see the loop in createCampaign);
-// tracked-link keys may not shadow them.
+// Params injected for every recipient: tracked-link keys may not shadow them.
 const RESERVED_PARAM_KEYS = new Set([
   'firstName',
   'lastName',
@@ -84,12 +83,7 @@ const RESERVED_PARAM_KEYS = new Set([
   'consentUrl',
 ]);
 
-/**
- * Shared field validators for a full lead, used by createLead and importLeads.
- * Marketing consent is intentionally absent: it is RGPD data the lead controls
- * and can only be changed through the public consent link (updateConsentByToken).
- * No authenticated path may set it — the validator simply doesn't accept it.
- */
+/** Marketing consent is absent on purpose: it is RGPD data the lead controls, set only through the public consent link, never by an authenticated path. */
 const leadRowArgs = {
   firstName: v.string(),
   lastName: v.string(),
@@ -190,15 +184,13 @@ export const updateLead = employeeMutation({
     comment: v.optional(v.string()),
     ownerIds: v.optional(v.array(v.id('users'))),
     isRedFlagged: v.optional(v.boolean()),
-    // Checked against the configured stages and the regression rule; a blocked
-    // regression fails the whole update with `lifecycle_regression_blocked`.
+    // A blocked regression fails the whole update with `lifecycle_regression_blocked`.
     lifecycleStage: v.optional(v.string()),
     companyId: v.optional(v.union(v.id('companies'), v.null())),
     customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
   handler: async (ctx, args) => {
-    // Marketing consent is deliberately not an accepted field — it is RGPD data
-    // the lead controls, changeable only via the public consent link.
+    // Marketing consent is not an accepted field: it is RGPD data the lead controls, changed only through the public consent link.
     const { leadId, email, customProperties, lifecycleStage, companyId, ...rest } = args;
     const lead = await ctx.db.get(leadId);
     if (!lead || lead.deletedAt != null) {
@@ -210,8 +202,7 @@ export const updateLead = employeeMutation({
     if (email !== undefined) {
       updates.email = normalizeEmail(email);
     }
-    // The company only changes on an explicit pick (the form's answer to the
-    // domain-match prompt included); a new business email never attaches by itself.
+    // The company only changes on an explicit pick: a new business email never attaches one by itself.
     if (companyId !== undefined) {
       if (companyId) await requireCompany(ctx, companyId);
       // filterUndefined keeps null; patching null clears the field below.
@@ -293,11 +284,7 @@ export const deleteLead = employeeMutation({
   },
 });
 
-/**
- * Bulk soft-delete leads from a selection. Missing or already-deleted ids are
- * skipped silently rather than aborting the batch; each successful delete is
- * audit-logged. Runs as a single transactional mutation.
- */
+/** Missing or already deleted ids are skipped silently rather than aborting the batch. */
 export const deleteLeads = employeeMutation({
   args: { leadIds: v.array(v.id('leads')) },
   handler: async (ctx, args) => {
@@ -323,12 +310,7 @@ export const deleteLeads = employeeMutation({
   },
 });
 
-/**
- * Bulk contact upsert, the primitive behind the import jobs (features/imports) and kept as a public mutation
- * for callers with rows in hand. Match by normalized email: a new email is inserted; an existing one (deleted or
- * not) is updated in place, reviving it if soft-deleted. Rows without an email are always inserted. Updates only
- * overwrite columns actually provided; the rules live in lib/leadImport.ts.
- */
+/** Upsert by normalized email: a match is updated in place and revived if soft-deleted, a row without an email is always inserted. */
 export const importLeads = employeeMutation({
   args: {
     rows: v.array(
@@ -470,19 +452,10 @@ export const recalcLeadList = employeeMutation({
   },
 });
 
-// Members processed per deleteLeadList call. Each cascade-deleted lead writes up
-// to 3 docs (lead patch + audit + membership delete) plus a few aggregate tree
-// nodes for the member-count bookkeeping, well under Convex's per-transaction
-// write cap. The client loops until `done`.
+// Each cascade-deleted lead writes up to 3 docs plus a few aggregate nodes: 200 members stay well under Convex's per-transaction write cap.
 const LIST_DELETE_BATCH = 200;
 
-/**
- * Delete a lead list. Optionally soft-deletes its member leads (cascade).
- * Processes membership in bounded batches so very large lists don't exceed
- * Convex's per-transaction limits: returns `{ done: false }` while more members
- * remain, and the client calls again until `done` is true (at which point the
- * list document itself is removed).
- */
+/** Members go in bounded batches to stay under Convex's per-transaction limits: the client calls again until `done`, when the list itself is removed. */
 export const deleteLeadList = employeeMutation({
   args: { listId: v.id('leadLists'), deleteLeads: v.boolean() },
   handler: async (ctx, args) => {
@@ -539,10 +512,6 @@ export const deleteLeadList = employeeMutation({
   },
 });
 
-/**
- * Add a free-text note to a lead. New notes are unpinned; the author is stamped
- * via createAuditFields (createdBy). Empty/whitespace content is rejected.
- */
 export const createNote = employeeMutation({
   args: {
     leadId: v.id('leads'),
@@ -666,13 +635,7 @@ export const deleteNote = employeeMutation({
   },
 });
 
-/**
- * Build a recipient's merge `params` and its per-link tracked tokens (writing the
- * generated link URLs into `params`). Pure: the caller inserts the campaignSends
- * row and the campaignLinkTokens rows (which need the send id). Shared by
- * {@link createCampaign} and the resend mutations so a re-materialized send is
- * byte-for-byte the same shape as a freshly created one.
- */
+/** Pure, the caller inserts the rows (the tokens need the send id); shared with the resend mutations so a re-materialized send has the shape of a fresh one. */
 export function buildSendParams(
   lead: Doc<'leads'>,
   opts: {
@@ -693,23 +656,13 @@ export function buildSendParams(
   return { params, tokens };
 }
 
-/**
- * Create a campaign from a resolved list of lead ids and kick off batched
- * sending. Each recipient gets a campaignSends row carrying its placeholder
- * params; recipients without an email are recorded as skipped.
- */
 export const createCampaign = employeeMutation({
   args: {
     name: v.string(),
     channel: campaignChannelValidator,
-    // Recipients are defined by a filter (the composer's current filter state),
-    // resolved server-side in scheduled batches (prepareCampaignBatch). An
-    // explicit id array would cap recipients at Convex's 8,192-element array
-    // limit — a filter has no such ceiling.
+    // A filter, resolved server-side in batches: an explicit id array would cap recipients at Convex's 8,192-element array limit.
     filter: v.object(leadFilterArgs),
-    // Email content — exactly one mode is provided by the caller:
-    //  • template mode → brevoTemplateId
-    //  • custom (WYSIWYG) mode → subject + htmlBody
+    // Exactly one email mode is provided: brevoTemplateId for a template, subject + htmlBody for a custom email.
     brevoTemplateId: v.optional(v.number()),
     subject: v.optional(v.string()),
     htmlBody: v.optional(v.string()),
@@ -726,15 +679,13 @@ export const createCampaign = employeeMutation({
 
     const messageType = args.messageType ?? 'marketing';
 
-    // Resolve the active email provider (snapshotted on the campaign) and Brevo
-    // availability so we can reject channels/modes the provider can't serve.
+    // Channels and modes the configured provider cannot serve are rejected up front.
     const cfg = await ctx.db.query('appConfig').first();
     const provider = await resolveEmailProvider(cfg);
     const emailProvider = provider.kind;
     const smsAvailable = (await resolveBrevo(cfg)).smsAvailable;
 
-    // Custom-property definitions: substituted as {{ params.custom_<id> }} and
-    // referenced by tracked links.
+    // Custom-property definitions are substituted as {{ params.custom_<id> }} and referenced by tracked links.
     const defsById = await loadPropertyDefsById(ctx, 'lead');
 
     // Validate tracked links up front (keys, target field/property, value, redirect).
@@ -779,8 +730,7 @@ export const createCampaign = employeeMutation({
       smsBody = args.smsBody?.trim();
       if (!smsBody) throw new Error('Le message SMS est requis.');
     } else {
-      // Email requires a usable delivery provider (Brevo key or SMTP host);
-      // otherwise the campaign would silently never send.
+      // Without a usable provider (Brevo key or SMTP host) the campaign would silently never send.
       if (!isEmailProviderConfigured(provider)) {
         throw new Error(
           "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.",
@@ -793,8 +743,7 @@ export const createCampaign = employeeMutation({
         if (!subject) throw new Error('L’objet de l’e-mail est requis.');
         htmlBody = customHtml;
       } else {
-        // Template email: Brevo does the merge server-side, so it's unavailable
-        // under SMTP.
+        // Brevo merges a template server-side, so templates are unavailable under SMTP.
         if (emailProvider === 'smtp') {
           throw new Error(
             'Les modèles Brevo ne sont pas disponibles en mode SMTP. Utilisez un e-mail personnalisé.',
@@ -827,8 +776,7 @@ export const createCampaign = employeeMutation({
       smsBody,
       messageType,
       channel: args.channel,
-      // Snapshot the email provider so analytics degrade correctly even if the
-      // admin later switches providers. Irrelevant for SMS campaigns.
+      // A snapshot, so analytics degrade correctly even if the admin later switches providers.
       emailProvider: args.channel === 'email' ? emailProvider : undefined,
       trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
       status: 'preparing',
@@ -838,11 +786,7 @@ export const createCampaign = employeeMutation({
       ...createAuditFields(ctx.userId),
     });
 
-    // Recipient resolution and campaignSends/campaignLinkTokens creation happen
-    // in scheduled batches: a single transaction caps at 8,192 writes, which a
-    // marketing send exceeds around ~2,000 recipients with 3 tracked links. The
-    // filter travels in the scheduler args; the batch chain flips the campaign
-    // to 'sending' (and kicks sendCampaignBatch) when the last page is done.
+    // Recipients are materialised in scheduled batches: one transaction caps at 8,192 writes, exceeded around 2,000 recipients with 3 tracked links.
     await ctx.scheduler.runAfter(0, internal.features.crm.internal.prepareCampaignBatch, {
       campaignId,
       filter: args.filter,
@@ -852,11 +796,7 @@ export const createCampaign = employeeMutation({
   },
 });
 
-/**
- * Throw (with the same French messages as createCampaign) when the campaign's
- * channel can't be delivered because its provider isn't configured — so a retry
- * never resets rows back into a silently-unconfigured provider.
- */
+/** Guards the resends, with the messages of createCampaign: a retry never resets rows into a provider that is silently unconfigured. */
 async function assertChannelDeliverable(
   cfg: Doc<'appConfig'> | null,
   channel: 'email' | 'sms',
@@ -887,13 +827,7 @@ async function loadResendContext(ctx: MutationCtx, campaign: Doc<'campaigns'>) {
   };
 }
 
-/**
- * Reset one send back to `pending` so the drain re-delivers it. `sent`/`failed`
- * rows already carry a contact + tracked-link tokens, so we reuse them; `skipped`
- * rows never did, so we re-resolve the lead's current contact and materialize
- * fresh params/tokens. Returns false when a skipped row's lead still has no
- * deliverable contact (nothing to send) so the caller can leave it skipped.
- */
+/** Sent and failed rows keep their contact and tokens, skipped rows never had any and get fresh ones; false when the lead still has no contact. */
 async function requeueSend(
   ctx: MutationCtx,
   send: Doc<'campaignSends'>,
@@ -943,12 +877,7 @@ async function requeueSend(
   return true;
 }
 
-/**
- * Resend a single recipient, whatever its current status (delivered, failed, or
- * skipped). Resets the row to `pending`, adjusts the campaign counters, flips the
- * campaign back to `sending`, and reschedules the drain. `pending` rows are
- * already queued, so they are rejected.
- */
+/** Resends one recipient whatever its status, except `pending`: that row is already queued. */
 export const retryCampaignSend = employeeMutation({
   args: { campaignId: v.id('campaigns'), sendId: v.id('campaignSends') },
   handler: async (ctx, args) => {
@@ -995,12 +924,7 @@ export const retryCampaignSend = employeeMutation({
   },
 });
 
-/**
- * Resend the whole campaign to every deliverable recipient (including those who
- * already received it). Re-queues each non-skipped row and re-materializes any
- * skipped row whose lead now has a contact; leaves the rest skipped. Counters are
- * reset — the drain re-tallies sent/failed via recordSendResults.
- */
+/** Resends to every deliverable recipient, those who already received it included; counters are reset because the drain tallies them again. */
 export const resendAllCampaignSends = employeeMutation({
   args: { campaignId: v.id('campaigns') },
   handler: async (ctx, args) => {
@@ -1054,10 +978,7 @@ export const resendAllCampaignSends = employeeMutation({
   },
 });
 
-/**
- * PUBLIC (no auth): update a lead's marketing consent from its persistent
- * consent token, used by the unauthenticated RGPD consent page.
- */
+/** PUBLIC (no auth): the consent token is the only credential, for the unauthenticated RGPD consent page. */
 export const updateConsentByToken = mutation({
   args: {
     token: v.string(),

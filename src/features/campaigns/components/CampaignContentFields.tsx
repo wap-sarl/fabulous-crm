@@ -98,13 +98,7 @@ function AddTrackedLinkButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-/**
- * Channel-aware campaign content inputs. A shared marketing/transactional toggle
- * (drives consent gating) sits on top; then, for email, a toggle between a Brevo
- * template id and an in-app WYSIWYG editor; for SMS, a message text area. Every
- * editable field offers click-to-insert placeholder chips, and tracked links
- * (unique per-recipient URLs) can be created via a modal.
- */
+/** The marketing/transactional toggle drives the consent gating; a tracked link is a URL unique to each recipient. */
 export function CampaignContentFields({
   channel,
   emailMode,
@@ -137,8 +131,7 @@ export function CampaignContentFields({
     if (channel === 'sms') {
       insertAtCaret(smsRef.current, smsBody, token, onSmsBodyChange);
     } else if (emailMode === 'editor') {
-      // Insert as a clickable anchor: the label is the visible text, the href
-      // is substituted per recipient at send time.
+      // The label is the visible text of the anchor; its href is substituted per recipient at send time.
       editorRef.current?.insertLink(token, link.label);
     }
     // Template mode: nothing to insert — the Brevo template references the key.

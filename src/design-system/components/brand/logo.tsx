@@ -3,10 +3,7 @@ import { cn } from '../../theme/utils';
 import { LogoIcon } from './logo-icon';
 
 interface LogoProps extends React.HTMLAttributes<HTMLDivElement> {
-  /**
-   * Logo variant: 'light' for dark backgrounds, 'dark' for light backgrounds
-   * @default 'dark'
-   */
+  /** 'light' is for dark backgrounds, 'dark' for light ones. */
   variant?: 'light' | 'dark';
   /** Custom brand mark URL; falls back to the gradient tile when omitted/null. */
   src?: string | null;
@@ -14,9 +11,6 @@ interface LogoProps extends React.HTMLAttributes<HTMLDivElement> {
   label?: string;
 }
 
-/**
- * Full logo — brand tile plus wordmark and mono caption.
- */
 function Logo({
   className,
   variant = 'dark',

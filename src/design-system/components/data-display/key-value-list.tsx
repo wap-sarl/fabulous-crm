@@ -7,10 +7,6 @@ interface KeyValueRowProps extends React.HTMLAttributes<HTMLDivElement> {
   mono?: boolean;
 }
 
-/**
- * Label/value row — label muted on the left, value right-aligned.
- * Rows are separated by a light divider; the last row has none.
- */
 function KeyValueRow({ label, mono, className, children, ...props }: KeyValueRowProps) {
   return (
     <div

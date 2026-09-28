@@ -1,10 +1,6 @@
 import type { LeadAdvancedFilter, Workflow, WorkflowNode, WorkflowTrigger } from '@crm/lib/backend';
 
-/**
- * The editor's local working copy of a workflow (draft-then-commit, like the
- * advanced filter builder). Nodes are kept as a map for O(1) graph edits; the
- * stored shape is the backend's `nodes: WorkflowNode[]` + `startNodeId`.
- */
+/** The editor's working copy, committed on save: nodes are a map for cheap graph edits, while the backend stores an array. */
 export interface WorkflowDraft {
   name: string;
   description?: string;

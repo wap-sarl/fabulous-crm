@@ -1,11 +1,4 @@
-/**
- * Canonical app/SPA origin(s), read from `SITE_URL` (Better Auth's convention;
- * comma-separated for several). `CRM_APP_URL` is a deprecated single-origin
- * fallback kept for backward compatibility — prefer `SITE_URL`.
- *
- * Must be an env var (not `appConfig.appUrl`): Better Auth resolves
- * `trustedOrigins`/`crossDomain` on an empty ctx that cannot read the DB.
- */
+/** An env var and not `appConfig.appUrl`: Better Auth resolves `trustedOrigins` on an empty ctx that cannot read the DB; `CRM_APP_URL` is the deprecated fallback. */
 export function appOrigins(): string[] {
   const fromSiteUrl = (process.env.SITE_URL ?? '')
     .split(',')

@@ -3,11 +3,7 @@ import { CONSENT_CHANNELS } from '../../../lib/constants';
 import type { FieldCatalog, StandardFieldSpec } from '../../filters/lib/advancedFilter';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
-/**
- * Lead columns writable through the CRM forms, with French label + filter
- * type. Also the pickable fields of the « propriété modifiée » trigger — the
- * behavioural/derived columns below never go through updateLead.
- */
+/** Only the columns written through the CRM forms: they are also the fields of the « propriété modifiée » trigger, which derived columns never fire. */
 export const LEAD_FILTER_FIELDS: StandardFieldSpec<LeadStandardField>[] = [
   { field: 'firstName', label: 'Prénom', type: 'text' },
   { field: 'lastName', label: 'Nom', type: 'text' },
@@ -98,8 +94,7 @@ export function applyRecipientFilter(
     r.field.kind === 'standard' &&
     (r.field.field === 'email' || r.field.field === 'phone') &&
     r.operator === 'isNotEmpty';
-  // Only the single-value email/sms consent rules are auto-managed; a manually
-  // authored consent rule (other channels, or multiple values) is left alone.
+  // Only the single-value email/sms consent rules are auto-managed; a consent rule authored by hand is left alone.
   const isAutoConsentRule = (r: LeadRule) =>
     r.field.kind === 'standard' &&
     r.field.field === 'marketingConsent' &&
@@ -123,8 +118,7 @@ export function applyRecipientFilter(
       : null;
   const seeded = consentRule ? [channelRule, consentRule] : [channelRule];
 
-  // No fallback placeholder rule: when there is no existing filter we want a
-  // clean group holding only the seeded rules.
+  // No placeholder rule: without an existing filter, the group holds only the seeded rules.
   const base = filter ?? { combinator: 'and' as const, groups: [] };
   // Strip existing auto-managed rules, dropping groups left empty…
   let groups = base.groups

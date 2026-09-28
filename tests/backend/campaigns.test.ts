@@ -12,8 +12,7 @@ import {
 } from './helpers';
 
 beforeAll(() => {
-  // resolveEmailProvider/resolveBrevo fall back to env when appConfig is empty;
-  // a Brevo key makes the email provider "configured" so createCampaign accepts.
+  // With an empty appConfig the provider is resolved from env: a Brevo key makes it "configured", so createCampaign accepts.
   process.env.BREVO_API_KEY = 'test-brevo-key';
 });
 
@@ -40,11 +39,7 @@ async function prepareCampaign(t: T, campaignId: Id<'campaigns'>, filter: Campai
   }
 }
 
-/**
- * The consent gate for campaigns: the composer auto-seeds a
- * `marketingConsent contains <channel>` advanced-filter rule for marketing
- * sends; the same filter now drives the server-side recipient resolution.
- */
+/** The consent gate: the rule the composer seeds for a marketing send is the one the server resolves recipients with. */
 const emailConsentFilter = {
   advancedFilter: {
     combinator: 'and' as const,

@@ -4,11 +4,7 @@ import { cn } from '@crm/design-system';
 import type { InsertEdgeData } from '../lib/layout';
 import { useCanvasHandlers } from './canvasContext';
 
-/**
- * Tree edge with a midpoint « + » insert button, plus an Oui/Non pill when it
- * leaves a branch node. Edges to a synthetic « + » node hide the button (the
- * target itself is the affordance).
- */
+/** An edge to a synthetic « + » node hides its insert button: the target itself is the affordance. */
 export function InsertEdge(props: EdgeProps) {
   const { id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, target } = props;
   const data = props.data as InsertEdgeData | undefined;
@@ -34,8 +30,7 @@ export function InsertEdge(props: EdgeProps) {
         {branchLabel ? (
           <span
             style={{
-              // Anchored above the target so the two branch pills never overlap
-              // (both edges share the same source point under the branch node).
+              // Anchored above the target: both edges leave the same point under the branch node, so the two pills would overlap there.
               transform: `translate(-50%, -50%) translate(${targetX}px, ${targetY - 24}px)`,
             }}
             className={cn(

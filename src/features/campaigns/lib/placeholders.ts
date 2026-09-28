@@ -2,11 +2,7 @@ import { customPropertyParamKey } from '@crm/lib/backend';
 import type { CampaignTrackedLink } from '@crm/lib/backend';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
-/**
- * One insertable {{ params.x }} placeholder offered in the campaign composer.
- * `kind` drives filtering (e.g. tracked-link URLs are excluded from the email
- * subject) and chip styling.
- */
+/** `kind` drives the filtering (a tracked-link URL is kept out of the email subject) and the styling of the chip. */
 export interface PlaceholderItem {
   key: string;
   label: string;
@@ -31,11 +27,7 @@ const FIXED_PLACEHOLDERS: PlaceholderItem[] = [
   },
 ];
 
-/**
- * Full placeholder list for the composer: fixed params, one per active custom
- * property definition, and one per tracked link authored on the campaign.
- * Mirrors the params built per recipient in createCampaign.
- */
+/** Must mirror the params built per recipient in createCampaign. */
 export function buildPlaceholders(
   definitions: PropertyDefinitionRow[],
   trackedLinks: CampaignTrackedLink[],
@@ -57,11 +49,7 @@ export function buildPlaceholders(
   ];
 }
 
-/**
- * Insert `text` at the caret of a controlled input/textarea (replacing any
- * selection), notify React via `onChange`, and restore focus + caret right
- * after the inserted text once React has re-rendered the new value.
- */
+/** The caret is restored on the next frame, once React has rendered the new value of the controlled field. */
 export function insertAtCaret(
   el: HTMLTextAreaElement | HTMLInputElement | null,
   currentValue: string,

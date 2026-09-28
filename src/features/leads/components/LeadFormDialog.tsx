@@ -256,8 +256,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
     if (!payload) return;
     setSubmitting(true);
     try {
-      // No company picked: an email on a known company domain is *proposed*,
-      // never attached on its own — the save waits for the answer.
+      // No company picked: a company known by the email's domain is proposed, never attached on its own, and the save waits for the answer.
       if (!form.companyId && payload.email) {
         const match = await convex.query(api.features.companies.queries.findCompanyByEmailDomain, {
           email: payload.email,

@@ -36,13 +36,7 @@ import {
 import { dispatchWorkflowTrigger, enrollLead } from './triggerDispatch';
 import { deferUnlessAllowed, trySend } from '../../lib/gates';
 
-/**
- * The workflow execution engine. One node per `executeStep` invocation, each
- * its own transaction, chained with `scheduler.runAfter(0)` (the campaign
- * batch drain pattern) — so the step log is visible live and a crash never
- * loses more than one step. Async side effects (sends, webhooks) run in a
- * node action between a 'pending' step row and `completeActionStep`.
- */
+/** The engine runs one node per transaction, chained through the scheduler: the step log is visible live and a crash never loses more than one step. */
 
 /** Insert a workflowRunSteps row. Non-pending outcomes are final immediately. */
 async function logStep(
@@ -67,11 +61,7 @@ async function logStep(
   });
 }
 
-/**
- * Move a run past an executed node: park it on `nextId` and schedule that
- * step, or finish the run when the path ends. `scheduleNext: false` (workflow
- * paused mid-action) advances the pointer without scheduling — resume kicks it.
- */
+/** With `scheduleNext: false` (workflow paused mid-action) the pointer advances without scheduling: the resume kicks the run. */
 async function advanceRun(
   ctx: MutationCtx,
   run: Doc<'workflowRuns'>,
@@ -135,11 +125,7 @@ function targetAsFilterField(
     : { kind: 'standard', field: target.field };
 }
 
-/**
- * Execute the node a run is parked on. Idempotency guards make duplicate or
- * stale schedules no-ops, so pause/resume and webhook replays are safe:
- * a run only ever executes its `currentNodeId`, exactly once.
- */
+/** A run only ever executes its `currentNodeId`, exactly once: duplicate or stale schedules are no-ops, so pause, resume and replays are safe. */
 export const executeStep = internalMutation({
   args: { runId: v.id('workflowRuns'), nodeId: v.string() },
   handler: async (ctx, args): Promise<void> => {
@@ -172,8 +158,7 @@ export const executeStep = internalMutation({
       return;
     }
 
-    // An async action is still in flight for this run (e.g. resume clicked while
-    // a send hadn't completed) — completeActionStep will advance it.
+    // An async action is still in flight (e.g. resume clicked during a send): completeActionStep will advance the run.
     const steps = await ctx.db
       .query('workflowRunSteps')
       .withIndex('by_run', (q) => q.eq('runId', run._id))
@@ -558,11 +543,7 @@ export type ActionStepContext =
   | { kind: 'webhook'; url: string; payload: Record<string, unknown> }
   | null;
 
-/**
- * Read side of an async action step. Returns `null` when the run/node is no
- * longer actionable (cancelled meanwhile, node edited away…) — the action then
- * completes the step as skipped.
- */
+/** Null when the run or the node is no longer actionable (cancelled meanwhile, node edited away): the action then completes the step as skipped. */
 export const getActionStepContext = internalQuery({
   args: { runId: v.id('workflowRuns'), stepId: v.id('workflowRunSteps'), nodeId: v.string() },
   handler: async (ctx, args): Promise<ActionStepContext> => {
@@ -628,11 +609,7 @@ export const getActionStepContext = internalQuery({
   },
 });
 
-/**
- * Record an async step's outcome and advance the run. The step already
- * happened externally, so the pointer always advances — but the next step is
- * only scheduled while the workflow is active (paused runs park on it).
- */
+/** The step already happened externally, so the pointer always advances; the next step is scheduled only while the workflow is active. */
 export const completeActionStep = internalMutation({
   args: {
     runId: v.id('workflowRuns'),
@@ -668,9 +645,7 @@ export const completeActionStep = internalMutation({
   },
 });
 
-// Leads examined per reenrollBatch transaction. Each matching lead reads its
-// runs and writes a run cancellation + a fresh run + workflow counter patches,
-// so 100 leads per page stays far below the per-transaction limits.
+// Leads per transaction: each one reads its runs and writes a cancellation, a run and counter patches, which stays far below the transaction limits.
 const REENROLL_BATCH = 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -711,8 +686,7 @@ export const reenrollBatch = internalMutation({
         )
         .collect();
 
-      // Daily cap, checked before cancelling anything: a capped lead keeps its
-      // in-flight run instead of losing it and getting nothing back.
+      // The daily cap is checked before cancelling anything: a capped lead keeps its in-flight run instead of losing it for nothing.
       if (runs.filter((r) => r.enrolledAt > dayAgo).length >= MAX_ENROLLMENTS_PER_LEAD_PER_DAY) {
         skipped++;
         continue;
@@ -735,10 +709,7 @@ export const reenrollBatch = internalMutation({
       if (runId) enrolled++;
     }
 
-    // Fold this batch into the progress state. Re-read the workflow first:
-    // enrollLead patched its counters for every enrolled lead above, and the
-    // cancellations bypassed advanceRun, so activeCount must shrink by
-    // `cancelled` here.
+    // Read again: enrollLead patched the counters above, and the cancellations bypassed advanceRun, so activeCount shrinks by `cancelled` here.
     const fresh = await ctx.db.get(args.workflowId);
     if (fresh?.bulkReenroll?.status !== 'running') {
       return { isDone: true, continueCursor: null };

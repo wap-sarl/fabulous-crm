@@ -1,10 +1,6 @@
 import { strFromU8, unzipSync } from 'fflate';
 
-/*
- * A reader for the one thing an import needs from a workbook: the cells of its first sheet as text, the way
- * Excel shows them. A .xlsx is a zip of XML parts; the parts are machine-written, so a few regular expressions
- * read them without an XML parser, and the file never leaves the browser.
- */
+/* A .xlsx is a zip of machine-written XML parts, so a few regular expressions read them without an XML parser, and the file never leaves the browser. */
 
 const decodeXml = (s: string): string =>
   s

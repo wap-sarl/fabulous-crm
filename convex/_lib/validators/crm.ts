@@ -66,14 +66,11 @@ export const leadValidator = v.object({
   leadScore: v.optional(v.number()),
   scoreBreakdown: v.optional(v.record(v.string(), v.number())),
 
-  // Denormalized, normalized identity text (first/last name, email, phone,
-  // company name) serving the by_searchText search index. Stamped by the
-  // Triggers wrapper (_lib/functions.ts) on every write — never write it by hand.
+  // Feeds the by_searchText index; the Triggers wrapper (_lib/functions.ts) stamps it on every write: never write it by hand.
   searchText: v.optional(v.string()),
   dedupe: v.optional(leadDedupeValidator),
 
-  // Admin-defined custom property values, keyed by propertyDefinitions._id.
-  // Optional so leads written before any property existed stay valid.
+  // Keyed by propertyDefinitions._id; optional so leads written before any property existed stay valid.
   customProperties: customPropertiesValidator,
 });
 
@@ -83,8 +80,7 @@ export type ConsentSource = Infer<typeof consentSourceValidator>;
 
 export const campaignStatusValidator = v.union(
   v.literal('draft'),
-  // Recipients are being resolved and campaignSends materialized in scheduled
-  // batches (prepareCampaignBatch). Flips to 'sending' when preparation ends.
+  // The campaignSends are being materialized in scheduled batches (prepareCampaignBatch); 'sending' follows.
   v.literal('preparing'),
   v.literal('sending'),
   v.literal('sent'),
@@ -94,19 +90,10 @@ export const campaignStatusValidator = v.union(
 /** Channel a campaign targets. Absent on legacy rows = email. */
 export const campaignChannelValidator = v.union(v.literal('email'), v.literal('sms'));
 
-/**
- * Campaign message category (both channels). 'marketing' drives consent gating
- * of recipients; for SMS it is also passed to Brevo as the transactional-SMS
- * `type` (marketing applies Brevo's opt-out/quiet-hours rules).
- */
+/** 'marketing' gates the recipients on consent; for SMS it is also Brevo's `type`, which applies its opt-out and quiet-hours rules. */
 export const messageTypeValidator = v.union(v.literal('marketing'), v.literal('transactional'));
 
-/**
- * Built-in lead fields a tracked link may update on click. Deliberately
- * excluded: `marketingConsent` (consent changes only via the dedicated consent
- * link — same rule as updateLead), `assignedTo` (a users id, not authorable in
- * the composer) and `address` (composite object).
- */
+/** Left out on purpose: `marketingConsent` (consent changes only through the consent link), `assignedTo` (a users id, not authorable in the composer) and `address` (composite). */
 export const trackedLinkStandardFieldValidator = v.union(
   v.literal('firstName'),
   v.literal('lastName'),
@@ -118,15 +105,7 @@ export const trackedLinkStandardFieldValidator = v.union(
 
 export type TrackedLinkStandardField = Infer<typeof trackedLinkStandardFieldValidator>;
 
-/**
- * A tracked link defined on a campaign. Each recipient gets a unique URL
- * (campaignLinkTokens); clicking it sets `value` on the lead property named by
- * `target` — a built-in column or a custom-property definition (same
- * standard/custom split as the lead filters) — then 302-redirects to
- * `redirectUrl` (or shows a French "you can close this tab" page when unset).
- * `key` is the placeholder param name ({{ params.<key> }}) — word chars only,
- * unique within the campaign.
- */
+/** A click sets `value` on the lead property `target` names, then redirects or shows a closing page; `key` is the placeholder name, unique within the campaign. */
 export const campaignTrackedLinkValidator = v.object({
   key: v.string(),
   label: v.string(),
@@ -144,16 +123,12 @@ export const campaignValidator = v.object({
   ...logsValidator.fields,
   ...softDeleteValidator.fields,
   name: v.string(),
-  // Brevo transactional template id. Present for template-mode email campaigns;
-  // absent for custom-HTML (WYSIWYG) email and for SMS campaigns.
+  // Set only for an email campaign sent from a Brevo template.
   brevoTemplateId: v.optional(v.number()),
-  // Custom email (WYSIWYG) content. Present when the email body is authored in
-  // the CRM instead of a Brevo template. Placeholders ({{ params.x }}) are
-  // substituted per recipient at send time.
+  // Set when the email is authored in the CRM; the {{ params.x }} placeholders are substituted per recipient at send time.
   subject: v.optional(v.string()),
   htmlBody: v.optional(v.string()),
-  // SMS message text. Sent via Brevo for SMS campaigns. Placeholders
-  // ({{ params.x }}) are substituted per recipient at send time (plain text).
+  // Plain text; the {{ params.x }} placeholders are substituted per recipient at send time.
   smsBody: v.optional(v.string()),
   // Marketing vs transactional category. Absent on legacy rows = marketing.
   messageType: v.optional(messageTypeValidator),
@@ -161,9 +136,7 @@ export const campaignValidator = v.object({
   channel: v.optional(campaignChannelValidator),
   // Tracked links authored in the composer (snapshot, like subject/htmlBody).
   trackedLinks: v.optional(v.array(campaignTrackedLinkValidator)),
-  // Email provider snapshot, stamped at send time so the detail view can label
-  // analytics correctly even after an admin later switches providers. Absent on
-  // legacy rows and on SMS campaigns = Brevo (the only provider that existed).
+  // Stamped at send time so the analytics stay labelled right after a provider switch; absent means Brevo.
   emailProvider: v.optional(v.union(v.literal('brevo'), v.literal('smtp'))),
   status: campaignStatusValidator,
   // Code of the refusal that failed the campaign during preparation (extensions), if any.
@@ -192,9 +165,7 @@ export const campaignSendValidator = v.object({
   email: v.optional(v.string()),
   // Recipient phone (E.164-ish) for SMS campaigns; absent for email sends.
   phone: v.optional(v.string()),
-  // Normalized Brevo recipient (international, no `+`) for SMS sends — matches the
-  // `to` field of Brevo SMS webhook events, so an inbound STOP can be correlated
-  // back to the lead by phone. Absent for email sends. See `by_smsRecipient`.
+  // International, no `+`: the `to` of Brevo's SMS webhook events, so an inbound STOP finds its lead (`by_smsRecipient`).
   smsRecipient: v.optional(v.string()),
   // Placeholder values substituted into the message ({{ params.x }}).
   params: v.record(v.string(), v.string()),
@@ -204,11 +175,9 @@ export const campaignSendValidator = v.object({
   sentAt: v.optional(v.number()),
   // First time the recipient opened the email (Brevo webhook).
   openedAt: v.optional(v.number()),
-  // First time the recipient clicked any link in the message — a tracked
-  // /l/<token> link or, for email, any URL reported by Brevo click tracking.
+  // First click on any link: a tracked /l/<token> link or, for email, any URL Brevo's click tracking reports.
   clickedAt: v.optional(v.number()),
-  // SMS lifecycle markers (first-only), stamped from Brevo SMS webhook events.
-  // `sentAt` above = accepted by Brevo; `deliveredAt` = reached the handset.
+  // First-only stamps from Brevo's SMS webhook: `sentAt` above means accepted by Brevo, `deliveredAt` reached the handset.
   deliveredAt: v.optional(v.number()),
   repliedAt: v.optional(v.number()),
   unsubscribedAt: v.optional(v.number()),
@@ -218,14 +187,7 @@ export const campaignSendValidator = v.object({
 export type CampaignSend = Infer<typeof campaignSendValidator>;
 export type CampaignSendStatus = Infer<typeof campaignSendStatusValidator>;
 
-/**
- * Kinds of campaign delivery/engagement events (campaignEvents rows). Mostly
- * Brevo transactional-email webhook events, plus our own signals:
- * - 'link_click' — a per-recipient tracked link (/l/<token>) was followed;
- *   distinct from Brevo's 'clicked' so both can coexist when Brevo click
- *   tracking rewrites the same URLs.
- * - 'sms_reply' — the lead replied to a marketing SMS (Brevo SMS webhook).
- */
+/** Brevo's webhook events plus our own; 'link_click' is kept apart from Brevo's 'clicked' so both coexist when Brevo's click tracking rewrites the same URLs. */
 export const campaignEventTypeValidator = v.union(
   v.literal('delivered'),
   v.literal('opened'),
@@ -244,12 +206,7 @@ export const campaignEventTypeValidator = v.union(
   v.literal('sms_reply'),
 );
 
-/**
- * One delivery/engagement event on a campaign send. Append-only log written by
- * the Brevo webhooks (email + SMS) and the tracked-link redirect; every
- * occurrence is kept (repeat opens/clicks included), unlike the first-only
- * `openedAt`/`clickedAt` stamps on the send.
- */
+/** An append-only log: every occurrence is kept, repeat opens and clicks included, unlike the first-only `openedAt`/`clickedAt` stamps on the send. */
 export const campaignEventValidator = v.object({
   campaignId: v.id('campaigns'),
   sendId: v.id('campaignSends'),
@@ -269,12 +226,7 @@ export const campaignEventValidator = v.object({
 export type CampaignEvent = Infer<typeof campaignEventValidator>;
 export type CampaignEventType = Infer<typeof campaignEventTypeValidator>;
 
-/**
- * Per-recipient secret behind a tracked link ({@link campaignTrackedLinkValidator}).
- * One row per (pending send × tracked link); resolved O(1) by the public
- * GET /l/<token> HTTP route via the `by_token` index. `clickedAt` is stamped on
- * first click only (idempotent).
- */
+/** The per-recipient secret behind a tracked link, one row per send and link; the public GET /l/<token> route resolves it by `by_token`, and `clickedAt` is stamped on the first click only. */
 export const campaignLinkTokenValidator = v.object({
   token: v.string(),
   campaignId: v.id('campaigns'),
@@ -290,12 +242,7 @@ export const campaignLinkTokenValidator = v.object({
 
 export type CampaignLinkToken = Infer<typeof campaignLinkTokenValidator>;
 
-/**
- * A free-text note attached to a lead. Unlike the lead's single `comment`
- * field, a lead can have many notes; pinned ones are surfaced first in the UI.
- * `createdBy` (from logsValidator) is the author; `_creationTime` is the
- * created timestamp.
- */
+/** A lead has many notes, unlike its single `comment`; `createdBy` is the author and the pinned ones come first in the UI. */
 export const leadNoteValidator = v.object({
   ...logsValidator.fields,
   ...softDeleteValidator.fields,

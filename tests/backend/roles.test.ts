@@ -363,8 +363,7 @@ describe('access levels', () => {
       ).today,
     ).toBe(1);
 
-    // Visibility rule through the RLS reader: Marc (team level) sees Nina's
-    // task; Sam does not; the free task is visible to everyone.
+    // Visibility through the RLS reader: Marc (team level) sees Nina's task, Sam does not, and the free task is visible to everyone.
     const get = (who: ReturnType<typeof asIdentity>, id: Id<'activities'>) =>
       who.query(api.features.activities.queries.getActivity, { activityId: id });
     expect((await get(as.marc, ninaTask))?._id).toBe(ninaTask);

@@ -32,10 +32,7 @@ export function missingRequired(entity: ImportEntity, mapping: (string | null)[]
   return fields.filter((f) => f.required && !mapping.includes(f.header)).map((f) => f.label);
 }
 
-/**
- * Turn the parsed sheet into rows through the mapping: every mapped cell is parsed by its field, a failing cell
- * refuses the whole row (no partial record), the address parts are assembled last. Line numbers count the header.
- */
+/** A failing cell refuses the whole row (no partial record); the address parts are assembled last, and line numbers count the header. */
 export function buildRows<E extends ImportEntity>(
   entity: E,
   parsed: string[][],

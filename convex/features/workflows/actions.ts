@@ -19,12 +19,7 @@ import type { WorkflowStepOutcome } from '../../_lib/validators/workflows';
 import { WEBHOOK_TIMEOUT_MS } from './lib';
 import { deferUnlessAllowed } from '../../lib/gates';
 
-/**
- * Async executor of a workflow send/webhook step. Dumb by design: every
- * decision (consent, presence, ordering) was made in `executeStep`; this only
- * performs the external call and reports the outcome. Always ends with exactly
- * one `completeActionStep`, which advances the run.
- */
+/** Dumb by design: `executeStep` decides (consent, presence, ordering), this only makes the external call and ends with exactly one `completeActionStep`. */
 export const runWorkflowActionStep = internalAction({
   args: { runId: v.id('workflowRuns'), stepId: v.id('workflowRunSteps'), nodeId: v.string() },
   handler: async (ctx, args): Promise<void> => {

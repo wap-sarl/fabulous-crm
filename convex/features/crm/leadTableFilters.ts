@@ -9,8 +9,7 @@ import { propertyValueValidator } from '../../schema';
 import { normalizeSearchText } from '../../lib/leadSearch';
 import { evalAdvancedFilter, type LeadFilterExtras } from './leadMatching';
 
-/** Filter arguments shared by the paginated table, the campaign-resolver query
- * and the batched campaign-recipient resolution. */
+/** One filter shape for the table, the campaign resolver and the batched recipient resolution, so they all select the same leads. */
 export const leadFilterArgs = {
   search: v.optional(v.string()),
   // Lifecycle stage keys (appConfig.lifecycle); OR within the filter.
@@ -19,16 +18,11 @@ export const leadFilterArgs = {
   companyIds: v.optional(v.array(v.id('companies'))),
   ownerIds: v.optional(v.array(v.id('users'))),
   isRedFlagged: v.optional(v.boolean()),
-  // Custom-property filters: definitionId -> allowed values. A lead matches a
-  // property if its stored value is one of the allowed (OR within a property);
-  // it must match every filtered property (AND across properties). Only select
-  // and boolean properties are filterable.
+  // definitionId -> allowed values: OR within a property, AND across properties; only select and boolean properties are filterable.
   customProperties: v.optional(v.record(v.string(), v.array(propertyValueValidator))),
-  // Lead lists a lead must belong to at least one of (OR within the filter).
-  // Membership is resolved to a Set of lead ids in the handler before matching.
+  // Lead lists a lead must belong to at least one of (OR within the filter); the handler resolves membership before matching.
   listIds: v.optional(v.array(v.id('leadLists'))),
-  // Advanced group-based filter (two-level AND/OR tree of typed rules). ANDs
-  // with the flat quick filters above. See convex/_lib/validators/leadFilters.ts.
+  // A two-level AND/OR tree of typed rules, ANDed with the flat quick filters above.
   advancedFilter: v.optional(leadAdvancedFilterValidator),
 } as const;
 
@@ -46,11 +40,7 @@ export type LeadFilters = {
   advancedListMembers?: Map<string, Set<string>>;
 };
 
-/**
- * Resolve the set of lead ids belonging to any of `listIds` (OR semantics),
- * via the `by_list_lead` junction index. Returns undefined when no list filter
- * is active so the matcher can skip the check entirely.
- */
+/** The leads belonging to any of the lists (OR); undefined when no list filter is active, so the matcher skips the check. */
 export async function loadListMemberIds(
   ctx: QueryCtx,
   listIds: Id<'leadLists'>[] | undefined,
@@ -67,11 +57,7 @@ export async function loadListMemberIds(
   return ids;
 }
 
-/**
- * Page-scoped variant of {@link loadListMemberIds} for batched processing:
- * instead of collecting entire lists (whose size is unbounded), it point-reads
- * membership for the given leads only — bounded by page size × filtered lists.
- */
+/** For batches: point-reads membership of the given leads only, bounded by page size × filtered lists, where whole lists are unbounded. */
 export async function loadListMemberIdsForLeads(
   ctx: QueryCtx | MutationCtx,
   listIds: Id<'leadLists'>[] | undefined,

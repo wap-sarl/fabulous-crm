@@ -6,10 +6,7 @@ import {
   softDeleteValidator,
 } from './shared';
 
-/**
- * A role key (`roles.key`): `admin`, `manager`, `member` or a custom role.
- * The key's access matrix decides what the employee sees (lib/visibility.ts).
- */
+/** A `roles.key`, built-in or custom: its access matrix decides what the employee sees (lib/visibility.ts). */
 export const employeeRoleValidator = v.string();
 export type EmployeeRole = Infer<typeof employeeRoleValidator>;
 
@@ -19,8 +16,7 @@ export const employeeValidator = v.object({
   ...softDeleteValidator.fields,
   type: v.literal('employee'),
   role: v.optional(employeeRoleValidator),
-  // Link to the Better Auth user (component-owned `user._id`). Optional so
-  // pre-migration/seed rows remain valid; set by the auth onCreate trigger.
+  // The Better Auth `user._id`, set by the auth onCreate trigger; optional so seed rows stay valid.
   authId: v.optional(v.string()),
   birthDate: v.string(),
   jobTitle: v.string(),

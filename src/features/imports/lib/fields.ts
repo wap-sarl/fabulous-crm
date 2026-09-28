@@ -2,10 +2,7 @@ import { DEFAULT_COUNTRY, type Id, type PropertyValue } from '@crm/lib/backend';
 import { propertyTypeUi } from '../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
-/*
- * The field registries: one declarative list per entity of the columns a file may map to, how a cell is parsed
- * and where the value lands in the row sent to the server. Custom properties are targets too (`custom:<defId>`).
- */
+/* One declarative list per entity of the columns a file may map to; custom properties are targets too (`custom:<defId>`). */
 
 /** Lookup maps resolving human-readable cell values to document ids. */
 export interface ImportContext {
@@ -180,10 +177,7 @@ export interface ImportAddress {
   region?: string;
 }
 
-/**
- * Assemble the nested address. Requires street, postal code and city; the street number is optional and is
- * pulled out of the street's leading token when the dedicated part is empty (e.g. "30 RUE DE LA CHENAIE").
- */
+/** Street, postal code and city are required; an empty street number is pulled out of the start of the street ("30 RUE DE LA CHENAIE"). */
 export function buildAddress(parts: AddressParts): ImportAddress | undefined {
   if (!parts.street || !parts.postalCode || !parts.city) return undefined;
   let streetNumber = parts.streetNumber?.trim() ?? '';

@@ -31,12 +31,7 @@ interface Props {
   smsAvailable?: boolean;
 }
 
-/**
- * Large icon "radio" cards to pick the campaign channel. Selecting a channel is
- * what seeds the matching recipient filter (email/phone "is not empty") on the
- * create page. The SMS card is disabled when Brevo isn't configured (SMS is
- * Brevo-only).
- */
+/** Picking a channel seeds the matching recipient filter (e-mail or phone "is not empty") on the create page. */
 export function CampaignChannelSelector({ value, onChange, smsAvailable = true }: Props) {
   return (
     <div role="radiogroup" aria-label="Canal de la campagne" className="grid gap-3 sm:grid-cols-2">

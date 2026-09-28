@@ -64,10 +64,7 @@ interface Presentation {
 const joinDetails = (parts: (string | null | undefined | false)[]) =>
   parts.filter(Boolean).join(' · ');
 
-/**
- * How each event kind renders. Adding a source = one case here (plus its
- * reader in `convex/features/timeline/queries.ts`).
- */
+/** A new source is one case here, plus its reader in `convex/features/timeline/queries.ts`. */
 function present(event: TimelineEvent, lifecycleLabel: (key: string) => string): Presentation {
   switch (event.kind) {
     case 'note':

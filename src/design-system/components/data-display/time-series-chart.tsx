@@ -22,10 +22,7 @@ const PAD_X = 14;
 const PAD_TOP = 16;
 const PAD_BOTTOM = 34;
 
-/**
- * Hand-rolled responsive SVG line chart with gridlines, area fill, dots and
- * mono x-axis labels — no chart library.
- */
+/** A hand-rolled responsive SVG line chart: no chart library. */
 function TimeSeriesChart({
   series,
   color = 'var(--chart-1)',

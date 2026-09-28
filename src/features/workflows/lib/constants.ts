@@ -162,10 +162,7 @@ const SMS_OPTION_TO_EVENT = {
   sms_stop: 'stop',
 } as const;
 
-/**
- * Build the trigger for a picked Select value, carrying over the previous
- * trigger's refinements (list, campaign) when they still apply.
- */
+/** The refinements of the previous trigger (list, campaign, pipeline) are carried over when they still apply. */
 export function optionToTrigger(
   value: TriggerOptionValue,
   prev: WorkflowTrigger | null,

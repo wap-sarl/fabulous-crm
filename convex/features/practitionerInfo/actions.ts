@@ -2,14 +2,7 @@ import { v } from 'convex/values';
 import { employeeAction } from '../../_lib/auth';
 import { enforceRateLimit } from '../../lib/rateLimits';
 
-/**
- * RPPS verification against the FHIR Annuaire Santé API. The API key is a server
- * secret (`FHIR_API_KEY`, set via `bunx convex env set`), so this must never run
- * in the browser — the lead form calls it through this authenticated action. The
- * result is display/validation only; the RPPS number itself is stored as a plain
- * string custom-property value on the lead. Mirrors the sibling monorepo's
- * `features/practitionerInfo/actions.ts`.
- */
+/** RPPS verification against the FHIR Annuaire Santé API: the key (`FHIR_API_KEY`) is a server secret, so this never runs in the browser. */
 
 const FHIR_BASE_URL = 'https://gateway.api.esante.gouv.fr/fhir/v2';
 const RPPS_LENGTH = 11;
@@ -20,9 +13,7 @@ const DIPLOMA_SYSTEM_SUFFIX = 'TRE-R48-DiplomeEtatFrancais';
 const SMARTCARD_EXTENSION_URL =
   'https://interop.esante.gouv.fr/ig/fhir/annuaire/StructureDefinition/as-ext-smartcard';
 
-// Local mirrors of the design-system RppsPractitionerData / RppsVerificationResult
-// shapes (convex can't import from src/; the frontend casts the action result to
-// its own type — the structures are kept identical).
+// Mirrors of the design-system Rpps shapes, kept identical by hand: convex cannot import from src/ and the frontend casts the result.
 type RppsQualification = { code: string; label: string };
 type RppsSmartcard = { type: string; number: string; start: string | null; end: string | null };
 type RppsPractitioner = {

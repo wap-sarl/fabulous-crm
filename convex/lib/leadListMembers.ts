@@ -4,11 +4,7 @@ import { components } from '../_generated/api';
 import type { DataModel, Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx } from '../_generated/server';
 
-/**
- * Member count per list, namespaced by `listId` with a null sort key: pure
- * count semantics, no ordering — `count(ctx, { namespace: listId, bounds: {} })`
- * is O(log n) where a junction scan is O(leads × lists).
- */
+/** Member count per list, with a null sort key as nothing is ordered: a count is O(log n) where a junction scan is O(leads × lists). */
 export const leadListMemberCounts = new TableAggregate<{
   Namespace: Id<'leadLists'>;
   Key: null;

@@ -34,11 +34,7 @@ export const dealsByPipelineStatus = new TableAggregate<{
   sumValue: amount,
 });
 
-/**
- * Per primary owner (see leadsByOwner for the multi-owner rule), keyed by
- * stage / status: a scoped (own / team) pipeline board sums its owners'
- * namespaces instead of reading the global aggregates.
- */
+/** Per primary owner, as leadsByOwner: a board scoped to own or team sums its owners' namespaces instead of reading the global aggregates. */
 export const dealsByOwnerStage = new TableAggregate<{
   Namespace: Id<'users'> | null;
   Key: [0 | 1, string, string];

@@ -127,8 +127,7 @@ export const updatePipeline = settingsMutation({
       }
       updates.stages = stages;
     }
-    // The graph is validated against the stages being saved; keys survive a
-    // rename or reorder, and a removed stage takes its arrows along.
+    // The graph is validated against the stages being saved: keys survive a rename or reorder, a removed stage takes its arrows along.
     const stages = updates.stages ?? pipeline.stages;
     if (args.transitions !== undefined) {
       updates.transitions = checkTransitions(stages, args.transitions ?? undefined);
@@ -153,8 +152,7 @@ export const updatePipeline = settingsMutation({
       updates.isDefault = true;
     }
     const changes = computeChanges(pipeline, filterUndefined(updates));
-    // `computeChanges` ignores undefined values, so a cleared graph (stored as
-    // an absent field — patching `undefined` removes it) is tracked here.
+    // `computeChanges` ignores undefined values, so a cleared graph (stored as an absent field) is tracked here.
     const graphChanged =
       ('transitions' in updates &&
         JSON.stringify(updates.transitions ?? null) !==

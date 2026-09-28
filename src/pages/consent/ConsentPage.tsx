@@ -26,8 +26,7 @@ export function ConsentPage() {
 
   const allChannels = CONSENT_CHANNELS.map((c) => c.value);
 
-  // `override` lets the accept-all / refuse-all buttons save an explicit set
-  // without waiting for a checkbox state update to flush.
+  // `override` lets the accept-all and refuse-all buttons save a set without waiting for the checkbox state to flush.
   const handleSave = async (override?: MarketingConsentChannel[]) => {
     if (!token) return;
     const toSave = override ?? channels;

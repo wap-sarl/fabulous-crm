@@ -63,8 +63,7 @@ async function matchCompany(
   name: string,
 ): Promise<Doc<'companies'> | null> {
   const country = normalizeCountryCode(row.country);
-  // The same normalization the create path applies, so "552 100 554 00013" finds "55210055400013"; an invalid
-  // number is the create path's error, not a match.
+  // Normalized as the create path does, so "552 100 554 00013" finds "55210055400013"; an invalid number is that path's error, not a match.
   const registration = tryNormalize(() =>
     normalizeRegistrationNumber(country, blank(row.registrationNumber)),
   );

@@ -22,37 +22,12 @@ import { gateInvitation, gateSignInCode } from './lib/gates';
 import { traceHookFailure } from './lib/observers';
 import { countPendingInvitations } from './lib/invitations';
 
-/**
- * Better Auth is the single session authority for this app (social OAuth +
- * passwordless email, mirroring the sibling `ductus` project). There is no
- * hand-rolled session token: server code reads the current user via
- * `authComponent.safeGetAuthUser(ctx)` and the app's `users` (employee) row is
- * linked to the Better Auth user through `users.authId`.
- *
- * The ONLY custom logic layered on top of the vanilla Better Auth setup is the
- * invite-only membership model:
- *  - `databaseHooks.user.create.before` (the GATE) rejects any email that is not
- *    already an employee and has no pending invitation.
- *  - the `triggers.user.onCreate` callback (PROVISION + LINK) creates the
- *    employee row from the invitation on first login, links `authId`, and retires
- *    the invitation.
- *  - the `triggers.session.onCreate` callback (RE-LINK) runs the same link step on
- *    every sign-in. `user.onCreate` fires exactly once — at Better Auth user
- *    creation — so if the employee row is created *after* the Better Auth user
- *    already exists (e.g. the setup wizard provisions the owner after a first
- *    Google login), it would never get linked and `getCurrentUser` would return
- *    null forever. Reconciling on session creation self-heals that ordering.
- */
+/** Better Auth is the only session authority; the one custom layer is invite-only membership: a gate on user creation, then the employee row linked through `users.authId`. */
 
 const OTP_LENGTH = 6;
 const OTP_MAX_AGE_SECONDS = 20 * 60;
 
-/**
- * Provision-or-link the app employee for a freshly created Better Auth user.
- * Runs in an app mutation ctx (via the component `triggers`), exactly once, when
- * the Better Auth user row is created. The GATE (below) has already guaranteed
- * the email is either an existing employee or a pending invitation.
- */
+/** Links the employee to the Better Auth user, or provisions it from the invitation: the gate has already let only employees and invited emails through. */
 async function linkOrProvisionEmployee(
   ctx: MutationCtx,
   authUser: { _id: string; email?: string; name?: string },
@@ -60,8 +35,7 @@ async function linkOrProvisionEmployee(
   const email = (authUser.email ?? '').trim().toLowerCase();
   if (!email) return;
 
-  // Existing active employee (e.g. the wizard-provisioned owner, or someone who
-  // already signed in via another provider) → just link the auth id.
+  // An employee that already exists (the owner made by the wizard, a sign-in through another provider) is only linked.
   const existing = await ctx.db
     .query('users')
     .withIndex('by_email_type', (q) =>
@@ -115,20 +89,14 @@ async function linkOrProvisionEmployee(
   });
 }
 
-/**
- * Better Auth Convex client. `triggers.user.onCreate` links/provisions the app
- * employee; `authFunctions.onCreate` points at the generated trigger dispatcher
- * (`triggersApi().onCreate`, exported below).
- */
+/** `authFunctions.onCreate` must point at the trigger dispatcher exported below (`triggersApi().onCreate`). */
 export const authComponent = createClient<DataModel>(components.betterAuth, {
   triggers: {
     user: {
       onCreate: linkOrProvisionEmployee,
     },
     session: {
-      // Re-link on every sign-in (see the header comment). Fetch the Better Auth
-      // user straight off the component adapter — mirroring `getAnyUserById` — so
-      // we don't reference `authComponent` inside its own initializer (TS7022).
+      // `user.onCreate` fires once, so an employee row made after the Better Auth user is linked here; the adapter is read directly, `authComponent` cannot appear in its own initializer (TS7022).
       onCreate: async (ctx, session: { userId: string }): Promise<void> => {
         const authUser = await ctx.runQuery(components.betterAuth.adapter.findOne, {
           model: 'user',
@@ -151,14 +119,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
 
 export const { onCreate } = authComponent.triggersApi();
 
-/**
- * DB-backed social providers — every well-known provider is registered
- * unconditionally as an async resolver so its callback route
- * (`/api/auth/callback/<key>`) is always mounted; credentials are read from the
- * singleton `appConfig` at request time. The closure MUST tolerate a non-action
- * ctx (schema gen / CORS origin resolution): those paths can't `runQuery`, so it
- * returns disabled instead of throwing.
- */
+/** Every provider is registered so its callback route is always mounted; credentials are read per request, and a non-action ctx (schema gen, CORS) gets a disabled provider, not a throw. */
 function buildSocialProviders(ctx: GenericCtx<DataModel>): BetterAuthOptions['socialProviders'] {
   const providers: BetterAuthOptions['socialProviders'] = {};
   for (const p of SOCIAL_PROVIDERS) {
@@ -211,11 +172,7 @@ export const traceSignInHookFailure = internalMutation({
   },
 });
 
-/**
- * A sign-in code was issued: hand its delivery to the scheduler and return. Better Auth awaits this
- * (better-auth 1.6.15, `runInBackgroundOrAwait` without a `backgroundTasks` handler), so anything
- * decided here per address (the seam's refusal, the dev whitelist) would show in the response time.
- */
+/** Delivery goes to the scheduler: Better Auth awaits this (1.6.15, no `backgroundTasks` handler), so a decision made here per address would show in the response time. */
 async function sendSignInOtp(
   ctx: GenericCtx<DataModel>,
   { email, otp }: { email: string; otp: string },
@@ -225,11 +182,7 @@ async function sendSignInOtp(
   await ctx.scheduler.runAfter(0, internal.auth.deliverSignInCode, { email, otp });
 }
 
-/**
- * Decides whether the code goes out, and sends it through the active provider. The 6-digit OTP
- * rides in the link's query string (`?otp=`) so clicking it lands on `/auth/continue` and signs in.
- * Every refusal is silent: the requester got the same answer, at the same speed, either way.
- */
+/** The code rides in the link (`?otp=`) so a click on it signs in; every refusal is silent, the requester got the same answer at the same speed either way. */
 export const deliverSignInCode = internalAction({
   args: { email: v.string(), otp: v.string() },
   returns: v.null(),
@@ -276,13 +229,7 @@ export const deliverSignInCode = internalAction({
   },
 });
 
-/**
- * The `genericOAuth` block for custom OIDC/SSO issuers, built from the DB config
- * (`appConfig.auth.ssoProviders`). Unlike social providers, `genericOAuth` reads
- * `clientId`/`clientSecret` synchronously off a static array — it has no async
- * resolver hook — so the providers are resolved from the DB just before the
- * request handler runs (see `createAuth`) and passed in here. Absent when empty.
- */
+/** `genericOAuth` reads its credentials synchronously off a static array, so the SSO providers are resolved before the request handler runs (see `createAuth`) and passed in. */
 function buildSsoPlugin(providers: SsoProvider[]) {
   if (providers.length === 0) return [];
   return [
@@ -299,12 +246,7 @@ function buildSsoPlugin(providers: SsoProvider[]) {
   ];
 }
 
-/**
- * Plugins: passwordless email (`emailOTP`), cross-domain session transport (the
- * SPA lives on a different origin than `*.convex.site`, so the session travels
- * as a Bearer token, not a cookie), the required `convex` plugin, and the
- * DB-driven `genericOAuth` block for custom OIDC/SSO issuers (`ssoProviders`).
- */
+/** `crossDomain` is needed because the SPA is on another origin than `*.convex.site`: the session travels as a Bearer token, not a cookie. */
 function buildPlugins(ctx: GenericCtx<DataModel>, ssoProviders: SsoProvider[]) {
   return [
     emailOTP({
@@ -321,21 +263,13 @@ function buildPlugins(ctx: GenericCtx<DataModel>, ssoProviders: SsoProvider[]) {
   ];
 }
 
-/**
- * Shared Better Auth options. `ssoProviders` is the only DB-driven input; every
- * other field is static or resolved by per-request closures (social credentials,
- * email delivery, the gate). Factored so the base instance and the per-request
- * SSO rebuild (see `createAuth`) can never drift.
- */
+/** One set of options for the base instance and the per-request SSO rebuild (see `createAuth`), so the two can never drift. */
 function authOptions(ctx: GenericCtx<DataModel>, ssoProviders: SsoProvider[]) {
   return {
-    // The Convex HTTP-actions origin (where /api/auth is served). Better Auth
-    // derives every OAuth callback from this (`${baseURL}/api/auth/callback/*`).
+    // Better Auth derives every OAuth callback from the origin that serves /api/auth.
     baseURL: process.env.CONVEX_SITE_URL,
     database: authComponent.adapter(ctx),
-    // Static (env, not DB): the component resolves trustedOrigins from an empty
-    // ctx when building the CORS layer. `SITE_URL` (comma-separated) with a
-    // `CRM_APP_URL` fallback — see appOrigins().
+    // From the environment, not the database: the component resolves the origins from an empty ctx to build the CORS layer.
     trustedOrigins: appOrigins(),
     rateLimit: {
       enabled: true,
@@ -354,8 +288,7 @@ function authOptions(ctx: GenericCtx<DataModel>, ssoProviders: SsoProvider[]) {
         trustedProviders: SOCIAL_PROVIDERS.map((p) => p.key),
       },
     },
-    // THE GATE: only invited or already-registered emails may create an account.
-    // Applies to every provider — social, SSO, and email OTP alike.
+    // The gate: only an invited or already registered email may create an account, whatever the provider (social, SSO, email code).
     databaseHooks: {
       user: {
         create: {
@@ -376,23 +309,7 @@ function authOptions(ctx: GenericCtx<DataModel>, ssoProviders: SsoProvider[]) {
   };
 }
 
-/**
- * The Better Auth factory. MUST stay synchronous and tolerate an empty ctx
- * (`createAuth({})`), which the component uses for schema/route/CORS generation.
- * Credentials + email delivery are resolved lazily inside per-request closures.
- *
- * Custom SSO issuers are the one exception: `genericOAuth` reads its credentials
- * synchronously off a static array (no async resolver hook like social providers
- * have), so they can't be resolved inside `betterAuth(...)` here. Instead, for a
- * real request we return a Proxy that overrides only `.handler` — the ONLY member
- * the Convex adapter consumes per request (`@convex-dev/better-auth`
- * create-client.js: `await createAuth(ctx).handler(request)`). The override
- * prefetches the DB SSO providers, then builds and delegates to a betterAuth
- * instance that includes them. Requests reach the handler via a catch-all
- * `/api/auth/` route, so the SSO callback route need not exist on the static
- * instance; and `genericOAuth` contributes no DB schema, so its absence from the
- * empty-ctx path is harmless.
- */
+/** Must stay synchronous and accept an empty ctx (schema, routes, CORS); SSO needs the database, so a Proxy overrides `.handler`, the only member the Convex adapter calls per request. */
 export const createAuth = (ctx: GenericCtx<DataModel>) => {
   const base = betterAuth(authOptions(ctx, []));
   if (!isActionCtx(ctx)) return base;
@@ -413,10 +330,7 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
   });
 };
 
-/**
- * The current app employee (serialized) for the signed-in Better Auth user, or
- * `null` when signed out / not yet linked. This is the frontend's auth source.
- */
+/** The frontend's auth source: `null` when signed out or when the employee is not linked yet. */
 export const getCurrentUser = query({
   args: {},
   handler: async (ctx) => {
@@ -431,13 +345,7 @@ export const getCurrentUser = query({
   },
 });
 
-/**
- * The app employee linked to a Better Auth user id, or `null`. Internal-only:
- * used by `employeeAction` to authorize actions. Actions can't touch the DB, and
- * the `sessionId` claim `safeGetAuthUser` needs is not reliably preserved when a
- * query is re-entered via `runQuery` from an action — so the action reads the
- * identity on its own ctx and passes the resolved `authId` here explicitly.
- */
+/** Takes the `authId` explicitly: the `sessionId` claim `safeGetAuthUser` needs is not reliably kept when an action re-enters a query through `runQuery`. */
 export const getEmployeeByAuthId = internalQuery({
   args: { authId: v.string() },
   handler: async (ctx, { authId }) => {

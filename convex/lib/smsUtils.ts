@@ -1,25 +1,10 @@
-/**
- * Shared SMS utilities for Brevo transactional SMS sending. Mirrors
- * `emailUtils.ts`: a sender identity constant plus the Brevo HTTP helper used by
- * the campaign send action.
- */
-
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import type { MessageType } from '../schema';
 
-/**
- * Sender identity (alphanumeric ID, max 11 chars) shown on every outgoing SMS.
- * Configure per deployment with `bunx convex env set BREVO_SMS_SENDER …`.
- */
+/** The sender shown on every outgoing SMS: an alphanumeric ID of 11 characters at most. */
 const SMS_SENDER = process.env.BREVO_SMS_SENDER || 'CRM';
 
-/**
- * Normalize a stored lead phone to Brevo's recipient format: the E.164 number
- * with the country code but **without** the leading `+` (e.g. `33612345678`).
- * Leads are entered as E.164 via the phone input, but CSV import can store a
- * national format (`06…`), so parse defensively with FR as the default region.
- * Returns null when the value is missing or not a valid phone number.
- */
+/** Brevo wants the E.164 number without its leading `+`; a CSV import can store a national format, hence FR as the default region. */
 export function toBrevoRecipient(phone: string | undefined): string | null {
   if (!phone) return null;
   const parsed = parsePhoneNumberFromString(phone, 'FR');
@@ -27,11 +12,7 @@ export function toBrevoRecipient(phone: string | undefined): string | null {
   return parsed.number.replace(/^\+/, '');
 }
 
-/**
- * Send a single SMS via the Brevo transactional SMS API. Same never-throws
- * contract as `sendBrevoEmail`: returns `{ ok, status, error?, messageId? }`
- * and logs on failure. Returns Brevo's messageId on success for tracking.
- */
+/** Never throws, as `sendBrevoEmail`: a failure is logged and returned, a success carries Brevo's messageId for tracking. */
 export async function sendBrevoSms(
   apiKey: string,
   {

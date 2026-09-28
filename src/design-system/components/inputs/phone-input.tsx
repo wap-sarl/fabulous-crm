@@ -48,8 +48,7 @@ function InputComponent({
   ref,
   ...props
 }: React.ComponentProps<'input'> & { ref?: React.Ref<HTMLInputElement> }) {
-  // RPNInput forwards the native numeric `size` attr, which is incompatible with the
-  // design-system Input's string size scale; strip it from the forwarded props.
+  // RPNInput forwards the native numeric `size` attribute, which clashes with the string size scale of the design-system Input.
   return (
     <Input
       className={cn('rounded-e-lg rounded-s-none', className)}

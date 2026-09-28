@@ -1,7 +1,4 @@
-/**
- * Vendored server helpers (audit, crypto, Brevo email…). Single barrel so the
- * forked Convex code only needed its package specifiers rewritten here.
- */
+/** Single barrel of the vendored server helpers, so the forked Convex code only has its package specifiers rewritten here. */
 export * from './appUrl';
 export * from './audit';
 export * from './crypto';

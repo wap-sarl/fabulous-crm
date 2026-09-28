@@ -11,10 +11,7 @@ import { isActiveRule, operatorsForType } from '@crm/lib/backend';
 import { PROPERTY_TYPE_UI } from '../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
-/**
- * One built-in column an entity exposes in the builder: label, filter type
- * and, for list-valued columns (status, stage, country…), the fixed options.
- */
+/** One built-in column an entity exposes in the builder; `options` holds the fixed choices of a list-valued column. */
 export interface StandardFieldSpec<F extends string = string> {
   field: F;
   label: string;
@@ -155,10 +152,7 @@ export function countActiveRules(filter: AdvancedFilter<string> | undefined): nu
   return filter.groups.reduce((sum, g) => sum + g.rules.filter(isActiveRule).length, 0);
 }
 
-/**
- * Serialize an advanced filter for the URL. Returns `undefined` when it has no
- * active rules, so the `af` param is dropped rather than left as noise.
- */
+/** Undefined when no rule is active, so the `af` param is dropped from the URL rather than left as noise. */
 export function serializeAdvancedFilter(
   filter: AdvancedFilter<string> | undefined,
 ): string | undefined {

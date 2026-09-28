@@ -220,8 +220,7 @@ describe('extension seam', () => {
         'resend:1',
       ]);
 
-      // Large campaigns are gated page by page with the running count: a refusal stops the
-      // preparation within one page and never reaches the drain.
+      // Large campaigns are gated page by page with the running count: a refusal stops within one page and never reaches the drain.
       for (const n of [2, 3, 4]) {
         await as.mutation(api.features.crm.mutations.createLead, {
           firstName: `L${n}`,
@@ -363,8 +362,7 @@ describe('extension seam', () => {
 
   test('beforeScheduledWork false defers each background entry point untouched', async () => {
     const { t, as } = await setup();
-    // convex-test runs scheduled work in the background, so the state under test is built by hand
-    // and the rescheduled rows are matched on their arguments.
+    // convex-test runs scheduled work in the background: the state is built by hand and the rescheduled rows are matched on their arguments.
     const scheduledLater = async (name: string, args: Record<string, unknown>) => {
       const rows = await t.run((ctx) => ctx.db.system.query('_scheduled_functions').collect());
       return rows.filter(

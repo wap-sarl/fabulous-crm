@@ -89,12 +89,7 @@ function SortableRow({
   );
 }
 
-/**
- * Vertical drag-and-drop reorderable list (dnd-kit): each row gets a six-dot
- * grip handle; keyboard reordering works through the handle (space, arrows).
- * Locked items keep their position: a drop that would displace one is
- * ignored, so e.g. pinned trailing rows stay trailing.
- */
+/** Reordering goes through the grip, keyboard included; a drop that would displace a locked item is ignored, so pinned rows stay where they are. */
 export function SortableList<T>({
   items,
   getId,

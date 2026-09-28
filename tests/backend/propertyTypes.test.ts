@@ -8,10 +8,7 @@ import {
 } from '../../convex/_lib/validators/properties';
 import { PROPERTY_TYPE_KEYS, PROPERTY_TYPES } from '../../convex/_lib/validators/propertyTypes';
 
-/**
- * The type registry is the single definition of a custom-property type: the
- * validator union, the option-based list and every check derive from it.
- */
+/** The registry is the single definition of a custom-property type: the validator union, the option-based list and every check derive from it. */
 describe('property type registry', () => {
   test('the validator union and the option-based list derive from the registry keys', () => {
     expect(Object.keys(PROPERTY_TYPES).sort()).toEqual([...PROPERTY_TYPE_KEYS].sort());

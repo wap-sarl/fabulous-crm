@@ -122,8 +122,7 @@ describe('pipeline transition graph (pure)', () => {
     expect(analyzePipelineGraph(stages, defaultTransitions(stages))).toEqual([]);
     expect(analyzePipelineGraph(stages, linear)).toEqual([]);
 
-    // Cutting an arrow of the complete graph is harmless while every stage
-    // keeps a way in and a way out…
+    // Cutting an arrow of the complete graph is harmless while every stage keeps a way in and a way out…
     const full = fullTransitions(stages);
     expect(analyzePipelineGraph(stages, without(full, 'new', 'qualified'))).toEqual([]);
     // …removing every arrow into a stage strands it, every arrow out of it makes it a dead end.
@@ -143,9 +142,7 @@ describe('pipeline transition graph (pure)', () => {
       [],
     );
 
-    // In the linear funnel every arrow is load-bearing: cutting the only
-    // arrow into « Négociation » strands it (and « Gagnée », only reached
-    // through it) and leaves « Proposition » without a way to close.
+    // In the linear funnel every arrow is load-bearing: the cut strands « Négociation » and « Gagnée » behind it, and leaves « Proposition » unable to close.
     const funnel = [...linear, { from: 'qualified', to: 'lost' }];
     expect(analyzePipelineGraph(stages, funnel)).toEqual([]);
     const cut = without(funnel, 'proposal', 'negotiation');
@@ -155,8 +152,7 @@ describe('pipeline transition graph (pure)', () => {
       { kind: 'dead_end', stageKey: 'proposal' },
     ]);
 
-    // An empty graph: everything but the entry stage is unreachable, every
-    // open stage is a dead end.
+    // An empty graph: everything but the entry stage is unreachable, every open stage is a dead end.
     const issues = analyzePipelineGraph(stages, []);
     expect(issues.filter((i) => i.kind === 'unreachable').map((i) => i.stageKey)).toEqual([
       'qualified',

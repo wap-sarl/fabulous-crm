@@ -51,12 +51,9 @@ export function LoginPage({
     try {
       await authClient.signIn.social({
         provider: providerId,
-        // MUST be absolute — a relative URL resolves against the Better Auth
-        // baseURL (the .convex.site origin) instead of the SPA.
+        // Must be absolute: a relative URL resolves against the Better Auth baseURL, the .convex.site origin, not the SPA.
         callbackURL: `${window.location.origin}/`,
-        // Let Better Auth set the real `error` code on this URL (it overwrites
-        // the `error` param). Hardcoding one here masked every failure as
-        // "not_invited"; the gate throws `not_invited`/`FORBIDDEN` itself.
+        // No `error` param here: Better Auth sets the real code, and a hardcoded one would mask every failure as "not_invited".
         errorCallbackURL: `${window.location.origin}/login`,
       });
     } catch {
@@ -71,11 +68,9 @@ export function LoginPage({
     try {
       await authClient.signIn.oauth2({
         providerId,
-        // MUST be absolute — a relative URL resolves against the Better Auth
-        // baseURL (the .convex.site origin) instead of the SPA.
+        // Must be absolute: a relative URL resolves against the Better Auth baseURL, the .convex.site origin, not the SPA.
         callbackURL: `${window.location.origin}/`,
-        // See handleSocialLogin: don't hardcode the error — let Better Auth
-        // report the real code so failures aren't all shown as "not_invited".
+        // No `error` param here: Better Auth sets the real code, and a hardcoded one would mask every failure as "not_invited".
         errorCallbackURL: `${window.location.origin}/login`,
       });
     } catch {

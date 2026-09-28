@@ -8,11 +8,7 @@ export interface DraftError {
   nodeId?: string;
 }
 
-/**
- * Pre-activation validation of the editor draft, mirroring the backend's
- * `validateWorkflowGraph` messages so the user fixes everything client-side.
- * « Enregistrer » only needs a name; « Activer » requires an empty result here.
- */
+/** Mirrors the backend's `validateWorkflowGraph` messages; saving only needs a name, activating needs an empty result here. */
 export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
   const errors: DraftError[] = [];
 

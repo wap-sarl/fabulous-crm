@@ -13,9 +13,6 @@ interface StatCardProps extends React.HTMLAttributes<HTMLDivElement> {
   iconColor?: string;
 }
 
-/**
- * Metric card — label top-left, tinted icon square top-right, large mono value.
- */
 function StatCard({
   label,
   value,

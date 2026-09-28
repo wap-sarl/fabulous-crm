@@ -46,11 +46,7 @@ export function nameBlock(lastName: string): string | undefined {
   return last.length >= 2 ? last.slice(0, 3) : undefined;
 }
 
-/**
- * The keys a lead document should carry (stamped by the leads trigger). Unset
- * keys are omitted, not `undefined`: Convex rejects `undefined` inside nested
- * objects, and the trigger compares the object as stored.
- */
+/** An unset key is omitted, not `undefined`: Convex rejects `undefined` inside nested objects, and the leads trigger compares the object as stored. */
 export function dedupeKeys(
   lead: Pick<Doc<'leads'>, 'firstName' | 'lastName' | 'phone' | 'address'>,
 ): LeadDedupe {
@@ -155,15 +151,7 @@ export async function findDuplicateCandidates(
 /** Rows re-pointed per table per call; a full batch reschedules itself. */
 const REPOINT_BATCH = 200;
 
-/**
- * Move every row attached to `absorbedId` onto `survivorId`: notes,
- * activities, deals, workflow runs, status history, campaign sends (+ their
- * events and tracked-link tokens), page views and browsers, and list
- * memberships (deduplicated against the survivor's own). Each table is read
- * through its `by_lead` index; the rows leave the index range as they are
- * patched, so the loop needs no cursor. Returns whether some table still
- * holds rows (a full batch).
- */
+/** Rows leave the `by_lead` index range as they are patched, so no cursor is needed; list memberships are deduplicated against the survivor's own. */
 export async function repointLeadRows(
   ctx: MutationCtx,
   absorbedId: Id<'leads'>,

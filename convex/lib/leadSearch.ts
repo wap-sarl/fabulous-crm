@@ -21,8 +21,7 @@ export function leadSearchText(
     lead.phone ?? '',
     companyName ?? '',
   ];
-  // Also index the phone squashed to digits, so a full number pasted with or
-  // without separators matches ("+33 6 12 34" and "0612…" both tokenize).
+  // The phone is also indexed squashed to digits, so a full number pasted with or without separators matches.
   const digits = (lead.phone ?? '').replace(/\D/g, '');
   if (digits) parts.push(digits);
   return normalizeSearchText(parts.join(' '));

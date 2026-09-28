@@ -35,10 +35,7 @@ export async function countLiveLeadsByLifecycleStage(
   });
 }
 
-/**
- * Count the live leads whose primary owner is `owner` (null = unowned), in
- * one stage ('' = unset) or in any when `stage` is omitted.
- */
+/** Counts by primary owner only, null being unowned; the stage '' means unset, and an omitted stage means any. */
 export async function countLiveLeadsByOwner(
   ctx: QueryCtx,
   owner: Id<'users'> | null,

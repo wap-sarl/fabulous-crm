@@ -10,10 +10,7 @@ import {
 import { createAuditFields, generateHexToken, logAudit, updateAuditFields } from '../../lib';
 import { hashApiKeySecret } from '../../lib/apiAuth';
 
-/**
- * Create an API key. The full key is returned ONCE — only its salted hash is
- * stored, so it can never be shown again.
- */
+/** The full key is returned once: only its salted hash is stored, so it can never be shown again. */
 export const createApiKey = settingsMutation({
   args: {
     name: v.string(),

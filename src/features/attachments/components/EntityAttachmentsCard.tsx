@@ -58,12 +58,7 @@ interface EntityAttachmentsCardProps {
   entityId: string;
 }
 
-/**
- * « Fichiers » card of a lead / company / deal page: a folder tree the user
- * organizes (the same tree an object store would show), drag-and-drop upload
- * into the current folder, inline preview of images and PDFs, download,
- * rename / move / delete.
- */
+/** The folder tree shown is the one an object store would show: a folder is only the path of its files. */
 export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachmentsCardProps) {
   const rows = useAuthQuery(api.features.attachments.queries.listAttachments, {
     entityType,

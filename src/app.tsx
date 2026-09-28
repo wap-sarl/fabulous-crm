@@ -57,8 +57,7 @@ function NotFoundPage() {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Setup gate wraps every route: a fresh deployment redirects to /setup
-          before login/homepage; a configured one keeps users off /setup. */}
+      {/* The setup gate wraps every route: a fresh deployment is sent to /setup before anything else, a configured one is kept off it. */}
       <Route element={<SetupGate />}>
         {/* First-run configuration wizard */}
         <Route path="/setup" element={<SetupWizardPage />} />

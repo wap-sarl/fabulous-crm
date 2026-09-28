@@ -101,8 +101,7 @@ const page = <T, U>(
   result: { page: T[]; isDone: boolean; continueCursor: string },
   map: (doc: T) => U,
 ) => ({
-  // Soft-deleted rows are dropped after pagination, so a page may run short of
-  // the requested limit — the cursor, not data.length, signals the end.
+  // Soft-deleted rows are dropped after pagination, so a page may run short: the cursor, not data.length, signals the end.
   data: result.page.map(map),
   nextCursor: result.isDone ? null : result.continueCursor,
 });

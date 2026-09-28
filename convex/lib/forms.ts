@@ -127,12 +127,7 @@ function leadHasFieldValue(
 export const hasEmailField = (form: Doc<'forms'>): boolean =>
   form.fields.some((f) => f.target.kind === 'standard' && f.target.field === 'email');
 
-/**
- * The JSON the public embed renders from: resolved fields (dead custom properties dropped) and, when the visitor
- * is a known lead, the keys to skip — key names only, never the lead's values (progressive profiling must not
- * leak data to whoever holds a token). A form without an e-mail field skips nothing: on a shared browser the
- * token proves nothing about who is typing.
- */
+/** What the public embed renders from: for a known visitor the keys to skip, never the lead's values, which would leak to whoever holds the token; a form without an e-mail field skips nothing. */
 export function buildPublicForm(
   form: Doc<'forms'>,
   defsById: Map<string, Doc<'propertyDefinitions'>>,
@@ -184,10 +179,7 @@ export interface CleanSubmission {
   errors: Record<string, string>;
 }
 
-/**
- * Server-side validation of submitted values against the form's fields (shared property validators). A required
- * field may be absent only when the visitor's lead already holds a value for it (progressive profiling skipped it).
- */
+/** Server-side validation of the submitted values: a required field may be absent only when the visitor's lead already holds a value for it. */
 export function cleanSubmissionValues(
   form: Doc<'forms'>,
   defsById: Map<string, Doc<'propertyDefinitions'>>,
@@ -242,11 +234,7 @@ export function cleanSubmissionValues(
   return { standard, custom, errors };
 }
 
-/**
- * The company a submission may attach a contact to: the live one on the e-mail's domain, and nothing else. A name
- * typed by an unknown visitor creates nothing and matches nothing (« Acme » must not walk into Acme); it stays in
- * the submission for an employee to qualify.
- */
+/** The company a submission may attach a contact to: the live one on the e-mail's domain only, a name typed by an unknown visitor creates and matches nothing. */
 export async function companyOfSubmission(
   ctx: QueryCtx | MutationCtx,
   email: string | undefined,
@@ -311,10 +299,7 @@ async function hmacKey(purpose: string): Promise<CryptoKey> {
 const hex = (bytes: ArrayBuffer): string =>
   Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, '0')).join('');
 
-/**
- * Pseudonymised client IP: HMAC-SHA256 under a secret key, `FORM_IP_HASH_SALT` when set, else one derived from the
- * auth secret. A known salt would let anyone hash the four billion IPv4 addresses and read the table back.
- */
+/** Pseudonymised client IP, keyed by a secret: a known salt would let anyone hash the four billion IPv4 addresses and read the table back. */
 export async function hashClientIp(ip: string): Promise<string> {
   const salt = process.env.FORM_IP_HASH_SALT;
   const key = salt

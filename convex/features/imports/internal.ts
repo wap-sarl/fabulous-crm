@@ -9,11 +9,7 @@ import { IMPORTERS } from './entities';
 /** Rows deleted per call when a job is dropped. */
 const DROP_PAGE = 500;
 
-/**
- * One batch of a job, in the phase the job is in: the dry run records each row's verdict; the run applies it,
- * drops the rows it wrote (their content is in the CRM now) and keeps the rows in error for the report. A batch
- * that throws is rolled back whole and the job stays at that batch; the action wrapper marks it interrupted.
- */
+/** The dry run records each row's verdict; the run applies it, drops the rows it wrote and keeps those in error for the report. */
 export const runBatch = internalMutation({
   args: { jobId: v.id('importJobs'), batch: v.number() },
   returns: v.object({ more: v.boolean() }),

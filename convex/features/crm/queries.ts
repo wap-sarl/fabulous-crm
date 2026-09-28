@@ -81,8 +81,7 @@ export const listLeadsPaginated = employeeQuery({
       };
     }
 
-    // Indexable prefix: only single-value selections can ride an index range
-    // (a multi-select would need a union of ranges, which one cursor can't do).
+    // Only a single-value selection can ride an index range: a multi-select needs a union of ranges, which one cursor cannot do.
     const singleStage = args.lifecycleStages?.length === 1 ? args.lifecycleStages[0] : undefined;
     const singleCompany = args.companyIds?.length === 1 ? args.companyIds[0] : undefined;
 
@@ -107,10 +106,7 @@ export const listLeadsPaginated = employeeQuery({
 
     const result = await cursor.paginate(args.paginationOpts);
 
-    // Residual predicates, applied per page. List membership is resolved for
-    // the page's leads only (indexed point reads — a full member-set load is
-    // unbounded on large lists). Re-checking the indexed predicates is
-    // harmless: the index range only narrowed what was read.
+    // Membership is resolved for the page's leads only, a full member set is unbounded; re-checking the indexed predicates is harmless.
     const pageIds = result.page.map((lead) => lead._id);
     const listMemberIds = await loadListMemberIdsForLeads(ctx, args.listIds, pageIds);
     const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter, pageIds);
@@ -169,10 +165,7 @@ export const getLead = employeeQuery({
   },
 });
 
-/**
- * Lead detail page payload: the lead, its assignee's display name and its
- * company. History lives in `features/timeline/queries.listLeadTimeline`.
- */
+/** The lead detail page payload; its history lives in `features/timeline/queries.listLeadTimeline`. */
 export const getLeadDetail = employeeQuery({
   args: { leadId: v.id('leads') },
   handler: async (ctx, args) => {
@@ -198,10 +191,7 @@ export const getLeadDetail = employeeQuery({
   },
 });
 
-/**
- * Notes attached to a lead, enriched with each author's display name. Sorted
- * pinned-first, then most-recent. Soft-deleted notes are excluded.
- */
+/** Pinned notes first, then the most recent. */
 export const listLeadNotes = employeeQuery({
   args: { leadId: v.id('leads') },
   handler: async (ctx, args) => {
@@ -298,11 +288,7 @@ export const listLifecycleHistory = employeeQuery({
   },
 });
 
-/**
- * Resolve the full set of lead ids matching a filter, for building a campaign
- * "from the current filter". Non-paginated bounded collect — fine for a few
- * thousand leads.
- */
+/** Every lead matching a filter, read in one collect without pagination: fine for a few thousand leads only. */
 export const listMatchingLeadIds = employeeQuery({
   args: { ...leadFilterArgs },
   handler: async (ctx, args) => {
@@ -321,13 +307,7 @@ export const listMatchingLeadIds = employeeQuery({
   },
 });
 
-/**
- * All lead lists (most recent first) with their member count and importer name.
- * Feeds both the lists settings page and the list-filter dropdowns. Member
- * counts come from the `leadListMemberCounts` aggregate — the junction table
- * grows as leads × lists, so scanning it here would hit Convex's read limit
- * long before the leads table itself does (#14).
- */
+/** Member counts come from the aggregate: the junction table grows as leads × lists, and scanning it would hit Convex's read limit (#14). */
 export const listLeadLists = employeeQuery({
   args: {},
   handler: async (ctx) => {
@@ -387,15 +367,7 @@ export const listCampaigns = employeeQuery({
   },
 });
 
-/**
- * Reconstruct the message a recipient sees by re-rendering the campaign template
- * against `params` (per-lead merge values). Reuses the exact send-path helpers
- * (`renderPlaceholders`/`wrapEmailHtml`) so the preview can never drift from what
- * was actually sent. Pass an empty `params` to preview the raw template with the
- * `{{ params.x }}` placeholders left visible. Brevo-template campaigns keep their
- * HTML on Brevo's side, so we can only surface the template id — the UI renders an
- * "aperçu indisponible" note for those.
- */
+/** Renders with the helpers of the send path so the preview cannot drift from what was sent; a Brevo template keeps its HTML at Brevo, only its id is known. */
 function buildMessagePreview(campaign: Doc<'campaigns'>, params: Record<string, string>) {
   const channel = campaign.channel ?? 'email';
   if (channel === 'sms') {
@@ -431,12 +403,7 @@ export const getCampaign = employeeQuery({
   },
 });
 
-/**
- * Delivery/engagement events of a campaign, newest first. Cursor-paginated
- * natively (unlike the leads table): campaignEvents is append-only and fully
- * served by the `by_campaign_eventAt` index prefix — no in-memory filtering,
- * so a page can never hide matches.
- */
+/** Paginated natively, unlike the leads table: the index serves the whole query with no in-memory filtering, so a page never hides matches. */
 export const listCampaignEvents = employeeQuery({
   args: { campaignId: v.id('campaigns'), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) =>
@@ -447,12 +414,7 @@ export const listCampaignEvents = employeeQuery({
       .paginate(args.paginationOpts),
 });
 
-/**
- * Reconstruct what a single recipient received: the campaign template rendered
- * with that send's stored merge `params`, plus the send's event timeline.
- * Lazily fetched when a recipient's preview drawer is opened, so we never
- * render for every send up front.
- */
+/** What one recipient received, fetched when its preview drawer opens so that nothing is rendered for every send up front. */
 export const getCampaignSendPreview = employeeQuery({
   args: { sendId: v.id('campaignSends') },
   handler: async (ctx, args) => {
@@ -485,11 +447,7 @@ export const getCampaignSendPreview = employeeQuery({
   },
 });
 
-/**
- * PUBLIC (no auth): resolve a lead's current marketing consent from its
- * persistent consent token, for the unauthenticated RGPD consent page.
- * Returns only the minimal data needed to render the form.
- */
+/** PUBLIC (no auth), for the RGPD consent page: returns only what the form needs, nothing else about the lead. */
 export const getConsentByToken = query({
   args: { token: v.string() },
   handler: async (ctx: QueryCtx, args) => {

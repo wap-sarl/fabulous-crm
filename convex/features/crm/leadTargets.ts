@@ -11,22 +11,14 @@ import { DEFAULT_COUNTRY } from '../../_lib/validators/companyRegistry';
 import type { TrackedLinkStandardField } from '../../_lib/validators/crm';
 import { lifecycleStageLabel, type LifecycleConfig } from '../../_lib/validators/lifecycle';
 
-/**
- * Lead-targeting helpers shared by campaign tracked links and workflow
- * `update_property` steps: both point at a built-in lead column or a
- * custom-property definition and write a validated value to it.
- */
+/** Campaign tracked links and workflow `update_property` steps share these helpers: both write a validated value to a lead column or custom property. */
 
 /** A writable lead target — the `target` shape of tracked links and workflow nodes. */
 export type LeadTarget =
   | { kind: 'standard'; field: TrackedLinkStandardField }
   | { kind: 'custom'; propertyDefId: Id<'propertyDefinitions'> };
 
-/**
- * One-line postal address for {{ params.address }} in the country's writing
- * order, '' when unset. The country code is appended only for foreign
- * addresses — a domestic mailing doesn't repeat the country.
- */
+/** One-line address in the country's writing order; the country is appended only for foreign addresses, a domestic mailing does not repeat it. */
 export function formatAddressParam(address: Doc<'leads'>['address']): string {
   if (!address) return '';
   const lines = formatAddressLines(address);
@@ -34,12 +26,7 @@ export function formatAddressParam(address: Doc<'leads'>['address']): string {
   return lines.join(', ');
 }
 
-/**
- * A lead's merge params ({{ params.x }}): the standard columns, one
- * `custom_<defId>` entry per property definition, and the consent-page URL.
- * Shared by campaign sends (which add tracked-link URLs on top) and workflow
- * send steps.
- */
+/** A lead's merge params, shared by campaign sends (which add tracked-link URLs on top) and workflow send steps so both merge the same keys. */
 export function buildLeadParams(
   lead: Doc<'leads'>,
   defsById: Map<string, Doc<'propertyDefinitions'>>,
@@ -66,11 +53,7 @@ export function buildLeadParams(
   return params;
 }
 
-/**
- * Validate a value against its lead target — a custom-property definition
- * (type + rules) or a built-in lead field. Returns a French error message, or
- * `null` when valid.
- */
+/** The error is a French message shown to the user as is; `null` when the value is valid. */
 export function validateLeadTargetValue(
   target: LeadTarget,
   value: PropertyValue,
@@ -93,12 +76,7 @@ export function validateLeadTargetValue(
   }
 }
 
-/**
- * The lead patch writing `value` to `target`, or `null` when it can't (deleted
- * custom-property definition, or a stored value whose type no longer matches
- * its built-in field — validated when authored, re-checked here defensively
- * since execution happens long after).
- */
+/** `null` when the write cannot happen: the value was validated when authored, but execution comes long after and the definition may be gone. */
 export async function buildLeadTargetPatch(
   ctx: MutationCtx,
   lead: Doc<'leads'>,

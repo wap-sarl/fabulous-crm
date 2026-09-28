@@ -16,8 +16,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-// Secrets at rest: AES-256-GCM through Web Crypto, master key in SECRETS_KEY, ciphertext `v1:<iv>:<data>` (base64).
-// SECRETS_KEY_NEXT rotates: new writes use it, reads try it first, then SECRETS_KEY.
+// Secrets at rest: AES-256-GCM, ciphertext `v1:<iv>:<data>` in base64; SECRETS_KEY_NEXT rotates, new writes use it and reads try it before SECRETS_KEY.
 
 const SECRET_VERSION = 'v1';
 const keys = new Map<string, Promise<CryptoKey>>();

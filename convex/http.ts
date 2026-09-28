@@ -25,19 +25,7 @@ import type { CampaignEventType } from './schema';
 
 const http = httpRouter();
 
-/**
- * Webhook authentication. Two delivery paths, two mechanisms:
- * - Account-level webhooks (email, and the inbound-SMS registration) carry the
- *   secret in the `x-webhook-secret` header, set at registration — it never
- *   appears in URLs, proxy logs, or Brevo's webhook listing.
- * - Brevo's per-message SMS `webUrl` cannot send headers, so that one path
- *   keeps a query-string secret — a DEDICATED one (BREVO_SMS_WEBHOOK_SECRET,
- *   falling back to the shared secret), so its exposure in URLs never burns
- *   the account-level secret and it rotates independently.
- * All comparisons are constant-time (timingSafeEqual). The query-string
- * fallback on the email route only eases the migration of a registration
- * predating the header — re-run registerBrevoEmailWebhook to move off it.
- */
+/** The header keeps the account secret out of URLs and logs; Brevo's per-message SMS `webUrl` cannot send headers, so that path has its own query-string secret. */
 function authorizeWebhook(request: Request, secrets: { header?: string; query?: string }): boolean {
   const headerValue = request.headers.get('x-webhook-secret');
   if (secrets.header && headerValue && timingSafeEqual(headerValue, secrets.header)) {
@@ -47,11 +35,7 @@ function authorizeWebhook(request: Request, secrets: { header?: string; query?: 
   return !!(secrets.query && queryValue && timingSafeEqual(queryValue, secrets.query));
 }
 
-// Brevo SMS event webhook: hit by the per-message `webUrl` (outbound lifecycle,
-// query-string secret) and by the account-level inbound registration (STOP,
-// replies — header secret). Every event with a messageId is forwarded to
-// handleSmsEvent; unknown statuses are dropped there. Always 200 so Brevo does
-// not retry.
+// Hit by the per-message `webUrl` (query-string secret) and by the account-level inbound registration (header secret); always 200 so Brevo does not retry.
 http.route({
   path: '/webhooks/brevo/sms',
   method: 'POST',
@@ -68,11 +52,9 @@ http.route({
     const event = (await request.json().catch(() => null)) as {
       msg_status?: string;
       messageId?: number | string;
-      // Recipient phone (present on inbound events like STOP/replied) — used to
-      // correlate back to the lead when the messageId is a fresh inbound one.
+      // The recipient phone, on inbound events (STOP, reply): it finds the lead when the messageId is a fresh inbound one.
       to?: number | string;
-      // Unix seconds when the event occurred (Brevo). Used for accurate timeline
-      // ordering + first-only metric markers; falls back to now if absent.
+      // Unix seconds: the event's own time orders the timeline and sets the first-only markers.
       ts_event?: number;
     } | null;
 
@@ -89,13 +71,7 @@ http.route({
   }),
 });
 
-/**
- * Brevo transactional-email event names → our campaignEvents types. Brevo's
- * docs and payloads vary between snake_case and camelCase, so both spellings
- * are accepted. Unmapped events (proxy_open, loaded_by_proxy, deferred,
- * request…) are ACKed and dropped. `unique_opened` maps to 'opened' defensively
- * — we only subscribe to `opened` (see registerBrevoEmailWebhook).
- */
+/** Brevo's payloads vary between snake_case and camelCase, so both spellings are accepted; an unmapped event is acknowledged and dropped. */
 const BREVO_EMAIL_EVENT_TYPE: Record<string, CampaignEventType> = {
   delivered: 'delivered',
   opened: 'opened',
@@ -115,9 +91,7 @@ const BREVO_EMAIL_EVENT_TYPE: Record<string, CampaignEventType> = {
   error: 'error',
 };
 
-// Brevo transactional-email webhook (account-level, registered once via
-// registerBrevoEmailWebhook). Correlated to the send by `message-id`. Always
-// 200 on valid auth — a non-2xx would make Brevo retry forever.
+// Always 200 on valid auth, a non-2xx makes Brevo retry for ever; the query-string secret only serves a registration older than the header.
 http.route({
   path: '/webhooks/brevo/email',
   method: 'POST',
@@ -130,8 +104,7 @@ http.route({
     ) {
       return new Response('Unauthorized', { status: 401 });
     }
-    // Email tracking is disabled when email isn't going through Brevo: ACK and
-    // drop so a stale Brevo registration can't write events under SMTP mode.
+    // Email does not go through Brevo: acknowledge and drop, so a stale Brevo registration cannot write events under SMTP mode.
     if (!brevo.emailIsBrevo) {
       return new Response(null, { status: 200 });
     }
@@ -171,9 +144,7 @@ function htmlResponse(message: string, status: number): Response {
   });
 }
 
-// Per-recipient tracked campaign link (see campaignLinkTokens). Public by
-// design — the token is the secret. Applies the link's property update, then
-// 302-redirects to the configured URL or shows a French "close this tab" page.
+// The per-recipient tracked link is public by design: the token is the secret.
 http.route({
   pathPrefix: '/l/',
   method: 'GET',
@@ -202,8 +173,7 @@ http.route({
   }),
 });
 
-// Connectors: where the provider (or a callback dispatcher, OAUTH_CALLBACK_BASE) sends the browser back with the code.
-// The code is exchanged here; the browser then lands on the integrations page, which claims the account.
+// Where the provider, or a callback dispatcher (OAUTH_CALLBACK_BASE), sends the browser back: the code is exchanged here, the integrations page claims the account.
 http.route({
   path: '/connectors/callback',
   method: 'GET',
@@ -265,13 +235,7 @@ const formJson = (body: unknown, status: number) =>
     headers: { 'Content-Type': 'application/json', ...FORM_CORS },
   });
 
-/**
- * Public capture-form surface, all under /forms/:
- * - GET  /forms/<id>          — standalone page (iframe embedding)
- * - GET  /forms/<id>/embed.js — the injectable script for external pages
- * - GET  /forms/<id>/def      — render payload (rate-limited per IP)
- * - POST /forms/<id>/submit   — submission (rate-limited per IP)
- */
+// The public capture-form surface: the page for an iframe, the script for an external page, and the definition the two render.
 http.route({
   pathPrefix: '/forms/',
   method: 'GET',
@@ -459,12 +423,7 @@ http.route({
 extensions.registerHttpRoutes(http);
 registerApiRoutes(http);
 
-// Registers Better Auth's HTTP routes (e.g. /api/auth/callback/<provider>).
-// `cors: true` emits CORS headers (Access-Control-Allow-Origin from
-// `trustedOrigins`, credentials allowed) so the SPA — served from a different
-// origin than this `.convex.site` deployment — can call `/api/auth/*` (e.g.
-// `signIn.social`). Allowed origins come from `createAuth`'s `trustedOrigins`
-// (driven by the SITE_URL env var).
+// `cors: true` lets the SPA, served from another origin than this deployment, call `/api/auth/*`; the allowed origins are the `trustedOrigins` of `createAuth`.
 authComponent.registerRoutes(http, createAuth, { cors: true });
 
 export default http;

@@ -1,15 +1,6 @@
 import type { PropertyOption, PropertyValidation, PropertyValue } from './properties';
 
-/**
- * Backend registry of the custom-property types: one descriptor per type,
- * holding everything the server needs to know about it. `propertyTypeValidator`
- * is derived from {@link PROPERTY_TYPE_KEYS}, and `Record<PropertyType, …>`
- * makes a missing descriptor a type error. Pure and dependency-free: shared
- * with the frontend (labels, inputs, formatters live in
- * `src/features/properties/lib/propertyTypes.tsx`, keyed the same way).
- *
- * Adding a type = one key here + one descriptor here + one descriptor there.
- */
+/** Adding a type takes one key and one descriptor here, and one descriptor in `src/features/properties/lib/propertyTypes.tsx`; keep this file dependency-free, the frontend imports it. */
 export const PROPERTY_TYPE_KEYS = [
   'text',
   'number',
@@ -30,10 +21,7 @@ export interface PropertyTypeDescriptor {
   rules: readonly PropertyRuleKey[];
   /** The value is chosen from the definition's `options`. */
   optionBased: boolean;
-  /**
-   * The stored shape: returns the cleaned value, or `undefined` to drop a
-   * malformed / empty one. Runs before `validate`.
-   */
+  /** Runs before `validate`: the cleaned value, or `undefined` to drop a malformed or empty one. */
   sanitize: (value: unknown, def: { options?: PropertyOption[] }) => PropertyValue | undefined;
   /** Rule and format checks on a sanitized, non-empty value; French message or null. */
   validate: (value: PropertyValue, rules: PropertyValidation) => string | null;

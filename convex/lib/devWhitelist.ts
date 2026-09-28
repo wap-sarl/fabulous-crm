@@ -1,18 +1,4 @@
-/**
- * Dev whitelist for email and SMS sending.
- *
- * When the whitelist string is undefined or empty,
- * all sends go through (production behavior).
- * When set, only matching recipients are allowed; others are blocked.
- */
-
-/**
- * Checks if an email is allowed to receive messages.
- * Supports exact matches (case-insensitive) and domain wildcards (*@domain.fr).
- *
- * @param email - The email address to check.
- * @param whitelist - Comma-separated list of allowed emails/domains (from env var).
- */
+/** An empty whitelist lets every send through, which is production; an entry is an exact address, case-insensitive, or a domain wildcard (*@domain.fr). */
 export function isEmailWhitelisted(email: string, whitelist: string | undefined): boolean {
   if (!whitelist) return true;
 
@@ -28,13 +14,7 @@ export function isEmailWhitelisted(email: string, whitelist: string | undefined)
   });
 }
 
-/**
- * Checks if a phone number is allowed to receive SMS.
- * Exact match only (after trimming whitespace).
- *
- * @param phone - The phone number to check.
- * @param whitelist - Comma-separated list of allowed phone numbers (from env var).
- */
+/** An empty whitelist lets every SMS through; a number matches exactly, the format is not normalised. */
 export function isPhoneWhitelisted(phone: string, whitelist: string | undefined): boolean {
   if (!whitelist) return true;
 

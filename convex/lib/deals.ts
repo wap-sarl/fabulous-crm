@@ -191,11 +191,7 @@ export type NewDeal = {
   stageComment?: string;
 };
 
-/**
- * Insert a deal in its pipeline stage (default pipeline / first open stage
- * when unset), log the initial history row, audit it when a user is behind
- * it, and fire `deal_created` (+ won/lost when created directly closed).
- */
+/** Without a pipeline or a stage, the default pipeline and its first open stage; a deal created directly closed fires won or lost after `deal_created`. */
 export async function createDealRecord(
   ctx: MutationCtx,
   data: NewDeal,

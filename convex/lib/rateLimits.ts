@@ -1,20 +1,4 @@
-/**
- * Rate limiting for the public surfaces (#17), backed by the
- * @convex-dev/rate-limiter component. One shared utility — every current and
- * future public route opts in with a single `enforceRateLimit` call.
- *
- * Keying strategy per surface:
- * - HTTP actions see a client IP (x-forwarded-for, set by Convex's edge) —
- *   per-IP limits work there.
- * - Public mutations/queries have NO request context, so per-IP is impossible;
- *   they use per-resource keys (the consent token) plus a small global bucket
- *   on invalid-token attempts as an enumeration guard. The 24-byte random
- *   token space already makes enumeration cryptographically infeasible — the
- *   global bucket bounds the write/log noise, not the search space.
- * - Better Auth's /api/auth/* routes use its built-in per-IP limiter
- *   (configured in convex/auth.ts, persisted in the component's rateLimit
- *   table); the per-email OTP budget below complements it.
- */
+/** HTTP actions are limited per client IP; public mutations and queries have no request context, so they are keyed per resource, with a global bucket bounding the noise of invalid tokens. */
 import { HOUR, MINUTE, RateLimiter } from '@convex-dev/rate-limiter';
 import { components } from '../_generated/api';
 import { TRACK_TOTAL_PER_MINUTE } from '../_lib/validators/tracking';
@@ -70,11 +54,7 @@ type LimitName =
   | 'trackVisitor'
   | 'trackTotal';
 
-/**
- * Consume `count` units (one by default) of `name` for `key`. Returns false — and logs the overrun —
- * when the limit is exhausted; the caller decides the refusal shape (429, error
- * code…). Works from mutations, actions, and HTTP actions.
- */
+/** False, with the overrun logged, when the limit is exhausted: the caller decides the shape of the refusal. */
 export async function enforceRateLimit(
   ctx: Parameters<(typeof rateLimiter)['limit']>[0],
   name: LimitName,
@@ -109,12 +89,7 @@ export async function consumeRateLimit(
   return { ok, retryAfterMs };
 }
 
-/**
- * Client IP for HTTP actions: first entry of x-forwarded-for, which Convex's
- * edge sets from the connecting address. Only that platform-set header is
- * trusted — anything else a client could spoof. Falls back to a shared bucket
- * key when absent (local dev).
- */
+/** Only x-forwarded-for is trusted, as Convex's edge sets it from the connecting address and a client could spoof anything else; absent in local dev, all share one key. */
 export function clientIpOf(request: Request): string {
   const forwarded = request.headers.get('x-forwarded-for');
   return forwarded?.split(',')[0]?.trim() || 'unknown';

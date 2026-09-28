@@ -1,9 +1,4 @@
-/**
- * Rate limiting on the public surfaces (#17): per-token consent updates, the
- * global invalid-token enumeration guard, and the per-IP tracked-link route.
- * (The per-email OTP budget and Better Auth's per-IP limiter ride the same
- * component but need the full auth flow — covered by manual verification.)
- */
+/** The per-email OTP budget and Better Auth's per-IP limiter are not covered here: they need the full auth flow and are verified by hand. */
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';

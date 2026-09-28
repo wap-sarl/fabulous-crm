@@ -50,14 +50,7 @@ export const getPublicForm = internalQuery({
   },
 });
 
-/*
- * What a public submission may do, the address being nobody's proof of anything:
- * - an unknown e-mail (or none) creates a contact, with the e-mail consent the person ticked (single opt-in);
- * - a known live contact is only completed: empty fields filled, nothing overwritten, no consent recorded, no
- *   property or consent trigger; `form_submitted` is the one trigger a form fires on it, and the submission
- *   counter moves only when the browser is the one that created the contact (its visitor token);
- * - a deleted contact is a stranger: a new one is created, the deleted stays in the trash.
- */
+/** An address proves nothing: a known contact is only completed (nothing overwritten, no consent recorded); an unknown or deleted one creates a contact, with the e-mail consent the person ticked. */
 export const submitForm = internalMutation({
   args: {
     formId: v.string(),
@@ -112,8 +105,7 @@ export const submitForm = internalMutation({
     const workflows = await loadActiveWorkflows(ctx);
     const email = normalizeEmail(standard.email);
     const emailMatch = email ? await findLiveLeadByEmail(ctx, email) : null;
-    // The browser's token names a contact only on a form that asks for an e-mail (a skipped one is a known one),
-    // and never against another address: a shared computer or a stranger typing is someone else.
+    // The browser's token names a contact only on a form asking for an e-mail, never against another address: a shared computer is someone else.
     const visitorUsable =
       !!visitorLead &&
       hasEmailField(form) &&

@@ -80,9 +80,7 @@ function VerifiedRPPSInput({
       .catch((err) => {
         if (controller.signal.aborted) return;
         clearTimeout(timeoutId);
-        // Surface the failure instead of swallowing it — a rejected verify (auth,
-        // network, server error) must render an error card, not leave the user
-        // with no feedback at all.
+        // A rejected verify (auth, network, server error) must render an error card, not leave the user without feedback.
         console.error('RPPS verification failed', err);
         setLast({
           kind: 'result',

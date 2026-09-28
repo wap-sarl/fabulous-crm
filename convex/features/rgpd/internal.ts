@@ -17,10 +17,7 @@ import {
 } from '../../lib/retention';
 import { loadVisibility, moduleAllows } from '../../lib/visibility';
 
-/**
- * Whether the signed-in employee may export this contact, for the action, which has no db: the settings switch,
- * and the lead within the role's perimeter (a custom role may hold settings with leads at own, team or none).
- */
+/** For the export action, which has no db: the settings switch is not enough, a custom role may hold settings with leads at own, team or none. */
 export const exportAccessOf = internalQuery({
   args: { authId: v.string(), leadId: v.id('leads') },
   returns: v.union(v.object({ userId: v.id('users'), visible: v.boolean() }), v.null()),
@@ -305,11 +302,7 @@ async function eraseAuditOf(
   return erased;
 }
 
-/**
- * One step of an erasure: the audit trail of what goes, then everything the contact owns (the retention
- * cascade, one budgeted page), then the contact's own audit rows, then the contact; a step that cannot finish
- * schedules the next. What stays is one anonymised audit row and the request.
- */
+/** One budgeted step of an erasure, which schedules the next when it cannot finish; what stays is one anonymised audit row and the request. */
 export const eraseStep = internalMutation({
   args: { leadId: v.id('leads'), requestId: v.id('rgpdRequests'), userId: v.id('users') },
   returns: v.null(),
@@ -381,10 +374,7 @@ export const eraseStep = internalMutation({
 /** A step that threw leaves its request in progress with nothing scheduled; past this age it is taken up again. */
 export const ERASURE_STALL_MS = 15 * 60_000;
 
-/**
- * Hourly: Convex does not retry a mutation that threw, so an erasure whose step failed (a blob provider error, a
- * limit) would stay in progress for ever. The step is idempotent: scheduling it again is all it takes.
- */
+/** Convex does not retry a mutation that threw, so a failed erasure would stay in progress for ever; the step is idempotent, scheduling it again is enough. */
 export const resumeStalledErasures = internalMutation({
   args: {},
   returns: v.number(),

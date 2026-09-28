@@ -197,8 +197,7 @@ export function WorkflowEditorPage() {
       if (status !== 'active') {
         await setWorkflowStatus({ workflowId: id, status: 'active' });
       }
-      // The re-enroll runs as a scheduled batch chain server-side; progress is
-      // shown live on the workflow detail page we navigate to.
+      // The re-enroll runs as a scheduled batch chain on the server; the detail page shows its progress live.
       await reenrollMatchingLeads({ workflowId: id });
       toast.success('Réinscription lancée — suivez la progression sur la page du workflow.');
       navigate(`/workflows/${id}`);

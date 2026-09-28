@@ -34,11 +34,7 @@ export function usePublicConfig() {
   return ctx;
 }
 
-/**
- * Exposes the pre-auth public config (setup state + enabled login methods) to
- * the setup gate and login page. Reactive: when setup completes in another tab,
- * every consumer re-renders.
- */
+/** The public config is readable before sign-in, and reactive: when setup completes in another tab, every consumer re-renders. */
 export function PublicConfigProvider({ children }: { children: ReactNode }) {
   const config = useQuery(api.features.config.queries.getPublicConfig);
   return <ConfigContext.Provider value={{ config }}>{children}</ConfigContext.Provider>;

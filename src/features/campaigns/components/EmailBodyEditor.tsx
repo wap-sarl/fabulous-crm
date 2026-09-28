@@ -44,11 +44,7 @@ interface Props {
 const escapeHtml = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/**
- * WYSIWYG editor for composing the HTML body of a custom email campaign.
- * Controlled via `value` (HTML) / `onChange`. Output is TipTap's semantic HTML;
- * it is wrapped in an email shell and placeholder-substituted at send time.
- */
+/** The output is TipTap's semantic HTML: the email shell and the placeholder substitution are applied at send time. */
 export function EmailBodyEditor({
   value,
   onChange,

@@ -5,12 +5,7 @@ import { VerifiedSIRETInput, type SiretVerificationResult } from '@crm/design-sy
 import type { SiretCompanyCardCompareTo, SiretCompanyData } from '@crm/design-system';
 import { registerCountryInput, type CountryInputProps } from './registry';
 
-/**
- * `companyRegistrationNumber` — the national business identifier of a company.
- * France gets the SIRET input with the live Sirene lookup; every other country
- * falls back to the registry's plain input, labelled by the scheme
- * (`registrationSchemeFor` from convex/_lib/validators/companyRegistry.ts).
- */
+/** The national business identifier: France gets the SIRET input with the Sirene lookup, every other country the registry's plain input. */
 export const COMPANY_REGISTRATION_INPUT = 'companyRegistrationNumber';
 
 /** Context keys the SIRET input understands (all optional). */

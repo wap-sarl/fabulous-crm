@@ -9,10 +9,6 @@ interface SparklineProps {
   className?: string;
 }
 
-/**
- * Tiny trend polyline, no axes. Renders a muted "Pas encore de données"
- * placeholder when fewer than 2 points are provided.
- */
 function Sparkline({
   points,
   width = 132,

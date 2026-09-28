@@ -8,11 +8,7 @@ export interface CountryInputProps {
   invalid?: boolean;
   disabled?: boolean;
   placeholder?: string;
-  /**
-   * Free-form context a specific input may use (e.g. the surrounding form's
-   * address to compare against registry data, or a callback to prefill it).
-   * Inputs must degrade gracefully when a key is absent.
-   */
+  /** Free-form context for a specific input; an input must degrade gracefully when a key is absent. */
   context?: Record<string, unknown>;
 }
 

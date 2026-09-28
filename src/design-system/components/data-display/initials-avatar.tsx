@@ -36,9 +36,6 @@ interface InitialsAvatarProps extends React.HTMLAttributes<HTMLSpanElement> {
   size?: number;
 }
 
-/**
- * Circular initials avatar tinted from an 8-color palette, stable per name.
- */
 function InitialsAvatar({ name, size = 36, className, style, ...props }: InitialsAvatarProps) {
   const { bg, fg } = AVATAR_PALETTE[hashName(name) % AVATAR_PALETTE.length];
   return (

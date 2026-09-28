@@ -27,8 +27,7 @@ function luhnValid(digits: string): boolean {
   return sum % 10 === 0;
 }
 
-// La Poste's SIREN is the documented exception to the SIRET Luhn rule: its
-// establishments validate when the plain digit sum is a multiple of 5.
+// La Poste is the documented exception to the SIRET Luhn rule: its establishments are valid when the plain digit sum is a multiple of 5.
 const LA_POSTE_SIREN = '356000000';
 
 /** France — SIREN (9 digits) or SIRET (14 digits), Luhn-checked. */
@@ -140,12 +139,7 @@ const VAT_PLACEHOLDERS: Record<string, string> = {
   GB: 'GB123456789',
 };
 
-/**
- * VAT number scheme for a country. Stored upper-cased without separators,
- * including the country prefix. Where jsvat knows the country, the number
- * must be a valid format AND checksum for THAT country (a Belgian number on a
- * French company is refused); elsewhere any short identifier is accepted.
- */
+/** Where jsvat knows the country, the number must pass that country's format and checksum (a Belgian number on a French company is refused); elsewhere any short identifier is accepted. */
 export function vatSchemeFor(country: string | undefined): VatScheme {
   const code = normalizeCountryCode(country);
   const known = jsvatByCountry.get(code);

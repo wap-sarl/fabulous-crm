@@ -4,11 +4,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { countLiveLeadsByOwner } from '../../convex/lib/leadAggregates';
 import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 
-/**
- * Two teams: Nord (manager Marc + rep Nina) and Sud (rep Sam). Leads owned by
- * each rep, one co-owned, one unowned. The admin sees everything, the member
- * sees everything, Marc (manager of Nord) sees Nord's records and the pool.
- */
+/** Nord has manager Marc and rep Nina, Sud has rep Sam; each rep owns a lead, one is co-owned, one unowned: Marc sees Nord's records and the pool. */
 async function setup() {
   const t = createTestConvex();
   const admin = await seedEmployee(t, {
@@ -163,8 +159,7 @@ describe('visibility', () => {
       {},
     );
     expect(adminCounts.total).toBe(4);
-    // Marc: Nina's lead + the pool. The co-owned lead's primary owner is Sam,
-    // so it is visible but counted under Sam — the documented primary-owner rule.
+    // Marc counts Nina's lead and the pool: the co-owned lead is visible to him but counted under Sam, its primary owner.
     const marcCounts = await asMarc.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
     expect(marcCounts.total).toBe(2);
     expect(marcCounts.byStage.lead).toBe(2);

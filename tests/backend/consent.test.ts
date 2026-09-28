@@ -2,11 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 
-/**
- * Public consent surface: `updateConsentByToken` is deliberately unauthenticated
- * (the token is the secret) and the ONLY writer of marketingConsent — employee
- * mutations must not accept it.
- */
+/** `updateConsentByToken` is unauthenticated on purpose (the token is the secret) and the only writer of marketingConsent: employee mutations must not accept it. */
 describe('updateConsentByToken', () => {
   test('a valid token sets the channels, source, and timestamp', async () => {
     const t = createTestConvex();

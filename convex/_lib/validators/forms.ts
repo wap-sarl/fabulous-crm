@@ -35,8 +35,7 @@ export const formFieldTargetValidator = v.union(
   v.object({ kind: v.literal('custom'), propertyDefId: v.id('propertyDefinitions') }),
 );
 
-/** One input of the form. Display order is the array order. */
-/** A field as the builder sends it; the server gives it its public key. */
+/** A field as the builder sends it, in display order; the server gives it its public key. */
 export const formFieldInputValidator = v.object({
   target: formFieldTargetValidator,
   label: v.string(),
@@ -66,10 +65,7 @@ function slugifyFieldKey(label: string): string {
   return slug || 'champ';
 }
 
-/**
- * Keys for the fields of a form about to be saved: a field keeps the key it had for the same target, so
- * stored submissions stay readable; a new one gets its label's slug, suffixed until unique.
- */
+/** A field keeps the key it had for the same target, so stored submissions stay readable; a new one gets its label's slug, suffixed until unique. */
 export function assignFieldKeys<F extends { target: FormFieldTarget; label: string }>(
   fields: F[],
   previous: { target: FormFieldTarget; key: string }[] = [],
@@ -102,11 +98,7 @@ export const formValidator = v.object({
   active: v.boolean(),
 });
 
-/**
- * One public submission. `values` is keyed by the field key
- * ({@link formFieldKey}); `ipHash` is a salted SHA-256 of the client IP —
- * enough to correlate abuse, never the raw address (GDPR).
- */
+/** `values` is keyed by the fields' public keys; `ipHash` is a salted SHA-256 of the client IP: enough to correlate abuse, never the raw address (GDPR). */
 export const formSubmissionValidator = v.object({
   formId: v.id('forms'),
   leadId: v.id('leads'),
@@ -115,12 +107,7 @@ export const formSubmissionValidator = v.object({
   userAgent: v.optional(v.string()),
 });
 
-/**
- * The browser-side identity behind progressive profiling: the embed stores the
- * token (localStorage) after a submission; later renders send it back so the
- * form can skip the fields the lead already filled. Maps to the lead — never
- * exposes lead data itself.
- */
+/** Progressive profiling: the embed stores the token after a submission and sends it back so the form skips the fields already filled; it maps to the lead and never exposes lead data. */
 export const formVisitorTokenValidator = v.object({
   token: v.string(),
   leadId: v.id('leads'),
@@ -138,10 +125,7 @@ export function formFieldKey(target: FormFieldTarget): string {
   return target.kind === 'standard' ? `std:${target.field}` : `cp:${target.propertyDefId}`;
 }
 
-/**
- * Structural validation of a form's editable shape. Returns an error code, or
- * null. Custom-property existence is checked by the mutations (needs the db).
- */
+/** Structural checks only: whether a custom property exists needs the db, so the mutations check it. */
 export function validateFormShape(form: {
   name: string;
   fields: FormFieldInput[];

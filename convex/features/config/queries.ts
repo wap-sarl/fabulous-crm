@@ -14,12 +14,7 @@ import {
   DEFAULT_ATTACHMENT_RETENTION_DAYS,
 } from '../../_lib/validators/attachments';
 
-/**
- * Public, pre-auth config the login page and setup gate rely on. Returns an
- * explicit allowlist only — NEVER client secrets, issuer URLs, or allowed
- * domains. `clientId` is public by OAuth design but we don't even need it here
- * (the auth URL is built via an action), so only `id`/`label` are exposed.
- */
+/** Public and pre-auth: an explicit allowlist only, never client secrets, issuer URLs or allowed domains; of a provider only `id` and `label` are exposed. */
 export const getPublicConfig = query({
   args: {},
   handler: async (ctx) => {
@@ -30,23 +25,16 @@ export const getPublicConfig = query({
       ...(await extensions.publicConfig(ctx)),
       setupComplete,
       organizationName: cfg?.organizationName ?? 'CRM',
-      // Resolved, short-lived URLs for the custom branding (null when unset).
-      // Public so the login page + runtime favicon can render pre-auth.
+      // Short-lived URLs, public so the login page and the runtime favicon can render before sign-in.
       logoUrl: cfg?.logoStorageId ? await ctx.storage.getUrl(cfg.logoStorageId) : null,
       faviconUrl: cfg?.faviconStorageId ? await ctx.storage.getUrl(cfg.faviconStorageId) : null,
       // Brand accent color; null when unset so the client keeps the theme default.
       primaryColor: cfg?.primaryColor ?? null,
-      // Origin where Better Auth's HTTP routes are served (`.convex.site`), used
-      // to build the OAuth callback URLs shown in the setup wizard. Null if the
-      // deployment hasn't injected it yet (shouldn't happen on a live backend).
+      // The origin serving Better Auth's routes (`.convex.site`): the setup wizard builds the OAuth callback URLs it shows from it.
       authCallbackBaseUrl: process.env.CONVEX_SITE_URL ?? null,
       auth: {
         magicLink: cfg?.auth.magicLinkEnabled ?? true,
-        // Well-known providers handled by Better Auth. The full catalog is
-        // returned with a `configured` flag derived from the DB (enabled + both
-        // credentials present) so the wizard can show status + callback for each;
-        // the login page renders a button only for configured ones. Secrets are
-        // never exposed — only the boolean.
+        // The whole catalog with a `configured` flag, never the secrets: the wizard shows each provider's status, the login page a button for the configured ones.
         socialProviders: SOCIAL_PROVIDERS.map((p) => {
           const sp = cfg?.auth.socialProviders?.find((s) => s.id === p.key);
           return {
@@ -55,10 +43,7 @@ export const getPublicConfig = query({
             configured: !!sp?.enabled && !!sp.clientId && !!sp.clientSecret,
           };
         }),
-        // Custom OIDC/SSO issuers handled by Better Auth's generic-oauth plugin,
-        // configured in the DB (setup wizard / settings) just like social ones.
-        // The login page renders a button per enabled provider. Callback:
-        // `<authCallbackBaseUrl>/api/auth/oauth2/callback/<id>`. Secrets excluded.
+        // Custom SSO issuers, secrets excluded; their callback is `<authCallbackBaseUrl>/api/auth/oauth2/callback/<id>`.
         customSsoProviders: (cfg?.auth.ssoProviders ?? [])
           .filter((p) => p.enabled)
           .map((p) => ({ id: p.providerId, label: p.label })),
@@ -67,10 +52,7 @@ export const getPublicConfig = query({
   },
 });
 
-/**
- * Admin-facing config for a settings screen. Secrets are replaced by boolean
- * presence flags; the real values never leave the server.
- */
+/** For the settings screen: secrets are replaced by presence flags, the real values never leave the server. */
 export const getAdminConfig = settingsQuery({
   args: {},
   handler: async (ctx) => {
@@ -93,9 +75,7 @@ export const getAdminConfig = settingsQuery({
       tracking: trackingConfigOf(cfg),
       auth: {
         magicLinkEnabled: cfg.auth.magicLinkEnabled,
-        // Full social-provider catalog, each merged with its stored credentials.
-        // The secret is replaced by a presence flag; the real value never leaves
-        // the server. Providers never configured show empty clientId + disabled.
+        // The whole catalog, so a provider never configured shows an empty clientId, disabled.
         socialProviders: SOCIAL_PROVIDERS.map((p) => {
           const sp = cfg.auth.socialProviders?.find((s) => s.id === p.key);
           return {
@@ -106,8 +86,6 @@ export const getAdminConfig = settingsQuery({
             enabled: sp?.enabled ?? false,
           };
         }),
-        // Custom SSO issuers (Better Auth generic-oauth). Secret → presence flag;
-        // the real value never leaves the server.
         ssoProviders: (cfg.auth.ssoProviders ?? []).map((p) => ({
           providerId: p.providerId,
           label: p.label,
@@ -131,9 +109,7 @@ export const getAdminConfig = settingsQuery({
           redirectUri: redirectUriOrNull(),
         };
       }),
-      // Email/SMS delivery config. Secrets → presence flags (env fallback folded
-      // in so a pre-migration deployment reads as "configured"); the real values
-      // never leave the server. `smsAvailable` is derived from Brevo credentials.
+      // The presence flags fold in the env fallback, so a deployment not migrated yet reads as configured.
       email: (() => {
         const e = cfg.email;
         const brevo = emailPresence(cfg);
@@ -159,11 +135,7 @@ export const getLifecycleConfig = employeeQuery({
   handler: async (ctx) => await loadLifecycleConfig(ctx),
 });
 
-/**
- * Lightweight, non-secret email capabilities for the campaign composer (used by
- * employees, not just admins). Tells the UI which channels/features are usable
- * so it can disable Brevo-only options under SMTP.
- */
+/** Open to every employee, so nothing secret: the campaign composer uses it to disable the Brevo-only options under SMTP. */
 export const getEmailCapabilities = employeeQuery({
   args: {},
   handler: async (ctx) => {

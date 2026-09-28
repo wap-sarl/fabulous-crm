@@ -28,8 +28,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
     }
   };
 
-  // Current wizard draft for a social provider, merged with the catalog entry
-  // (id/label) so a never-touched provider still renders empty inputs.
+  // Falls back to the catalog entry, so a provider never touched still renders empty inputs.
   const socialDraftFor = (id: string, label: string): SocialDraft =>
     data.socialProviders.find((s) => s.id === id) ?? {
       id,
@@ -78,12 +77,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
         />
       </div>
 
-      {/*
-        Well-known social providers (Google, Microsoft, …) handled by Better
-        Auth. Credentials are stored in the database and resolved by createAuth at
-        request time. Enable a provider and paste its CLIENT_ID / CLIENT_SECRET,
-        then copy the callback URL into the provider's console.
-      */}
+      {/* Social provider credentials are stored in the database and resolved by createAuth at request time. */}
       <div className="space-y-3">
         <div>
           <p className="font-medium text-ink">Fournisseurs sociaux (Better Auth)</p>
@@ -160,13 +154,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
         })}
       </div>
 
-      {/*
-        Custom SSO issuers via Better Auth's generic-oauth plugin — the exact
-        custom-provider analogue of a social provider. Credentials are stored in
-        the database (like social) and resolved by createAuth at request time.
-        Add an issuer, paste its CLIENT_ID / CLIENT_SECRET, then copy the callback
-        URL (built from the providerId slug) into the provider's console.
-      */}
+      {/* Custom SSO issuers go through Better Auth's generic-oauth plugin; the callback URL is built from the providerId slug. */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
@@ -228,8 +216,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                     onChange={(e) =>
                       setSso(index, {
                         label: e.target.value,
-                        // Keep the slug in sync with the label until the user
-                        // overrides the slug directly (the callback path depends on it).
+                        // The slug follows the label until the user overrides it: the callback path depends on it.
                         providerId:
                           provider.providerId && provider.providerId !== slugify(provider.label)
                             ? provider.providerId

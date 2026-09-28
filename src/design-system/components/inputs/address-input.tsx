@@ -10,8 +10,7 @@ import { Input } from './input';
 import { Label } from './label';
 import { Switch } from './switch';
 
-/** Structured address. `street` holds the raw text while typing; the other fields are
- *  filled from the selected suggestion and stay individually editable. */
+/** `street` holds the raw text while typing; the other fields are filled from the selected suggestion and stay individually editable. */
 export interface AddressValue {
   streetNumber: string;
   street: string;
@@ -70,10 +69,6 @@ const DEFAULT_PLACEHOLDERS: Record<AddressFieldKey, string> = {
 const INPUT_BASE =
   'flex h-9.5 w-full rounded-lg border border-input bg-card px-3 py-2 text-base placeholder:text-placeholder focus-visible:outline-none focus-visible:border-primary focus-visible:ring-[3px] focus-visible:ring-primary-soft disabled:cursor-not-allowed disabled:opacity-50 md:text-sm';
 
-// ---------------------------------------------------------------------------
-// Google Places (New) REST provider
-// ---------------------------------------------------------------------------
-
 export interface GooglePlacesProviderOptions {
   apiKey: string;
   /** BCP-47 language for results. Defaults to 'fr'. */
@@ -102,14 +97,7 @@ interface GoogleAddressComponent {
   types?: string[];
 }
 
-/**
- * Build a Google Places (New) provider pair for {@link AddressInput}.
- *
- * Calls run from the browser with the key in the `X-Goog-Api-Key` header, so the key
- * must be restricted by HTTP referrer in the Google Cloud console. A session token is
- * reused across the autocomplete calls and the final details call of one selection,
- * then reset — this is what Google bills as a single session.
- */
+/** The key travels from the browser, so it must be restricted by HTTP referrer; one token covers the autocomplete and details calls of a selection, which Google bills as one session. */
 export function createGooglePlacesProvider({
   apiKey,
   languageCode = 'fr',
@@ -202,10 +190,6 @@ export function createGooglePlacesProvider({
   return { fetchSuggestions, resolveDetails };
 }
 
-// ---------------------------------------------------------------------------
-// BAN (Base Adresse Nationale) provider — French government address API
-// ---------------------------------------------------------------------------
-
 export interface BanAddressProviderOptions {
   /** Max suggestions per query. Defaults to 5. */
   limit?: number;
@@ -226,14 +210,7 @@ interface BanFeature {
   };
 }
 
-/**
- * Build an address provider pair for {@link AddressInput} backed by the French
- * {@link https://adresse.data.gouv.fr/api-doc/adresse Base Adresse Nationale}.
- *
- * Free, keyless and France-only. A single `search` request returns fully
- * structured results, so suggestions are cached by their BAN id and the
- * details resolver is an instant lookup — no second network call.
- */
+/** The Base Adresse Nationale is free, keyless and France-only; a search returns structured results, so they are cached by BAN id and the details cost no second call. */
 export function createBanAddressProvider({ limit = 5 }: BanAddressProviderOptions = {}): {
   fetchSuggestions: AddressSuggestionsProvider;
   resolveDetails: AddressDetailsResolver;
@@ -278,10 +255,6 @@ export function createBanAddressProvider({ limit = 5 }: BanAddressProviderOption
 
   return { fetchSuggestions, resolveDetails };
 }
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
 
 interface AddressInputProps {
   value: AddressValue;
@@ -366,12 +339,9 @@ function AddressInput({
   const [suggestions, setSuggestions] = React.useState<AddressSuggestion[]>([]);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isResolving, setIsResolving] = React.useState(false);
-  // Collapsed by default: only the autocomplete input shows until the user flips the
-  // "Je ne trouve pas mon adresse" switch, which reveals the manual fields.
+  // Collapsed by default: only the autocomplete input shows until the switch reveals the manual fields.
   const [manualEntry, setManualEntry] = React.useState(false);
-  // `query` is the full-address search text — a UI-only concern, never persisted into
-  // `value.street`. `editing` distinguishes "typing a search query" from "showing the
-  // picked address" so the collapsed input can render the one-line address when idle.
+  // `query` is the search text, never persisted into `value.street`; `editing` tells typing a query from showing the picked address.
   const [query, setQuery] = React.useState('');
   const [editing, setEditing] = React.useState(false);
   const wrapperRef = React.useRef<HTMLDivElement>(null);
@@ -423,8 +393,7 @@ function AddressInput({
   const isInvalid = (key: AddressFieldKey) =>
     typeof invalid === 'boolean' ? invalid : !!invalid?.[key];
 
-  // If autocomplete left required detail fields invalid (e.g. free text, no suggestion
-  // picked), reveal the manual fields so the user can fix them.
+  // Detail fields left invalid by the autocomplete, as with free text, reveal the manual fields so the user can fix them.
   const detailInvalid =
     isInvalid('streetNumber') ||
     isInvalid('street') ||
@@ -519,13 +488,9 @@ function AddressInput({
                       }}
                       onBlur={() => setEditing(false)}
                       placeholder={searchPlaceholder}
-                      // In manual-entry mode the split fields below take over, so the
-                      // API-connected search is disabled.
+                      // In manual entry the split fields below take over, so the search is disabled.
                       disabled={disabled || manualEntry}
-                      // `autocomplete="off"` is ignored by Chrome on address-labelled
-                      // fields — its saved-address dropdown would cover our suggestion
-                      // list. `new-password` reliably suppresses it (no password UI on a
-                      // text input); the data-* attrs opt out of 1Password/LastPass.
+                      // Chrome ignores `autocomplete="off"` on address fields and would cover the suggestions; `new-password` suppresses it, the data-* attributes opt out of 1Password and LastPass.
                       autoComplete="new-password"
                       data-1p-ignore
                       data-lpignore="true"
