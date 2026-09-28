@@ -372,7 +372,7 @@ bun run dev
 | `bun run codegen` | régénère `convex/_generated` (commité) |
 | `bun run openapi` | régénère `convex/lib/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
 | `bun run lint` | Biome : format et règles ; un avertissement fait échouer la commande |
-| `bun run unused` | knip : exports, types, fichiers et dépendances inutilisés (`knip.ts`) |
+| `bun run unused` | knip : le rapport des exports, types, fichiers et dépendances inutilisés (`knip.ts`). Un état des lieux tant que le nettoyage (#110) n'est pas fait, donc hors CI. Ce qu'une surcouche importe est listé dans `tests/*/extensionSurface.test.ts` et compte comme utilisé |
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
 
