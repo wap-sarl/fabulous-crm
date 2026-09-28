@@ -28,7 +28,7 @@ import { components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import { leadSearchText } from '../../convex/lib/leadSearch';
 import schema from '../../convex/schema';
-import { onTestEnd } from '../support/backends';
+import { onTestEnd } from '../support/teardown';
 
 export { pinClock, runAfter, runAll, runDue } from '../support/clock';
 

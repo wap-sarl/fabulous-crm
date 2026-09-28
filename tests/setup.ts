@@ -1,5 +1,5 @@
 import { afterEach, jest } from 'bun:test';
-import { closeBackends } from './support/backends';
+import { closeBackends } from './support/teardown';
 import { refuseNetwork, takeRefused } from './support/network';
 
 globalThis.fetch = refuseNetwork;
