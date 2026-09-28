@@ -84,6 +84,7 @@ type Counts = {
 
 const fmt = new Intl.NumberFormat('fr-FR');
 const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
 const count = (n: number, capped: boolean) => (capped ? `Plus de ${fmt.format(n)}` : fmt.format(n));
 
 /** « Suivi web »: the switch, the sites, the mode, the retention, the snippet. */
@@ -307,7 +308,9 @@ export function TrackingPage() {
             accepte et <code>window.wapTrack.consent(false)</code> quand il se ravise.
           </p>
           {settings.ceilingHitAt !== undefined && (
-            <HelperText variant="error">
+            <HelperText
+              variant={Date.now() - settings.ceilingHitAt < RECENT_MS ? 'error' : undefined}
+            >
               Le plafond de {fmt.format(TRACK_TOTAL_PER_MINUTE)} pages vues par minute a été atteint
               le {DATE_FMT.format(settings.ceilingHitAt)} : des pages vues n’ont pas été
               enregistrées.
