@@ -63,8 +63,7 @@ function SecretField({
   );
 }
 
-/** The "use this provider for e-mail" switch. The two are mutually exclusive:
- *  turning one on turns the other off (email `provider` is a single value). */
+/** The two providers are mutually exclusive: the email `provider` is a single value, so turning one on turns the other off. */
 function EmailEnableToggle({
   label,
   checked,
@@ -126,9 +125,7 @@ function EmailManager() {
 
   const email = config?.email;
 
-  // Seed the draft from the persisted config once it loads. Secrets start empty
-  // (write-only) — an untouched field is sent as undefined and the stored value
-  // is preserved server-side.
+  // Secrets are write-only and start empty: an untouched field is sent as undefined and the server keeps the stored value.
   useEffect(() => {
     if (!config || draft) return;
     setDraft({
@@ -211,8 +208,7 @@ function EmailManager() {
 
   const isSmtp = draft.provider === 'smtp';
 
-  // One Save persists the whole config, so it lives outside the tabs and applies
-  // to both providers' settings at once.
+  // One save persists the whole config, so it lives outside the tabs.
   const saveRow = (
     <div className="flex items-center gap-3">
       <Button onClick={handleSave} loading={busy}>
@@ -233,8 +229,7 @@ function EmailManager() {
 
   return (
     <div className="space-y-6">
-      {/* Sender identity — the "From" for every e-mail (campaigns, invitations,
-          sign-in), independent of the provider below. */}
+      {/* The sender is the "From" of every e-mail, whatever the provider below. */}
       <Card className="space-y-5 p-6">
         <div>
           <h2 className="text-sm font-semibold text-ink">Expéditeur des e-mails</h2>
@@ -273,8 +268,7 @@ function EmailManager() {
           <TabsTrigger value="smtp">SMTP</TabsTrigger>
         </TabsList>
 
-        {/* BREVO TAB — the Brevo account (key entered once): powers SMS always,
-            and e-mail when the toggle below is on. */}
+        {/* The Brevo account always powers SMS, and e-mail only when the toggle below is on. */}
         <TabsContent value="brevo" className="space-y-6">
           <Card className="space-y-3 p-6">
             <EmailEnableToggle
@@ -405,8 +399,7 @@ function EmailManager() {
         </TabsContent>
       </Tabs>
 
-      {/* Diagnostic — sends a real email through the SAVED config and shows the
-          provider's exact response (status + error), so failures aren't silent. */}
+      {/* The test goes through the saved config, not the draft, and shows the provider's exact response so a failure is not silent. */}
       <Card className="space-y-4 p-6">
         <div>
           <h2 className="text-sm font-semibold text-ink">Envoyer un e-mail de test</h2>

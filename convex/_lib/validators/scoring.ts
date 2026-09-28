@@ -12,13 +12,7 @@ export const MIN_LEAD_SCORE = 0;
 export const MAX_LEAD_SCORE = 100;
 export const MAX_DECAY_HALF_LIFE_DAYS = 365;
 
-/**
- * One scoring rule: leads matching `criteria` earn `points` (negative allowed).
- * `decayHalfLifeDays` halves the earned points every N days measured from the
- * freshest behavioural timestamp the criteria reference (open, click, visit…);
- * rules whose criteria carry no such field keep their full points. `order` is
- * the display order on the settings page.
- */
+/** `points` may be negative; `decayHalfLifeDays` halves them every N days since the freshest behavioural timestamp the criteria reference, and a rule with none keeps its full points. */
 export const scoringRuleValidator = v.object({
   ...logsValidator.fields,
   name: v.string(),
@@ -32,12 +26,7 @@ export const scoringRuleValidator = v.object({
 
 export type ScoringRule = Infer<typeof scoringRuleValidator>;
 
-/**
- * Singleton bookkeeping doc for the scoring engine (created on first use).
- * `recalc` mirrors the dynamic-list pattern: `stamp` invalidates superseded
- * page jobs, `processed` feeds the UI progress. `nextRecalcId` is the pending
- * nightly decay recomputation. `simulation` is the latest what-if count.
- */
+/** A singleton created on first use; in `recalc`, `stamp` invalidates superseded page jobs and `processed` feeds the UI progress; `nextRecalcId` is the pending nightly decay recomputation. */
 export const scoringStateValidator = v.object({
   recalc: v.optional(v.object({ stamp: v.number(), processed: v.number() })),
   lastRecalcAt: v.optional(v.number()),
@@ -53,11 +42,7 @@ export const scoringStateValidator = v.object({
   ),
 });
 
-/**
- * Criteria must hold at least one active rule and may not reference `listIds`
- * (membership reads on every lead write, cascade risk) or `leadScore` (a score
- * feeding itself never converges). Returns the error code or null.
- */
+/** `listIds` is refused (membership reads on every lead write, cascade risk) and so is `leadScore` (a score feeding itself never converges). */
 export function validateScoringCriteria(criteria: LeadAdvancedFilter | undefined): string | null {
   const rules = criteria?.groups.flatMap((g) => g.rules) ?? [];
   if (!rules.some(isActiveRule)) return 'scoring_criteria_required';

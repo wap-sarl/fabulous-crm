@@ -32,11 +32,7 @@ import {
   sanitizeCustomProperties,
 } from './properties';
 
-/*
- * The contact upsert of the import, in two halves: `planLeadImport` decides what a row would do without writing
- * (the dry run's verdict) and `applyLeadImport` does it. The run calls both on the same row, so a dry run and the
- * run it precedes read the same rules by construction. The public API's upsert follows the same rules.
- */
+// The import plans a row, then applies the plan: a dry run and the run it precedes read the same rules by construction.
 
 export const CONSENT_TOKEN_BYTES = 24;
 
@@ -118,10 +114,7 @@ export function leadLabel(lead: Pick<Doc<'leads'>, 'firstName' | 'lastName' | 'e
   return lead.email ? `${name} (${lead.email})` : name;
 }
 
-/**
- * What the row would do. `matchId` is a contact chosen beforehand (the duplicate a dry run found, with the policy
- * to update it); `detectDuplicates` asks for a probable duplicate when no email matches.
- */
+/** What the row would do, without writing: `matchId` is the duplicate a dry run found and the policy chose to update. */
 export async function planLeadImport(
   ctx: MutationCtx,
   row: LeadImportRow,
@@ -163,10 +156,7 @@ export type LeadImportResult =
   | { kind: 'updated'; leadId: Id<'leads'> }
   | { kind: 'error'; error: string };
 
-/**
- * Add a lead to a list if it isn't already a member. Idempotent across import
- * batches and re-imported emails (same lead appearing in several batches).
- */
+/** Idempotent: the same lead may appear in several batches of an import. */
 async function addLeadToList(
   ctx: MutationCtx,
   listId: Id<'leadLists'>,

@@ -3,10 +3,7 @@ import { CURRENCIES, DEAL_STATUSES } from '../../../lib/constants';
 import type { FieldCatalog, StandardFieldSpec } from '../../filters/lib/advancedFilter';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
-/**
- * Built-in deal columns exposed in the builder. Stages come from the live
- * pipelines: one option per stage, prefixed by the pipeline name when several exist.
- */
+/** Stages come from the live pipelines: one option per stage, prefixed by the pipeline name when several exist. */
 function dealFilterFields(pipelines: Doc<'pipelines'>[]): StandardFieldSpec<DealStandardField>[] {
   const stages = pipelines.flatMap((p) =>
     p.stages.map((s) => ({

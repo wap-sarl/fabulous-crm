@@ -2,8 +2,6 @@
 
 // Utilities
 export { cn } from './theme/utils';
-// Hooks
-// Portal
 
 // UI Components - Inputs
 export { Button } from './components/inputs/button';

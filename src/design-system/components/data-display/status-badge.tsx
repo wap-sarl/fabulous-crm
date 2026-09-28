@@ -18,9 +18,6 @@ interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   withDot?: boolean;
 }
 
-/**
- * Pill status badge with a leading dot in the foreground color.
- */
 function StatusBadge({ tone, withDot = true, className, children, ...props }: StatusBadgeProps) {
   const { bg, fg } = TONE_STYLES[tone];
   return (

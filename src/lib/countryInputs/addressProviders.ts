@@ -7,16 +7,7 @@ import {
 } from '@crm/design-system';
 import { addressFormatFor } from '@crm/lib/backend';
 
-/**
- * Address suggestion providers, one per country (`*` = fallback), behind the
- * search box of `CountryAddressInput` (address.tsx):
- *   - FR → BAN, the French government's address API (keyless).
- *   - `*` → Photon (komoot, OpenStreetMap; keyless, worldwide), filtered to
- *     the selected country; or Google Places when `VITE_GOOGLE_MAPS_API_KEY`
- *     is configured (biased to the country).
- * Add or replace one with `registerAddressProvider('DE', factory)`.
- */
-
+/** One provider per country: BAN for France, and for the rest Photon, or Google Places when `VITE_GOOGLE_MAPS_API_KEY` is set; all but Google are keyless. */
 export interface AddressProvider {
   fetchSuggestions: AddressSuggestionsProvider;
   resolveDetails: AddressDetailsResolver;
@@ -48,11 +39,7 @@ export function resolveAddressProvider(country: string): AddressProvider | null 
   return provider;
 }
 
-// ---------------------------------------------------------------------------
-// Photon (komoot) — OpenStreetMap geocoder with an autocomplete-friendly API.
-// Fair-use policy: fine for a CRM's address forms, throttled when abused.
-// ---------------------------------------------------------------------------
-
+/** Photon is under a fair-use policy: fine for a CRM's address forms, throttled when abused. */
 const PHOTON_URL = 'https://photon.komoot.io/api/';
 
 interface PhotonFeature {
@@ -87,8 +74,7 @@ function regionKeyFor(country: string, state: string | undefined): string | unde
 
 function createPhotonAddressProvider(country: string): AddressProvider {
   const cache = new Map<string, AddressValue>();
-  // Countries with an enumerated region list are queried in English so the
-  // OSM state name matches the metadata's Latin names ("California").
+  // A country with an enumerated region list is queried in English, so the OSM state name matches the metadata's Latin names.
   const lang = addressFormatFor(country).fields.some((f) => f.key === 'region' && f.options)
     ? 'en'
     : 'fr';

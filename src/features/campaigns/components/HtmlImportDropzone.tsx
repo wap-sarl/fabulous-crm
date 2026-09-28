@@ -13,11 +13,7 @@ interface Props {
   onFileNameChange: (name: string) => void;
 }
 
-/**
- * Drag-and-drop (or browse) an `.html` file and read it client-side via
- * `file.text()`. Mirrors the CSV importer's dropzone; the loaded HTML is handed
- * back verbatim so a designer-made template keeps full fidelity.
- */
+/** The file is read in the browser and handed back verbatim, so a designer-made template keeps full fidelity. */
 export function HtmlImportDropzone({ onLoad, fileName, onFileNameChange }: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);

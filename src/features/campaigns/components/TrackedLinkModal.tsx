@@ -42,11 +42,7 @@ function nextLinkKey(existing: CampaignTrackedLink[]): string {
   return `lien${n}`;
 }
 
-/**
- * Built-in lead fields offered as link targets (labels match the lead filters).
- * marketingConsent / assignedTo / address are excluded — see
- * trackedLinkStandardFieldValidator.
- */
+/** Labels match the lead filters; marketingConsent, assignedTo and address are excluded, see trackedLinkStandardFieldValidator. */
 const STANDARD_TARGETS: { field: TrackedLinkStandardField; label: string }[] = [
   { field: 'isRedFlagged', label: 'Signalé' },
   { field: 'comment', label: 'Commentaire' },
@@ -72,13 +68,7 @@ function standardValueError(
   }
 }
 
-/**
- * Modal creating a per-recipient tracked link: choose the lead property to
- * update on click (built-in field or custom property), the value to set, and
- * an optional redirect URL (unset → public "you can close this tab" page).
- * Confirming hands the link to the parent, which inserts its
- * {{ params.lienN }} placeholder into the message.
- */
+/** A click on a tracked link sets one lead property; the parent inserts the {{ params.lienN }} placeholder into the message. */
 export function TrackedLinkModal({
   open,
   onOpenChange,
@@ -278,11 +268,7 @@ function StandardValueInput({
   }
 }
 
-/**
- * Type-driven input for the value the click writes. Compact variant of the
- * lead form's CustomPropertyFields (single definition, no RPPS
- * verification — the value is authored by an employee, not a practitioner).
- */
+/** No RPPS verification here: the value is authored by an employee, not by a practitioner. */
 function LinkValueInput({
   def,
   value,

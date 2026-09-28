@@ -1,11 +1,4 @@
-/**
- * Pure (non-`'use node'`) email templates for the auth flow: the magic-link
- * login email.
- *
- * Extracted from `auth/actions.ts` so the HTML generators can be imported by
- * standalone tooling without pulling in the Convex action runtime. No business
- * logic lives here — only presentation.
- */
+/** Kept free of `'use node'` and of business logic, so standalone tooling can import the templates without the Convex action runtime. */
 
 const BRAND_COLORS = {
   primary: '#2dd4bf',

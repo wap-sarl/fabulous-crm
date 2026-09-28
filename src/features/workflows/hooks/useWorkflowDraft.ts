@@ -9,12 +9,7 @@ import { emptyAdvancedFilter } from '../../filters/lib/advancedFilter';
 import type { InsertSlot, WorkflowDraft } from '../types';
 import { LEAD_FILTER_FIELDS } from '../../leads/lib/leadFilters';
 
-/**
- * Local editor state of a workflow (draft-then-commit: nothing is persisted
- * until « Enregistrer »). Graph edits are splice-in/splice-out on the flat
- * node map; deleting a branch removes its whole subtree (reattaching two
- * children to one slot would be ambiguous).
- */
+/** Nothing is persisted until « Enregistrer »; deleting a branch removes its whole subtree, as reattaching two children to one slot would be ambiguous. */
 
 export function emptyDraft(): WorkflowDraft {
   return {
@@ -157,8 +152,7 @@ export function draftReducer(state: DraftState, action: DraftAction): DraftState
     case 'insertNode': {
       const node = emptyNode(action.nodeType, action.id);
       const target = slotTarget(draft, action.slot);
-      // Splice-in: the new node takes over the slot's previous continuation.
-      // A branch inserted mid-chain keeps the existing chain on its « Oui » side.
+      // The new node takes over the slot's previous continuation; a branch inserted mid-chain keeps the existing chain on its « Oui » side.
       const withNext: WorkflowNode =
         node.type === 'branch' ? { ...node, nextTrue: target } : { ...node, next: target };
       const withNode = { ...draft, nodes: { ...draft.nodes, [action.id]: withNext } };

@@ -1,10 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { InsertSlot } from '../types';
 
-/**
- * Callbacks and label context the canvas nodes/edges need. Passed via React
- * context instead of node `data` so layout stays pure and serializable.
- */
+/** Passed through React context instead of node `data`, so the layout stays pure and serializable. */
 export interface CanvasHandlers {
   selectedId: string | 'trigger' | null;
   onSelect: (id: string | 'trigger') => void;

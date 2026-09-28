@@ -21,11 +21,7 @@ const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
 
 const PAGE_SIZE = 30;
 
-/**
- * Cursor-paginated log of a campaign's delivery/engagement events
- * (campaignEvents), newest first. Rows open the recipient's preview sheet,
- * same as the recipients table.
- */
+/** The log of a campaign's delivery and engagement events, newest first; a row opens the recipient's preview, as in the recipients table. */
 export function CampaignEventsTable({
   campaignId,
   recipientBySendId,

@@ -110,10 +110,7 @@ export const updateRole = settingsMutation({
   },
 });
 
-/**
- * Delete a custom role. When users or pending invitations still hold it, a
- * replacement role is required and they are moved (each user audited).
- */
+/** A role still held by users or pending invitations needs a replacement role, to which they are moved. */
 export const deleteRole = settingsMutation({
   args: { key: v.string(), replacementKey: v.optional(v.string()) },
   handler: async (ctx, args) => {

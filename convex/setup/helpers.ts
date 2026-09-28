@@ -4,14 +4,7 @@ import type { DataModel } from '../_generated/dataModel';
 
 type QueryCtx = GenericQueryCtx<DataModel>;
 
-/**
- * Fail-safe setup-completion rule. Setup is complete when:
- *  - the config doc has `setupCompletedAt`, OR
- *  - there is no config doc yet but at least one user exists.
- *
- * The second clause guarantees existing deployments (which predate this feature
- * and have users but no config doc) are never locked behind the setup wizard,
- */
+/** A deployment with users but no config doc counts as set up, so one that predates the wizard is never locked behind it. */
 export async function isSetupComplete(
   ctx: QueryCtx,
   cfg: Doc<'appConfig'> | null,

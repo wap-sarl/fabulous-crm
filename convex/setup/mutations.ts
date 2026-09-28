@@ -9,12 +9,7 @@ import { ensureDefaultRoles } from '../lib/roles';
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hexColorRe = /^#[0-9a-fA-F]{6}$/;
 
-/**
- * Pre-auth upload URL for the setup wizard's logo/favicon fields. Guarded by
- * SETUP_TOKEN (like `completeSetup`) so it may run before any user exists; the
- * client POSTs the file to the returned URL and receives a `storageId` which is
- * then passed to `completeSetup`. Refuses once setup is complete.
- */
+/** Upload URL for the wizard's logo and favicon: guarded by SETUP_TOKEN so it may run before any user exists, and refused once setup is complete. */
 export const generateSetupUploadUrl = mutation({
   args: { setupToken: v.string() },
   handler: async (ctx, args) => {
@@ -27,13 +22,7 @@ export const generateSetupUploadUrl = mutation({
   },
 });
 
-/**
- * First-run wizard submit. Guarded by SETUP_TOKEN (possession proves control of
- * the deployment), so it may run pre-auth. Creates the config and provisions the
- * first admin (the owner). No session is minted — Better Auth is the session
- * authority, so after setup the owner signs in via /login; their first Better
- * Auth login links `authId` (the gate allows them as an existing employee).
- */
+/** Runs before any sign-in, as holding SETUP_TOKEN proves control of the deployment; no session is minted, the owner signs in through Better Auth, which links `authId`. */
 export const completeSetup = mutation({
   args: {
     setupToken: v.string(),
@@ -137,8 +126,7 @@ export const completeSetup = mutation({
             )
           : undefined,
       },
-      // Default to Brevo with credentials backfilled from env; the settings
-      // screen can switch to SMTP later. Resolvers fall back to env regardless.
+      // Brevo by default, its credentials backfilled from env; the resolvers fall back to env regardless.
       email: {
         provider: 'brevo' as const,
         brevoApiKey: await encryptSecret(process.env.BREVO_API_KEY ?? ''),

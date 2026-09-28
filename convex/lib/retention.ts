@@ -368,10 +368,7 @@ async function purgeAged(
   await drain(state, rows, limit, (row) => ctx.db.delete(row._id));
 }
 
-/**
- * One page of the purge, `at` being the run's reference time: every table gets a share of one write budget,
- * every query reads its rows straight from an index range, and `moreLeft` asks for another page.
- */
+/** One page of the purge, `at` being the run's reference time: every table gets a share of one write budget, and `moreLeft` asks for another page. */
 export async function purgePage(
   ctx: MutationCtx,
   policy: RetentionPolicy,

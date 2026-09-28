@@ -8,11 +8,7 @@ interface Props {
   className?: string;
 }
 
-/**
- * Click-to-insert placeholder chips shown under a campaign message field.
- * Clicking a chip inserts its {{ params.x }} token at the field's caret
- * (via `onInsert`, owned by the parent which holds the input ref).
- */
+/** The insertion at the caret is left to the parent, which holds the ref of the field. */
 export function PlaceholderChips({ placeholders, onInsert, className }: Props) {
   if (placeholders.length === 0) return null;
 

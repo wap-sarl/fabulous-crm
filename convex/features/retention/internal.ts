@@ -13,11 +13,7 @@ import {
   purgePage,
 } from '../../lib/retention';
 
-/**
- * The nightly purge (crons.ts): page after page until every table is under its retention, then one audit row
- * with the counts. The policy and the reference time are frozen on the first page and carried to the others:
- * a setting changed during a run does not mix cutoffs, and the report says which policy was applied.
- */
+/** The nightly purge: the policy and the reference time are frozen on the first page, so a setting changed during a run does not mix cutoffs. */
 export const runPurge = internalMutation({
   args: {
     startedAt: v.optional(v.number()),

@@ -19,18 +19,14 @@ export const leadListValidator = v.object({
   // Absent = static (every list predates the dynamic kind).
   kind: v.optional(v.union(v.literal('static'), v.literal('dynamic'))),
   criteria: v.optional(leadAdvancedFilterValidator),
-  // In-flight full recalculation: `stamp` invalidates superseded page jobs,
-  // `processed` feeds the UI progress. Absent = no recalculation running.
+  // Set while a full recalculation runs: `stamp` invalidates superseded page jobs, `processed` feeds the UI progress.
   recalc: v.optional(v.object({ stamp: v.number(), processed: v.number() })),
   lastRecalcAt: v.optional(v.number()),
   // Pending time-drift recalculation (criteria using relative dates), cancellable.
   nextRecalcId: v.optional(v.id('_scheduled_functions')),
 });
 
-/**
- * Junction row linking a lead to a list, with the employee who added it.
- * `addedBy` is absent when the dynamic-list engine added the row.
- */
+/** `addedBy` is absent when the dynamic-list engine added the row. */
 export const leadListMemberValidator = v.object({
   listId: v.id('leadLists'),
   leadId: v.id('leads'),

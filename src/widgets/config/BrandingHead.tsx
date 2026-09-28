@@ -2,13 +2,7 @@ import { useEffect } from 'react';
 import { usePublicConfig } from './ConfigContext';
 import { applyPrimaryColor, resetPrimaryColor } from './applyThemeColor';
 
-/**
- * Applies runtime branding to the document head: swaps the favicon to the
- * uploaded one, sets the tab title to the organization name, and overrides the
- * `--primary` accent color when one is configured. Renders nothing. Falls back
- * to the static `/favicon.svg` (index.html), "CRM", and the theme.css default
- * color when unset. Mount once inside `PublicConfigProvider`.
- */
+/** Applies the runtime branding to the document and renders nothing; mount it once, inside `PublicConfigProvider`. */
 export function BrandingHead() {
   const { config } = usePublicConfig();
   const faviconUrl = config?.faviconUrl ?? null;
@@ -23,8 +17,7 @@ export function BrandingHead() {
       document.head.appendChild(link);
     }
     link.href = faviconUrl ?? '/favicon.svg';
-    // Drop the explicit SVG type when swapping to an uploaded raster favicon so
-    // the browser sniffs the real content type.
+    // An uploaded favicon may be a raster image: without the explicit SVG type, the browser sniffs the real one.
     if (faviconUrl) link.removeAttribute('type');
     else link.type = 'image/svg+xml';
   }, [faviconUrl]);

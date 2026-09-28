@@ -34,11 +34,7 @@ function validateOptions(
   return cleaned;
 }
 
-/**
- * Keep only the validation rules that apply to a type (number → min/max, text →
- * length/pattern) and check they're coherent. Returns undefined when the type
- * carries no rules or none were provided.
- */
+/** Keeps only the rules that apply to the type; undefined when none remain, which is what clears the stored field. */
 function validateValidation(
   type: PropertyType,
   validation: PropertyValidation | undefined,
@@ -70,8 +66,7 @@ function validateValidation(
 }
 
 export const createDefinition = settingsMutation({
-  // `computed` is not accepted: computed definitions belong to the engine that
-  // maintains them (see propertyDefinitionValidator).
+  // `computed` is not accepted: computed definitions belong to the engine that maintains them.
   args: {
     entityType: propertyEntityTypeValidator,
     label: v.string(),
@@ -114,8 +109,7 @@ export const createDefinition = settingsMutation({
 });
 
 export const updateDefinition = settingsMutation({
-  // `type` and `entityType` are intentionally NOT accepted — they are immutable
-  // once values may exist. To change them, delete the property and create a new one.
+  // `type` and `entityType` are NOT accepted: they are immutable once values may exist.
   args: {
     definitionId: v.id('propertyDefinitions'),
     label: v.optional(v.string()),
@@ -140,8 +134,7 @@ export const updateDefinition = settingsMutation({
       updates.options = validateOptions(def.type, rest.options);
     }
 
-    // Validation is applied outside filterUndefined so an emptied rule set
-    // (validateValidation → undefined) actually clears the stored field.
+    // Applied outside filterUndefined, so that an emptied rule set (undefined) clears the stored field.
     const patchData: Record<string, unknown> = filterUndefined(updates);
     if (validation !== undefined) {
       patchData.validation = validateValidation(def.type, validation);
@@ -171,8 +164,7 @@ export const deleteDefinition = settingsMutation({
     const def = await ctx.db.get(args.definitionId);
     if (!def || !isNotDeleted(def)) throw new Error('definition_not_found');
 
-    // Soft delete: stored values remain untouched (and revive if the
-    // definition is un-deleted). Every consumer iterates active definitions only.
+    // Stored values stay untouched and revive if the definition is restored: every consumer iterates active definitions only.
     await ctx.db.patch(args.definitionId, {
       deletedAt: Date.now(),
       ...updateAuditFields(ctx.userId),

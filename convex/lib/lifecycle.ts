@@ -35,11 +35,7 @@ export function planLifecycleTransition(
   return { kind: 'change', from: lead.lifecycleStage, to };
 }
 
-/**
- * Turn a planned transition into a thrown error for the interactive paths
- * (forms): `unknown_lifecycle_stage` / `lifecycle_regression_blocked`.
- * Bulk paths (CSV, workflows) decide their own outcome instead.
- */
+/** For the interactive paths only: the bulk ones (CSV, workflows) decide their own outcome instead of throwing. */
 export function assertLifecycleTransition(plan: LifecycleTransition): void {
   if (plan.kind === 'unknown_stage') throw new Error('unknown_lifecycle_stage');
   if (plan.kind === 'regression_blocked') throw new Error('lifecycle_regression_blocked');
@@ -75,11 +71,7 @@ export async function insertLifecycleHistory(
   });
 }
 
-/**
- * Patch the lead's stage and log the transition. `ctx.db` must be the
- * trigger-wrapped one (_lib/functions.ts) so the leadsByLifecycle aggregate
- * follows the patch.
- */
+/** `ctx.db` must be the trigger-wrapped one (_lib/functions.ts), so the leadsByLifecycle aggregate follows the patch. */
 export async function applyLifecycleTransition(
   ctx: MutationCtx,
   leadId: Id<'leads'>,

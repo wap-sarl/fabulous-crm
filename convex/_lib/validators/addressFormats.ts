@@ -83,11 +83,7 @@ function addressFormatDataFor(country: string | undefined): AddressFormatData {
   return ADDRESS_FORMAT_DATA[normalizeCountry(country)] ?? DEFAULT;
 }
 
-/**
- * The country's address format with its editable fields in writing order.
- * Countries without metadata get the generic "street, city" layout; every
- * country keeps an optional postal code so nothing is lost when a user has one.
- */
+/** A country without metadata gets the generic "street, city" layout; every country keeps an optional postal code so none a user has is lost. */
 export function addressFormatFor(country: string | undefined): AddressFormat {
   const code = normalizeCountry(country);
   const data = addressFormatDataFor(code);
@@ -153,21 +149,13 @@ function regionLabel(country: string | undefined, region: string | undefined): s
   return regions?.find(([key]) => key === region)?.[1] ?? region;
 }
 
-/**
- * The region as written on an envelope: the key when it is a postal
- * abbreviation (US "CA", CA "QC", AU "NSW"…), the display name otherwise
- * (JP prefectures, IT provinces… whose keys are names or codes nobody writes).
- */
+/** The region as written on an envelope: the key when it is a postal abbreviation (US "CA"), the display name when the key is a code nobody writes (JP prefectures). */
 function regionForPostal(country: string | undefined, region: string | undefined): string {
   if (!region) return '';
   return region.length <= 3 ? region : regionLabel(country, region);
 }
 
-/**
- * Validate an address against its country's format: required fields present,
- * postal code matching the country's pattern, region among the listed ones
- * when the country enumerates them. Returns a French error, or null.
- */
+/** The error is a French sentence shown to the user as is; the region is checked only when the country enumerates its regions. */
 export function validateAddress(address: FormattableAddress): string | null {
   const format = addressFormatFor(address.country);
   if (!/^[A-Z]{2}$/.test(format.country)) return 'Pays invalide (code ISO à 2 lettres).';
@@ -188,11 +176,7 @@ export function validateAddress(address: FormattableAddress): string | null {
   return null;
 }
 
-/**
- * Lines of an address in the country's postal writing order (street lines,
- * then city / region / postal code as the country writes them), without the
- * country itself. Upper-cases the fields the country's postal service wants.
- */
+/** The lines follow the country's postal writing order and leave the country itself out; the fields its postal service wants in capitals are upper-cased. */
 export function formatAddressLines(address: FormattableAddress): string[] {
   const data = addressFormatDataFor(address.country);
   const fmt = data.lfmt ?? data.fmt ?? DEFAULT.fmt ?? '%A%n%C';

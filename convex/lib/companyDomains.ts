@@ -44,10 +44,7 @@ const FREE_MAIL_DOMAINS = new Set([
   'cegetel.net',
 ]);
 
-/**
- * Providers with many country TLDs (yahoo.co.uk, hotmail.de, …): matched on
- * the first label so the explicit list above stays short.
- */
+/** Providers with many country TLDs (yahoo.co.uk, hotmail.de): matched on the first label, so the explicit list above stays short. */
 const FREE_MAIL_LABELS = new Set([
   'gmail',
   'googlemail',
@@ -99,10 +96,7 @@ export function isFreeMailDomain(domain: string): boolean {
   return FREE_MAIL_LABELS.has(labels[0] ?? '');
 }
 
-/**
- * The domain a lead's email suggests as its company: undefined for missing,
- * malformed or consumer-mailbox addresses.
- */
+/** The domain a lead's email suggests as its company: none for a missing, malformed or consumer-mailbox address. */
 export function companyDomainOfEmail(email: string | undefined): string | undefined {
   const domain = emailDomain(email);
   return domain && !isFreeMailDomain(domain) ? domain : undefined;

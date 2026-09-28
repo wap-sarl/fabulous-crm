@@ -21,11 +21,7 @@ export const workflowSmsEventValidator = v.union(
   v.literal('stop'),
 );
 
-/**
- * The enrollment trigger, discriminated on `type`. Optional refinement fields
- * left unset mean "any" (any list, any campaign, any changed field); finer
- * targeting belongs in `enrollmentCriteria` on the workflow.
- */
+/** An optional field left unset means "any" (list, campaign, changed field); finer targeting belongs in the workflow's `enrollmentCriteria`. */
 export const workflowTriggerValidator = v.union(
   v.object({ type: v.literal('lead_created') }),
   v.object({
@@ -70,11 +66,7 @@ export const workflowTriggerValidator = v.union(
   v.object({ type: v.literal('deal_lost'), pipelineId: v.optional(v.id('pipelines')) }),
 );
 
-/**
- * Target of an `update_property` node — a built-in lead column or a custom
- * property definition. Same shape (and exclusions) as campaign tracked links:
- * no `marketingConsent`, `assignedTo` or `address`.
- */
+/** The target of an `update_property` node, with the exclusions of the campaign tracked links: no `marketingConsent`, `assignedTo` or `address`. */
 export const workflowLeadTargetValidator = v.union(
   v.object({ kind: v.literal('standard'), field: trackedLinkStandardFieldValidator }),
   v.object({ kind: v.literal('custom'), propertyDefId: v.id('propertyDefinitions') }),
@@ -87,20 +79,13 @@ export const workflowWaitUnitValidator = v.union(
 );
 
 const nodeBase = {
-  // Client-generated id, unique within the workflow. Node references
-  // (`next`/`nextTrue`/`nextFalse`) point at these ids; an unset reference
-  // means the run completes on that path.
+  // Client-generated, unique within the workflow; `next`/`nextTrue`/`nextFalse` point at these ids, and an unset one ends the run on that path.
   id: v.string(),
-  // Persisted editor position. The engine ignores it; the frontend recomputes
-  // layout anyway, so it is only kept to round-trip cleanly.
+  // The engine ignores it and the frontend recomputes the layout: kept only to round-trip cleanly.
   position: v.optional(v.object({ x: v.number(), y: v.number() })),
 };
 
-/**
- * One step of the graph, discriminated on `type`. The graph is a strict tree
- * (validated cycle-free at activation): every node is referenced by at most
- * one parent slot, starting from the workflow's `startNodeId`.
- */
+/** The graph is a strict tree, checked cycle-free at activation: at most one parent slot references a node, starting from the workflow's `startNodeId`. */
 export const workflowNodeValidator = v.union(
   v.object({
     ...nodeBase,
@@ -188,9 +173,7 @@ export const workflowNodeValidator = v.union(
   v.object({
     ...nodeBase,
     type: v.literal('branch'),
-    // Evaluated against the lead when the run reaches this node. A condition
-    // with no active rule is neutral and evaluates true (evalAdvancedFilter
-    // semantics).
+    // Evaluated against the lead when the run reaches the node; a condition with no active rule evaluates true, as evalAdvancedFilter does.
     condition: leadAdvancedFilterValidator,
     nextTrue: v.optional(v.string()),
     nextFalse: v.optional(v.string()),
@@ -208,21 +191,17 @@ export const workflowValidator = v.object({
   ...softDeleteValidator.fields,
   name: v.string(),
   description: v.optional(v.string()),
-  // Only 'active' workflows enroll and execute. Structural fields (trigger,
-  // criteria, nodes) are only editable while 'draft' or 'paused'.
+  // Only 'active' enrolls and executes; trigger, criteria and nodes are editable only while 'draft' or 'paused'.
   status: workflowStatusValidator,
   trigger: workflowTriggerValidator,
   // Extra AND/OR conditions a lead must match at trigger time to be enrolled.
   enrollmentCriteria: v.optional(leadAdvancedFilterValidator),
-  // false = a lead can only ever be enrolled once. Either way a lead is never
-  // enrolled while it already has an active run in this workflow.
+  // false: a lead is enrolled once only; either way, never while it has an active run in this workflow.
   allowReEnrollment: v.boolean(),
   nodes: v.array(workflowNodeValidator),
-  // First node executed on enrollment. Optional so drafts can be saved empty;
-  // required (and validated) at activation.
+  // Optional so a draft can be saved empty; required and validated at activation.
   startNodeId: v.optional(v.string()),
-  // Denormalized counters, bumped on enroll/finish so the list view stays
-  // O(#workflows) with no run scans.
+  // Bumped on enroll and finish so the list view never scans the runs.
   enrolledCount: v.number(),
   activeCount: v.number(),
   completedCount: v.number(),
@@ -253,31 +232,23 @@ export const workflowRunValidator = v.object({
   workflowId: v.id('workflows'),
   leadId: v.id('leads'),
   status: workflowRunStatusValidator,
-  // Snapshot of trigger.type at enrollment ('manual' for manual enrollments)
-  // so the history explains why the lead entered even after trigger edits.
+  // trigger.type at enrollment ('manual' for a manual one), so the history still explains the entry after the trigger is edited.
   triggerType: v.string(),
   manual: v.optional(v.boolean()),
   enrolledAt: v.number(),
   finishedAt: v.optional(v.number()),
-  // Node to execute next. Unset once the run is finished. While parked on a
-  // wait, this is already the post-wait node (the sleep is scheduled).
+  // The node to execute next, unset once the run is finished; while parked on a wait it is already the post-wait node.
   currentNodeId: v.optional(v.string()),
   // Executed-step counter guarding against runaway graphs (MAX_STEPS_PER_RUN).
   stepCount: v.number(),
-  // Set while parked on a wait: wake time + the pending scheduled function,
-  // kept so cancelRun/deleteWorkflow can cancel the sleep.
+  // Set while parked on a wait; the scheduled function is kept so cancelRun and deleteWorkflow can cancel the sleep.
   wakeAt: v.optional(v.number()),
   scheduledFnId: v.optional(v.id('_scheduled_functions')),
   // Failure reason when status === 'failed' (e.g. 'step_removed').
   error: v.optional(v.string()),
 });
 
-/**
- * Outcome of one executed step. 'pending' only while an async action (send,
- * webhook) is in flight. Skips record why a step was passed over without
- * failing the run; 'failed' (provider error, webhook non-2xx) also lets the
- * run continue — only structural problems fail the run itself.
- */
+/** 'pending' lasts only while a send or a webhook is in flight; a skip or a 'failed' step (provider error, webhook non-2xx) lets the run continue, only a structural problem fails the run. */
 export const workflowStepOutcomeValidator = v.union(
   v.literal('pending'),
   v.literal('success'),

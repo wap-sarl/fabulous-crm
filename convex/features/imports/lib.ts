@@ -18,10 +18,7 @@ export function requireImportAccess(visibility: Visibility, entity: ImportEntity
   }
 }
 
-/**
- * A job of the caller's, or of anyone's for a settings holder; the rows in error hold the file's cells. The
- * module is checked again every time: a role that lost it since the job was opened cannot see or drive it.
- */
+/** A job holds the file's cells: only its owner or a settings holder reads it, and a role that lost the module since cannot see or drive it. */
 export async function loadOwnJob(
   ctx: (QueryCtx | MutationCtx) & { userId: Id<'users'>; visibility: Visibility },
   jobId: Id<'importJobs'>,

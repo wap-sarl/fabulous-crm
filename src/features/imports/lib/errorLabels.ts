@@ -39,10 +39,7 @@ export function describeImportError(error: string): string {
   return detail ? `${match[1]} (${detail})` : match[1];
 }
 
-/**
- * The error that interrupted a job as a sentence. The batch stores a refusal as its JSON (`{ code, … }`), so the
- * overlay can word it as it words a toast; anything else is a plain message.
- */
+/** The batch stores a refusal as its JSON (`{ code, … }`), so the overlay can word it as it words a toast; anything else is a plain message. */
 export function describeJobError(error: string): string {
   try {
     const parsed: unknown = JSON.parse(error);

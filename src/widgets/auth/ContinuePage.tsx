@@ -9,12 +9,7 @@ export interface ContinuePageProps {
   homePath: string;
 }
 
-/**
- * Magic-link landing page (`/auth/continue?email=&otp=`). The emailed link carries
- * the one-time code in the query string; this verifies it via Better Auth's
- * emailOTP sign-in, then redirects into the app. A ref guards against React
- * StrictMode's double-invoke consuming the single-use code twice.
- */
+/** The magic-link landing page: a ref keeps React StrictMode's double invoke from consuming the single-use code twice. */
 export function ContinuePage({ homePath }: ContinuePageProps) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();

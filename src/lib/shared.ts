@@ -1,6 +1,3 @@
-/**
- * Vendored shared helpers (kept dependency-free).
- */
 import { isValidPhoneNumber, type CountryCode } from 'libphonenumber-js';
 import { z } from 'zod';
 

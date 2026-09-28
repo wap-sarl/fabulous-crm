@@ -12,9 +12,6 @@ interface FunnelBarProps extends React.HTMLAttributes<HTMLDivElement> {
 
 const numberFormat = new Intl.NumberFormat('fr-FR');
 
-/**
- * One conversion-funnel stage: label, mono "count · pct", 10px progress bar.
- */
 function FunnelBar({
   label,
   count,

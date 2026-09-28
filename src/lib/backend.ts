@@ -1,7 +1,4 @@
-/**
- * Frontend entry to the Convex backend, replacing the monorepo's
- * Backend re-exports: generated Convex API + CRM domain types.
- */
+/** The frontend's single entry to the Convex backend: the generated API and the domain types. */
 export { api } from '../../convex/_generated/api';
 export type { Id, Doc } from '../../convex/_generated/dataModel';
 export type {

@@ -1,12 +1,7 @@
 import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 
-/**
- * Bootstrap: create (or revive) an employee so a fresh deployment has someone
- * who can log into the CRM. Run with:
- *   bunx convex run seed/devEmployee:createDevEmployee '{"email":"you@example.com","firstName":"You","lastName":"Example"}'
- * then mint a session with seed/devSession:createDevSession.
- */
+/** A fresh deployment has nobody who can sign in: this creates its first employee, or revives it. */
 export const createDevEmployee = internalMutation({
   args: {
     email: v.string(),

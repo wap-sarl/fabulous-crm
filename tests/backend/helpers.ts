@@ -1,20 +1,4 @@
-/**
- * Shared harness for convex-test integration tests running under `bun test`.
- * NOTE: this directory is a bun-test harness, NOT deployed Convex code — Node
- * builtins are fine here.
- *
- * convex-test is designed around Vite's `import.meta.glob` to enumerate the
- * function modules; bun has no equivalent, so `globModules` walks a directory
- * and builds the same `{ './relative/path': () => import(abs) }` map. The
- * exclusion mirrors convex-test's documented glob (`./**\/!(*.*.*)*.*s`): any
- * file with a second extension (`.test.ts`, `.d.ts`) is skipped.
- *
- * Auth: the app resolves the signed-in employee through the Better Auth
- * component (`authComponent.safeGetAuthUser` reads the identity's `sessionId`
- * claim, then looks up the session and user in the component's tables). Tests
- * therefore register the real component (schema + compiled modules from the
- * package dist) and seed it — no mocking, the production auth path runs as-is.
- */
+/** Not deployed code, so Node builtins are fine: bun lacks the `import.meta.glob` convex-test expects, and the real Better Auth component is seeded so the production auth path runs unmocked. */
 import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { jest } from 'bun:test';
@@ -133,11 +117,7 @@ export type SeededEmployee = {
   identity: { subject: string; sessionId: string };
 };
 
-/**
- * Create an app employee plus its Better Auth user + live session in the
- * component tables, wired together exactly like production
- * (`users.authId` ← auth user `_id`, identity `sessionId` ← session `_id`).
- */
+/** An employee with its Better Auth user and live session, wired as in production: `users.authId` is the auth user `_id`, the identity `sessionId` the session `_id`. */
 export async function seedEmployee(
   t: T,
   opts: {
@@ -204,12 +184,7 @@ export function asIdentity(t: T, identity: SeededEmployee['identity']) {
   return t.withIdentity(identity as Parameters<T['withIdentity']>[0]);
 }
 
-/**
- * Direct-db lead factory with schema-required defaults. Raw inserts bypass the
- * Triggers wrapper, so `searchText` is stamped here explicitly; aggregate
- * counters are NOT registered — count tests must create leads through the
- * mutations.
- */
+/** A raw insert bypasses the triggers: `searchText` is stamped here, but the aggregate counters are not fed, so count tests must create leads through the mutations. */
 export async function seedLead(
   t: T,
   fields: Partial<Doc<'leads'>> & { email?: string },

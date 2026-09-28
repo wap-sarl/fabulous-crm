@@ -2,22 +2,12 @@ import type * as React from 'react';
 import { cn } from '../../theme/utils';
 
 interface LogoIconProps extends React.HTMLAttributes<HTMLDivElement> {
-  /**
-   * Icon variant: 'light' for dark backgrounds, 'dark' for light backgrounds
-   * @default 'dark'
-   */
+  /** 'light' is for dark backgrounds, 'dark' for light ones. */
   variant?: 'light' | 'dark';
-  /**
-   * Custom brand mark URL. When provided, the uploaded image is rendered in
-   * place of the gradient tile; falls back to the tile when omitted/null.
-   */
+  /** Custom brand mark URL; falls back to the gradient tile when omitted/null. */
   src?: string | null;
 }
 
-/**
- * Brand mark — rounded gradient tile with the app initial, or a custom uploaded
- * image when `src` is provided.
- */
 function LogoIcon({
   className,
   variant = 'dark',

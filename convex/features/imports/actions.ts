@@ -2,10 +2,6 @@ import { ConvexError, v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { internalAction } from '../../_generated/server';
 
-/**
- * Runs one batch and schedules the next. A mutation that throws is rolled back whole and Convex does not retry it,
- * so the wrapper marks the job interrupted with the error; a resume schedules the same batch again.
- */
 /** What the report will show: a refusal as its JSON so the SPA can word it, else the message's first line, no stack. */
 function errorText(e: unknown): string {
   if (e instanceof ConvexError) {
@@ -15,6 +11,7 @@ function errorText(e: unknown): string {
   return message.split('\n')[0].replace(/^Uncaught (\w*Error: )?/, '');
 }
 
+/** Convex does not retry a mutation that throws: the wrapper marks the job interrupted with the error, and a resume schedules the same batch again. */
 export const runBatch = internalAction({
   args: { jobId: v.id('importJobs'), batch: v.number() },
   returns: v.null(),

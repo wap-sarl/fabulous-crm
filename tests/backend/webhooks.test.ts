@@ -14,8 +14,7 @@ async function prepareCampaign(t: T, campaignId: Id<'campaigns'>) {
 const SECRET = 'test-webhook-secret';
 
 beforeAll(() => {
-  // resolveBrevo falls back to env when appConfig is empty: the API key makes
-  // SMS available + email count as Brevo-backed; the secret guards the routes.
+  // With an empty appConfig Brevo is resolved from env: the key makes SMS available and email Brevo-backed, the secret guards the routes.
   process.env.BREVO_API_KEY = 'test-brevo-key';
   process.env.BREVO_WEBHOOK_SECRET = SECRET;
 });

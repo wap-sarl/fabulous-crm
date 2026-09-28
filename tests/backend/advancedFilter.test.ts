@@ -8,13 +8,7 @@ import type {
 } from '../../convex/_lib/validators/filters';
 import { evalAdvancedFilter, evalRule } from '../../convex/features/crm/leadMatching';
 
-/**
- * Exhaustive coverage of the pure advanced-filter evaluator — the engine the
- * plan builds dynamic lists (#23) and lead scoring (#25) on. Every operator is
- * exercised against every kind of stored value it can meet: standard string
- * columns, the status, booleans, the marketingConsent array, and custom
- * properties (text, number, checkbox array).
- */
+/** Dynamic lists and lead scoring rest on this evaluator, so every operator meets every kind of stored value. */
 
 type Field = FilterField<LeadStandardField>;
 type Rule = FilterRule<LeadStandardField>;

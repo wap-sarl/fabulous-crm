@@ -19,10 +19,7 @@ export async function findRole(
     .first();
 }
 
-/**
- * The access of a role key. `admin` is always full access whatever the row
- * says (the guaranteed way back in); an unknown key gets `member`'s defaults.
- */
+/** `admin` is always full access whatever the row says, the guaranteed way back in; an unknown key gets `member`'s defaults. */
 export async function resolveRoleAccess(
   ctx: QueryCtx | MutationCtx,
   key: string | undefined,

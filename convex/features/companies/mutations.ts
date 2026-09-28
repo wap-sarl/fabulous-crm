@@ -78,8 +78,7 @@ export const updateCompany = employeeMutation({
       if (!name) throw new Error('company_name_required');
       updates.name = name;
     }
-    // Identifiers are normalized together: the country decides the scheme
-    // the registration number is validated against.
+    // Identifiers are normalized together: the country decides the scheme the registration number is validated against.
     if (
       rest.country !== undefined ||
       rest.registrationNumber !== undefined ||
@@ -128,8 +127,7 @@ export const updateCompany = employeeMutation({
         metadata: { changes },
       });
     }
-    // The company name is denormalized into its leads' searchText: re-stamp
-    // them in scheduled batches (a company can have thousands of contacts).
+    // The company name is denormalized into its leads' searchText: re-stamped in scheduled batches, a company can have thousands of contacts.
     if (renamed) {
       await ctx.scheduler.runAfter(
         0,
@@ -141,10 +139,7 @@ export const updateCompany = employeeMutation({
   },
 });
 
-/**
- * Soft-delete a company. Its contacts stay (they are people, not the
- * company's property) and are detached in scheduled batches.
- */
+/** Soft delete: the contacts stay (they are people, not the company's property) and are detached in scheduled batches. */
 export const deleteCompany = employeeMutation({
   args: { companyId: v.id('companies') },
   handler: async (ctx, args) => {

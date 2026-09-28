@@ -16,10 +16,6 @@ import { formatAddress } from '../addresses';
 import { COUNTRIES } from '../countries';
 import { resolveAddressProvider } from './addressProviders';
 
-// ---------------------------------------------------------------------------
-// Fields + block
-// ---------------------------------------------------------------------------
-
 interface AddressFieldsProps {
   value: AddressValue;
   onChange: (value: AddressValue) => void;
@@ -145,11 +141,7 @@ function MetadataAddressFields({
 export interface CountryAddressInputProps {
   value: AddressValue;
   onChange: (value: AddressValue) => void;
-  /**
-   * Country controlled by the parent (a company's legal country): the
-   * selector is hidden and the address follows it. Unset = the block shows
-   * its own country selector (a lead's address).
-   */
+  /** Set when the parent controls the country (a company's legal country): the selector is hidden; unset, the block shows its own. */
   country?: string;
   idPrefix?: string;
   disabled?: boolean;
@@ -157,11 +149,7 @@ export interface CountryAddressInputProps {
   label?: string;
 }
 
-/**
- * Country selector (own or parent-controlled) + search box with the
- * country's provider + the country's nested fields. Changing the country
- * resets the region (its keys are country-specific) and any place id.
- */
+/** Changing the country resets the region, whose keys are country-specific, and any place id. */
 export function CountryAddressInput({
   value,
   onChange,
@@ -196,8 +184,7 @@ export function CountryAddressInput({
         </div>
       ) : null}
       <AddressInput
-        // Remount on country change: the search state (query, suggestions,
-        // manual toggle) belongs to one country's provider.
+        // Remount on country change: the search state belongs to one country's provider.
         key={effective}
         idPrefix={idPrefix}
         value={syncedValue}

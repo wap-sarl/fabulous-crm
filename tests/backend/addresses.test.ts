@@ -47,8 +47,7 @@ describe('address formats (libaddressinput metadata, pure)', () => {
     expect(state?.options?.some(([key, name]) => key === 'CA' && name === 'California')).toBe(true);
     expect(us.fields.find((f) => f.key === 'postalCode')?.label).toBe('Code ZIP');
 
-    // Japan (Latin variant "%A, %S%n%Z"): no separate city line — the
-    // municipality is part of the street lines — so the city field trails, optional.
+    // Japan (Latin variant "%A, %S%n%Z") has no city line, the municipality is in the street lines: the city field trails, optional.
     expect(addressFormatFor('JP').fields.map((f) => f.key)).toEqual([
       'street',
       'region',

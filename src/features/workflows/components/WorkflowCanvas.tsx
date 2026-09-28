@@ -46,9 +46,7 @@ function CanvasInner({ draft, invalidIds, handlers }: WorkflowCanvasProps) {
     return () => cancelAnimationFrame(id);
   }, [nodes.length, fitView]);
 
-  // Single click dispatcher. Also load-bearing: with nodesDraggable and
-  // elementsSelectable off, React Flow only gives node wrappers pointer
-  // events when an onNodeClick handler is registered.
+  // Load-bearing: with nodesDraggable and elementsSelectable off, React Flow only gives node wrappers pointer events when an onNodeClick is registered.
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: Node) => {
       if (node.type === 'trigger') handlers.onSelect('trigger');

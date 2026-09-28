@@ -1,24 +1,11 @@
-/**
- * Runtime application of the admin-chosen brand accent color. Overrides the
- * `--primary` family of CSS custom properties on `document.documentElement`,
- * exactly the mechanism used for `--sidebar-width` in DashboardLayout. The
- * derived shades mirror how theme.css defines them for the default `#5b50f5`
- * (strong = a touch darker, soft = a near-white tint), so gradients, soft
- * backgrounds and focus rings stay coherent with a custom color.
- *
- * `--primary-foreground` is intentionally left untouched (always white).
- */
+/** The derived shades mirror how theme.css defines them for its default color; `--primary-foreground` is left untouched on purpose, always white. */
 
 const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 /** The vars we override, so reset can remove exactly this set. */
 const MANAGED_VARS = ['--primary', '--primary-strong', '--primary-soft', '--ring'] as const;
 
-/**
- * localStorage key for the last-applied accent. Read synchronously at startup
- * (see bootstrapPrimaryColor) so the first paint already uses the brand color
- * instead of flashing the theme.css default before the Convex config resolves.
- */
+/** The last accent applied, read synchronously at startup so the first paint does not flash the theme default. */
 const ACCENT_STORAGE_KEY = 'crm.accent';
 
 type Hsl = { h: number; s: number; l: number };
@@ -80,19 +67,14 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 function derivePrimaryShades(hex: string): { strong: string; soft: string } {
   const { h, s, l } = hexToHsl(hex);
   return {
-    // Darker + slightly muted for the button gradient end + hover states.
-    // Trimming saturation alongside lightness avoids the chroma spike that a
-    // lightness-only drop causes near L=50% (keeps `#5b50f5` → ~`#4b41e0`).
+    // Saturation is trimmed along with lightness: a lightness-only drop causes a chroma spike near L=50%.
     strong: hslToHex({ h, s: clamp(s * 0.85, 0, 100), l: clamp(l - 7, 0, 100) }),
     // Near-white tint for soft backgrounds and focus rings.
     soft: hslToHex({ h, s, l: 96 }),
   };
 }
 
-/**
- * Apply a `#rrggbb` brand color app-wide. No-op on a malformed value so a bad
- * stored config can never break rendering. Callable repeatedly for live preview.
- */
+/** Does nothing on a malformed value, so a bad stored config can never break rendering. */
 export function applyPrimaryColor(hex: string): void {
   if (typeof document === 'undefined' || !HEX_RE.test(hex)) return;
   const root = document.documentElement.style;
@@ -105,8 +87,7 @@ export function applyPrimaryColor(hex: string): void {
   try {
     window.localStorage.setItem(ACCENT_STORAGE_KEY, hex);
   } catch {
-    // Storage unavailable (private mode / disabled) — flash prevention is a
-    // progressive enhancement, so silently skip.
+    // Storage may be unavailable: the flash prevention is a progressive enhancement, so it is skipped.
   }
 }
 
@@ -123,12 +104,7 @@ export function resetPrimaryColor(): void {
   }
 }
 
-/**
- * Apply the last-known accent color synchronously, before React renders. Call
- * once at app entry (see main.tsx) so the first spinner/paint uses the brand
- * color instead of the theme.css default `#5b50f5`. `BrandingHead` later
- * reconciles to the live Convex config value. No-op on first-ever visit.
- */
+/** Runs synchronously before React renders, from the cached accent; `BrandingHead` later reconciles it with the live config. */
 export function bootstrapPrimaryColor(): void {
   if (typeof window === 'undefined') return;
   let cached: string | null = null;

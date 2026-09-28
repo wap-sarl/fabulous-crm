@@ -30,9 +30,7 @@ export type WizardData = {
   ssoProviders: SsoDraft[];
   socialProviders: SocialDraft[];
   admin: { email: string; firstName: string; lastName: string };
-  // Custom branding uploaded in the Organisation step. The storage ids are sent
-  // to `completeSetup`; the preview URLs are transient (object URLs) for display
-  // in the wizard only.
+  // The storage ids go to `completeSetup`; the preview URLs are transient object URLs, for display in the wizard only.
   logoStorageId?: Id<'_storage'>;
   logoPreviewUrl?: string;
   faviconStorageId?: Id<'_storage'>;

@@ -88,11 +88,7 @@ export function ownerNamespaces(
 
 const byCreator = (doc: { createdBy?: Id<'users'> }) => (doc.createdBy ? [doc.createdBy] : []);
 
-/**
- * The RLS rules of one request. Parent lookups (a send's campaign, a note's
- * lead…) go through the raw reader and are memoized, so a page of child rows
- * costs one extra read per distinct parent.
- */
+/** The RLS rules of one request: parent lookups go through the raw reader and are memoized, so a page of child rows costs one read per distinct parent. */
 function rulesFor(ctx: QueryCtx | MutationCtx, vis: Visibility): Rules<unknown, DataModel> {
   const raw = ctx.db;
   const memo = new Map<string, Promise<boolean>>();
@@ -136,11 +132,7 @@ function rulesFor(ctx: QueryCtx | MutationCtx, vis: Visibility): Rules<unknown, 
       return !!run && (await workflowOk(run.workflowId));
     });
 
-  /**
-   * A task is visible to its owner, to every member of its team (owner or
-   * not), to everyone when it has neither, at `team` level when its owner is
-   * a teammate, and whenever it is linked to a visible record.
-   */
+  /** A task is visible to its owner, to its team, to everyone when it has neither, to the owner's teammates at `team` level, and whenever it is linked to a visible record. */
   const activityOk = async (doc: {
     ownerId?: Id<'users'>;
     teamId?: Id<'teams'>;

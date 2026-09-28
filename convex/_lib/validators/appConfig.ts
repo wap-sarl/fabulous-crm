@@ -5,17 +5,7 @@ import { connectorConfigValidator } from './connectors';
 import { attachmentsConfigValidator } from './attachments';
 import { lifecycleConfigValidator } from './lifecycle';
 
-/**
- * A custom OIDC/SSO issuer handled by Better Auth's generic-oauth plugin — the
- * exact custom-provider analogue of a social provider. `providerId` is the stable
- * slug that rides in the OAuth callback (`/api/auth/oauth2/callback/<providerId>`)
- * and must never change once created. `clientSecret` is a SECRET — resolved
- * server-side by `createAuth` at request time (convex/auth.ts) and never returned
- * to the browser (the public config query projects only `id`/`label`).
- *
- * Unlike social providers there is no domain gating here: the invite-only GATE in
- * convex/auth.ts (`databaseHooks.user.create.before`) governs who may sign in.
- */
+/** A custom OIDC issuer: `providerId` rides in the callback path and must never change; only the invite-only gate of convex/auth.ts decides who signs in. */
 export const ssoProviderValidator = v.object({
   providerId: v.string(), // stable slug — the OAuth callback path segment
   label: v.string(), // button label, e.g. "Mon organisation"
@@ -28,13 +18,7 @@ export const ssoProviderValidator = v.object({
 
 export type SsoProvider = Infer<typeof ssoProviderValidator>;
 
-/**
- * A well-known social provider handled by Better Auth (Google, Microsoft,
- * GitHub, LinkedIn). `id` is the Better Auth provider key (and OAuth callback
- * slug). `clientSecret` is a SECRET — resolved server-side by `createAuth` at
- * request time (convex/auth.ts) and never returned to the browser (the public
- * config query projects only a `configured` flag).
- */
+/** `id` is the Better Auth provider key and the OAuth callback slug; `clientSecret` never reaches the browser, the public config query only says `configured`. */
 export const socialProviderConfigValidator = v.object({
   id: v.string(), // 'google' | 'microsoft' | 'github' | 'linkedin'
   clientId: v.string(),
@@ -44,22 +28,7 @@ export const socialProviderConfigValidator = v.object({
 
 export type SocialProviderConfig = Infer<typeof socialProviderConfigValidator>;
 
-/**
- * Email/SMS delivery configuration. `provider` selects how OUTBOUND EMAIL
- * (campaigns + auth sign-in) is sent: Brevo's transactional API or a plain SMTP
- * relay (nodemailer). SMS is decoupled — it always goes through Brevo and is
- * available whenever `brevoApiKey` is set, regardless of the email `provider`.
- *
- * Every field is optional so config docs written before this object existed stay
- * valid under strict schemaValidation; readers resolve missing values from the
- * matching env var (BREVO_API_KEY, BREVO_WEBHOOK_SECRET, BREVO_SMS_SENDER) via
- * `resolveEmailProvider`/`resolveBrevo` (convex/lib/emailProvider.ts).
- *
- * `brevoApiKey`, `brevoWebhookSecret` and `smtpPass` are SECRETS — resolved
- * server-side only, never returned to the browser (getAdminConfig projects
- * presence flags). The SMTP `From` identity reuses the top-level
- * `senderEmail`/`senderName`; there is no separate SMTP from-address.
- */
+/** `provider` only routes email: SMS always goes through Brevo once `brevoApiKey` is set; a missing Brevo field falls back to its env var (convex/lib/emailProvider.ts). */
 const emailConfigValidator = v.object({
   provider: v.union(v.literal('brevo'), v.literal('smtp')),
   brevoApiKey: v.optional(v.string()), // SECRET — also powers SMS + webhooks
@@ -74,40 +43,25 @@ const emailConfigValidator = v.object({
 
 export type EmailConfig = Infer<typeof emailConfigValidator>;
 
-/**
- * Singleton runtime configuration for the CRM instance. Created by the first-run
- * setup wizard (convex/setup/mutations.ts) or backfilled for existing
- * deployments (convex/seed/bootstrapConfig.ts). Read with
- * `ctx.db.query('appConfig').first()`.
- */
+/** A singleton: the setup wizard creates it (convex/setup/mutations.ts), or convex/seed/bootstrapConfig.ts backfills it on an existing deployment. */
 export const appConfigValidator = v.object({
   setupCompletedAt: v.optional(v.number()),
   organizationName: v.string(),
   appUrl: v.string(), // canonical origin, no trailing slash
   senderEmail: v.string(),
   senderName: v.string(),
-  // Custom branding uploaded via the setup wizard / settings screen. Optional so
-  // existing config docs (written before these fields) stay valid under strict
-  // schemaValidation; the browser only ever sees resolved URLs (config queries),
-  // never the raw storage ids.
+  // Optional so older config docs stay valid under strict schemaValidation; the browser sees resolved URLs, never the storage ids.
   logoStorageId: v.optional(v.id('_storage')),
   faviconStorageId: v.optional(v.id('_storage')),
-  // Brand accent color (`--primary`) picked in the setup wizard / settings. A
-  // `#rrggbb` hex string; optional so pre-existing config docs stay valid and so
-  // an unset value falls back to the theme.css default. Derived shades
-  // (`--primary-strong`/`--primary-soft`/`--ring`) are computed client-side.
+  // The `--primary` accent as a `#rrggbb` string; unset, theme.css decides, and the derived shades are computed client-side.
   primaryColor: v.optional(v.string()),
   auth: v.object({
     magicLinkEnabled: v.boolean(),
-    // Both provider lists are optional so config docs written before either field
-    // existed stay valid under strict schemaValidation — read as `?? []` everywhere.
-    // Custom SSO issuers (Better Auth generic-oauth), configured in the setup
-    // wizard / settings exactly like `socialProviders`.
+    // Both lists are optional so older config docs stay valid under strict schemaValidation: read them as `?? []`.
     ssoProviders: v.optional(v.array(ssoProviderValidator)),
     socialProviders: v.optional(v.array(socialProviderConfigValidator)),
   }),
-  // Email/SMS delivery config. Optional so pre-existing config docs stay valid;
-  // readers fall back to env vars when absent (see emailConfigValidator).
+  // Optional so older config docs stay valid; absent, readers fall back to the env vars.
   email: v.optional(emailConfigValidator),
   lifecycle: v.optional(lifecycleConfigValidator),
   attachments: v.optional(attachmentsConfigValidator),

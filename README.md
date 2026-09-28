@@ -1,8 +1,9 @@
-# WAP CRM
+# Fabulous CRM
 
-CRM autonome de gestion de leads et de campagnes email, extrait du monorepo
-est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat :
-**bun + Vite + React 19 + Convex**, sans Nx ni workspaces.
+CRM open source (Apache 2.0) pour petites entreprises : contacts, entreprises,
+transactions, campagnes e-mail et SMS, workflows, formulaires, suivi web, API
+publique. Projet plat : **bun + Vite + React 19 + Convex**, sans Nx ni
+workspaces.
 
 ## Fonctionnalités
 
@@ -307,8 +308,9 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   au profilage de la fiche absorbée. Un lead déjà dans la corbeille peut être
   effacé ; les sauvegardes s'éteignent avec
   leur rétention (`docs/`). L'API publique n'expose pas ces actions.
-- **Auth** : magic link par email (Brevo) + code OTP, sessions stockées en base
-  avec token en localStorage. Seuls les utilisateurs `employee` accèdent au CRM.
+- **Auth** : Better Auth (`convex/auth.ts`) : code envoyé par e-mail, dont le
+  lien connecte d'un clic, fournisseurs sociaux et SSO OpenID Connect. Seuls
+  les utilisateurs `employee` accèdent au CRM.
 - **API publique REST** : `/api/v1/` sur l'origine `.convex.site`, clés d'API à
   portées (*Paramètres → Clés d'API*), lecture et écriture des contacts,
   entreprises, transactions et activités, listes et propriétés en lecture.
@@ -316,20 +318,24 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
 ## Structure
 
 ```
-convex/              Backend Convex (schéma, fonctions)
+convex/              Backend Convex
+  schema.ts          Tables et index
+  http.ts            Routes HTTP publiques (webhooks, liens suivis, formulaires, suivi web, API)
+  auth.ts, auth/     Better Auth et ses e-mails
+  extensions.ts      Points d'accroche (voir Extensions)
   _lib/              Wrappers d'auth (employeeQuery/Mutation…), validators
-  auth/              Magic link, OTP, sessions
-  features/crm/      Leads, campagnes, consentement
-  features/users/    Liste des employés (sélecteur « assigné à »)
-  lib/               Helpers serveur vendorés (Brevo, audit, crypto…)
-  seed/              Bootstrap employé + backdoor de session dev
+  features/<nom>/    Une fonctionnalité : queries, mutations, actions, internal
+  lib/               Helpers serveur partagés (Brevo, audit, crypto, rétention…)
+  seed/, setup/      Premier employé, assistant de configuration initiale
 src/
-  design-system/     Design system vendoré (copié du monorepo)
-  widgets/           Auth, layouts, providers vendorés (tranche du monorepo)
-  features/ pages/   Code applicatif CRM
-  lib/               backend.ts (ré-exports Convex), shared.ts, types.ts
+  design-system/     Composants d'interface
+  widgets/           Auth, layouts, providers
+  features/ pages/   Code applicatif, par fonctionnalité puis par page
+  lib/               backend.ts (ré-exports Convex), erreurs, navigation, pays
+tests/               backend/ (convex-test), frontend/, setup.ts (voir Tests)
+scripts/             Générateurs (OpenAPI, formats d'adresse)
 docker/              Caddyfile + entrypoint de l'image de production
-docs/                openapi.yaml — contrat de l'API publique (source de `bun run openapi`)
+docs/                Contrats : API publique (openapi.yaml), extensions, connecteurs, secrets
 ```
 
 Alias d'import : `@crm/*` → `./src/*` (déclaré dans `tsconfig.json` et
@@ -406,13 +412,10 @@ les utilisateurs `employee` accèdent au CRM) :
 bunx convex run seed/devEmployee:createDevEmployee '{"email":"you@example.com","firstName":"You","lastName":"Example"}'
 ```
 
-Sans clé Brevo, utiliser la backdoor de session :
-
-```bash
-bunx convex run seed/devSession:createDevSession '{"email":"you@example.com"}'
-# puis dans la console du navigateur :
-localStorage.setItem('wap-crm-session-token', '<token retourné>')
-```
+La connexion passe ensuite par un code envoyé par e-mail : il faut un
+fournisseur d'e-mail configuré (Brevo ou SMTP, *Paramètres → E-mail*), et
+l'adresse dans `DEV_WHITELIST_EMAILS` si la liste est définie. Il n'existe pas
+de porte dérobée de session.
 
 ## Variables d'environnement
 
@@ -779,17 +782,13 @@ code structuré que l'interface sait afficher. Un *overlay* remplace `convex/ext
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — workflow, vérifications avant commit, conventions.
 - [`SECURITY.md`](SECURITY.md) — signalement d'une faille de sécurité.
 
-## Origine & divergence
+## Origine
 
-Extrait du monorepo est-santé : seuls les modules Convex nécessaires ont été
-forkés (leads/campagnes/consentement, auth magic link, liste des employés).
-Les notions métier est-santé (thèmes, occupations, RPPS, crédits DPC/FIF PL,
-seeds d'employés) ont ensuite été retirées pour rendre le CRM agnostique —
-elles reviendront sous forme de « custom properties » génériques. Les types
-utilisateur `student`/`trainer`, les branches d'auth e-learning/back-office et
-le branding est-santé (logos d'email, textes, clés localStorage `est-sante-*`)
-ont également été retirés : seul le type `employee` subsiste. Le design system
-est copié intégralement ; `src/widgets` ne contient que la tranche auth/layout.
+Le CRM a été extrait en juillet 2026 du monorepo est-santé, dont les notions
+métier ont été retirées pour le rendre agnostique. Il en reste deux traces
+voulues : le type de propriété personnalisée `rpps` (numéro de professionnel
+de santé, vérifiable auprès de l'Annuaire Santé) et le seul type d'utilisateur
+`employee`.
 
 Note campagnes : le placeholder Brevo `{{ params.occupation }}` n'est plus
 alimenté (rend vide) — retirer sa référence des templates Brevo existants.

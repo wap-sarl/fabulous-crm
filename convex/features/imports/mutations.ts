@@ -110,10 +110,7 @@ export const createJob = employeeMutation({
   },
 });
 
-/**
- * One chunk of rows, the next in file order: a chunk sent twice or out of order is refused, so a row exists once
- * and the row count is the announced one. A row the SPA could not build comes with its error and no data.
- */
+/** A chunk sent twice or out of order is refused, so a row exists once; a row the SPA could not build comes with its error and no data. */
 export const appendRows = employeeMutation({
   args: {
     jobId: v.id('importJobs'),

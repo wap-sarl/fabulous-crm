@@ -5,8 +5,7 @@ export const leadDedupeValidator = v.object({
   phone: v.optional(v.string()),
   // `<last>|<first>`, accent-free, lowercase, no separators.
   name: v.string(),
-  // First three letters of the normalized last name: the blocking key that
-  // bounds the candidate set for name similarity.
+  // First three letters of the normalized last name: it bounds the candidate set for name similarity.
   block: v.optional(v.string()),
   // Postal code, uppercase alphanumerics.
   postal: v.optional(v.string()),

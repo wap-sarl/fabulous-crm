@@ -14,11 +14,7 @@ interface CompanyPickerProps {
   modal?: boolean;
 }
 
-/**
- * Searchable company selector backed by `searchCompanies` (search index, 10
- * rows). The empty item detaches; the lead form then proposes the company
- * matching the email's domain, if any, before saving.
- */
+/** The search returns 10 rows at most; the empty item detaches, and the lead form then proposes the company of the email's domain before saving. */
 export function CompanyPicker({
   value,
   onChange,

@@ -1,11 +1,6 @@
 'use node';
 
-/**
- * Node action that sends a single transactional email through the active
- * provider. Exists so non-node callers (the Better Auth request handler in
- * auth.ts, which cannot import nodemailer) can send via SMTP by scheduling /
- * running this action.
- */
+/** A Node action so that callers outside Node (the Better Auth handler, which cannot import nodemailer) can still send through SMTP. */
 
 import { v } from 'convex/values';
 import { internalAction } from '../../_generated/server';
@@ -35,13 +30,7 @@ export const sendProviderEmail = internalAction({
   },
 });
 
-/**
- * Diagnostic: send a real test email through the currently-SAVED provider and
- * return the provider's actual response (status + raw error body + the resolved
- * `From`) to the caller — so an admin can see exactly why delivery fails
- * (unverified sender, bad key, etc.) instead of it being swallowed into logs.
- * Uses the persisted config, so save the settings first.
- */
+/** Returns the provider's raw response so an admin sees why delivery fails instead of it being lost in logs; it uses the SAVED config. */
 export const sendTestEmail = employeeAction({
   args: { to: v.string() },
   handler: async (ctx, args) => {

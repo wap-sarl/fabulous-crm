@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "wap-crm",
+      "name": "fabulous-crm",
       "dependencies": {
         "@convex-dev/aggregate": "^0.2.2",
         "@convex-dev/better-auth": "~0.12.5",

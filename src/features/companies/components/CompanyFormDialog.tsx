@@ -113,12 +113,7 @@ function fromCompany(company: Doc<'companies'>): FormState {
 /** An address block the user actually filled in (vs. the empty default). */
 const hasAddress = (a: AddressValue) => !!(a.street || a.postalCode || a.city || a.region);
 
-/**
- * Create / edit a company. The registration-number field is country-aware:
- * the `CountryInput` registry renders the SIRET input (with the Sirene
- * lookup and a one-click prefill of name + address) for France and a plain
- * input elsewhere — see src/lib/countryInputs.
- */
+/** The registration-number field follows the country: the SIRET input with the Sirene lookup for France, a plain input elsewhere, see src/lib/countryInputs. */
 export function CompanyFormDialog({
   open,
   onOpenChange,
@@ -289,8 +284,7 @@ export function CompanyFormDialog({
               items={COUNTRIES.map((c) => ({ value: c.code, label: c.name }))}
               value={form.country}
               onValueChange={(code) => {
-                // The registration scheme changes with the country: a number
-                // typed for another scheme would be meaningless, so it resets.
+                // The registration scheme changes with the country: a number typed for another scheme would be meaningless, so it resets.
                 setForm((prev) => ({
                   ...prev,
                   country: code,

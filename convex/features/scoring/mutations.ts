@@ -171,11 +171,7 @@ export const recomputeScores = settingsMutation({
   },
 });
 
-/**
- * Count how many leads would sit at or above `threshold` with the current
- * rules, in batched jobs (never a full scan in a query). Progress and result
- * land on the scoringState singleton.
- */
+/** Counts the leads at or above the threshold in batched jobs, never a full scan in a query; progress and result land on the scoringState singleton. */
 export const startScoreSimulation = settingsMutation({
   args: { threshold: v.number() },
   handler: async (ctx, args) => {

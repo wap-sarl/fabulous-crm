@@ -8,14 +8,6 @@ type AuthResult = {
   error: { code?: string; message?: string; status?: number; statusText?: string } | null;
 };
 
-/**
- * The slice of the Better Auth client surface this app actually calls, typed by
- * hand. The client's fully-inferred type is not nameable in declaration emit
- * (TS7056, and TS2883 via the emailOTP plugin's zod internals), so the export
- * needs an explicit annotation — which also flows a provider-compatible type
- * into `createAuthClient`, so the client passes to `ConvexBetterAuthProvider`
- * without any cast.
- */
 export type SocialProvider = 'google' | 'microsoft' | 'github' | 'linkedin';
 
 /** Type guard narrowing a dynamic config id to a known social provider. */
@@ -23,6 +15,7 @@ export function isSocialProvider(id: string): id is SocialProvider {
   return id === 'google' || id === 'microsoft' || id === 'github' || id === 'linkedin';
 }
 
+/** Typed by hand: the client's inferred type cannot be named in declaration emit (TS7056, TS2883), so the export needs an explicit annotation. */
 type AppAuthSurface = {
   signIn: {
     social: (args: {
@@ -30,8 +23,7 @@ type AppAuthSurface = {
       callbackURL?: string;
       errorCallbackURL?: string;
     }) => Promise<AuthResult>;
-    // Custom SSO issuers via the generic-oauth plugin. `providerId` is the DB slug
-    // (server `ssoProviders`), mirroring `signIn.social` for the well-known ones.
+    // Custom SSO issuers go through the generic-oauth plugin: `providerId` is the slug stored in the server's `ssoProviders`.
     oauth2: (args: {
       providerId: string;
       callbackURL?: string;
@@ -45,16 +37,7 @@ type AppAuthSurface = {
   signOut: () => Promise<AuthResult>;
 };
 
-/**
- * Singleton Better Auth client — the app's session authority. Mirrors the server
- * plugins in convex/auth.ts: `crossDomain` (the SPA and Better Auth's routes live
- * on different origins, so the session travels as a Bearer token), `convex` (hands
- * the session to `ConvexBetterAuthProvider`), and `emailOTP` (passwordless email).
- *
- * `baseURL` is the `.convex.site` HTTP-routes origin. Prefer the runtime
- * `VITE_CONVEX_SITE_URL` (injected via `public/env.js` → `window.__ENV__`); fall
- * back to deriving it from `VITE_CONVEX_URL` (`.convex.cloud` → `.convex.site`).
- */
+/** The `.convex.site` origin of the HTTP routes: the runtime `VITE_CONVEX_SITE_URL` when set, else derived from `VITE_CONVEX_URL`. */
 function siteBaseUrl(): string {
   const env = (typeof window !== 'undefined' && window.__ENV__) || {};
   const explicit = env.VITE_CONVEX_SITE_URL ?? import.meta.env.VITE_CONVEX_SITE_URL;
@@ -63,6 +46,7 @@ function siteBaseUrl(): string {
   return convexUrl.replace(/\.convex\.cloud\/?$/, '.convex.site').replace(/\/+$/, '');
 }
 
+/** The plugins mirror the server's in convex/auth.ts; the SPA and Better Auth live on different origins, so the session travels as a Bearer token. */
 export const authClient: AuthClient & AppAuthSurface = createAuthClient({
   baseURL: siteBaseUrl(),
   plugins: [convexClient(), crossDomainClient(), emailOTPClient(), genericOAuthClient()],

@@ -39,11 +39,7 @@ interface StepConfigPanelProps {
   onApplyTrigger: (value: TriggerFormValue) => void;
 }
 
-/**
- * Right-hand configuration Sheet for the selected trigger/step. Edits a local
- * copy (remounted per selection via `key`) and commits on « Appliquer » — the
- * canvas draft only changes when the user confirms.
- */
+/** Edits a local copy, remounted per selection through `key`: the canvas draft only changes on « Appliquer ». */
 export function StepConfigPanel(props: StepConfigPanelProps) {
   const { selection, onClose } = props;
   return (

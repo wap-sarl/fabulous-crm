@@ -1,7 +1,3 @@
-/**
- * Decorative floating squares background.
- * Shared across error pages (404, 500, etc.).
- */
 export function DecorativeSquares() {
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -33,9 +29,6 @@ export function DecorativeSquares() {
   );
 }
 
-/**
- * Large decorative error code number with gradient effect.
- */
 export function LargeErrorCode({ code }: { code: string }) {
   return (
     <div className="relative select-none">

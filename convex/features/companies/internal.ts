@@ -6,11 +6,7 @@ import { leadSearchText } from '../../lib/leadSearch';
 
 const LEADS_BATCH = 200;
 
-/**
- * Re-stamp the searchText of a company's leads after a rename. Each patch
- * goes through the leads trigger, which recomputes the text from the fresh
- * company name; writing the value here just avoids a second corrective write.
- */
+/** After a rename: the leads trigger recomputes searchText on each patch anyway, writing the value here only avoids a second corrective write. */
 export const restampCompanyLeadsSearchText = internalMutation({
   args: { companyId: v.id('companies'), cursor: v.optional(v.string()) },
   handler: async (ctx, args): Promise<{ isDone: boolean; continueCursor: string | null }> => {

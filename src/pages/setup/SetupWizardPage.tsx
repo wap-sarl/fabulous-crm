@@ -157,8 +157,7 @@ export function SetupWizardPage() {
         ...(data.faviconStorageId && { faviconStorageId: data.faviconStorageId }),
         ...(data.primaryColor && { primaryColor: data.primaryColor }),
       });
-      // Better Auth owns sessions — the owner signs in on /login (their first
-      // login links authId; the gate allows them as an existing employee).
+      // Better Auth owns sessions: the owner signs in on /login, where the first login links their authId.
       navigate('/login', { replace: true });
     } catch (e) {
       setError(

@@ -187,8 +187,7 @@ export function CampaignDetailPage() {
       setRetrying(false);
     }
   };
-  // Email sent over SMTP has no provider tracking (opens/delivery/bounces); only
-  // the self-hosted tracked-link clicks are recorded.
+  // Over SMTP there is no provider tracking: only the self-hosted tracked-link clicks are recorded.
   const isSmtp = !isSms && campaign.emailProvider === 'smtp';
 
   const skippedStatus = isSms ? 'skipped_no_phone' : 'skipped_no_email';

@@ -1,11 +1,7 @@
 import { type Infer, v } from 'convex/values';
 import { z } from 'zod';
 
-/*
- * Web tracking: a script the deployment serves, a first-party visitor cookie on the customer's site, page-view
- * beacons. Named tracking (views attached to a contact) needs a legal basis and the person's consent, so the mode
- * is a setting and the default is anonymous.
- */
+/* Named tracking (views attached to a contact) needs a legal basis and the person's consent, so the mode is a setting and the default is anonymous. */
 
 export const trackingModeValidator = v.union(v.literal('anonymous'), v.literal('named'));
 export type TrackingMode = Infer<typeof trackingModeValidator>;

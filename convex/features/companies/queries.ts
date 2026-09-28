@@ -51,11 +51,7 @@ export function getCompanyFieldValue(
   }
 }
 
-/**
- * Companies list, cursor-paginated: the search index when a term is given,
- * else name order. Soft-deleted rows and rows outside the advanced filter are
- * filtered per page.
- */
+/** Soft-deleted rows and rows outside the advanced filter are dropped per page, so a page may run short of the requested size. */
 export const listCompaniesPaginated = employeeQuery({
   args: {
     paginationOpts: paginationOptsValidator,
@@ -111,10 +107,7 @@ export const listCompanyOptions = employeeQuery({
   },
 });
 
-/**
- * Quick lookup for the lead form picker: up to 10 live companies matching a
- * search term (or the first 10 by name when empty).
- */
+/** Feeds the lead form picker: at most 10 live companies, the first by name when the term is empty. */
 export const searchCompanies = employeeQuery({
   args: { search: v.optional(v.string()) },
   handler: async (ctx, args) => {
@@ -156,10 +149,7 @@ export const getCompany = employeeQuery({
   },
 });
 
-/**
- * Company page activity: its audit trail (create/update/delete by whom), most
- * recent first. Bounded by the number of edits of one company.
- */
+/** The company page's activity is its audit trail, most recent first. */
 export const listCompanyActivity = employeeQuery({
   args: { companyId: v.id('companies') },
   handler: async (ctx, args) => {

@@ -18,11 +18,7 @@ import {
 } from '../../_lib/validators/deals';
 import { validateLeadTargetValue } from '../crm/leadTargets';
 
-/**
- * Pure helpers of the workflow engine: limits, graph validation, trigger
- * matching and the changed-fields diff. No ctx, no db — shared by the public
- * mutations (validation at activation) and the trigger dispatcher.
- */
+/** Pure helpers, without ctx or db: the public mutations and the trigger dispatcher share them. */
 
 const MAX_NODES = 50;
 export const MAX_STEPS_PER_RUN = 100;
@@ -50,11 +46,7 @@ function nodeChildIds(node: WorkflowNode): string[] {
 const countActiveRules = (filter: LeadAdvancedFilter) =>
   filter.groups.reduce((n, g) => n + g.rules.filter(isActiveRule).length, 0);
 
-/**
- * Structural checks that must hold even for drafts: unique non-empty ids,
- * every edge referencing an existing node, bounded size. Returns a French
- * error, or `null`.
- */
+/** The structural checks that hold even for a draft; the error is in French because it is shown to the user. */
 export function lightValidateGraph(nodes: WorkflowNode[], startNodeId?: string): string | null {
   if (nodes.length > MAX_NODES) return `Un workflow est limité à ${MAX_NODES} étapes.`;
   const ids = new Set<string>();
@@ -89,12 +81,7 @@ const NODE_TYPE_LABELS: Record<WorkflowNode['type'], string> = {
   branch: 'Condition',
 };
 
-/**
- * Full validation gate before a workflow can be activated. On top of
- * {@link lightValidateGraph}: a start node, every node reachable exactly once
- * (strict tree — no cycles, no orphans, no shared children) and each node's
- * config complete. Returns a French error, or `null` when activable.
- */
+/** The gate before activation: the graph must be a strict tree (no cycle, no orphan, no shared child) and every node's config complete. */
 export function validateWorkflowGraph(
   nodes: WorkflowNode[],
   startNodeId: string | undefined,
@@ -255,10 +242,7 @@ function validateStageTransitionFromTrigger(
   return `transition interdite de « ${labelOf(trigger.stageKey)} » vers « ${labelOf(node.stageKey)} » dans ce pipeline.`;
 }
 
-/**
- * An occurrence of a triggerable event on a lead, dispatched by the CRM
- * mutations. Matched against each active workflow's trigger config.
- */
+/** An occurrence of a triggerable event on a lead, matched against the trigger of each active workflow. */
 export type WorkflowTriggerEvent =
   | { type: 'lead_created' }
   | { type: 'lead_property_changed'; changedFields: FilterField[] }
@@ -361,11 +345,7 @@ const FILTERABLE_STANDARD_FIELDS = [
   'companyId',
 ] as const;
 
-/**
- * Which filterable fields a lead patch actually changes — the payload of a
- * `lead_property_changed` event. JSON-compares each provided key against the
- * current doc; `customProperties` (whole-record replace) is diffed per key.
- */
+/** The fields a lead patch really changes, the payload of `lead_property_changed`; `customProperties` is replaced whole, so it is compared key by key. */
 export function diffLeadFilterFields(
   lead: Doc<'leads'>,
   updates: Record<string, unknown>,

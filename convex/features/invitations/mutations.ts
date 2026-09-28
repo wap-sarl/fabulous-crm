@@ -18,12 +18,7 @@ import { findRole } from '../../lib/roles';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-/**
- * Send the "you're invited" email through the active provider. There is no
- * token: the CTA points at the app sign-in page and the recipient activates
- * their access by signing in with this (allowlisted) email. Best-effort — the
- * dev whitelist gate mirrors sendSignInOtp so we never email real people in dev.
- */
+/** The invite carries no token: the recipient signs in with the allowlisted email; the dev whitelist keeps real people from being emailed in dev. */
 async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
   if (!isEmailWhitelisted(email, process.env.DEV_WHITELIST_EMAILS)) return;
   const cfg = await ctx.db.query('appConfig').first();
@@ -35,11 +30,7 @@ async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
   });
 }
 
-/**
- * Invite a new member (admin only). The invited email may then sign in via any
- * Better Auth method; the gate + `triggers.user.onCreate` provision their
- * employee row with this role on first login.
- */
+/** The invited email may sign in by any Better Auth method: the employee row is provisioned with this role on first login. */
 export const createInvitation = settingsMutation({
   args: { email: v.string(), role: invitationRoleValidator },
   handler: async (ctx, args) => {
@@ -82,19 +73,14 @@ export const createInvitation = settingsMutation({
       metadata: { email, role: args.role },
     });
 
-    // Best-effort invite email — the invitation still works via the allowlist
-    // even if no email provider is configured.
+    // Best effort: the invitation still works through the allowlist when no email provider is configured.
     await scheduleInviteEmail(ctx, email);
 
     return invitationId;
   },
 });
 
-/**
- * Re-send the invite email for a still-pending invitation (admin only). Unlike
- * createInvitation this requires a configured email provider — its whole purpose
- * is the email — so it throws `email_not_configured` when none is set.
- */
+/** Unlike createInvitation this requires a configured email provider: the email is its whole purpose. */
 export const resendInvitation = settingsMutation({
   args: { invitationId: v.id('invitations') },
   handler: async (ctx, args) => {

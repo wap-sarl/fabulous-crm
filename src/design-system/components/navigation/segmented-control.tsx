@@ -14,10 +14,6 @@ interface SegmentedControlProps<T extends string> {
   'aria-label'?: string;
 }
 
-/**
- * Filter chips on a gray track — single-select. Active chip is white with a
- * subtle shadow; optional mono counts.
- */
 function SegmentedControl<T extends string>({
   items,
   value,

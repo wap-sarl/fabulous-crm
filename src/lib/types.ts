@@ -1,6 +1,3 @@
-/**
- * Vendored shared types.
- */
 import { z } from 'zod';
 
 export const EMAIL_ERROR_MESSAGES = {

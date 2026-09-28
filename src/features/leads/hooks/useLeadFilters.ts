@@ -17,12 +17,7 @@ export interface LeadFilters {
   listIds: Id<'leadLists'>[];
   /** undefined = all leads, true = only flagged, false = only non-flagged */
   flagged: boolean | undefined;
-  /**
-   * Custom-property filters, keyed by definition id → allowed values. Select
-   * properties hold option-value strings; boolean properties hold a single
-   * true/false. Serialized in the URL as `cps_<id>` (CSV) / `cpb_<id>`
-   * (`true`/`false`) so the type is recoverable without the definitions.
-   */
+  /** Allowed values by definition id; the URL carries `cps_<id>` (select) or `cpb_<id>` (boolean), so the type is known without the definitions. */
   customProperties: Record<string, (string | boolean)[]>;
   /** Advanced group-based filter (JSON-serialized in the `af` URL param). */
   advancedFilter: LeadAdvancedFilter | undefined;
@@ -40,10 +35,7 @@ function csv(value: string | null): string[] {
   return value ? value.split(',').filter(Boolean) : [];
 }
 
-/**
- * Reads and writes the leads-table filter + sort state from the URL query
- * params, so filters/sort are shareable and survive reload.
- */
+/** The filter and sort state lives in the URL query params, so it is shareable and survives a reload. */
 export function useLeadFilters() {
   const [searchParams, setSearchParams] = useSearchParams();
 

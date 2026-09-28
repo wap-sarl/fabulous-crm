@@ -8,20 +8,10 @@ export const attachmentEntityTypeValidator = v.union(
   v.literal('deal'),
 );
 
-/**
- * Where the bytes live. `convex` is Convex Storage (today). `s3` is reserved
- * for an object store: rows already carry the object `key` such a store would
- * use, so a migration copies blobs key by key and flips the provider — the
- * folder tree stays navigable by a human in the bucket.
- */
+/** `s3` is reserved for an object store: every row already carries the `key` it would use there, so a migration copies the blobs key by key and flips the provider. */
 export const storageProviderValidator = v.union(v.literal('convex'), v.literal('s3'));
 
-/**
- * A file attached to a lead, company or deal. Organized in a virtual folder
- * tree per record (`folder`, e.g. `Devis/2026`), mirrored by the object-store
- * `key` (`<entityType>/<entityId>/<folder>/<name>`). `createdBy` is the author.
- * Deleting moves a row to the trash; the blob goes when the row is purged.
- */
+/** `key` mirrors the record's virtual folder tree (`<entityType>/<entityId>/<folder>/<name>`); deleting only moves the row to the trash, the blob goes when the row is purged. */
 export const attachmentValidator = v.object({
   ...logsValidator.fields,
   // Trash: set on delete, cleared on restore. `purgeAt` is when the scheduled purge fires.

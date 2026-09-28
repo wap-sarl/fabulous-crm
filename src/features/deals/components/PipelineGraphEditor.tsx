@@ -403,8 +403,7 @@ function CanvasInner({
     const relayout = laidOut.current !== layoutKey;
     const first = laidOut.current === null;
     laidOut.current = layoutKey;
-    // The saved placement is the starting point (and the preview's only one); the buttons and
-    // a stage change place the stages again.
+    // The saved placement is the starting point (and the preview's only one); the buttons and a stage change place the stages again.
     const stored =
       relayout && (first || !editable) ? storedLayout(latest.current.layout, skeleton) : null;
     const layout = relayout ? (stored?.positions ?? layoutStages(skeleton, mode)) : null;

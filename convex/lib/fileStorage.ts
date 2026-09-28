@@ -7,14 +7,7 @@ import {
   type StorageProvider,
 } from '../_lib/validators/attachments';
 
-/**
- * Where attachment bytes live, behind one small interface. Today only Convex
- * Storage exists; an object store (S3, R2, MinIO…) plugs in as a second
- * {@link FileStore} keyed by {@link StorageProvider}. Because every attachment
- * row already carries an object-store shaped `key` (see {@link attachmentKey})
- * the migration is: copy each blob to its key, flip `provider`. The virtual
- * folder tree users build in the UI becomes real directories in the bucket.
- */
+/** Where attachment bytes live: every row already carries an object-store shaped `key`, so moving to a bucket is copying each blob to its key and flipping `provider`. */
 export interface FileStore {
   /** A short-lived URL the browser POSTs the file to. */
   generateUploadUrl(ctx: MutationCtx): Promise<string>;
@@ -45,11 +38,7 @@ const MAX_FOLDER_DEPTH = 8;
 const MAX_SEGMENT_LENGTH = 64;
 const MAX_NAME_LENGTH = 200;
 
-/**
- * Canonical folder path: segments joined by '/', trimmed, without empty or
- * dot segments; '' is the root. Throws `invalid_folder` on anything an object
- * store could not use as a prefix.
- */
+/** Canonical folder path, '' being the root: whatever an object store could not use as a prefix throws `invalid_folder`. */
 export function normalizeFolder(raw: string | undefined): string {
   const segments = (raw ?? '')
     .split(/[\\/]+/)

@@ -28,11 +28,7 @@ function matchesDynamicList(lead: Doc<'leads'> | null, list: DynamicList): boole
   return !!lead && lead.deletedAt === undefined && evalAdvancedFilter(lead, list.criteria);
 }
 
-/**
- * Make the junction row agree with `should`, through the aggregate-aware
- * helpers, and fire `list_membership_changed` on an actual change. `workflows`
- * lets batched callers preload the active workflows once.
- */
+/** Goes through the aggregate-aware helpers and fires `list_membership_changed` only on an actual change; `workflows` lets a batched caller load them once. */
 export async function syncDynamicMembership(
   ctx: MutationCtx,
   listId: Id<'leadLists'>,
@@ -67,13 +63,7 @@ export async function syncDynamicMembership(
   return null;
 }
 
-/**
- * Incremental evaluation, registered as a `leads` trigger (_lib/functions.ts)
- * so EVERY lead write goes through it: create, update, import row, signal
- * stamping, consent update. Membership reads happen only when a list's verdict
- * flips on this write — the steady state costs one pure eval per dynamic list.
- * Drift (relative-date criteria, out-of-band rows) is the full recalc's job.
- */
+/** A `leads` trigger, so every lead write goes through it; memberships are read only when a verdict flips, and drift (relative dates) is the full recalc's job. */
 export async function syncLeadDynamicLists(ctx: MutationCtx, change: LeadChange): Promise<void> {
   // Leads are soft-deleted (an update); hard deletes don't manage memberships here.
   if (change.operation === 'delete') return;
@@ -87,11 +77,7 @@ export async function syncLeadDynamicLists(ctx: MutationCtx, change: LeadChange)
   }
 }
 
-/**
- * Start (or restart) a full recalculation of one dynamic list: stamp it,
- * cancel any pending time-drift run, and schedule the first page job. A fresh
- * stamp makes the pages of any older run no-ops.
- */
+/** Starts or restarts the full recalculation of one list: the fresh stamp makes the pages of any older run no-ops. */
 export async function startDynamicListRecalc(
   ctx: MutationCtx,
   list: Doc<'leadLists'>,

@@ -7,24 +7,19 @@ export const companyValidator = v.object({
   ...softDeleteValidator.fields,
 
   name: v.string(),
-  // ISO-3166-1 alpha-2, uppercase (e.g. 'FR'). Drives which registration
-  // scheme applies and which input the forms render.
+  // ISO-3166-1 alpha-2, uppercase: it decides which registration scheme applies and which input the forms render.
   country: v.string(),
-  // National business identifier, normalized by the country's scheme (digits
-  // only for a SIRET). Unique per country among live companies.
+  // Normalized by the country's scheme (digits only for a SIRET) and unique per country among live companies.
   registrationNumber: v.optional(v.string()),
   vatNumber: v.optional(v.string()),
-  // Web domain, lowercase, no protocol/www ("acme.fr"). The automatic
-  // lead-matching key: a lead `x@acme.fr` attaches to this company. Unique
-  // among live companies.
+  // Lowercase, no protocol or www ("acme.fr"), unique among live companies: a lead `x@acme.fr` attaches to this company by it.
   domain: v.optional(v.string()),
   website: v.optional(v.string()),
   sector: v.optional(v.string()),
   headcount: v.optional(v.number()),
   address: v.optional(addressValidator),
 
-  // Denormalized search text (name, domain, registration number), maintained
-  // by the Triggers wrapper (_lib/functions.ts) — never written by hand.
+  // Maintained by the Triggers wrapper (_lib/functions.ts): never write it by hand.
   searchText: v.optional(v.string()),
 
   ownerIds: v.array(v.id('users')),

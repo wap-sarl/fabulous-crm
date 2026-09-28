@@ -1,21 +1,11 @@
 'use node';
 
-/**
- * SMTP email transport (nodemailer). NODE-ONLY — this is the single module that
- * imports nodemailer, so it must never be re-exported from the lib barrel
- * (index.ts) or imported from a default-runtime module (auth.ts, http.ts,
- * emailUtils.ts). Only 'use node' action files may import it. Mirrors
- * `sendBrevoEmail`'s never-throws `{ ok, status, error?, messageId? }` contract.
- */
+/** Node only, as the single module importing nodemailer: never re-exported from the lib barrel, and imported by 'use node' action files alone. */
 
 import nodemailer, { type Transporter } from 'nodemailer';
 import type { EmailSender, SmtpSettings } from './emailProvider';
 
-/**
- * Build a pooled nodemailer transporter. `pool: true` reuses connections across
- * the (up to 50) sends in a campaign batch instead of one handshake per message.
- * Auth omits `auth` when no user is set (open relay / IP-authenticated relay).
- */
+/** Pooled, so a campaign batch reuses connections instead of one handshake per message; no `auth` without a user, for a relay that is open or authenticated by IP. */
 export function createSmtpTransport(smtp: SmtpSettings): Transporter {
   return nodemailer.createTransport({
     host: smtp.host,
@@ -26,12 +16,7 @@ export function createSmtpTransport(smtp: SmtpSettings): Transporter {
   });
 }
 
-/**
- * Send one email through a nodemailer transporter. Returns the same shape as
- * `sendBrevoEmail` so callers can treat both providers uniformly. The returned
- * `messageId` is nodemailer's synthetic id — there is no delivery/open webhook
- * to correlate it, which is the expected degradation under SMTP.
- */
+/** Never throws and answers as `sendBrevoEmail` does; the `messageId` is nodemailer's synthetic one, as SMTP has no delivery or open webhook to correlate. */
 export async function sendSmtpEmail(
   transport: Transporter,
   sender: EmailSender,

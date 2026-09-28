@@ -12,20 +12,12 @@ function FullScreenSpinner({ testId }: { testId?: string }) {
   );
 }
 
-// Latched at module load: Better Auth's cross-domain OAuth return appends a
-// one-time `?ott=` token that ConvexBetterAuthProvider strips + redeems in an
-// effect. Until that lands, useConvexAuth reports a *definitive* signed-out, so
-// we keep showing the loading state to avoid flashing /login mid-exchange.
+// Latched at module load: until the one-time `?ott=` token of an OAuth return is redeemed, useConvexAuth reports signed-out and /login would flash.
 const oauthReturnPending =
   typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('ott');
 const OTT_REDEEM_TIMEOUT_MS = 8000;
 
-/**
- * Gate rendered above ALL routes. On a fresh deployment (setup not complete) it
- * forces every visit to /setup; once setup is complete it keeps users off
- * /setup. Waits for the public config before deciding, so neither the login
- * page nor the wizard flashes on the wrong instance state.
- */
+/** Sits above all routes and waits for the public config before deciding, so neither the login page nor the wizard flashes. */
 export function SetupGate() {
   const { config } = usePublicConfig();
   const { pathname } = useLocation();
@@ -45,12 +37,7 @@ export function SetupGate() {
   return <Outlet />;
 }
 
-/**
- * Gate for authenticated routes. Renders an <Outlet /> when the user is
- * authenticated, a spinner while the session resolves (including the OAuth
- * one-time-token redemption after a social redirect), and redirects to /login
- * otherwise.
- */
+/** The spinner also covers the redemption of the OAuth one-time token, bounded by a timeout so a dead token ends on /login. */
 export function ProtectedRoute() {
   const { isAuthenticated, isLoading } = useAuth();
 
@@ -73,10 +60,6 @@ export function ProtectedRoute() {
   return <Outlet />;
 }
 
-/**
- * Gate for public-only routes (e.g. /login). Redirects already-authenticated
- * users to `redirectTo` (default "/").
- */
 export function PublicRoute({
   children,
   redirectTo = '/',

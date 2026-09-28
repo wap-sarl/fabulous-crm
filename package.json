@@ -1,6 +1,5 @@
 {
-  "name": "wap-crm",
-  "version": "0.1.0",
+  "name": "fabulous-crm",
   "private": true,
   "type": "module",
   "scripts": {

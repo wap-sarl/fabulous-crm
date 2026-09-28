@@ -3,32 +3,22 @@ import { useConvexAuth, useQuery } from 'convex/react';
 import { api } from '@crm/lib/backend';
 import { authClient } from './betterAuthClient';
 
-/**
- * Auth state, backed entirely by Better Auth (the session authority):
- * `useConvexAuth()` for the session, and `api.auth.getCurrentUser` for the linked
- * app employee (role, name…). No token, no localStorage — the session lives in
- * the Better Auth client and is set on the Convex client by ConvexBetterAuthProvider.
- */
+/** Better Auth is the session authority: no token and no localStorage here, the session lives in its client. */
 export function useAuth() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const user = useQuery(api.auth.getCurrentUser, isAuthenticated ? {} : 'skip');
 
   return {
     user: user ?? null,
-    // Still loading while the session resolves, or while we fetch the employee
-    // for an authenticated session.
+    // An authenticated session is still loading until its employee is fetched.
     isLoading: isLoading || (isAuthenticated && user === undefined),
-    // Authenticated only once we have a linked employee (a Better Auth user with
-    // no employee row is not a valid CRM user).
+    // A Better Auth user with no employee row is not a valid CRM user.
     isAuthenticated: isAuthenticated && !!user,
     logout: () => authClient.signOut(),
   };
 }
 
-/**
- * Retained as a passthrough so existing `<AuthProvider>` mounts keep working;
- * auth state now comes from `ConvexBetterAuthProvider` (see providers/ConvexProvider).
- */
+/** A passthrough that keeps the `<AuthProvider>` mounts working: the auth state comes from `ConvexBetterAuthProvider`. */
 export function AuthProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }

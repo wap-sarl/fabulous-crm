@@ -8,8 +8,7 @@ import {
 } from '../../_lib/validators/companyRegistry';
 import { enforceRateLimit } from '../../lib/rateLimits';
 
-// Local mirror of the design-system SiretCompanyData shape (convex can't
-// import from src/; the frontend casts the result).
+// Mirrors the design-system SiretCompanyData shape: convex cannot import from src/, the frontend casts the result.
 type SiretCompanyAddress = {
   numeroVoie: string | null;
   typeVoie: string | null;
@@ -38,8 +37,7 @@ const SIRENE_SEARCH_URL = 'https://recherche-entreprises.api.gouv.fr/search';
 
 type SireneEtablissement = {
   siret?: string | null;
-  // Full one-line address ("93 AVENUE DE PARIS 91300 MASSY"); the split
-  // street parts below are null on `matching_etablissements` entries.
+  // The address on one line ("93 AVENUE DE PARIS 91300 MASSY"): the split street parts below are null on `matching_etablissements` entries.
   adresse?: string | null;
   numero_voie?: string | null;
   type_voie?: string | null;
@@ -71,10 +69,7 @@ function etat(raw: string | null | undefined): 'A' | 'C' | 'F' | null {
 
 function mapSirene(digits: string, result: SireneResult): SiretCompanyData {
   const siren = result.siren ?? digits.slice(0, 9);
-  // A 14-digit query targets one establishment: prefer the matched one over
-  // the head office so the address matches what the user typed. Matched
-  // entries only carry the one-line `adresse`; the head office has the split
-  // street fields, so merge them when they are the same establishment.
+  // A 14-digit query targets one establishment, preferred over the head office; it only carries the one-line `adresse`, so the head office's split fields are merged in when both are the same.
   const matched =
     digits.length === 14
       ? result.matching_etablissements?.find((e) => e.siret === digits)

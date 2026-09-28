@@ -30,9 +30,7 @@ const sameDedupe = (a: LeadDedupe | undefined, b: LeadDedupe): boolean =>
   a.phone === b.phone &&
   a.block === b.block &&
   a.postal === b.postal;
-// idempotentTrigger (not trigger): tolerates documents not registered in the
-// aggregate (rows inserted outside the wrapper, e.g. test seeds), so a patch
-// never throws on them.
+// idempotentTrigger, not trigger: a patch must not throw on a row the aggregate never saw (inserted outside the wrapper, e.g. test seeds).
 triggers.register('leads', leadsByOwner.idempotentTrigger());
 triggers.register('leads', leadsByLifecycle.idempotentTrigger());
 triggers.register('leads', leadsByCompany.idempotentTrigger());

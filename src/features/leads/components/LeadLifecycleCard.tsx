@@ -63,8 +63,7 @@ export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardPro
       ) : (
         <ul className="flex flex-col divide-y divide-border">
           {[...history].reverse().map((row, i, rows) => {
-            // Rows are newest-first here; the time in `row.to` runs until the
-            // next transition (previous element), or until now for the latest.
+            // Rows are newest-first: the time spent in `row.to` runs until the previous element, or until now for the latest.
             const until = i === 0 ? Date.now() : rows[i - 1].changedAt;
             const actor =
               row.source === 'workflow'

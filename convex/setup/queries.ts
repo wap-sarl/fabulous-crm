@@ -2,11 +2,7 @@ import { v } from 'convex/values';
 import { query } from '../_generated/server';
 import { isSetupComplete } from './helpers';
 
-/**
- * Public status the setup gate reads on every page load.
- * `setupTokenConfigured` tells the wizard whether SETUP_TOKEN is set on the
- * deployment (fail-closed: without it the wizard cannot proceed).
- */
+/** Public status the setup gate reads on every page load; without SETUP_TOKEN on the deployment the wizard cannot proceed. */
 export const status = query({
   args: {},
   handler: async (ctx) => {
@@ -18,10 +14,7 @@ export const status = query({
   },
 });
 
-/**
- * Verify the setup token entered in the wizard's first step. Returns false once
- * setup is already complete so a stale wizard can't re-run.
- */
+/** False once setup is complete, so a stale wizard can't run again. */
 export const verifySetupToken = query({
   args: { setupToken: v.string() },
   handler: async (ctx, args) => {

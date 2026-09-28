@@ -1,11 +1,6 @@
 'use node';
 
-/**
- * Provider-agnostic email dispatcher. NODE-ONLY (imports the nodemailer-backed
- * smtpUtils). Callers resolve the active provider with `resolveEmailProvider`
- * (convex/lib/emailProvider.ts) and hand the result here, staying blind to
- * Brevo-vs-SMTP. Both paths keep `sendBrevoEmail`'s never-throws contract.
- */
+/** NODE-ONLY (nodemailer): callers hand over a resolved provider and stay blind to Brevo versus SMTP; neither path ever throws. */
 
 import { type ResolvedEmailProvider, sendBrevoEmail } from '../../lib';
 import { createSmtpTransport, sendSmtpEmail } from '../../lib/smtpUtils';
@@ -24,11 +19,7 @@ export type EmailSendResult = {
   messageId?: string;
 };
 
-/**
- * A reusable send handle for one provider. For SMTP it holds a pooled
- * transporter — build it once per campaign batch, `send` per recipient, then
- * `close`. For Brevo `send` is a stateless HTTP call and `close` is a no-op.
- */
+/** For SMTP it holds a pooled transporter: build it once per campaign batch and `close` it after; for Brevo `close` does nothing. */
 export type EmailDispatcher = {
   send: (msg: EmailMessage) => Promise<EmailSendResult>;
   close: () => void;

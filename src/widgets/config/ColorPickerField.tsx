@@ -31,18 +31,11 @@ export interface ColorPickerFieldProps {
   onChange: (hex: string) => void;
 }
 
-/**
- * Brand accent color picker: a row of preset swatches plus a native color well
- * and a hex text field for custom values. Mirrors `ImageUploadField`'s shape
- * (label/hint + onChange callback) so the setup wizard and settings screen can
- * share it. Only emits valid `#rrggbb` values; partial hex typing is tolerated
- * locally without firing `onChange`.
- */
+/** Shared by the setup wizard and the settings screen; only a valid `#rrggbb` value is emitted. */
 export function ColorPickerField({ label, hint, value, onChange }: ColorPickerFieldProps) {
   const inputId = useId();
   const current = value && HEX_RE.test(value) ? normalize(value) : DEFAULT_PRIMARY_COLOR;
-  // Local text buffer so the user can type an incomplete hex without it being
-  // rejected mid-entry; kept in sync when the committed value changes elsewhere.
+  // A local buffer lets the user type an incomplete hex without it being rejected mid-entry.
   const [text, setText] = useState(current);
   useEffect(() => setText(current), [current]);
 

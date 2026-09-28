@@ -40,10 +40,7 @@ export async function requireActivityLinks(
   }
 }
 
-/**
- * Insert an activity. `done` activities (a logged call, a note) get their
- * `completedAt` stamped now. Audited when a user is behind the creation.
- */
+/** An activity created `done` (a logged call, a note) is stamped completed at once; the audit row is written only when a user is behind the creation. */
 export async function createActivityRecord(
   ctx: MutationCtx,
   data: NewActivity,

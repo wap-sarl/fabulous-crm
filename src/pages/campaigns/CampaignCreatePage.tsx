@@ -77,10 +77,7 @@ export function CampaignCreatePage() {
     if (!templateAvailable && emailMode === 'template') setEmailMode('editor');
   }, [templateAvailable, emailMode]);
 
-  // Keep the RGPD opt-out (STOP line / unsubscribe block) in sync with the marketing
-  // state: added by default for marketing, removed for transactional. Idempotent, so
-  // it never duplicates or clobbers the author's edits. Only the active editable body
-  // is touched; the Brevo template mode carries its own footer.
+  // The RGPD opt-out follows the message type, idempotently, so the author's edits survive; a Brevo template carries its own footer.
   useEffect(() => {
     if (channel === 'sms') {
       setSmsBody((body) => withSmsCompliance(body, messageType));
@@ -102,8 +99,7 @@ export function CampaignCreatePage() {
   const total = matching?.total ?? 0;
   const reachable = channel === 'sms' ? (matching?.withPhone ?? 0) : (matching?.withEmail ?? 0);
 
-  // The chosen channel needs its delivery provider configured, otherwise the
-  // campaign would silently never send. SMS = Brevo; email = Brevo key or SMTP host.
+  // Without its delivery provider configured, the campaign would silently never send.
   const channelReady = channel === 'sms' ? smsAvailable : emailConfigured;
 
   const handleSubmit = async () => {
@@ -135,8 +131,7 @@ export function CampaignCreatePage() {
         toast.error('L’objet de l’e-mail est requis.');
         return;
       }
-      // TipTap renders an empty document as "<p></p>"; an imported file may be a
-      // full document — either way, treat text/images as content.
+      // TipTap renders an empty document as "<p></p>", so only text or an image counts as content.
       const hasContent = htmlBody.replace(/<[^>]*>/g, '').trim() !== '' || /<img/i.test(htmlBody);
       if (!hasContent) {
         toast.error(
@@ -161,8 +156,7 @@ export function CampaignCreatePage() {
         name,
         channel,
         messageType,
-        // Recipients are resolved server-side from the filter (no id array —
-        // it would cap the campaign at Convex's 8,192-element array limit).
+        // The server resolves the recipients from the filter: an id array would cap the campaign at Convex's 8,192-element limit.
         filter: toFilterArgs(filters),
         trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
         ...content,

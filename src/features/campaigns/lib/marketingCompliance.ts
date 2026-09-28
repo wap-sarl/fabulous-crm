@@ -1,16 +1,4 @@
-/**
- * Default opt-out text appended to marketing campaign bodies (RGPD / LCEN).
- *
- * Marketing SMS and emails must carry an unsubscribe path. We pre-fill it into the
- * editable body (visible and editable by the author) rather than force-injecting it
- * at send time. The link target is the existing `{{ params.consentUrl }}` placeholder,
- * substituted per recipient in `renderPlaceholders` (convex/lib/emailUtils.ts) to the
- * lead's public consent page (`/consent/:token`).
- *
- * All reconcilers are idempotent: they add the block when the campaign is marketing
- * and it is absent, and strip it when the campaign is transactional. Calling them
- * repeatedly (e.g. on every channel/type toggle) never duplicates or clobbers edits.
- */
+/** RGPD / LCEN: a marketing message must carry an unsubscribe path, pre-filled in the editable body rather than injected at send time; the reconcilers are idempotent. */
 import type { MessageType } from '@crm/lib/backend';
 
 /** The consent-link placeholder, used both as the link target and the presence sentinel. */
@@ -22,20 +10,12 @@ const CONSENT_RE = /\{\{\s*params\.consentUrl\s*\}\}/;
 /** The opt-out line appended to a marketing SMS body. */
 export const SMS_STOP_LINE = `STOP : ${CONSENT_TOKEN}`;
 
-/**
- * The unsubscribe block appended to a marketing email body. Kept markup-minimal: an
- * `<hr>` for separation plus a plain paragraph — inline `style` attributes do not
- * survive TipTap's StarterKit serialization, so we don't rely on them.
- */
+/** Minimal markup on purpose: inline `style` attributes do not survive the serialization of TipTap's StarterKit. */
 export const EMAIL_UNSUB_FOOTER_HTML =
   `<hr><p>Vous recevez cet e-mail car vous avez consenti à recevoir nos communications. ` +
   `Pour vous désinscrire, <a href="${CONSENT_TOKEN}">cliquez ici</a>.</p>`;
 
-/**
- * Reconcile the SMS opt-out line with the message type.
- * Marketing → ensure the `STOP : <link>` line is present (appended once).
- * Transactional → remove any line carrying the consent placeholder.
- */
+/** Marketing gets the STOP line once; transactional loses every line that carries the consent placeholder. */
 export function withSmsCompliance(body: string, type: MessageType): string {
   if (type === 'marketing') {
     if (CONSENT_RE.test(body)) return body;
@@ -50,12 +30,7 @@ export function withSmsCompliance(body: string, type: MessageType): string {
     .replace(/\s+$/, '');
 }
 
-/**
- * Reconcile the email unsubscribe block with the message type.
- * Marketing → ensure the block is present (appended once).
- * Transactional → remove the block: the `<p>…{{ params.consentUrl }}…</p>` paragraph
- * plus an `<hr>` immediately preceding it, if any.
- */
+/** Marketing gets the block once; transactional loses the paragraph that carries the consent placeholder and the `<hr>` right before it. */
 export function withEmailCompliance(html: string, type: MessageType): string {
   if (type === 'marketing') {
     if (CONSENT_RE.test(html)) return html;

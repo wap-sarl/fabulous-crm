@@ -276,8 +276,7 @@ export {
 } from './_lib/validators/properties';
 
 const tables = {
-  // Sessions/accounts/verification live inside the Better Auth component
-  // (convex/convex.config.ts), not in the app schema. See convex/auth.ts.
+  // Sessions, accounts and verifications live inside the Better Auth component (convex/convex.config.ts), not in this schema.
   users: defineTable(userValidator)
     .index('by_email', ['email', 'deletedAt'])
     .index('by_email_type', ['email', 'type', 'deletedAt'])
@@ -316,8 +315,7 @@ const tables = {
     .index('by_deletedAt', ['deletedAt'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
 
-  // Potential duplicate pairs found by a scan (see leadDuplicateValidator).
-  // `by_pair` dedupes upserts; `by_leadA`/`by_leadB` clear a merged lead's pairs.
+  // Potential duplicate pairs found by a scan: `by_pair` dedupes upserts, `by_leadA` and `by_leadB` clear a merged lead's pairs.
   leadDuplicates: defineTable(leadDuplicateValidator)
     .index('by_pair', ['leadAId', 'leadBId'])
     // [status, score]: the open list reads strongest pairs first (desc).
@@ -368,8 +366,7 @@ const tables = {
   // Named lead groupings (typically CSV imports). Few rows, read in full.
   leadLists: defineTable(leadListValidator),
 
-  // Lead ↔ list junction (a lead can be in many lists). `by_list_lead` serves
-  // both membership-existence checks and by-list scans (prefix on listId).
+  // Lead ↔ list junction: `by_list_lead` serves both the membership checks and, as a prefix on listId, the scans of a list.
   leadListMembers: defineTable(leadListMemberValidator)
     .index('by_list_lead', ['listId', 'leadId'])
     .index('by_lead', ['leadId']),
@@ -422,12 +419,10 @@ const tables = {
     .index('by_lead', ['leadId'])
     // Correlates Brevo SMS webhook events (STOP opt-outs) back to the lead.
     .index('by_brevoMessageId', ['brevoMessageId'])
-    // Correlates inbound SMS events by recipient phone (Brevo `to`) — an inbound
-    // STOP carries a fresh messageId that won't match by_brevoMessageId.
+    // Correlates inbound SMS events by recipient phone: an inbound STOP carries a fresh messageId that won't match by_brevoMessageId.
     .index('by_smsRecipient', ['smsRecipient']),
 
-  // Per-recipient tracked-link tokens (see campaignLinkTokenValidator). Resolved
-  // by the public GET /l/<token> HTTP route.
+  // Per-recipient tracked-link tokens, resolved by the public GET /l/<token> HTTP route.
   campaignLinkTokens: defineTable(campaignLinkTokenValidator)
     .index('by_token', ['token'])
     .index('by_send', ['sendId'])
@@ -436,10 +431,7 @@ const tables = {
     // The purge drops the tokens of a closed campaign once its retention is over.
     .index('by_campaign', ['campaignId']),
 
-  // Append-only delivery/engagement event log (see campaignEventValidator).
-  // `by_campaign_eventAt` drives the campaign page's desc-ordered paginated
-  // table; `by_send` the per-recipient timeline (and webhook dedup);
-  // `by_lead_eventAt` the lead's unified timeline (windowed on eventAt).
+  // Append-only event log: `by_campaign_eventAt` drives the campaign page's table, `by_send` the recipient's timeline and the webhook dedup, `by_lead_eventAt` the lead's timeline.
   campaignEvents: defineTable(campaignEventValidator)
     .index('by_campaign_eventAt', ['campaignId', 'eventAt'])
     .index('by_send', ['sendId'])
@@ -449,14 +441,11 @@ const tables = {
   // Free-text notes attached to a lead (many per lead, pinnable). See crm validators.
   leadNotes: defineTable(leadNoteValidator).index('by_lead', ['leadId']),
 
-  // Append-only lifecycle transitions (see lifecycleStageHistoryValidator).
-  // `by_lead` serves the lead page timeline, in _creationTime order.
+  // Append-only lifecycle transitions: `by_lead` serves the lead page timeline, in _creationTime order.
   lifecycleStageHistory: defineTable(lifecycleStageHistoryValidator).index('by_lead', ['leadId']),
   workflows: defineTable(workflowValidator),
 
-  // One row per enrollment of a lead in a workflow. `by_workflow_lead` serves
-  // the re-enrollment / active-run / daily-cap checks; `by_workflow_status`
-  // resume-on-activate and active counts; `by_lead` the lead-page timeline.
+  // One row per enrollment: `by_workflow_lead` serves the re-enrollment, active-run and daily-cap checks, `by_workflow_status` the resume on activation and the active counts.
   workflowRuns: defineTable(workflowRunValidator)
     .index('by_workflow', ['workflowId'])
     .index('by_workflow_status', ['workflowId', 'status'])

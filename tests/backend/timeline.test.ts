@@ -249,8 +249,7 @@ describe('lead timeline', () => {
     const { t, as, leadId } = await seedTimeline();
     const { pages } = await readAllPages(as, leadId, 3);
     const done = JSON.parse(pages[0].continueCursor).done as string[];
-    // One send, one run, one deal: all read on the first page… but only sources
-    // whose rows were all emitted are marked done.
+    // One send, one run and one deal are all read on the first page, but only sources whose rows were all emitted are marked done.
     expect(done.length).toBeGreaterThan(0);
     for (const kind of done) {
       expect(

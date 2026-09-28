@@ -50,10 +50,7 @@ export async function findCompanyByVat(
     .first();
 }
 
-/**
- * Normalize + validate a VAT number for `country`. Throws
- * `invalid_vat_number: <reason>`.
- */
+/** Throws `invalid_vat_number: <reason>`. */
 export function normalizeVatNumber(country: string, raw: string | undefined): string | undefined {
   if (raw === undefined) return undefined;
   const scheme = vatSchemeFor(country);
@@ -76,11 +73,7 @@ export async function findCompanyByDomain(
     .first();
 }
 
-/**
- * Normalize + validate a registration number for `country` through the scheme
- * registry. Throws `invalid_registration_number: <reason>` — a form bug or a
- * bad CSV cell, surfaced as-is.
- */
+/** Throws `invalid_registration_number: <reason>`: a form bug or a bad CSV cell, surfaced as is. */
 export function normalizeRegistrationNumber(
   country: string,
   raw: string | undefined,

@@ -19,10 +19,7 @@ interface ImportActor {
   listId?: Id<'leadLists'>;
 }
 
-/**
- * One entity's upsert in two halves that the run calls back to back on every row, so a dry run and the run it
- * precedes read the same rules: `plan` decides without writing, `apply` writes what was decided.
- */
+/** `plan` decides without writing and `apply` writes what was decided, so a dry run and the run it precedes read the same rules. */
 export interface EntityImporter<Row, Caches, State> {
   loadCaches(ctx: MutationCtx): Promise<Caches>;
   plan(

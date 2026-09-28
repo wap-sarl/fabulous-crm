@@ -7,12 +7,7 @@ import { evalAdvancedFilter } from '../crm/leadMatching';
 import { loadLeadFilterExtras } from '../crm/leadTableFilters';
 import { matchesTrigger, MAX_ENROLLMENTS_PER_LEAD_PER_DAY, type WorkflowTriggerEvent } from './lib';
 
-/**
- * The single entry point CRM mutations call when a triggerable event happens
- * on a lead. Finds the active workflows whose trigger matches, applies the
- * enrollment rules and enrolls. Runs inline in the host mutation's transaction
- * but NEVER throws into it — an automation failure must not break a lead edit.
- */
+/** The dispatch runs inline in the host mutation's transaction but never throws into it: an automation failure must not break a lead edit. */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -22,11 +17,7 @@ export async function loadActiveWorkflows(ctx: MutationCtx): Promise<Doc<'workfl
   return all.filter((w) => isNotDeleted(w) && w.status === 'active');
 }
 
-/**
- * Insert a run for `lead` in `workflow` and schedule its first step. Assumes
- * every enrollment check already passed. Shared by the dispatcher and
- * `enrollLeadManually`.
- */
+/** Assumes every enrollment check already passed: the callers own the rules. */
 export async function enrollLead(
   ctx: MutationCtx,
   workflow: Doc<'workflows'>,
@@ -47,9 +38,7 @@ export async function enrollLead(
     currentNodeId: workflow.startNodeId,
     stepCount: 0,
   });
-  // Re-read before bumping: bulk callers (CSV import, mass re-enroll) enroll
-  // several leads in one transaction, and patching from the captured doc would
-  // clobber the previous increments.
+  // Read again: bulk callers enroll several leads in one transaction, and patching from the captured doc would clobber the previous increments.
   const fresh = (await ctx.db.get(workflow._id)) ?? workflow;
   await ctx.db.patch(workflow._id, {
     enrolledCount: fresh.enrolledCount + 1,
@@ -62,12 +51,7 @@ export async function enrollLead(
   return runId;
 }
 
-/**
- * Dispatch a trigger event for a lead. `opts.source` identifies the workflow
- * run whose own action caused the event, so a workflow never re-enrolls itself
- * from its own side effects. `opts.workflows` lets bulk callers (CSV import)
- * preload the active workflows once for the whole loop.
- */
+/** `opts.source` names the run whose action caused the event, so a workflow never enrolls itself; `opts.workflows` lets a bulk caller load the workflows once. */
 export async function dispatchWorkflowTrigger(
   ctx: MutationCtx,
   leadId: Id<'leads'>,

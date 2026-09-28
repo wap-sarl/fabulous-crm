@@ -1,12 +1,7 @@
 import { FileWarning, MessageSquare } from 'lucide-react';
 import { cn } from '@crm/design-system';
 
-/**
- * The rendered-message shape returned by `getCampaign.messagePreview` and
- * `getCampaignSendPreview`. Fields are channel-dependent: an email carries
- * `subject`/`html`, an SMS carries `sms`, and a Brevo-template email carries only
- * `templateId` (its HTML lives on Brevo, so no faithful preview is possible).
- */
+/** An email carries `subject` and `html`, an SMS `sms`, a Brevo-template email only `templateId`: its HTML lives on Brevo, so it cannot be previewed. */
 export interface MessagePreviewData {
   channel: 'email' | 'sms';
   subject?: string | null;
@@ -15,13 +10,7 @@ export interface MessagePreviewData {
   templateId?: number | null;
 }
 
-/**
- * Renders the message a campaign sends. Reused for both the campaign's authored
- * template (placeholders visible) and a single recipient's personalized copy.
- * Email HTML renders inside a sandboxed iframe (no scripts) so arbitrary authored
- * markup can't touch the app; SMS renders as a chat bubble; a Brevo template shows
- * an "aperçu indisponible" note.
- */
+/** Email HTML renders in a sandboxed iframe without scripts, so authored markup cannot touch the app. */
 export function CampaignMessagePreview({
   channel,
   subject,

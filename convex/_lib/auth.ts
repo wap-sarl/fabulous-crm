@@ -8,21 +8,12 @@ import { action, query, type MutationCtx, type QueryCtx } from '../_generated/se
 import type { Doc, Id } from '../_generated/dataModel';
 import { internal } from '../_generated/api';
 import { authComponent } from '../auth';
-// Trigger-wrapped base so employee/admin mutations keep the lead aggregates in
-// sync on every `leads` write (see _lib/functions.ts).
+// The trigger-wrapped base keeps the aggregates in sync on every write (see _lib/functions.ts).
 import { mutation } from './functions';
 import { extensions } from '../extensions';
 import { loadVisibility, scopedReader, scopedWriter } from '../lib/visibility';
 
-/**
- * Authentication seam. Better Auth owns the session (see convex/auth.ts); these
- * wrappers resolve the current *app employee* from the Better Auth identity and
- * inject `{ userId, user }` into the handler ctx — the same shape handlers relied
- * on under the old token-based scheme, so call sites are unchanged.
- *
- * The employee is linked to the Better Auth user via `users.authId`
- * (`by_authId` index), populated by the `triggers.user.onCreate` hook.
- */
+/** Better Auth owns the session (convex/auth.ts); these wrappers resolve the app employee linked to it by `users.authId`, which the `triggers.user.onCreate` hook fills. */
 
 type DbCtx = QueryCtx | MutationCtx;
 
@@ -97,21 +88,12 @@ export const settingsMutation = customMutation(
   }),
 );
 
-/**
- * Authenticated action. Actions have no `ctx.db`, so the query/mutation
- * `loadEmployee` path (above) can't run here. Instead we gate on `getCurrentUser`
- * (which resolves the linked employee from the Better Auth session via
- * `ctx.runQuery`); a non-null result means the caller is a signed-in employee.
- * Used by external-API actions (e.g. RPPS verification) that must not be public.
- */
+/** For actions that call an external API and must not be public: an action has no `ctx.db`, so the employee is looked up through a query. */
 export const employeeAction = customAction(
   action,
   customCtx(async (ctx) => {
     await extensions.beforeEmployeeCall(ctx);
-    // Resolve the identity on the *action* ctx (where the Better Auth `sessionId`
-    // claim is present) rather than re-entering a query via `runQuery` — the
-    // latter drops the claim, so `getCurrentUser` would return null here. The
-    // employee lookup needs the DB, so pass the resolved `authId` explicitly.
+    // The identity is resolved on the action ctx and its `authId` passed on: `runQuery` drops the Better Auth `sessionId` claim.
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) throw new Error('Unauthorized: employees only');
     const employee = await ctx.runQuery(internal.auth.getEmployeeByAuthId, {

@@ -1,19 +1,10 @@
-/**
- * Shared email utilities for Brevo email sending.
- * Extracts brand constants, HTML layout, and API helper used across multiple action files.
- */
-
 const BRAND_COLORS = {
   primary: '#2dd4bf',
   secondary: '#003C55',
   brandGreen: '#0EC17C',
 };
 
-/**
- * Sender identity for every outgoing email. Configure per deployment with
- * `bunx convex env set EMAIL_SENDER_NAME …` / `EMAIL_SENDER_EMAIL …`;
- * the email domain must be a verified Brevo sender.
- */
+/** The sender set per deployment (EMAIL_SENDER_NAME, EMAIL_SENDER_EMAIL); the email domain must be a verified Brevo sender. */
 const SENDER = {
   name: process.env.EMAIL_SENDER_NAME || 'CRM',
   email: process.env.EMAIL_SENDER_EMAIL || 'noreply@example.com',
@@ -29,13 +20,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;');
 }
 
-/**
- * Substitute `{{ params.KEY }}` placeholders (whitespace-tolerant) with the
- * matching value from `params`. Unknown keys are left untouched. When `escapeValues`
- * is true (HTML body/subject rendered into markup) values are HTML-escaped so a
- * recipient's name can never inject markup. Deterministic and unit-testable —
- * we substitute ourselves rather than relying on Brevo to interpolate raw HTML.
- */
+/** Values are HTML-escaped so a recipient's name can never inject markup; the substitution is done here rather than left to Brevo on raw HTML. */
 export function renderPlaceholders(
   text: string,
   params: Record<string, string>,
@@ -48,16 +33,7 @@ export function renderPlaceholders(
   });
 }
 
-/**
- * Wrap WYSIWYG-authored body HTML in a minimal, email-safe document shell:
- * doctype, charset, and a max-width centered container with base inline font
- * and color styles. Targets Gmail/Apple Mail correctness for v1; Outlook
- * table-hardening (e.g. via `juice`) is a deliberate later step.
- *
- * Idempotent: an imported campaign template is already a complete HTML document
- * (starts with a doctype or `<html>` tag) and is returned verbatim so its own
- * layout and styles survive — only WYSIWYG fragments (`<p>…`) get wrapped.
- */
+/** Only a fragment is wrapped: a complete document, as an imported template, is returned verbatim so its own layout survives; Outlook hardening is not done. */
 export function wrapEmailHtml(bodyHtml: string): string {
   if (/<!doctype|<html[\s>]/i.test(bodyHtml)) return bodyHtml;
   return `<!doctype html>
@@ -74,10 +50,7 @@ ${bodyHtml}
 </html>`;
 }
 
-/**
- * Send an email via Brevo SMTP API, optionally with a file attachment.
- * Returns Brevo's messageId on success for delivery tracking.
- */
+/** The messageId Brevo returns is what correlates the delivery events with the send. */
 export async function sendBrevoEmail(
   apiKey: string,
   {
@@ -91,7 +64,6 @@ export async function sendBrevoEmail(
     subject: string;
     htmlContent: string;
     attachment?: { name: string; content: string }; // content = base64
-    /** Overrides the env-derived SENDER (e.g. from runtime appConfig). */
     sender?: { name: string; email: string };
   },
 ): Promise<{ ok: boolean; status: number; error?: string; messageId?: string }> {
@@ -128,11 +100,7 @@ export async function sendBrevoEmail(
   return { ok: true, status: response.status, messageId: data.messageId };
 }
 
-/**
- * Send an email via Brevo using a transactional template id with per-recipient
- * placeholder substitution ({{ params.x }} in the template). Used by CRM
- * campaigns. Returns Brevo's messageId on success for delivery tracking.
- */
+/** Brevo substitutes the `{{ params.x }}` placeholders of the template for each recipient. */
 export async function sendBrevoTemplateEmail(
   apiKey: string,
   {

@@ -1,12 +1,7 @@
 import type { ReactElement, SVGProps } from 'react';
 import { LogIn } from 'lucide-react';
 
-/**
- * Brand marks for the well-known Better Auth social providers, rendered inside
- * the login buttons. Google/Microsoft/LinkedIn keep their brand colors (explicit
- * `fill`); GitHub uses `currentColor` so it follows the button's text color.
- * Sized by the caller's `className` (e.g. `size-4`).
- */
+/** Google, Microsoft and LinkedIn keep their brand colors; GitHub uses `currentColor` to follow the button's text color. */
 
 function GoogleIcon(props: SVGProps<SVGSVGElement>) {
   return (

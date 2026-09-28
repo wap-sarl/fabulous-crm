@@ -37,11 +37,7 @@ import type {
 /** `#rrggbb` — the only accepted form for the brand accent color. */
 const hexColorRe = /^#[0-9a-fA-F]{6}$/;
 
-/**
- * Admin-only upload URL for branding assets (logo/favicon) on the settings
- * screen. The client POSTs the file to the returned URL and receives a
- * `storageId`, which is then passed to `updateConfig`.
- */
+/** For the branding assets (logo, favicon): the `storageId` the upload returns is then passed to `updateConfig`. */
 export const generateUploadUrl = settingsMutation({
   args: {},
   handler: async (ctx) => {
@@ -49,12 +45,7 @@ export const generateUploadUrl = settingsMutation({
   },
 });
 
-/**
- * Input shape for a custom SSO provider from an admin settings form. Same
- * secret-preservation rule as social: `clientSecret` omitted/empty keeps the
- * existing stored secret (matched by `providerId`), so the form never has to
- * round-trip the real secret to the browser.
- */
+/** An omitted or empty `clientSecret` keeps the stored one (matched by `providerId`), so the form never round-trips the real secret to the browser. */
 const ssoProviderInput = v.object({
   providerId: v.string(),
   label: v.string(),
@@ -65,11 +56,6 @@ const ssoProviderInput = v.object({
   enabled: v.boolean(),
 });
 
-/**
- * Input shape for a well-known social provider. Same secret-preservation rule as
- * OIDC: `clientSecret` omitted/empty keeps the existing stored secret (matched
- * by `id`).
- */
 /** A connector OAuth app as the settings send it: an omitted or empty secret keeps the stored one. */
 const connectorInput = v.object({
   provider: connectorProviderValidator,
@@ -78,6 +64,7 @@ const connectorInput = v.object({
   enabled: v.boolean(),
 });
 
+/** An omitted or empty `clientSecret` keeps the stored one (matched by `id`). */
 const socialProviderInput = v.object({
   id: v.string(),
   clientId: v.string(),
@@ -85,11 +72,7 @@ const socialProviderInput = v.object({
   enabled: v.boolean(),
 });
 
-/**
- * Input shape for the email/SMS delivery config. The three secrets
- * (`brevoApiKey`, `brevoWebhookSecret`, `smtpPass`) are optional — omitted or
- * empty keeps the stored value, so the form never round-trips real secrets.
- */
+/** The three secrets (`brevoApiKey`, `brevoWebhookSecret`, `smtpPass`) keep their stored value when omitted or empty, so the form never round-trips them. */
 const emailConfigInput = v.object({
   provider: v.union(v.literal('brevo'), v.literal('smtp')),
   brevoApiKey: v.optional(v.string()),
@@ -102,11 +85,7 @@ const emailConfigInput = v.object({
   smtpPass: v.optional(v.string()),
 });
 
-/**
- * Update the singleton config (settings screen). Non-secret fields are patched
- * directly; provider secrets are preserved when the input omits them. The audit
- * log records that a change happened but never the secret values themselves.
- */
+/** Secrets the input omits are preserved, and the audit log records that a change happened, never the secret values. */
 export const updateConfig = settingsMutation({
   args: {
     organizationName: v.optional(v.string()),
@@ -295,8 +274,7 @@ export const updateConfig = settingsMutation({
       throw new Error('connector_credentials_required');
     }
 
-    // Email config: same secret-preservation rule — an omitted/empty secret
-    // keeps the stored value (matched on the existing config, singleton).
+    // Same rule for the email secrets: an omitted or empty one keeps the stored value.
     let mergedEmail: EmailConfig | undefined;
     if (args.email) {
       const e = args.email;
@@ -314,8 +292,7 @@ export const updateConfig = settingsMutation({
         smtpUser: e.smtpUser ?? prev?.smtpUser ?? '',
         smtpPass: await keep(e.smtpPass, prev?.smtpPass),
       };
-      // Refuse to switch to a half-configured SMTP relay: host + port are the
-      // minimum needed to connect (the From identity comes from senderEmail).
+      // A half-configured SMTP relay is refused: host and port are the minimum to connect, the From identity comes from senderEmail.
       if (mergedEmail.provider === 'smtp' && (!mergedEmail.smtpHost || !mergedEmail.smtpPort)) {
         throw new Error('smtp_config_incomplete');
       }
