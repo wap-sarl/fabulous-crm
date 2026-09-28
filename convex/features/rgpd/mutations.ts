@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib';
+import { NO_VIEW_MARKS, stopLeadTracking } from '../../lib/tracking';
 
 /** Right to erasure: recorded, then done in scheduled steps that outlive this call; the contact may already be in the trash. */
 export const eraseContact = settingsMutation({
@@ -27,7 +28,7 @@ export const eraseContact = settingsMutation({
   },
 });
 
-/** Right to object to profiling: the flag, the score cleared by the trigger, and the request on the record. */
+/** Right to object to profiling: the flag, the score cleared by the trigger, the page views detached, the request on the record. */
 export const setProfilingExclusion = settingsMutation({
   args: { leadId: v.id('leads'), exclude: v.boolean() },
   returns: v.null(),
@@ -37,8 +38,11 @@ export const setProfilingExclusion = settingsMutation({
     if ((lead.excludeFromProfiling ?? false) === exclude) return null;
     await ctx.db.patch(leadId, {
       excludeFromProfiling: exclude || undefined,
+      ...(exclude && NO_VIEW_MARKS),
       updatedAt: Date.now(),
     });
+    // The browsers and their views go back to anonymous now, not at the next beacon.
+    if (exclude) await stopLeadTracking(ctx, leadId);
     const now = Date.now();
     await ctx.db.insert('rgpdRequests', {
       type: exclude ? 'objection' : 'objection_lifted',

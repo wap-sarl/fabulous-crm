@@ -45,6 +45,7 @@ import {
   workflowRunValidator,
   workflowRunStepValidator,
 } from './_lib/validators/workflows';
+import { pageViewValidator, webVisitorValidator } from './_lib/validators/tracking';
 import {
   importJobValidator,
   importMappingValidator,
@@ -305,6 +306,8 @@ const tables = {
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
     .index('by_leadScore', ['leadScore'])
+    // The contacts that carry page-view marks, for the sweep when named tracking is left.
+    .index('by_lastPageViewAt', ['lastPageViewAt'])
     .index('by_email', ['email'])
     // Duplicate detection candidates (lib/duplicates.ts): same phone / name block.
     .index('by_dedupe_phone', ['dedupe.phone'])
@@ -428,6 +431,8 @@ const tables = {
   campaignLinkTokens: defineTable(campaignLinkTokenValidator)
     .index('by_token', ['token'])
     .index('by_send', ['sendId'])
+    // The one-time value a click left in the landing URL, for the tracking beacon that redeems it.
+    .index('by_identifyHash', ['identifyHash'])
     // The purge drops the tokens of a closed campaign once its retention is over.
     .index('by_campaign', ['campaignId']),
 
@@ -471,6 +476,19 @@ const tables = {
     .index('by_lead', ['leadId'])
     // Erasures left in progress by a failed step, for the hourly resume.
     .index('by_outcome_requestedAt', ['outcome', 'requestedAt']),
+
+  // Web tracking (validators/tracking.ts): browsers by their cookie id, and their page views.
+  webVisitors: defineTable(webVisitorValidator)
+    .index('by_visitor', ['visitorId'])
+    .index('by_lead', ['leadId'])
+    // Idle browsers past the tracking retention, for the purge.
+    .index('by_lastSeenAt', ['lastSeenAt']),
+  pageViews: defineTable(pageViewValidator)
+    // A browser's views by contact: the anonymous ones (no contact) are what an identification attaches.
+    .index('by_visitor_lead_at', ['visitorId', 'leadId', 'at'])
+    .index('by_lead_at', ['leadId', 'at'])
+    // Views past the tracking retention, for the purge.
+    .index('by_at', ['at']),
 
   // Advanced import (validators/imports.ts): saved column mappings, one job per file, its rows while they are needed.
   importMappings: defineTable(importMappingValidator).index('by_entity', ['entity']),

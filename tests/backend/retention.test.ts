@@ -504,7 +504,12 @@ describe('retention purge', () => {
   test('the configured days apply, within the bounds the settings refuse to leave', async () => {
     const { t, as } = await setup();
     const admin = await as.query(api.features.config.queries.getAdminConfig, {});
-    expect(admin?.retention).toEqual({ softDeleteDays: 30, eventDays: 365, auditDays: 730 });
+    expect(admin?.retention).toEqual({
+      softDeleteDays: 30,
+      eventDays: 365,
+      auditDays: 730,
+      trackingDays: 90,
+    });
     await expect(
       as.mutation(api.features.config.mutations.updateConfig, { retentionSoftDeleteDays: 0 }),
     ).rejects.toThrow(/retention_out_of_bounds:softDeleteDays/);
@@ -521,6 +526,7 @@ describe('retention purge', () => {
       softDeleteDays: 5,
       eventDays: 365,
       auditDays: 730,
+      trackingDays: 90,
     });
     const week = await seedLead(t, { email: 'week@example.com' });
     const days3 = await seedLead(t, { email: 'days3@example.com' });
@@ -530,7 +536,9 @@ describe('retention purge', () => {
     expect(await t.run((ctx) => ctx.db.get(week))).toBeNull();
     expect(await t.run((ctx) => ctx.db.get(days3))).not.toBeNull();
     const [report] = await reports(t);
-    expect(report).toMatchObject({ policy: { softDeleteDays: 5, eventDays: 365, auditDays: 730 } });
+    expect(report).toMatchObject({
+      policy: { softDeleteDays: 5, eventDays: 365, auditDays: 730, trackingDays: 90 },
+    });
   });
 
   test('a deferred run deletes nothing and comes back; the safety-net recount of dynamic lists follows a run', async () => {
@@ -610,7 +618,7 @@ describe('retention purge', () => {
       await trash(t, id, 40);
     }
     const rowsBefore = (await count(t, 'leads')) + (await count(t, 'leadNotes'));
-    const policy = { softDeleteDays: 30, eventDays: 365, auditDays: 730 };
+    const policy = { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 };
     const page = await t.run((ctx) => purgePage(ctx, policy, NOW));
     const rowsAfter = (await count(t, 'leads')) + (await count(t, 'leadNotes'));
     expect(rowsBefore - rowsAfter).toBeLessThanOrEqual(PURGE_WRITE_BUDGET);
@@ -634,7 +642,7 @@ describe('retention purge', () => {
       startedAt: NOW,
       page: 2,
       counts: emptyCounts(),
-      policy: { softDeleteDays: 30, eventDays: 365, auditDays: 730 },
+      policy: { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 },
     });
     await t.finishAllScheduledFunctions(() => jest.runAllTimers());
     expect(await t.run((ctx) => ctx.db.get(week))).not.toBeNull();

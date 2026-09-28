@@ -157,6 +157,45 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   secrète, `FORM_IP_HASH_SALT` ou dérivée de `BETTER_AUTH_SECRET`) et suit la
   rétention du contact ; un formulaire supprimé suit celle des fiches
   supprimées.
+- **Suivi web** (*Paramètres → Suivi web*) : un script servi par le
+  déploiement (`GET /track.js`, à insérer sur le site), un cookie de visiteur
+  `_wapv` posé sur le domaine du site après l'accord du visiteur (treize mois
+  à compter de la première visite, propre à chaque hôte : `www.` et le domaine
+  nu comptent pour deux navigateurs) et retiré si l'accord l'est. L'accord
+  vient du bandeau fourni (libellé selon le mode, lien vers la politique de
+  confidentialité, redemandé tous les six mois et au passage en nominatif) ou
+  du gestionnaire de consentement du site (`window.wapTracking = { consent:
+  true }`, `window.wapTrack.consent(ok)`). « Global Privacy Control » et « Do
+  Not Track » sont respectés par le script comme par la route.
+  Les balises de pages vues (`POST /track`, URL, titre, référent) ne sont
+  acceptées que des **sites suivis** (`appConfig.tracking.allowedOrigins`,
+  en-tête `Origin` et URL de chaque page), corps borné à 64 Ko, limitées par
+  IP, par visiteur et pour tout le déploiement (600 pages vues par minute ;
+  un dépassement est signalé, daté, sur la page des réglages).
+  Tables `pageViews` (par visiteur et par contact) et `webVisitors`.
+  Deux modes : **anonyme** (rien n'est rattaché à un contact) ou
+  **nominatif** (un formulaire soumis depuis ce navigateur, y compris en
+  iframe, ou un lien de campagne cliqué rattache ses pages vues au contact,
+  celles d'avant comprises, par lots planifiés ; les suivantes lui arrivent
+  directement et la fiche est mise à jour au plus une fois par minute). Le
+  lien de campagne ne transmet jamais son jeton : la redirection vers un site
+  suivi porte une valeur à usage unique (`wapl`), valable dix minutes, que le
+  script retire de la barre d'adresse ; un e-mail transféré identifie donc
+  celui qui clique comme le destinataire d'origine. Le mode nominatif demande
+  une base légale, une information claire et une politique de confidentialité
+  (obligatoire dans les réglages), à valider avant de l'activer. Une
+  opposition au profilage détache aussitôt navigateurs et pages vues du
+  contact ; quitter le mode nominatif détache tout (désactiver le suivi
+  arrête la collecte sans rien détacher) ; une fusion de doublons
+  les reporte sur la fiche conservée. Sur le contact : `pageViewCount`,
+  `lastPageViewAt` et `visitedPages` (les 50 derniers chemins distincts),
+  d'où le filtre « Pages visitées (chemin) » des listes dynamiques et des
+  règles de scoring (« contient » un texte, « égal à » un chemin), et la
+  fiche affiche les pages vues dans l'historique (filtre « Navigation »).
+  Conservation propre (`appConfig.tracking.retentionDays`, 7 à 395 jours, 90
+  par défaut) appliquée par la purge nocturne, qui recalcule aussi ces champs
+  du contact d'après les pages vues restantes ; l'export RGPD contient les
+  pages vues, l'effacement les emporte.
 - **Doublons** : détection des leads en double par téléphone normalisé
   (E.164), e-mail, nom + code postal et distance de Levenshtein sur le nom
   (clés `dedupe` estampillées par le trigger des leads, index dédiés). Analyse

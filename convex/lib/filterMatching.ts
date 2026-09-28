@@ -2,15 +2,17 @@ import {
   type AdvancedFilter,
   type FilterField,
   type FilterGroup,
+  type FilterOperator,
   type FilterRule,
   type FilterRuleValue,
   isActiveRule,
 } from '../_lib/validators/filters';
 import type { PropertyValue } from '../_lib/validators/properties';
 
-/** Resolves a rule's field to the record's stored value (standard column or custom prop). */
+/** Resolves a rule's field to the record's stored value (standard column or custom prop); the operator says how it will be read. */
 export type FieldValueGetter<F extends string> = (
   field: FilterField<F>,
+  operator: FilterOperator,
 ) => PropertyValue | undefined;
 
 /** A stored value is "empty" for isEmpty/isNotEmpty. `false`/`0` count as set. */
@@ -98,7 +100,7 @@ export function evalFilterRule<F extends string>(
   rule: FilterRule<F>,
   now: number = Date.now(),
 ): boolean {
-  const stored = getValue(rule.field);
+  const stored = getValue(rule.field, rule.operator);
 
   if (rule.operator === 'isEmpty') return isEmptyValue(stored);
   if (rule.operator === 'isNotEmpty') return !isEmptyValue(stored);

@@ -17,6 +17,7 @@
  */
 import { HOUR, MINUTE, RateLimiter } from '@convex-dev/rate-limiter';
 import { components } from '../_generated/api';
+import { TRACK_TOTAL_PER_MINUTE } from '../_lib/validators/tracking';
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Public consent page writes, per consent token.
@@ -44,6 +45,11 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // The same, per form, then for the whole deployment: a botnet spread over addresses still meets a ceiling.
   formSubmitPerForm: { kind: 'token bucket', rate: 200, period: HOUR },
   formSubmitTotal: { kind: 'token bucket', rate: 1000, period: HOUR },
+  // Page-view beacons (POST /track), per client IP and per visitor id.
+  trackBeacon: { kind: 'token bucket', rate: 120, period: MINUTE },
+  trackVisitor: { kind: 'token bucket', rate: 60, period: MINUTE },
+  // The same for the whole deployment, counted in views: 864 000 a day at most, whatever the addresses.
+  trackTotal: { kind: 'token bucket', rate: TRACK_TOTAL_PER_MINUTE, period: MINUTE },
 });
 
 type LimitName =
@@ -59,10 +65,13 @@ type LimitName =
   | 'formRender'
   | 'formSubmit'
   | 'formSubmitPerForm'
-  | 'formSubmitTotal';
+  | 'formSubmitTotal'
+  | 'trackBeacon'
+  | 'trackVisitor'
+  | 'trackTotal';
 
 /**
- * Consume one unit of `name` for `key`. Returns false — and logs the overrun —
+ * Consume `count` units (one by default) of `name` for `key`. Returns false — and logs the overrun —
  * when the limit is exhausted; the caller decides the refusal shape (429, error
  * code…). Works from mutations, actions, and HTTP actions.
  */
@@ -70,8 +79,9 @@ export async function enforceRateLimit(
   ctx: Parameters<(typeof rateLimiter)['limit']>[0],
   name: LimitName,
   key?: string,
+  count = 1,
 ): Promise<boolean> {
-  return (await consumeRateLimit(ctx, name, key)).ok;
+  return (await consumeRateLimit(ctx, name, key, count)).ok;
 }
 
 /** Whether `key` still has budget on `name`, without consuming any — a pre-check before costly work. */
@@ -89,8 +99,9 @@ export async function consumeRateLimit(
   ctx: Parameters<(typeof rateLimiter)['limit']>[0],
   name: LimitName,
   key?: string,
+  count = 1,
 ): Promise<{ ok: boolean; retryAfterMs: number }> {
-  const { ok, retryAfter } = await rateLimiter.limit(ctx, name, key ? { key } : {});
+  const { ok, retryAfter } = await rateLimiter.limit(ctx, name, { ...(key && { key }), count });
   const retryAfterMs = ok ? 0 : Math.ceil(retryAfter);
   if (!ok) {
     console.warn('rate_limit_exceeded', { limit: name, key, retryAfterMs });

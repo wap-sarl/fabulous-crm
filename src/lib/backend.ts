@@ -235,3 +235,11 @@ export type {
   ImportRowOutcome,
   LeadImportRow,
 } from '../../convex/_lib/validators/imports';
+export {
+  TRACK_TOTAL_PER_MINUTE,
+  TRACKING_RETENTION_BOUNDS,
+  trackingOriginsSchema,
+  trackingPrivacyUrlSchema,
+  VISITED_PAGES_MAX,
+} from '../../convex/_lib/validators/tracking';
+export type { TrackingConfig, TrackingMode } from '../../convex/_lib/validators/tracking';

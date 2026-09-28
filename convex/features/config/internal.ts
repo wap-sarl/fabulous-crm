@@ -1,4 +1,5 @@
 import { internalQuery } from '../../_generated/server';
+import { loadTrackingConfig } from '../../lib/tracking';
 
 /**
  * Full singleton config INCLUDING secrets (social + SSO client secrets).
@@ -10,4 +11,10 @@ export const getConfig = internalQuery({
   handler: async (ctx) => {
     return await ctx.db.query('appConfig').first();
   },
+});
+
+/** The tracking settings in force, for the served script and the beacon route. */
+export const getTrackingConfig = internalQuery({
+  args: {},
+  handler: async (ctx) => await loadTrackingConfig(ctx),
 });

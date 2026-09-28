@@ -30,6 +30,7 @@ import { PropertiesPage } from './pages/settings/PropertiesPage';
 import { DuplicatesPage } from './pages/leads/DuplicatesPage';
 import { ImportPage } from './pages/imports/ImportPage';
 import { ImportJobPage } from './pages/imports/ImportJobPage';
+import { TrackingPage } from './pages/settings/TrackingPage';
 import { FilesPage } from './pages/settings/FilesPage';
 import { RetentionPage } from './pages/settings/RetentionPage';
 import { RolesPage } from './pages/settings/RolesPage';
@@ -114,6 +115,7 @@ function AppRoutes() {
             <Route path="/settings/pipelines" element={<PipelinesPage />} />
             <Route path="/settings/files" element={<FilesPage />} />
             <Route path="/settings/retention" element={<RetentionPage />} />
+            <Route path="/settings/tracking" element={<TrackingPage />} />
             <Route path="/settings/roles" element={<RolesPage />} />
             <Route path="/design-system" element={<DesignSystemPage />} />
             {extensions.routes.map((route) => (

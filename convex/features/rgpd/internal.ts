@@ -62,6 +62,7 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     runs,
     steps,
     submissions,
+    pageViews,
     attachmentRows,
     rules,
     audit,
@@ -117,6 +118,11 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
       .take(cap)
       .then((rows) => capped('formSubmissions', rows)),
+    ctx.db
+      .query('pageViews')
+      .withIndex('by_lead_at', (q) => q.eq('leadId', leadId))
+      .take(cap)
+      .then((rows) => capped('pageViews', rows)),
     ctx.db
       .query('attachments')
       .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
@@ -229,6 +235,13 @@ async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     campaigns,
     workflows,
     formSubmissions,
+    // Where the person browsed, as the tracking recorded it; the browser id is the CRM's, not theirs.
+    pageViews: pageViews.map((v) => ({
+      at: v.at,
+      url: v.url,
+      title: v.title ?? null,
+      referrer: v.referrer ?? null,
+    })),
     scoring,
     attachments,
     audit,

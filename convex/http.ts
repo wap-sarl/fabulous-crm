@@ -13,6 +13,13 @@ import {
 } from './lib/connectors';
 import { FORM_EMBED_JS, formIframeHtml } from './lib/formEmbed';
 import { hashClientIp } from './lib/forms';
+import { parseBeacon, readCapped, trackingScript } from './lib/tracking';
+import {
+  CEILING_NOTE_MS,
+  LINK_GRANT_PARAM,
+  MAX_BEACON_BYTES,
+  VISITOR_ID_RE,
+} from './_lib/validators/tracking';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -175,13 +182,21 @@ http.route({
       return htmlResponse('Trop de requêtes, réessayez dans un instant.', 429);
     }
     const token = new URL(request.url).pathname.slice('/l/'.length);
+    // The link's own token never reaches the landing URL: a one-time value does, and only its hash is kept.
+    const grant = randomToken();
     const result = token
-      ? await ctx.runMutation(internal.features.crm.internal.handleTrackedLinkClick, { token })
+      ? await ctx.runMutation(internal.features.crm.internal.handleTrackedLinkClick, {
+          token,
+          grantHash: await sha256Base64Url(grant),
+        })
       : { found: false as const, redirectUrl: undefined };
 
     if (!result.found) return htmlResponse('Lien invalide ou expiré.', 404);
     if (result.redirectUrl) {
-      return new Response(null, { status: 302, headers: { Location: result.redirectUrl } });
+      const location = result.identify
+        ? withLinkParam(result.redirectUrl, grant)
+        : result.redirectUrl;
+      return new Response(null, { status: 302, headers: { Location: location } });
     }
     return htmlResponse('Merci, vous pouvez fermer cet onglet.', 200);
   }),
@@ -323,6 +338,7 @@ http.route({
       renderedAt?: number;
       renderSig?: string;
       visitorToken?: string;
+      trackingVisitor?: string;
     } | null;
     if (!body || typeof body.values !== 'object' || body.values === null) {
       return formJson({ ok: false, code: 'invalid_body' }, 400);
@@ -342,6 +358,10 @@ http.route({
       honeypot: typeof body.honeypot === 'string' ? body.honeypot : undefined,
       renderedAt: typeof body.renderedAt === 'number' ? body.renderedAt : undefined,
       renderSig: typeof body.renderSig === 'string' ? body.renderSig : undefined,
+      trackingVisitor:
+        typeof body.trackingVisitor === 'string' && VISITOR_ID_RE.test(body.trackingVisitor)
+          ? body.trackingVisitor
+          : undefined,
       visitorToken: typeof body.visitorToken === 'string' ? body.visitorToken : undefined,
       ipHash: await hashClientIp(ip),
       userAgent: request.headers.get('user-agent') ?? undefined,
@@ -356,6 +376,83 @@ http.route({
   pathPrefix: '/forms/',
   method: 'OPTIONS',
   handler: httpAction(async () => new Response(null, { status: 204, headers: FORM_CORS })),
+});
+
+/** The click's one-time value as a query parameter of the landing URL, for the tracking script. */
+function withLinkParam(url: string, grant: string): string {
+  try {
+    const u = new URL(url);
+    u.searchParams.set(LINK_GRANT_PARAM, grant);
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
+// Web tracking: the script and the beacons, public; the script runs on the customer's site and starts nothing before consent.
+http.route({
+  path: '/track.js',
+  method: 'GET',
+  handler: httpAction(async (ctx, request) => {
+    const config = await ctx.runQuery(internal.features.config.internal.getTrackingConfig, {});
+    return new Response(trackingScript(new URL(request.url).origin, config), {
+      headers: {
+        'Content-Type': 'application/javascript; charset=utf-8',
+        'Cache-Control': 'public, max-age=300',
+        ...FORM_CORS,
+      },
+    });
+  }),
+});
+
+const beaconResponse = (status: number) => new Response(null, { status, headers: FORM_CORS });
+
+http.route({
+  path: '/track',
+  method: 'POST',
+  handler: httpAction(async (ctx, request) => {
+    // Global Privacy Control and Do Not Track are honoured here as well as in the script.
+    if (request.headers.get('sec-gpc') === '1' || request.headers.get('dnt') === '1') {
+      return beaconResponse(204);
+    }
+    if (!(await enforceRateLimit(ctx, 'trackBeacon', clientIpOf(request)))) {
+      return beaconResponse(429);
+    }
+    const config = await ctx.runQuery(internal.features.config.internal.getTrackingConfig, {});
+    if (!config.enabled) return beaconResponse(204);
+    // Only the sites the script was set up for; a browser always says where a beacon comes from.
+    const origin = request.headers.get('origin');
+    if (!origin || !config.allowedOrigins.includes(origin)) return beaconResponse(403);
+    // sendBeacon posts text/plain: the body is read as text whatever the header says.
+    const text = await readCapped(request, MAX_BEACON_BYTES);
+    if (text === null) return beaconResponse(413);
+    const beacon = parseBeacon(text, origin, Date.now());
+    if (!beacon) return beaconResponse(400);
+    if (beacon.views.length === 0) return beaconResponse(204);
+    if (!(await enforceRateLimit(ctx, 'trackVisitor', beacon.visitorId))) {
+      return beaconResponse(429);
+    }
+    // For the whole deployment, counted in views: many addresses still meet a ceiling.
+    if (!(await enforceRateLimit(ctx, 'trackTotal', 'all', beacon.views.length))) {
+      // Views are being lost: the settings page says so, from one write an hour at most.
+      if ((config.ceilingHitAt ?? 0) < Date.now() - CEILING_NOTE_MS) {
+        await ctx.runMutation(internal.features.tracking.internal.noteCeiling, {});
+      }
+      return beaconResponse(429);
+    }
+    await ctx.runMutation(internal.features.tracking.internal.recordBeacon, {
+      visitorId: beacon.visitorId,
+      views: beacon.views,
+      grantHash: beacon.grant ? await sha256Base64Url(beacon.grant) : undefined,
+    });
+    return beaconResponse(204);
+  }),
+});
+
+http.route({
+  path: '/track',
+  method: 'OPTIONS',
+  handler: httpAction(async () => beaconResponse(204)),
 });
 
 // Public REST API (/api/v1/): see features/api/routes.ts.

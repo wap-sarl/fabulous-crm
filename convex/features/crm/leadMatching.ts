@@ -1,6 +1,7 @@
 import type { Doc } from '../../_generated/dataModel';
 import type {
   FilterField,
+  FilterOperator,
   FilterRule,
   LeadAdvancedFilter,
   LeadStandardField,
@@ -20,6 +21,7 @@ export function getFieldValue(
   lead: Doc<'leads'>,
   field: FilterField<LeadStandardField>,
   extras?: LeadFilterExtras,
+  operator?: FilterOperator,
 ): PropertyValue | undefined {
   if (field.kind === 'custom') return lead.customProperties?.[field.definitionId];
   switch (field.field) {
@@ -67,6 +69,10 @@ export function getFieldValue(
       return lead.lastPageViewAt;
     case 'pageViewCount':
       return lead.pageViewCount ?? 0;
+    case 'visitedPages':
+      // « contains » is a substring of some path (one text); the others are asked of each path (the list).
+      if (!lead.visitedPages?.length) return undefined;
+      return operator === 'contains' ? lead.visitedPages.join('\n') : lead.visitedPages;
     case 'listIds':
       return extras?.memberListIds ?? [];
   }
@@ -78,7 +84,11 @@ export function evalRule(
   rule: FilterRule<LeadStandardField>,
   extras?: LeadFilterExtras,
 ): boolean {
-  return evalFilterRule((field) => getFieldValue(lead, field, extras), rule, extras?.now);
+  return evalFilterRule(
+    (field, operator) => getFieldValue(lead, field, extras, operator),
+    rule,
+    extras?.now,
+  );
 }
 
 /** Evaluate the whole advanced-filter tree against a lead; neutral (no active rules) ⇒ match. */
@@ -87,5 +97,9 @@ export function evalAdvancedFilter(
   filter: LeadAdvancedFilter,
   extras?: LeadFilterExtras,
 ): boolean {
-  return evalFilter((field) => getFieldValue(lead, field, extras), filter, extras?.now);
+  return evalFilter(
+    (field, operator) => getFieldValue(lead, field, extras, operator),
+    filter,
+    extras?.now,
+  );
 }

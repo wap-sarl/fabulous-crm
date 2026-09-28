@@ -1,5 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import type { AppConfig } from './appConfig';
+import { TRACKING_RETENTION_BOUNDS } from './tracking';
 
 /** How long each kind of data is kept, in days; the nightly purge (features/retention) removes what is older. */
 export const RETENTION_BOUNDS = {
@@ -19,19 +20,26 @@ export const retentionConfigValidator = v.object({
   auditDays: v.optional(v.number()),
 });
 export type RetentionConfig = Infer<typeof retentionConfigValidator>;
-export type RetentionPolicy = Record<RetentionKey, number>;
+/** The policy in force, the tracking's own duration included (appConfig.tracking). */
+export type RetentionPolicy = Record<RetentionKey, number> & { trackingDays: number };
 /** A policy frozen for one purge run, carried from page to page. */
 export const retentionPolicyValidator = v.object({
   softDeleteDays: v.number(),
   eventDays: v.number(),
   auditDays: v.number(),
+  trackingDays: v.number(),
 });
 
 /** The policy in force: the configured days, the defaults for the rest. */
-export function retentionPolicyOf(config: Pick<AppConfig, 'retention'> | null): RetentionPolicy {
-  return Object.fromEntries(
-    RETENTION_KEYS.map((key) => [key, config?.retention?.[key] ?? RETENTION_BOUNDS[key].default]),
-  ) as RetentionPolicy;
+export function retentionPolicyOf(
+  config: Pick<AppConfig, 'retention' | 'tracking'> | null,
+): RetentionPolicy {
+  return {
+    ...(Object.fromEntries(
+      RETENTION_KEYS.map((key) => [key, config?.retention?.[key] ?? RETENTION_BOUNDS[key].default]),
+    ) as Record<RetentionKey, number>),
+    trackingDays: config?.tracking?.retentionDays ?? TRACKING_RETENTION_BOUNDS.default,
+  };
 }
 
 export const isWithinRetentionBounds = (key: RetentionKey, days: number): boolean =>

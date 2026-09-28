@@ -61,6 +61,8 @@ export const leadValidator = v.object({
   formSubmissionCount: v.optional(v.number()),
   lastPageViewAt: v.optional(v.number()),
   pageViewCount: v.optional(v.number()),
+  // The last distinct paths the contact's browser visited, most recent last (validators/tracking.ts), for filters.
+  visitedPages: v.optional(v.array(v.string())),
   leadScore: v.optional(v.number()),
   scoreBreakdown: v.optional(v.record(v.string(), v.number())),
 
@@ -281,6 +283,9 @@ export const campaignLinkTokenValidator = v.object({
   // `key` of the campaign's tracked link this token belongs to.
   linkKey: v.string(),
   clickedAt: v.optional(v.number()),
+  // Named tracking: the hash of the one-time value the last click put in the landing URL, and until when it holds.
+  identifyHash: v.optional(v.string()),
+  identifyUntil: v.optional(v.number()),
 });
 
 export type CampaignLinkToken = Infer<typeof campaignLinkTokenValidator>;

@@ -5,6 +5,7 @@ import type { DuplicateReason, LeadDedupe } from '../_lib/validators/duplicates'
 import { isNotDeleted } from './dbHelpers';
 import { deleteListMember, insertListMember } from './leadListMembers';
 import { normalizeSearchText } from './leadSearch';
+import { profilingExcluded } from './leadSignals';
 
 const NAME_MAX_DISTANCE = 2;
 const NAME_MIN_LENGTH = 6;
@@ -157,10 +158,11 @@ export const REPOINT_BATCH = 200;
 /**
  * Move every row attached to `absorbedId` onto `survivorId`: notes,
  * activities, deals, workflow runs, status history, campaign sends (+ their
- * events and tracked-link tokens) and list memberships (deduplicated against
- * the survivor's own). Each table is read through its `by_lead` index; the
- * rows leave the index range as they are patched, so the loop needs no
- * cursor. Returns whether some table still holds rows (a full batch).
+ * events and tracked-link tokens), page views and browsers, and list
+ * memberships (deduplicated against the survivor's own). Each table is read
+ * through its `by_lead` index; the rows leave the index range as they are
+ * patched, so the loop needs no cursor. Returns whether some table still
+ * holds rows (a full batch).
  */
 export async function repointLeadRows(
   ctx: MutationCtx,
@@ -227,6 +229,25 @@ export async function repointLeadRows(
     .take(REPOINT_BATCH);
   for (const row of events) await ctx.db.patch(row._id, { leadId: survivorId });
   full(events.length);
+
+  // Tracking follows the person; a survivor who objected to profiling gets none of it, the views go back to anonymous.
+  const survivor = await ctx.db.get(survivorId);
+  const tracked = profilingExcluded(survivor) ? undefined : survivorId;
+  const views = await ctx.db
+    .query('pageViews')
+    .withIndex('by_lead_at', (q) => q.eq('leadId', absorbedId))
+    .take(REPOINT_BATCH);
+  for (const row of views) await ctx.db.patch(row._id, { leadId: tracked });
+  full(views.length);
+
+  const visitors = await ctx.db
+    .query('webVisitors')
+    .withIndex('by_lead', (q) => q.eq('leadId', absorbedId))
+    .take(REPOINT_BATCH);
+  for (const row of visitors) {
+    await ctx.db.patch(row._id, { leadId: tracked, ...(!tracked && { pending: undefined }) });
+  }
+  full(visitors.length);
 
   const memberships = await ctx.db
     .query('leadListMembers')
