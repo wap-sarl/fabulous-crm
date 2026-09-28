@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
+import { beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import crons from '../../convex/crons';
 import type { Id } from '../../convex/_generated/dataModel';
@@ -7,34 +7,32 @@ import { syncLeadScore } from '../../convex/lib/leadScoring';
 import { stampLeadSignal } from '../../convex/lib/leadSignals';
 import { PURGE_CASCADE_BATCH } from '../../convex/lib/retention';
 import { uniformAccess } from '../../convex/_lib/validators/access';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  seedLead,
+  type T,
+  pinClock,
+  runAll,
+} from './helpers';
 
 const NOW = Date.parse('2026-09-22T10:00:00Z');
 const SECRET = 'rgpd-webhook-secret';
-const opened: T[] = [];
 beforeEach(() => {
   process.env.BREVO_API_KEY = 'test-brevo-key';
   process.env.BREVO_WEBHOOK_SECRET = SECRET;
-  jest.useFakeTimers();
-  jest.setSystemTime(new Date(NOW));
-});
-afterEach(async () => {
-  for (const t of opened.splice(0)) await settle(t);
-  jest.useRealTimers();
+  pinClock(NOW);
 });
 
-/** Runs the scheduled work; the fake clock lands on the real time afterwards, so it goes back to NOW for the seeded sessions. */
-async function settle(t: T) {
-  await t.finishAllScheduledFunctions(() => jest.runAllTimers());
-  jest.setSystemTime(new Date(NOW));
-}
+// Running timers moves the date: it goes back, for the seeded sessions.
+const settle = (t: T, backTo = NOW) => runAll(t, backTo);
 
 const ADA = { firstName: 'Ada', lastName: 'Lovelace', email: 'ada.rgpd@example.com' };
 const BOB = { firstName: 'Bob', lastName: 'Marley', email: 'bob.rgpd@example.com' };
 
 async function setup() {
   const t = createTestConvex();
-  opened.push(t);
   const admin = await seedEmployee(t, { email: 'admin@example.com', role: 'admin' });
   const member = await seedEmployee(t, { email: 'member@example.com', role: 'member' });
   const as = asIdentity(t, admin.identity);

@@ -17,6 +17,8 @@
  */
 import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { jest } from 'bun:test';
+import type { WithoutSystemFields } from 'convex/server';
 import { convexTest, type TestConvex } from 'convex-test';
 import aggregateSchema from '../../node_modules/@convex-dev/aggregate/dist/component/schema.js';
 import betterAuthSchema from '../../node_modules/@convex-dev/better-auth/dist/component/schema.js';
@@ -26,6 +28,9 @@ import { components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import { leadSearchText } from '../../convex/lib/leadSearch';
 import schema from '../../convex/schema';
+import { onTestEnd } from '../support/backends';
+
+export { pinClock, runAfter, runAll, runDue } from '../support/clock';
 
 function globModules(
   root: string,
@@ -68,8 +73,10 @@ const migrationsModules = globModules(
 
 export type T = TestConvex<typeof schema>;
 
-/** Fresh test backend with the Better Auth and aggregate components registered. */
+/** Fresh test backend with the components registered, on a clock only the test moves; the setup closes it when the test ends. */
 export function createTestConvex(): T {
+  // A clock the test already set keeps its date.
+  if (!jest.isFakeTimers()) jest.useFakeTimers();
   const t = convexTest(schema, appModules);
   t.registerComponent('betterAuth', betterAuthSchema, betterAuthModules);
   t.registerComponent('migrations', migrationsSchema, migrationsModules);
@@ -86,7 +93,37 @@ export function createTestConvex(): T {
   t.registerComponent('dealsByOwnerStage', aggregateSchema, aggregateModules);
   t.registerComponent('dealsByOwnerStatus', aggregateSchema, aggregateModules);
   t.registerComponent('rateLimiter', rateLimiterSchema, rateLimiterModules);
+  onTestEnd(() => close(t));
   return t;
+}
+
+/** What a test scheduled and did not run never runs: it would fire later, inside another test. */
+async function close(t: T): Promise<void> {
+  await t.finishInProgressScheduledFunctions();
+  await t.run(async (ctx) => {
+    const jobs = await ctx.db.system.query('_scheduled_functions').collect();
+    for (const job of jobs) {
+      if (job.state.kind === 'pending') await ctx.scheduler.cancel(job._id);
+    }
+  });
+}
+
+/** The deployment's settings as a fresh install leaves them, with what the test needs on top. */
+export function seedConfig(
+  t: T,
+  overrides: Partial<WithoutSystemFields<Doc<'appConfig'>>> = {},
+): Promise<Id<'appConfig'>> {
+  return t.run((ctx) =>
+    ctx.db.insert('appConfig', {
+      organizationName: 'WAP',
+      appUrl: 'http://localhost:4202',
+      senderEmail: 'crm@example.com',
+      senderName: 'CRM',
+      auth: { magicLinkEnabled: true },
+      updatedAt: Date.now(),
+      ...overrides,
+    }),
+  );
 }
 
 export type SeededEmployee = {

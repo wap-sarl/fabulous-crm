@@ -38,6 +38,10 @@ jobs:
       - name: Test
         run: bun test
 
+      # A new order on every run: a test that leans on another one shows up here, with the seed to replay it.
+      - name: Test in random order
+        run: bun test --randomize
+
       - name: Build
         run: bun run build
 

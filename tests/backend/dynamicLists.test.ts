@@ -1,23 +1,24 @@
-import { describe, expect, jest, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { LeadAdvancedFilter } from '../../convex/_lib/validators/filters';
-import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  runAfter,
+  runDue,
+  seedEmployee,
+  type T,
+  seedConfig,
+} from './helpers';
+
+const DAY = 24 * 60 * 60 * 1000;
 
 async function setup() {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com', role: 'admin' });
   const as = asIdentity(t, emp.identity);
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'WAP',
-      appUrl: 'http://localhost:4202',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t);
   return { t, emp, as };
 }
 
@@ -55,24 +56,11 @@ const stageIs = (stage: string): LeadAdvancedFilter => ({
   ],
 });
 
-/** Wait for the scheduled full-recalculation chain (runAfter(0) pages) to finish. */
+/** Runs the scheduled full-recalculation chain (runAfter(0) pages) to its end. */
 async function settleRecalc(t: T, listId: Id<'leadLists'>) {
-  for (let i = 0; i < 100; i++) {
-    const list = await t.run((ctx) => ctx.db.get(listId));
-    if (!list || list.recalc === undefined) return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error('recalc did not settle');
-}
-
-/** Drive fake timers + microtasks until `done` reports true (jest.useFakeTimers active). */
-async function pumpUntil(done: () => Promise<boolean>) {
-  for (let i = 0; i < 200; i++) {
-    jest.runAllTimers();
-    for (let j = 0; j < 50; j++) await Promise.resolve();
-    if (await done()) return;
-  }
-  throw new Error('condition not reached under fake timers');
+  await runDue(t);
+  const list = await t.run((ctx) => ctx.db.get(listId));
+  if (list?.recalc !== undefined) throw new Error('recalc did not settle');
 }
 
 const memberRow = (t: T, listId: Id<'leadLists'>, leadId: Id<'leads'>) =>
@@ -325,47 +313,39 @@ describe('dynamic lists', () => {
       lastName: 'Tesla',
       lifecycleStage: 'mql',
     });
-    jest.useFakeTimers();
-    try {
-      const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
-        name: 'Ouvreurs 30 j',
-        kind: 'dynamic',
-        criteria: {
-          combinator: 'and',
-          groups: [
-            {
-              combinator: 'and',
-              rules: [
-                {
-                  field: { kind: 'standard', field: 'lastEmailOpenAt' },
-                  operator: 'inLastDays',
-                  value: 30,
-                },
-              ],
-            },
-          ],
-        },
-      });
-      const listDoc = () => t.run((ctx) => ctx.db.get(listId));
-      await pumpUntil(async () => (await listDoc())?.recalc === undefined);
-      const before = await listDoc();
-      const driftId = before?.nextRecalcId;
-      if (!driftId) throw new Error('no drift job booked');
+    const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+      name: 'Ouvreurs 30 j',
+      kind: 'dynamic',
+      criteria: {
+        combinator: 'and',
+        groups: [
+          {
+            combinator: 'and',
+            rules: [
+              {
+                field: { kind: 'standard', field: 'lastEmailOpenAt' },
+                operator: 'inLastDays',
+                value: 30,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    const listDoc = () => t.run((ctx) => ctx.db.get(listId));
+    await settleRecalc(t, listId);
+    const before = await listDoc();
+    const driftId = before?.nextRecalcId;
+    if (!driftId) throw new Error('no drift job booked');
 
-      // Advance 24h: the drift job must run to completion, not cancel itself.
-      await pumpUntil(async () => {
-        const job = await t.run((ctx) => ctx.db.system.get(driftId));
-        const settled = job?.state.kind === 'success' || job?.state.kind === 'canceled';
-        return settled && (await listDoc())?.recalc === undefined;
-      });
-      const job = await t.run((ctx) => ctx.db.system.get(driftId));
-      expect(job?.state.kind).toBe('success');
-      const after = await listDoc();
-      expect(after?.lastRecalcAt).toBeGreaterThan(before?.lastRecalcAt ?? 0);
-      expect(after?.nextRecalcId).toBeDefined();
-      expect(after?.nextRecalcId).not.toBe(driftId);
-    } finally {
-      jest.useRealTimers();
-    }
+    // A day later the drift job must run to completion, not cancel itself.
+    await runAfter(t, DAY);
+    const job = await t.run((ctx) => ctx.db.system.get(driftId));
+    expect(job?.state.kind).toBe('success');
+    const after = await listDoc();
+    expect(after?.recalc).toBeUndefined();
+    expect(after?.lastRecalcAt).toBeGreaterThan(before?.lastRecalcAt ?? 0);
+    expect(after?.nextRecalcId).toBeDefined();
+    expect(after?.nextRecalcId).not.toBe(driftId);
   });
 });

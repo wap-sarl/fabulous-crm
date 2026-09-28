@@ -8,7 +8,15 @@ import {
   verifyState,
 } from '../../convex/lib/connectors';
 import { describeConnectionError } from '../../src/lib/connectors';
-import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  type T,
+  seedConfig,
+  pinClock,
+  runAll,
+} from './helpers';
 
 const ENV = [
   'BETTER_AUTH_SECRET',
@@ -28,7 +36,6 @@ const realFetch = globalThis.fetch;
 /** The provider's side: every request it received, and what its token endpoint answers next. */
 let requests: { url: string; form: Record<string, string> }[] = [];
 let tokenAnswer: { status: number; body: Record<string, unknown> };
-const opened: T[] = [];
 
 /** A JWT whose payload carries the claims; the signature is never read (the token comes straight from the token endpoint). */
 const idToken = (claims: Record<string, unknown>) =>
@@ -48,8 +55,7 @@ beforeEach(() => {
   process.env.CONVEX_SITE_URL = 'https://crm-123.convex.site';
   process.env.SITE_URL = 'https://crm.example.com';
   process.env.SECRETS_KEY = 'a'.repeat(64);
-  jest.useFakeTimers();
-  jest.setSystemTime(new Date('2026-09-18T10:00:00Z'));
+  pinClock(Date.parse('2026-09-18T10:00:00Z'));
   const mine: typeof requests = [];
   requests = mine;
   tokenAnswer = { status: 200, body: GRANT };
@@ -64,8 +70,6 @@ beforeEach(() => {
   }) as typeof fetch;
 });
 afterEach(async () => {
-  for (const t of opened.splice(0)) await t.finishAllScheduledFunctions(() => jest.runAllTimers());
-  jest.useRealTimers();
   globalThis.fetch = realFetch;
   for (const k of ENV) {
     if (saved[k] === undefined) delete process.env[k];
@@ -75,23 +79,13 @@ afterEach(async () => {
 
 async function setup() {
   const t = createTestConvex();
-  opened.push(t);
   const emp = await seedEmployee(t, {
     email: 'admin@example.com',
     role: 'admin',
     sessionTtlMs: 30 * 24 * 60 * 60 * 1000,
   });
   const as = asIdentity(t, emp.identity);
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'Test',
-      appUrl: 'https://crm.example.com',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t, { organizationName: 'Test', appUrl: 'https://crm.example.com' });
   await as.mutation(api.features.config.mutations.updateConfig, {
     connectors: [
       {
@@ -248,7 +242,7 @@ describe('connecting an account', () => {
     // Burnt for everyone, the attacker included.
     expect(await finish(as, token)).toEqual({ ok: false, error: 'invalid_finish' });
     expect(await accounts(t)).toEqual([]);
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await runAll(t);
     expect(requests.at(-1)).toEqual({
       url: 'https://oauth2.googleapis.com/revoke',
       form: { token: 'refresh-1' },
@@ -276,7 +270,7 @@ describe('connecting an account', () => {
     await callback(t, { code: 'c', state: (await start(as)).searchParams.get('state')! });
     expect(await pendings(t)).toHaveLength(1);
     requests.length = 0;
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await runAll(t);
     expect(requests.filter((r) => r.url.endsWith('/revoke'))).toHaveLength(2);
     expect(await accounts(t)).toHaveLength(1);
   });
@@ -630,7 +624,7 @@ describe('tokens', () => {
     await as.mutation(api.features.connectors.mutations.disconnect, { provider: 'google' });
     const overview = await as.query(api.features.connectors.queries.overview, {});
     expect(overview.find((p) => p.provider === 'google')!.account).toBeNull();
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await runAll(t);
     expect(requests).toEqual([
       { url: 'https://oauth2.googleapis.com/revoke', form: { token: 'refresh-1' } },
     ]);
@@ -652,7 +646,7 @@ describe('tokens', () => {
     tokenAnswer = { status: 200, body: { ...GRANT, refresh_token: 'refresh-new' } };
     await connect(t, as, (await start(as)).searchParams.get('state')!);
     requests.length = 0;
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await runAll(t);
     expect(requests).toEqual([]);
     expect(await accounts(t)).toMatchObject([{ _id: accountId, status: 'active' }]);
     // The revocation had already read the old token when the user reconnected: the row stays all the same.

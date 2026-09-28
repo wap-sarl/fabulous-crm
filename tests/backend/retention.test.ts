@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { RETENTION_BOUNDS } from '../../convex/_lib/validators/retention';
@@ -13,39 +13,38 @@ import {
   purgePage,
 } from '../../convex/lib/retention';
 import { insertListMember } from '../../convex/lib/leadListMembers';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  seedLead,
+  type T,
+  seedConfig,
+  pinClock,
+  runAll,
+} from './helpers';
 
 const NOW = Date.parse('2026-09-22T03:30:00Z');
 const daysAgo = (days: number) => NOW - days * DAY_MS;
-const opened: T[] = [];
 
 beforeEach(() => {
-  jest.useFakeTimers();
-  jest.setSystemTime(new Date(NOW));
+  pinClock(NOW);
 });
 afterEach(async () => {
-  for (const t of opened.splice(0)) await t.finishAllScheduledFunctions(() => jest.runAllTimers());
   setExtensionsForTests(null);
-  jest.useRealTimers();
 });
 
 async function setup() {
   const t = createTestConvex();
-  opened.push(t);
   const emp = await seedEmployee(t, { email: 'admin@example.com', role: 'admin' });
   const as = asIdentity(t, emp.identity);
   // Deals need a pipeline to land in.
   await as.mutation(api.features.deals.mutations.ensureDefaultPipeline, {});
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'Test',
-      appUrl: 'https://crm.example.com',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      updatedAt: NOW,
-    }),
-  );
+  await seedConfig(t, {
+    organizationName: 'Test',
+    appUrl: 'https://crm.example.com',
+    updatedAt: NOW,
+  });
   return { t, as, emp };
 }
 type Setup = Awaited<ReturnType<typeof setup>>;
@@ -53,7 +52,7 @@ type Setup = Awaited<ReturnType<typeof setup>>;
 /** One run, its continuation pages included. */
 async function purge(t: T) {
   await t.mutation(internal.features.retention.internal.runPurge, {});
-  await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+  await runAll(t);
 }
 const reports = (t: T) =>
   t.run(async (ctx) =>
@@ -564,7 +563,7 @@ describe('retention purge', () => {
         ],
       },
     });
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await runAll(t);
     const scheduled = (name: string) =>
       t.run(async (ctx) =>
         (await ctx.db.system.query('_scheduled_functions').collect()).filter(
@@ -591,7 +590,7 @@ describe('retention purge', () => {
     setExtensionsForTests(null);
     const stampBefore = (await t.run((ctx) => ctx.db.get(listId)))?.lastRecalcAt ?? 0;
     // Allowed again: the deferred run comes back on its own, purges, and reports once.
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await runAll(t);
     expect(await t.run((ctx) => ctx.db.get(lead))).toBeNull();
     expect(await reports(t)).toHaveLength(1);
     expect(await scheduled('retention/internal:runPurge')).toEqual([]);
@@ -644,7 +643,7 @@ describe('retention purge', () => {
       counts: emptyCounts(),
       policy: { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 },
     });
-    await t.finishAllScheduledFunctions(() => jest.runAllTimers());
+    await runAll(t);
     expect(await t.run((ctx) => ctx.db.get(week))).not.toBeNull();
     const [report] = await reports(t);
     expect(report).toMatchObject({ pages: 2, policy: { softDeleteDays: 30 } });

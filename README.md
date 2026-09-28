@@ -374,6 +374,25 @@ bun run dev
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
 
+### Tests
+
+`tests/setup.ts`, chargé avant chaque fichier de test (`bunfig.toml`), pose
+trois règles :
+
+- **Aucun test ne sort de la machine** : une requête que le test n'a pas
+  simulée est refusée et fait échouer le test qui l'a émise.
+- **Rien ne survit à un test** : à la fin de chacun, ce qu'il a planifié sans
+  l'exécuter est annulé, pour ne pas s'exécuter plus tard dans un autre test.
+- **L'horloge appartient au test** : un backend de test (`createTestConvex`)
+  tourne sur une horloge que seul le test fait avancer ; rien de planifié ne
+  part tout seul. `runDue(t)` exécute ce qui est dû maintenant, `runAfter(t,
+  ms)` avance puis exécute, `runAll(t)` exécute tout, `pinClock(date)` fixe la
+  date de départ.
+
+La suite ne dépend pas de l'ordre : la CI la rejoue dans un ordre aléatoire
+(`bun test --randomize`, la graine est affichée pour rejouer un échec avec
+`--seed`).
+
 ### Bootstrap & connexion locale
 
 Un déploiement neuf n'a aucun utilisateur : créer un premier employé (seuls

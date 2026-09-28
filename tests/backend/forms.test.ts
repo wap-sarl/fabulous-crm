@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bu
 import { api } from '../../convex/_generated/api';
 import type { FormField, FormStandardField } from '../../convex/_lib/validators/forms';
 import { setExtensionsForTests } from '../../convex/extensions';
-import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, type T, seedConfig } from './helpers';
 
 const NOW = Date.parse('2026-09-25T10:00:00Z');
 beforeEach(() => setSystemTime(new Date(NOW)));
@@ -24,16 +24,7 @@ async function setup() {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com', role: 'admin' });
   const as = asIdentity(t, emp.identity);
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'WAP',
-      appUrl: 'http://localhost:4202',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t);
   return { t, emp, as };
 }
 

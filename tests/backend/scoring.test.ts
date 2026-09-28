@@ -1,10 +1,18 @@
-import { beforeAll, describe, expect, setSystemTime, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { LeadAdvancedFilter } from '../../convex/_lib/validators/filters';
 import { DEFAULT_LIFECYCLE_STAGES } from '../../convex/_lib/validators/lifecycle';
 import { computeLeadScore } from '../../convex/lib/leadScoring';
-import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  runAfter,
+  runDue,
+  seedEmployee,
+  type T,
+  seedConfig,
+} from './helpers';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -17,16 +25,7 @@ async function setup() {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com', role: 'admin' });
   const as = asIdentity(t, emp.identity);
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'WAP',
-      appUrl: 'http://localhost:4202',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t);
   return { t, emp, as };
 }
 
@@ -78,23 +77,18 @@ function createRule(
   });
 }
 
-/** Wait for the scheduled full-recomputation chain (runAfter(0) pages) to finish. */
+/** Runs the scheduled full-recomputation chain (runAfter(0) pages) to its end. */
 async function settleScoring(t: T) {
-  for (let i = 0; i < 100; i++) {
-    const state = await t.run((ctx) => ctx.db.query('scoringState').first());
-    if (state?.recalc === undefined) return;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error('score recompute did not settle');
+  await runDue(t);
+  const state = await t.run((ctx) => ctx.db.query('scoringState').first());
+  if (state?.recalc !== undefined) throw new Error('score recompute did not settle');
 }
 
 async function settleSimulation(t: T) {
-  for (let i = 0; i < 100; i++) {
-    const state = await t.run((ctx) => ctx.db.query('scoringState').first());
-    if (state?.simulation?.finishedAt !== undefined) return state.simulation;
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error('score simulation did not settle');
+  await runDue(t);
+  const state = await t.run((ctx) => ctx.db.query('scoringState').first());
+  if (state?.simulation?.finishedAt === undefined) throw new Error('simulation did not settle');
+  return state.simulation;
 }
 
 const leadDoc = (t: T, leadId: Id<'leads'>) => t.run((ctx) => ctx.db.get(leadId));
@@ -172,14 +166,10 @@ describe('lead scoring', () => {
     expect(job?.name).toContain('startScheduledScoreRecompute');
 
     // Seven days later, the nightly entry point halves the contribution.
-    try {
-      setSystemTime(new Date(Date.now() + 7 * DAY));
-      await t.mutation(internal.features.scoring.internal.startScheduledScoreRecompute, {});
-      await settleScoring(t);
-      expect((await leadDoc(t, leadId))?.leadScore).toBe(5);
-    } finally {
-      setSystemTime();
-    }
+    await runAfter(t, 7 * DAY);
+    await t.mutation(internal.features.scoring.internal.startScheduledScoreRecompute, {});
+    await settleScoring(t);
+    expect((await leadDoc(t, leadId))?.leadScore).toBe(5);
   });
 
   test('the score_threshold_crossed trigger fires once per crossing', async () => {
