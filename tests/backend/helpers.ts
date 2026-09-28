@@ -143,7 +143,7 @@ export async function seedEmployee(
   opts: {
     email: string;
     // A built-in role, or the key of a custom one.
-    role?: string;
+    role?: 'admin' | 'manager' | 'member' | (string & {});
     firstName?: string;
     lastName?: string;
     deletedAt?: number;

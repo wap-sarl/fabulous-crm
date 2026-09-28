@@ -210,7 +210,7 @@ describe('the tracking script', () => {
     form.document.currentScript = tag;
     form.run(FORM_EMBED_JS);
     expect(form.posted).toEqual([{ data: { wap: 'visitor?' }, origin: '*' }]);
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    await form.flush();
 
     const submit = () => {
       const [el] = form.document.querySelectorAll('form');

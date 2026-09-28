@@ -187,6 +187,13 @@ export function fakeBrowser(options: FakeBrowserOptions) {
     moveTo(url: string) {
       href = new URL(url, href);
     },
+    /** Lets what the scripts started finish: a turn of the event loop that no fake clock holds back. */
+    flush: () =>
+      new Promise<void>((resolve) => {
+        const { port1, port2 } = new MessageChannel();
+        port2.onmessage = () => resolve();
+        port1.postMessage(null);
+      }),
     /** Runs a served script as a page would; timers fire at once. */
     run(script: string) {
       new Function(

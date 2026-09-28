@@ -1,11 +1,11 @@
 import { afterEach, jest } from 'bun:test';
-import { closeBackends } from './support/teardown';
+import { endTest } from './support/teardown';
 import { refuseNetwork, takeRefused } from './support/network';
 
 globalThis.fetch = refuseNetwork;
 
 afterEach(async () => {
-  await closeBackends();
+  await endTest();
   jest.useRealTimers();
   const refused = takeRefused();
   if (refused.length > 0) {

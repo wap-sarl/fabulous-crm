@@ -391,9 +391,9 @@ aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
   date de départ.
 
 Les tests sont typés comme le reste (`tests/tsconfig.json`, dans
-`bun run typecheck`). La suite ne dépend pas de l'ordre : la CI la rejoue dans un ordre aléatoire
-(`bun test --randomize`, la graine est affichée pour rejouer un échec avec
-`--seed`).
+`bun run typecheck`). La suite ne dépend pas de l'ordre : la CI la lance dans
+un ordre aléatoire (`bun test --randomize`, la graine est affichée pour
+rejouer un échec avec `--seed`).
 
 ### Bootstrap & connexion locale
 
