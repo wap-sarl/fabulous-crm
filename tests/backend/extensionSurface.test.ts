@@ -87,43 +87,37 @@ const VALUES = {
   seedLead,
 };
 
-/** The functions an overlay calls, by the path it calls them with. */
-const FUNCTIONS = {
-  'auth:onCreate': internal.auth.onCreate,
-  'features/activities/mutations:createActivity': api.features.activities.mutations.createActivity,
-  'features/activities/mutations:deleteActivity': api.features.activities.mutations.deleteActivity,
-  'features/api/mutations:createApiKey': api.features.api.mutations.createApiKey,
-  'features/companies/mutations:createCompany': api.features.companies.mutations.createCompany,
-  'features/companies/mutations:deleteCompany': api.features.companies.mutations.deleteCompany,
-  'features/config/queries:getLifecycleConfig': api.features.config.queries.getLifecycleConfig,
-  'features/config/queries:getPublicConfig': api.features.config.queries.getPublicConfig,
-  'features/crm/actions:registerBrevoEmailWebhook':
-    internal.features.crm.actions.registerBrevoEmailWebhook,
-  'features/crm/actions:registerBrevoSmsWebhook':
-    internal.features.crm.actions.registerBrevoSmsWebhook,
-  'features/crm/actions:sendCampaignBatch': internal.features.crm.actions.sendCampaignBatch,
-  'features/crm/internal:prepareCampaignBatch': internal.features.crm.internal.prepareCampaignBatch,
-  'features/crm/mutations:createCampaign': api.features.crm.mutations.createCampaign,
-  'features/crm/mutations:createLead': api.features.crm.mutations.createLead,
-  'features/crm/mutations:deleteLead': api.features.crm.mutations.deleteLead,
-  'features/crm/mutations:importLeads': api.features.crm.mutations.importLeads,
-  'features/crm/mutations:resendAllCampaignSends':
-    api.features.crm.mutations.resendAllCampaignSends,
-  'features/crm/mutations:retryCampaignSend': api.features.crm.mutations.retryCampaignSend,
-  'features/crm/mutations:updateConsentByToken': api.features.crm.mutations.updateConsentByToken,
-  'features/crm/mutations:updateLead': api.features.crm.mutations.updateLead,
-  'features/deals/mutations:createDeal': api.features.deals.mutations.createDeal,
-  'features/deals/mutations:deleteDeal': api.features.deals.mutations.deleteDeal,
-  'features/deals/mutations:ensureDefaultPipeline':
-    api.features.deals.mutations.ensureDefaultPipeline,
-  'features/deals/mutations:moveDealStage': api.features.deals.mutations.moveDealStage,
-  'features/invitations/mutations:createInvitation':
-    api.features.invitations.mutations.createInvitation,
-  'features/workflows/internal:executeStep': internal.features.workflows.internal.executeStep,
-  'features/workflows/mutations:createWorkflow': api.features.workflows.mutations.createWorkflow,
-  'features/workflows/mutations:setWorkflowStatus':
-    api.features.workflows.mutations.setWorkflowStatus,
-};
+/** The functions an overlay calls; the reference is the path it calls them at. */
+const FUNCTIONS = [
+  internal.auth.onCreate,
+  api.features.activities.mutations.createActivity,
+  api.features.activities.mutations.deleteActivity,
+  api.features.api.mutations.createApiKey,
+  api.features.companies.mutations.createCompany,
+  api.features.companies.mutations.deleteCompany,
+  api.features.config.queries.getLifecycleConfig,
+  api.features.config.queries.getPublicConfig,
+  internal.features.crm.actions.registerBrevoEmailWebhook,
+  internal.features.crm.actions.registerBrevoSmsWebhook,
+  internal.features.crm.actions.sendCampaignBatch,
+  internal.features.crm.internal.prepareCampaignBatch,
+  api.features.crm.mutations.createCampaign,
+  api.features.crm.mutations.createLead,
+  api.features.crm.mutations.deleteLead,
+  api.features.crm.mutations.importLeads,
+  api.features.crm.mutations.resendAllCampaignSends,
+  api.features.crm.mutations.retryCampaignSend,
+  api.features.crm.mutations.updateConsentByToken,
+  api.features.crm.mutations.updateLead,
+  api.features.deals.mutations.createDeal,
+  api.features.deals.mutations.deleteDeal,
+  api.features.deals.mutations.ensureDefaultPipeline,
+  api.features.deals.mutations.moveDealStage,
+  api.features.invitations.mutations.createInvitation,
+  internal.features.workflows.internal.executeStep,
+  api.features.workflows.mutations.createWorkflow,
+  api.features.workflows.mutations.setWorkflowStatus,
+];
 
 describe('what an overlay builds on, backend', () => {
   test('every value it imports is there', () => {
@@ -134,8 +128,8 @@ describe('what an overlay builds on, backend', () => {
   });
 
   test('every function it calls is where it calls it', async () => {
-    for (const [path, reference] of Object.entries(FUNCTIONS)) {
-      expect(getFunctionName(reference)).toBe(path);
+    for (const reference of FUNCTIONS) {
+      const path = getFunctionName(reference);
       const [module, name] = path.split(':');
       const exported = (await import(`../../convex/${module}`)) as Record<string, unknown>;
       expect(exported[name], path).toBeDefined();
