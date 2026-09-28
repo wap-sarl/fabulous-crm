@@ -195,6 +195,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
               ? `${callbackBase}/api/auth/oauth2/callback/${provider.providerId}`
               : null;
           return (
+            // biome-ignore lint/suspicious/noArrayIndexKey: every field of a provider is typed here, its id included: only the place is stable
             <div key={index} className="space-y-3 rounded-lg border border-border p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">

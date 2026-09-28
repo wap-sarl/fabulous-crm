@@ -144,11 +144,7 @@ export const authComponent = createClient<DataModel>(components.betterAuth, {
     },
   },
   authFunctions: {
-    // Referenced by name (not `internal.auth.onCreate`) to break a type cycle:
-    // `onCreate` is exported just below from `authComponent.triggersApi()`, so a
-    // typed `internal.auth.onCreate` reference here would make `authComponent`'s
-    // inferred type depend on its own initializer (TS7022).
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // biome-ignore lint/suspicious/noExplicitAny: referenced by name, a typed `internal.auth.onCreate` would make authComponent's type depend on itself (TS7022)
     onCreate: makeFunctionReference<'mutation'>('auth:onCreate') as any,
   },
 });

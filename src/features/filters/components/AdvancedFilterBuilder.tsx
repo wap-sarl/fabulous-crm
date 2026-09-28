@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useState } from 'react';
 import {
   Badge,
   Button,
@@ -66,13 +66,13 @@ export function AdvancedFilterBuilder<F extends string>({ filter, onChange, cata
     () => filter ?? emptyAdvancedFilter(catalog.standard),
   );
 
-  // Reseed the draft from the applied filter each time the dialog opens.
-  useEffect(() => {
-    if (open)
+  // The draft starts from the applied filter each time the dialog opens; a URL change while it is open leaves the edits alone.
+  const openChange = (next: boolean) => {
+    if (next) {
       setDraft(filter && filter.groups.length > 0 ? filter : emptyAdvancedFilter(catalog.standard));
-    // Intentionally keyed only on `open` so external URL changes don't stomp edits.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    }
+    setOpen(next);
+  };
 
   const activeCount = countActiveRules(filter);
 
@@ -87,7 +87,7 @@ export function AdvancedFilterBuilder<F extends string>({ filter, onChange, cata
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={openChange}>
       <DialogTrigger asChild>
         <Button variant="outline" data-testid="advanced-filters">
           <Filter className="h-4 w-4" />
@@ -151,6 +151,7 @@ export function AdvancedFilterGroupsEditor<F extends string>({
   return (
     <>
       {value.groups.map((group, gi) => (
+        // biome-ignore lint/suspicious/noArrayIndexKey: a group has no identity but its place, and its rows hold no state of their own
         <Fragment key={gi}>
           {gi > 0 && (
             <div className="flex items-center gap-2">
@@ -231,6 +232,7 @@ function GroupBlock<F extends string>({
 
       {group.rules.map((rule, ri) => (
         <RuleRow
+          // biome-ignore lint/suspicious/noArrayIndexKey: a rule has no identity but its place, and its row holds no state of its own
           key={ri}
           rule={rule}
           catalog={catalog}

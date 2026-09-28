@@ -740,7 +740,7 @@ export const reenrollBatch = internalMutation({
     // cancellations bypassed advanceRun, so activeCount must shrink by
     // `cancelled` here.
     const fresh = await ctx.db.get(args.workflowId);
-    if (!fresh || fresh.bulkReenroll?.status !== 'running') {
+    if (fresh?.bulkReenroll?.status !== 'running') {
       return { isDone: true, continueCursor: null };
     }
     const progress = {

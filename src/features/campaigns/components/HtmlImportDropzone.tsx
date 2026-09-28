@@ -58,6 +58,7 @@ export function HtmlImportDropzone({ onLoad, fileName, onFileNameChange }: Props
   };
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: a drop target for the mouse; the button inside is the keyboard's way
     <div
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

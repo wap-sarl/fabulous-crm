@@ -14,7 +14,8 @@
     "openapi": "bun run scripts/generate-openapi.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "lint": "biome check .",
+    "lint": "biome check --error-on-warnings .",
+    "unused": "knip",
     "format": "biome format --write ."
   },
   "dependencies": {
@@ -78,6 +79,7 @@
     "@vitejs/plugin-react": "^6.0.2",
     "concurrently": "^9.2.0",
     "convex-test": "0.0.54",
+    "knip": "^6.38.0",
     "tailwindcss": "4.3.0",
     "typescript": "6.0.3",
     "vite": "^8.0.14"

@@ -45,6 +45,7 @@ export function CampaignChannelSelector({ value, onChange, smsAvailable = true }
         const disabled = option.value === 'sms' && !smsAvailable;
         const Icon = option.icon;
         return (
+          // biome-ignore lint/a11y/useSemanticElements: a card with an icon and two lines of text, which a radio input cannot hold
           <button
             key={option.value}
             type="button"

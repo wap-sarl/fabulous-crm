@@ -67,10 +67,9 @@ export function CampaignCreatePage() {
     [propertyDefinitions, trackedLinks],
   );
 
-  // Default channel (email) + marketing seed the recipient filter once on mount.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: once on mount, the default channel and type seed the recipients; the setter follows the URL and would run it again
   useEffect(() => {
     setAdvancedFilter(applyRecipientFilter(undefined, 'email', 'marketing'));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Under SMTP, Brevo templates are unavailable — fall back to the editor.

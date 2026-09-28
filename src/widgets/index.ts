@@ -2,15 +2,10 @@ export { DashboardLayout, type NavItem } from './layouts/DashboardLayout';
 export { ErrorNotFoundPage } from './pages/ErrorNotFoundPage';
 export { ConvexProvider } from './providers/ConvexProvider';
 export {
-  TokenProvider,
-  useGuestToken,
   useAuthQuery,
   useAuthPaginatedQuery,
   useAuthMutation,
   useAuthAction,
-  useGuestQuery,
-  useGuestMutation,
-  useGuestAction,
 } from './convex-auth';
 export {
   AuthProvider,

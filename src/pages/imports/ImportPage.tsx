@@ -477,6 +477,7 @@ export function ImportPage() {
             </p>
             <div className="max-h-96 space-y-1.5 overflow-y-auto rounded-md border border-border p-2">
               {header.map((h, c) => (
+                // biome-ignore lint/suspicious/noArrayIndexKey: a column is its position, two may carry the same header
                 <div key={`${c}-${h}`} className="flex items-center gap-2">
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-mono text-xs">{h.trim() || `Colonne ${c + 1}`}</p>

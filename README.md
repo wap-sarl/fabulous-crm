@@ -371,6 +371,8 @@ bun run dev
 | `bun run typecheck` | tsconfig app + tsconfig convex + tsconfig tests |
 | `bun run codegen` | régénère `convex/_generated` (commité) |
 | `bun run openapi` | régénère `convex/lib/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
+| `bun run lint` | Biome : format et règles ; un avertissement fait échouer la commande |
+| `bun run unused` | knip : exports, types, fichiers et dépendances inutilisés (`knip.ts`) |
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
 
