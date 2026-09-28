@@ -376,8 +376,9 @@ bun run dev
 
 ### Tests
 
-`tests/setup.ts`, chargé avant chaque fichier de test (`bunfig.toml`), pose
-trois règles :
+Tous les tests sont sous `tests/` (`backend/` avec `convex-test`, `frontend/`),
+aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
+(`bunfig.toml`), pose trois règles :
 
 - **Aucun test ne sort de la machine** : une requête que le test n'a pas
   simulée est refusée et fait échouer le test qui l'a émise.

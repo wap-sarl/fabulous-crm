@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { wrapEmailHtml } from './emailUtils';
+import { wrapEmailHtml } from '../../convex/lib/emailUtils';
 
 describe('wrapEmailHtml', () => {
   it('wraps a WYSIWYG fragment in the email-safe document shell', () => {

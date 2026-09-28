@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { isEmailProviderConfigured, resolveBrevo, resolveEmailProvider } from './emailProvider';
-import type { AppConfig } from '../_lib/validators/appConfig';
+import {
+  isEmailProviderConfigured,
+  resolveBrevo,
+  resolveEmailProvider,
+} from '../../convex/lib/emailProvider';
+import type { AppConfig } from '../../convex/_lib/validators/appConfig';
 
 // Minimal config factory — only the fields the resolvers read.
 function cfg(email?: AppConfig['email'], sender?: Partial<AppConfig>): AppConfig {
