@@ -14,7 +14,12 @@ import {
 import { FORM_EMBED_JS, formIframeHtml } from './lib/formEmbed';
 import { hashClientIp } from './lib/forms';
 import { parseBeacon, readCapped, trackingScript } from './lib/tracking';
-import { LINK_GRANT_PARAM, MAX_BEACON_BYTES, VISITOR_ID_RE } from './_lib/validators/tracking';
+import {
+  CEILING_NOTE_MS,
+  LINK_GRANT_PARAM,
+  MAX_BEACON_BYTES,
+  VISITOR_ID_RE,
+} from './_lib/validators/tracking';
 import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
 import type { CampaignEventType } from './schema';
 
@@ -424,11 +429,15 @@ http.route({
     const beacon = parseBeacon(text, origin, Date.now());
     if (!beacon) return beaconResponse(400);
     if (beacon.views.length === 0) return beaconResponse(204);
-    // Per browser, then for the whole deployment, counted in views: many addresses still meet a ceiling.
-    if (
-      !(await enforceRateLimit(ctx, 'trackVisitor', beacon.visitorId)) ||
-      !(await enforceRateLimit(ctx, 'trackTotal', 'all', beacon.views.length))
-    ) {
+    if (!(await enforceRateLimit(ctx, 'trackVisitor', beacon.visitorId))) {
+      return beaconResponse(429);
+    }
+    // For the whole deployment, counted in views: many addresses still meet a ceiling.
+    if (!(await enforceRateLimit(ctx, 'trackTotal', 'all', beacon.views.length))) {
+      // Views are being lost: the settings page says so, from one write an hour at most.
+      if ((config.ceilingHitAt ?? 0) < Date.now() - CEILING_NOTE_MS) {
+        await ctx.runMutation(internal.features.tracking.internal.noteCeiling, {});
+      }
       return beaconResponse(429);
     }
     await ctx.runMutation(internal.features.tracking.internal.recordBeacon, {

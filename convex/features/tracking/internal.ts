@@ -4,14 +4,18 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 // Trigger-wrapped: the lead patches must run the lead triggers (scoring, search).
 import { internalMutation } from '../../_lib/functions';
-import { ATTACH_BATCH, beaconViewValidator, FLUSH_MS } from '../../_lib/validators/tracking';
+import {
+  ATTACH_BATCH,
+  beaconViewValidator,
+  CEILING_NOTE_MS,
+  FLUSH_MS,
+} from '../../_lib/validators/tracking';
 import { isNotDeleted } from '../../lib/dbHelpers';
 import { profilingExcluded } from '../../lib/leadSignals';
 import {
   addMarks,
   applyViewsToLead,
   detachLeadTracking,
-  hasViewMarks,
   loadTrackingConfig,
   marksOf,
   namedTracking,
@@ -206,20 +210,18 @@ export const detachAll = internalMutation({
       .query('pageViews')
       .withIndex('by_lead_at', (q) => q.gt('leadId', attached))
       .take(ATTACH_BATCH);
-    const leadIds = new Set<Id<'leads'>>();
     for (const row of visitors) {
-      if (row.leadId) leadIds.add(row.leadId);
       await ctx.db.patch(row._id, { leadId: undefined, pending: undefined });
     }
-    for (const row of views) {
-      if (row.leadId) leadIds.add(row.leadId);
-      await ctx.db.patch(row._id, { leadId: undefined });
-    }
-    for (const leadId of leadIds) {
-      const lead = await ctx.db.get(leadId);
-      if (lead && hasViewMarks(lead)) await ctx.db.patch(leadId, NO_VIEW_MARKS);
-    }
-    if (visitors.length === ATTACH_BATCH || views.length === ATTACH_BATCH) {
+    for (const row of views) await ctx.db.patch(row._id, { leadId: undefined });
+    // Every contact that carries marks, whether its views are still there or went with a purge or a merge.
+    const marked = await ctx.db
+      .query('leads')
+      .withIndex('by_lastPageViewAt', (q) => q.gt('lastPageViewAt', 0))
+      .take(ATTACH_BATCH);
+    for (const lead of marked) await ctx.db.patch(lead._id, NO_VIEW_MARKS);
+    const full = [visitors, views, marked].some((rows) => rows.length === ATTACH_BATCH);
+    if (full) {
       await ctx.scheduler.runAfter(0, internal.features.tracking.internal.detachAll, {});
     }
     return null;
@@ -232,6 +234,20 @@ export const refreshLeadViews = internalMutation({
   returns: v.null(),
   handler: async (ctx, { leads }) => {
     for (const { leadId, removed } of leads) await refreshViewMarks(ctx, leadId, removed);
+    return null;
+  },
+});
+
+/** The deployment's ceiling refused views: the date is kept, once an hour at most, for the settings page. */
+export const noteCeiling = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const config = await ctx.db.query('appConfig').first();
+    if (!config?.tracking) return null;
+    const now = Date.now();
+    if ((config.tracking.ceilingHitAt ?? 0) >= now - CEILING_NOTE_MS) return null;
+    await ctx.db.patch(config._id, { tracking: { ...config.tracking, ceilingHitAt: now } });
     return null;
   },
 });

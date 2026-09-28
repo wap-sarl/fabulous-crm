@@ -3,6 +3,7 @@ import { useConvex, useMutation, useQuery } from 'convex/react';
 import { z } from 'zod';
 import {
   api,
+  TRACK_TOTAL_PER_MINUTE,
   TRACKING_RETENTION_BOUNDS,
   type TrackingMode,
   trackingOriginsSchema,
@@ -82,6 +83,7 @@ type Counts = {
 };
 
 const fmt = new Intl.NumberFormat('fr-FR');
+const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 const count = (n: number, capped: boolean) => (capped ? `Plus de ${fmt.format(n)}` : fmt.format(n));
 
 /** « Suivi web »: the switch, the sites, the mode, the retention, the snippet. */
@@ -178,7 +180,9 @@ export function TrackingPage() {
                 Le script ne démarre qu’après l’accord du visiteur (bandeau fourni, ou votre propre
                 gestionnaire de consentement via <code>window.wapTracking</code>), et jamais si le
                 navigateur envoie « Global Privacy Control » ou « Do Not Track ». L’accord est
-                redemandé tous les six mois.
+                redemandé tous les six mois. Désactiver le suivi arrête la collecte sans rien
+                détacher : les pages vues déjà rattachées à des contacts le restent jusqu’à leur
+                purge ; pour les détacher, passez en mode anonyme.
               </HelperText>
             </div>
             <Switch
@@ -224,7 +228,7 @@ export function TrackingPage() {
             </Select>
             <HelperText>
               {form.mode === 'named'
-                ? 'Les pages vues sont rattachées au contact dès qu’il soumet un formulaire ou clique un lien de campagne menant à un site suivi, celles d’avant comprises. Un e-mail transféré identifie celui qui clique comme le destinataire d’origine. Ce suivi nominatif demande une base légale et une information claire : à valider avant de l’activer.'
+                ? 'Les pages vues sont rattachées au contact dès qu’il soumet un formulaire ou clique un lien de campagne menant à un site suivi, celles d’avant comprises. Par un lien, le visiteur doit accepter le suivi dans les dix minutes qui suivent son arrivée, faute de quoi il reste anonyme. Un e-mail transféré identifie celui qui clique comme le destinataire d’origine. Ce suivi nominatif demande une base légale et une information claire : à valider avant de l’activer.'
                 : 'Rien n’est rattaché à un contact nommé : les pages vues restent celles d’un navigateur anonyme.'}
             </HelperText>
             {leavingNamed && (
@@ -302,6 +306,13 @@ export function TrackingPage() {
             avant le script, ou appelle <code>window.wapTrack.consent(true)</code> quand le visiteur
             accepte et <code>window.wapTrack.consent(false)</code> quand il se ravise.
           </p>
+          {settings.ceilingHitAt !== undefined && (
+            <HelperText variant="error">
+              Le plafond de {fmt.format(TRACK_TOTAL_PER_MINUTE)} pages vues par minute a été atteint
+              le {DATE_FMT.format(settings.ceilingHitAt)} : des pages vues n’ont pas été
+              enregistrées.
+            </HelperText>
+          )}
           {counts && (
             <p className="text-xs text-faint">
               {count(counts.visitors, counts.visitorsCapped)} navigateur(s) vu(s),{' '}

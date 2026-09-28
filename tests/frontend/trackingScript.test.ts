@@ -19,19 +19,17 @@ const press = (banner: FakeElement | null, label: string) => {
 };
 
 describe('the tracking script', () => {
-  test('nothing runs before consent; the banner is labelled, takes the focus and says what the mode does', () => {
+  test('nothing runs before consent; the banner is a labelled region, first in the page, that takes no focus and says what the mode does', () => {
     const page = fakeBrowser({ url: `${SITE}/` });
     page.run(script());
     expect(page.beacons).toEqual([]);
     expect(page.cookie('_wapv')).toBeUndefined();
     const banner = page.banner();
-    expect(banner?.attributes).toMatchObject({
-      role: 'dialog',
-      'aria-modal': 'false',
+    expect(banner?.attributes).toEqual({
+      role: 'region',
       'aria-label': 'Consentement au suivi',
-      'aria-describedby': 'wap-consent-text',
     });
-    expect(page.document.activeElement).toBe(banner);
+    expect(page.document.activeElement).toBeNull();
     expect(page.document.body.children[0]).toBe(banner);
     expect(banner?.children[0].textContent).toContain('mesure sa fréquentation');
     expect(banner?.children[0].children).toEqual([]);

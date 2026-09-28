@@ -19,6 +19,8 @@ export const trackingConfigValidator = v.object({
   allowedOrigins: v.optional(v.array(v.string())),
   // The privacy policy the consent banner links to; named mode needs one.
   privacyUrl: v.optional(v.string()),
+  // The last time the deployment's ceiling refused views, noted once an hour at most, for the settings page.
+  ceilingHitAt: v.optional(v.number()),
 });
 /** The settings in force, the defaults filled in. */
 export type TrackingConfig = Omit<Infer<typeof trackingConfigValidator>, 'allowedOrigins'> & {
@@ -127,5 +129,8 @@ export const ATTACH_BATCH = 200;
 /** Contacts a rebuild step refreshes, and the surviving views it reads for each. */
 export const REFRESH_LEADS = 20;
 export const REFRESH_SCAN = 500;
+/** Views a minute the whole deployment accepts (the `trackTotal` limit), and how often a refusal is noted. */
+export const TRACK_TOTAL_PER_MINUTE = 600;
+export const CEILING_NOTE_MS = 60 * 60 * 1000;
 /** An identified browser's views reach its contact at most this often: one lead write, not one per view. */
 export const FLUSH_MS = 60 * 1000;

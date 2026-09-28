@@ -17,6 +17,7 @@
  */
 import { HOUR, MINUTE, RateLimiter } from '@convex-dev/rate-limiter';
 import { components } from '../_generated/api';
+import { TRACK_TOTAL_PER_MINUTE } from '../_lib/validators/tracking';
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Public consent page writes, per consent token.
@@ -48,7 +49,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   trackBeacon: { kind: 'token bucket', rate: 120, period: MINUTE },
   trackVisitor: { kind: 'token bucket', rate: 60, period: MINUTE },
   // The same for the whole deployment, counted in views: 864 000 a day at most, whatever the addresses.
-  trackTotal: { kind: 'token bucket', rate: 600, period: MINUTE },
+  trackTotal: { kind: 'token bucket', rate: TRACK_TOTAL_PER_MINUTE, period: MINUTE },
 });
 
 type LimitName =

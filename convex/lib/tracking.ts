@@ -420,13 +420,9 @@ export function trackingScript(
     document.cookie = COOKIE + '=; Max-Age=0; Path=/; SameSite=Lax' + SECURE;
     tellForms(null);
   }
-  var focusBack = null;
   function closeBanner() {
     var b = document.getElementById('wap-consent');
-    if (!b) return;
-    b.parentNode.removeChild(b);
-    if (focusBack && typeof focusBack.focus === 'function') focusBack.focus();
-    focusBack = null;
+    if (b) b.parentNode.removeChild(b);
   }
   function decide(ok) {
     try { localStorage.setItem(CONSENT, (ok ? '1' : '0') + ':' + CFG.mode + ':' + Date.now()); } catch (e) {}
@@ -437,14 +433,11 @@ export function trackingScript(
     if (document.getElementById('wap-consent')) return;
     var box = document.createElement('div');
     box.id = 'wap-consent';
-    box.setAttribute('role', 'dialog');
-    box.setAttribute('aria-modal', 'false');
+    // A labelled region, not a dialog: it takes no focus from the page.
+    box.setAttribute('role', 'region');
     box.setAttribute('aria-label', 'Consentement au suivi');
-    box.setAttribute('aria-describedby', 'wap-consent-text');
-    box.tabIndex = -1;
     box.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:2147483000;max-width:560px;margin:0 auto;padding:14px 16px;background:#0f172a;color:#fff;font:14px/1.45 system-ui,sans-serif;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;gap:12px;align-items:center;flex-wrap:wrap;';
     var text = document.createElement('span');
-    text.id = 'wap-consent-text';
     text.style.cssText = 'flex:1 1 260px;';
     text.textContent = CFG.text;
     if (CFG.privacyUrl) {
@@ -466,11 +459,9 @@ export function trackingScript(
     yes.onclick = function () { decide(true); };
     no.onclick = function () { decide(false); };
     box.appendChild(text); box.appendChild(yes); box.appendChild(no);
-    // First in the page, so first in the reading and tab order; the focus goes back where it was on a choice.
+    // First in the page, so first in the reading and tab order.
     var root = document.body || document.documentElement;
     root.insertBefore(box, root.firstChild);
-    focusBack = document.activeElement;
-    box.focus();
   }
   // The site's own consent manager calls these instead of the banner.
   window.wapTrack = { consent: decide, pageview: send };

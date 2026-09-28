@@ -259,6 +259,7 @@ export const updateConfig = settingsMutation({
       retentionDays: trackingRetention.data,
       allowedOrigins: trackingOrigins.data,
       ...(privacyUrl && { privacyUrl: privacyUrl.trim() }),
+      ...(tracking.ceilingHitAt !== undefined && { ceilingHitAt: tracking.ceilingHitAt }),
     };
     if (trackingChanged && nextTracking.enabled) {
       // A beacon is accepted from the listed sites only: tracking without one would record nothing.

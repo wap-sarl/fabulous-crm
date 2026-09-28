@@ -306,6 +306,8 @@ const tables = {
     .index('by_consentToken', ['consentToken'])
     .index('by_lastName', ['lastName'])
     .index('by_leadScore', ['leadScore'])
+    // The contacts that carry page-view marks, for the sweep when named tracking is left.
+    .index('by_lastPageViewAt', ['lastPageViewAt'])
     .index('by_email', ['email'])
     // Duplicate detection candidates (lib/duplicates.ts): same phone / name block.
     .index('by_dedupe_phone', ['dedupe.phone'])

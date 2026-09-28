@@ -170,7 +170,8 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   Les balises de pages vues (`POST /track`, URL, titre, référent) ne sont
   acceptées que des **sites suivis** (`appConfig.tracking.allowedOrigins`,
   en-tête `Origin` et URL de chaque page), corps borné à 64 Ko, limitées par
-  IP, par visiteur et pour tout le déploiement (600 pages vues par minute).
+  IP, par visiteur et pour tout le déploiement (600 pages vues par minute ;
+  un dépassement est signalé, daté, sur la page des réglages).
   Tables `pageViews` (par visiteur et par contact) et `webVisitors`.
   Deux modes : **anonyme** (rien n'est rattaché à un contact) ou
   **nominatif** (un formulaire soumis depuis ce navigateur, y compris en
@@ -184,7 +185,8 @@ est-santé (2026-07) pour être réutilisable par plusieurs projets. Projet plat
   une base légale, une information claire et une politique de confidentialité
   (obligatoire dans les réglages), à valider avant de l'activer. Une
   opposition au profilage détache aussitôt navigateurs et pages vues du
-  contact ; quitter le mode nominatif détache tout ; une fusion de doublons
+  contact ; quitter le mode nominatif détache tout (désactiver le suivi
+  arrête la collecte sans rien détacher) ; une fusion de doublons
   les reporte sur la fiche conservée. Sur le contact : `pageViewCount`,
   `lastPageViewAt` et `visitedPages` (les 50 derniers chemins distincts),
   d'où le filtre « Pages visitées (chemin) » des listes dynamiques et des

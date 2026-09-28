@@ -240,7 +240,7 @@ describe('web tracking', () => {
   });
 
   test('the whole deployment has a ceiling, counted in views, whatever the browsers', async () => {
-    const { t } = await setup();
+    const { t, as } = await setup();
     const twenty = Array.from({ length: 20 }, (_, i) => view(`/p${i}`));
     const hex = (i: number) => i.toString(16).padStart(32, '0');
     // Six hundred views a minute: thirty full beacons from thirty browsers and addresses.
@@ -248,9 +248,19 @@ describe('web tracking', () => {
       const res = await beacon(t, { v: hex(i), e: twenty }, { 'x-forwarded-for': `10.0.0.${i}` });
       expect(res.status).toBe(204);
     }
-    const over = await beacon(t, { v: hex(99), e: twenty }, { 'x-forwarded-for': '10.0.1.1' });
-    expect(over.status).toBe(429);
+    const over = () => beacon(t, { v: hex(99), e: twenty }, { 'x-forwarded-for': '10.0.1.1' });
+    expect((await over()).status).toBe(429);
     expect(await views(t)).toHaveLength(600);
+    // The settings page learns that views were lost: the date, written once an hour at most.
+    const noted = () =>
+      as.query(api.features.tracking.queries.getTrackingSettings, {}).then((s) => s.ceilingHitAt);
+    expect(await noted()).toBe(NOW);
+    advance(1_000);
+    expect((await over()).status).toBe(429);
+    expect(await noted()).toBe(NOW);
+    // Saving the settings keeps it.
+    await as.mutation(api.features.config.mutations.updateConfig, { trackingRetentionDays: 30 });
+    expect(await noted()).toBe(NOW);
   });
 
   test('named mode: a form submission attaches the browser’s earlier views to the contact, later ones follow within a minute, filters and scoring see them', async () => {
@@ -510,11 +520,25 @@ describe('web tracking', () => {
       VISITOR,
       Array.from({ length: 250 }, (_, i) => `/p${i}`),
     );
+    // A contact whose views went with a purge, its marks not yet rebuilt.
+    const bob = await as.mutation(api.features.crm.mutations.createLead, {
+      firstName: 'Bob',
+      lastName: 'M',
+      email: 'bob@example.com',
+    });
+    await t.run((ctx) =>
+      ctx.db.patch(bob, { pageViewCount: 3, lastPageViewAt: NOW, visitedPages: ['/tarifs'] }),
+    );
     await as.mutation(api.features.config.mutations.updateConfig, { trackingMode: 'anonymous' });
     await settle(t);
     expect((await views(t)).filter((v) => v.leadId !== undefined)).toEqual([]);
     expect((await visitors(t))[0].leadId).toBeUndefined();
-    expect((await leadOf(t, ada)).visitedPages).toBeUndefined();
+    for (const id of [ada, bob]) {
+      const lead = await leadOf(t, id);
+      expect(lead.visitedPages).toBeUndefined();
+      expect(lead.pageViewCount).toBeUndefined();
+      expect(lead.lastPageViewAt).toBeUndefined();
+    }
 
     await as.mutation(api.features.config.mutations.updateConfig, { trackingMode: 'named' });
     await beacon(t, { v: VISITOR, e: [view('/tarifs')] });
