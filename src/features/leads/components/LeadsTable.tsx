@@ -164,6 +164,7 @@ export function LeadsTable({
         <TableBody>
           {isLoading ? (
             Array.from({ length: 8 }).map((_, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: placeholders, all alike
               <TableRow key={`skeleton-${i}`} className="hover:bg-transparent">
                 <TableCell colSpan={colCount} className="py-3">
                   <Skeleton className="h-9 w-full" />

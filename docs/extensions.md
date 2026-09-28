@@ -204,6 +204,21 @@ rolls the caller back. Keep them cheap; they run on every call.
   is not covered by tests (there is no frontend harness); its decisions are two pure functions,
   which are.
 
+## What an overlay builds on
+
+Besides the three files it replaces, an overlay imports from the core and calls some of its
+functions by path. Two test files list those names, so that the core knows what it must not
+rename or remove without saying so:
+
+- `tests/backend/extensionSurface.test.ts`: the backend values and types, and the Convex
+  functions with the path they are called at.
+- `tests/frontend/extensionSurface.test.ts`: the components, hooks and types of the SPA.
+
+A name that moves fails the core's typecheck or that suite before it breaks an overlay, and the
+unused-code report (`bun run unused`) counts the names as used. An overlay that starts building
+on something else adds it to the list; a name the core wants to change is changed there in the
+same pull request, which is then a change of the contract and is written in the release notes.
+
 ## Tests
 
 `setExtensionsForTests(overrides)` in `convex/extensions.ts` swaps hooks for the duration of a

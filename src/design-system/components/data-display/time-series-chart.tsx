@@ -11,6 +11,8 @@ interface TimeSeriesChartProps {
   color?: string;
   /** Area fill under the line. @default 'rgba(106,75,240,.09)' */
   areaColor?: string;
+  /** What the chart shows, for screen readers. @default 'Évolution dans le temps' */
+  label?: string;
   className?: string;
 }
 
@@ -28,6 +30,7 @@ function TimeSeriesChart({
   series,
   color = 'var(--chart-1)',
   areaColor = 'rgba(106,75,240,.09)',
+  label = 'Évolution dans le temps',
   className,
 }: TimeSeriesChartProps) {
   if (series.length === 0) {
@@ -56,7 +59,12 @@ function TimeSeriesChart({
   const labelStep = Math.max(1, Math.ceil(series.length / 8));
 
   return (
-    <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className={cn('h-auto w-full', className)} role="img">
+    <svg
+      viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+      className={cn('h-auto w-full', className)}
+      role="img"
+      aria-label={label}
+    >
       {gridYs.map((y) => (
         <line
           key={y}
@@ -78,7 +86,7 @@ function TimeSeriesChart({
         strokeLinejoin="round"
       />
       {coords.map((c, i) => (
-        <g key={i}>
+        <g key={c.x}>
           <circle cx={c.x} cy={c.y} r={3} fill="#fff" stroke={color} strokeWidth={2} />
           {i % labelStep === 0 && (
             <text

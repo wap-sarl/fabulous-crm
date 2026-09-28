@@ -80,6 +80,7 @@ function MultiSelect({
               selectedItems.map((item) => (
                 <Badge key={item.value} variant="secondary" className="text-xs">
                   {item.label}
+                  {/* biome-ignore lint/a11y/useSemanticElements: the badge sits inside the trigger button, where a button cannot nest */}
                   <span
                     role="button"
                     tabIndex={0}

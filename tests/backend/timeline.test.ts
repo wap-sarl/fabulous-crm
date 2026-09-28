@@ -263,7 +263,7 @@ describe('lead timeline', () => {
 
     const { events: before } = await readAllPages(as, leadId, 50);
     const note = before.find((e) => e.kind === 'note');
-    if (!note || note.kind !== 'note') throw new Error('note expected');
+    if (note?.kind !== 'note') throw new Error('note expected');
     await as.mutation(api.features.crm.mutations.deleteNote, { noteId: note.noteId });
     const { events: after } = await readAllPages(as, leadId, 50);
     expect(after.map((e) => e.id)).not.toContain(note.id);

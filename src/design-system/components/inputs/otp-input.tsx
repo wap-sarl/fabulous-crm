@@ -131,6 +131,7 @@ function OtpInput({
     <div ref={ref} className={cn('flex gap-2 justify-center', className)}>
       {Array.from({ length }).map((_, index) => (
         <input
+          // biome-ignore lint/suspicious/noArrayIndexKey: a fixed row of boxes, a box is its position
           key={index}
           ref={(el) => {
             inputRefs.current[index] = el;

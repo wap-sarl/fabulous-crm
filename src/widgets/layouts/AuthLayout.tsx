@@ -73,7 +73,14 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           <p className="text-[15px] text-white/80">
             Suivez l'activité, lancez des campagnes e-mail et suivez les conversions en temps réel.
           </p>
-          <svg width="300" height="46" viewBox="0 0 300 46" fill="none" className="mt-2 opacity-90">
+          <svg
+            width="300"
+            height="46"
+            viewBox="0 0 300 46"
+            fill="none"
+            className="mt-2 opacity-90"
+            aria-hidden="true"
+          >
             <polyline
               points="0,40 28,34 56,37 84,27 112,30 140,19 168,23 196,13 224,17 252,8 280,11 300,4"
               stroke="white"

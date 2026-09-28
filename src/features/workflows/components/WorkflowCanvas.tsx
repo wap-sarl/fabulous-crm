@@ -38,7 +38,7 @@ function CanvasInner({ draft, invalidIds, handlers }: WorkflowCanvasProps) {
     [draft, invalidIds],
   );
 
-  // Re-frame when the graph grows/shrinks (not on config-only edits).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the node count is the trigger, the graph is framed again when it grows or shrinks, not on a config edit
   useEffect(() => {
     const id = requestAnimationFrame(() => {
       void fitView({ duration: 200, maxZoom: 1, padding: 0.2 });
