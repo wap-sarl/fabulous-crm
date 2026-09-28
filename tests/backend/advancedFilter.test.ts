@@ -16,6 +16,9 @@ import { evalAdvancedFilter, evalRule } from '../../convex/features/crm/leadMatc
  * properties (text, number, checkbox array).
  */
 
+type Field = FilterField<LeadStandardField>;
+type Rule = FilterRule<LeadStandardField>;
+
 const DEF_TEXT = 'def_text';
 const DEF_NUM = 'def_num';
 const DEF_CHECK = 'def_check';
@@ -44,13 +47,13 @@ function lead(overrides: Partial<Doc<'leads'>> = {}): Doc<'leads'> {
   } as Doc<'leads'>;
 }
 
-const std = (field: LeadStandardField): FilterField => ({ kind: 'standard', field });
-const custom = (definitionId: string): FilterField => ({ kind: 'custom', definitionId });
+const std = (field: LeadStandardField): Field => ({ kind: 'standard', field });
+const custom = (definitionId: string): Field => ({ kind: 'custom', definitionId });
 
-const rule = (field: FilterField, operator: FilterRule['operator'], value?: FilterRule['value']) =>
-  ({ field, operator, value }) as FilterRule;
+const rule = (field: Field, operator: Rule['operator'], value?: Rule['value']) =>
+  ({ field, operator, value }) as Rule;
 
-const single = (r: FilterRule): LeadAdvancedFilter => ({
+const single = (r: Rule): LeadAdvancedFilter => ({
   combinator: 'and',
   groups: [{ combinator: 'and', rules: [r] }],
 });
@@ -196,7 +199,7 @@ describe('notEquals', () => {
 describe('relative date operators', () => {
   const NOW = Date.UTC(2026, 7, 31, 12);
   const DAY = 24 * 60 * 60 * 1000;
-  const at = (l: Doc<'leads'>, r: FilterRule) => evalRule(l, r, { now: NOW });
+  const at = (l: Doc<'leads'>, r: Rule) => evalRule(l, r, { now: NOW });
 
   test('epoch-ms timestamps: in the last N days / more than N days ago', () => {
     const l = lead({ lastEmailOpenAt: NOW - 10 * DAY });

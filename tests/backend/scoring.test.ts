@@ -162,7 +162,8 @@ describe('lead scoring', () => {
     // The finished recompute booked the nightly drift job (decay present).
     const state = await t.run((ctx) => ctx.db.query('scoringState').first());
     expect(state?.nextRecalcId).toBeDefined();
-    const job = await t.run((ctx) => state?.nextRecalcId && ctx.db.system.get(state.nextRecalcId));
+    const nightlyId = state?.nextRecalcId;
+    const job = await t.run(async (ctx) => (nightlyId ? await ctx.db.system.get(nightlyId) : null));
     expect(job?.name).toContain('startScheduledScoreRecompute');
 
     // Seven days later, the nightly entry point halves the contribution.

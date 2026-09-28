@@ -297,12 +297,14 @@ describe('dynamic lists', () => {
     await settleRecalc(t, listId);
     const list = await t.run((ctx) => ctx.db.get(listId));
     expect(list?.nextRecalcId).toBeDefined();
-    const job = await t.run((ctx) => list?.nextRecalcId && ctx.db.system.get(list.nextRecalcId));
+    const driftId = list?.nextRecalcId;
+    const drift = () => t.run(async (ctx) => (driftId ? await ctx.db.system.get(driftId) : null));
+    const job = await drift();
     expect(job?.name).toContain('startScheduledListRecalc');
 
     // Deleting the list cancels the pending drift job.
     await as.mutation(api.features.crm.mutations.deleteLeadList, { listId, deleteLeads: false });
-    const after = await t.run((ctx) => list?.nextRecalcId && ctx.db.system.get(list.nextRecalcId));
+    const after = await drift();
     expect(after?.state.kind).toBe('canceled');
   });
 

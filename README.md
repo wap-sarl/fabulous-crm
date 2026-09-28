@@ -368,7 +368,7 @@ bun run dev
 | `bun run dev` | `convex dev` + `vite` en parallèle |
 | `bun run dev:frontend` / `dev:backend` | l'un des deux seulement |
 | `bun run build` | `tsc --noEmit` + `vite build` → `dist/` |
-| `bun run typecheck` | tsconfig app + tsconfig convex |
+| `bun run typecheck` | tsconfig app + tsconfig convex + tsconfig tests |
 | `bun run codegen` | régénère `convex/_generated` (commité) |
 | `bun run openapi` | régénère `convex/lib/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
 | `bun run test` | lance les suites `bun:test` |
@@ -390,7 +390,8 @@ aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
   ms)` avance puis exécute, `runAll(t)` exécute tout, `pinClock(date)` fixe la
   date de départ.
 
-La suite ne dépend pas de l'ordre : la CI la rejoue dans un ordre aléatoire
+Les tests sont typés comme le reste (`tests/tsconfig.json`, dans
+`bun run typecheck`). La suite ne dépend pas de l'ordre : la CI la rejoue dans un ordre aléatoire
 (`bun test --randomize`, la graine est affichée pour rejouer un échec avec
 `--seed`).
 

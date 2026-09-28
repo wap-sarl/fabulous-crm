@@ -476,7 +476,7 @@ describe('RGPD rights', () => {
     const rescore = () =>
       t.run(async (ctx) => {
         const doc = await ctx.db.get(ada);
-        await syncLeadScore(ctx, { id: ada, oldDoc: doc, newDoc: doc });
+        await syncLeadScore(ctx, { operation: 'update', id: ada, oldDoc: doc, newDoc: doc });
       });
     await rescore();
     expect((await lead())?.leadScore).toBe(10);

@@ -8,7 +8,7 @@
     "dev:frontend": "vite",
     "dev:backend": "bunx convex dev",
     "build": "tsc --noEmit -p tsconfig.json && vite build",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p convex/tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p convex/tsconfig.json && tsc --noEmit -p tests/tsconfig.json",
     "preview": "vite preview",
     "codegen": "bunx convex codegen",
     "openapi": "bun run scripts/generate-openapi.ts",

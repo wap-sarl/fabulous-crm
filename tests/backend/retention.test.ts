@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
-import type { Id } from '../../convex/_generated/dataModel';
+import type { Id, TableNames } from '../../convex/_generated/dataModel';
 import { RETENTION_BOUNDS } from '../../convex/_lib/validators/retention';
 import crons from '../../convex/crons';
 import { setExtensionsForTests } from '../../convex/extensions';
@@ -66,28 +66,8 @@ const reports = (t: T) =>
         row.metadata as { pages: number; truncated: boolean; counts: Record<string, number> },
     ),
   );
-const count = (
-  t: T,
-  table:
-    | 'leads'
-    | 'companies'
-    | 'deals'
-    | 'activities'
-    | 'campaignEvents'
-    | 'workflowRunSteps'
-    | 'campaignLinkTokens'
-    | 'invitations'
-    | 'apiIdempotencyKeys'
-    | 'auditLogs'
-    | 'leadNotes'
-    | 'campaignSends'
-    | 'workflowRuns'
-    | 'leadListMembers'
-    | 'lifecycleStageHistory'
-    | 'leadDuplicates'
-    | 'attachments'
-    | 'dealStageHistory',
-) => t.run(async (ctx) => (await ctx.db.query(table).collect()).length);
+const count = (t: T, table: TableNames) =>
+  t.run(async (ctx) => (await ctx.db.query(table).collect()).length);
 const trash = (
   t: T,
   id: Id<'leads'> | Id<'companies'> | Id<'deals'> | Id<'activities'>,

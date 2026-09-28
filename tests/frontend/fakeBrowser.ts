@@ -11,6 +11,15 @@ export interface FakeElement {
   attributes: Record<string, string>;
   listeners: Record<string, (event: unknown) => void>;
   contentWindow?: { postMessage: (data: unknown, origin: string) => void };
+  setAttribute: (name: string, value: string) => void;
+  getAttribute: (name: string) => string | null;
+  appendChild: (child: FakeElement) => FakeElement;
+  insertBefore: (child: FakeElement, before: FakeElement | null) => FakeElement;
+  removeChild: (child: FakeElement) => void;
+  addEventListener: (name: string, fn: (event: unknown) => void) => void;
+  focus: () => void;
+  readonly firstChild: FakeElement | null;
+  readonly nextSibling: FakeElement | null;
   [key: string]: unknown;
 }
 

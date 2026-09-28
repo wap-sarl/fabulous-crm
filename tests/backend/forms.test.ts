@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, setSystemTime, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
-import type { FormField, FormStandardField } from '../../convex/_lib/validators/forms';
+import type { FormFieldInput, FormStandardField } from '../../convex/_lib/validators/forms';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { asIdentity, createTestConvex, seedEmployee, type T, seedConfig } from './helpers';
 
@@ -13,7 +13,7 @@ afterEach(() => {
 /** The clock moves forward: a render stamp is signed, so a submission's age can only come from time passing. */
 const advance = (ms: number) => setSystemTime(new Date(Date.now() + ms));
 
-const std = (field: FormStandardField, label: string, required = false): FormField => ({
+const std = (field: FormStandardField, label: string, required = false): FormFieldInput => ({
   target: { kind: 'standard', field },
   label,
   required,
@@ -31,7 +31,7 @@ async function setup() {
 type As = ReturnType<typeof asIdentity>;
 
 /** The acceptance form: prénom, e-mail, société (+ consent, built-in). */
-function createAcceptanceForm(as: As, extra?: { active?: boolean; fields?: FormField[] }) {
+function createAcceptanceForm(as: As, extra?: { active?: boolean; fields?: FormFieldInput[] }) {
   return as.mutation(api.features.forms.mutations.createForm, {
     name: 'Contact',
     fields: extra?.fields ?? [

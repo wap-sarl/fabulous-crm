@@ -400,7 +400,7 @@ describe('connecting an account', () => {
 
     // Anyone can craft the callback's address: without a state signed here and still open, the sentence goes nowhere.
     const forged = 'Votre compte est bloqué, appelez le 0800…';
-    for (const bad of [
+    const attempts: Record<string, string>[] = [
       {},
       { state: 'garbage' },
       {
@@ -421,7 +421,8 @@ describe('connecting an account', () => {
       },
       // Replayed: the state of the first refusal was consumed.
       { state },
-    ]) {
+    ];
+    for (const bad of attempts) {
       const crafted = await landing({ error: 'access_denied', error_description: forged, ...bad });
       expect(crafted.search + crafted.hash).toBe('?error=access_denied');
     }
