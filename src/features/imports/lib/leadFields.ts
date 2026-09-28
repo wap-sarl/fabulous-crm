@@ -3,7 +3,7 @@ import { isValidEmail, isValidPhone } from '@crm/lib/shared';
 import { addressFields, type ImportFieldDef, parseBool, parseOwners } from './fields';
 
 export const LEAD_FIELDS_GROUP = 'Champs du lead';
-export const COMPANY_GROUP = 'Entreprise';
+const COMPANY_GROUP = 'Entreprise';
 
 const companyOf = (row: LeadImportRow) => {
   row.company ??= {};

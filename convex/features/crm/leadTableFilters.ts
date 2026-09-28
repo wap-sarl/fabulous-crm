@@ -133,7 +133,7 @@ export async function loadLeadFilterExtras(
 }
 
 /** One lead's `memberListIds` extras, from a resolved membership map. */
-export function memberListIdsOf(
+function memberListIdsOf(
   members: Map<string, Set<string>> | undefined,
   leadId: Id<'leads'>,
 ): string[] | undefined {

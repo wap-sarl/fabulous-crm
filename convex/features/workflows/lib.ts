@@ -24,12 +24,12 @@ import { validateLeadTargetValue } from '../crm/leadTargets';
  * mutations (validation at activation) and the trigger dispatcher.
  */
 
-export const MAX_NODES = 50;
+const MAX_NODES = 50;
 export const MAX_STEPS_PER_RUN = 100;
 /** Per-workflow-per-lead enrollment cap bounding cross-workflow ping-pong. */
 export const MAX_ENROLLMENTS_PER_LEAD_PER_DAY = 5;
-export const MIN_WAIT_MS = 60_000;
-export const MAX_WAIT_MS = 90 * 24 * 60 * 60 * 1000;
+const MIN_WAIT_MS = 60_000;
+const MAX_WAIT_MS = 90 * 24 * 60 * 60 * 1000;
 export const WEBHOOK_TIMEOUT_MS = 10_000;
 
 const WAIT_UNIT_MS = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 } as const;
@@ -40,7 +40,7 @@ export function delayMs(node: { amount: number; unit: keyof typeof WAIT_UNIT_MS 
 }
 
 /** Outgoing references of a node, in branch order. */
-export function nodeChildIds(node: WorkflowNode): string[] {
+function nodeChildIds(node: WorkflowNode): string[] {
   if (node.type === 'branch') {
     return [node.nextTrue, node.nextFalse].filter((id): id is string => id !== undefined);
   }

@@ -43,4 +43,3 @@ function FunnelBar({
 }
 
 export { FunnelBar };
-export type { FunnelBarProps };

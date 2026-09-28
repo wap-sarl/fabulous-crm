@@ -33,11 +33,6 @@ export function rulesOf(type: PropertyType) {
   return PROPERTY_TYPE_RULES[type].rules;
 }
 
-/** Fixed-choice properties can be filtered in the quick toolbar. */
-export function isPropertyFilterable(def: PropertyDefinitionRow): boolean {
-  return propertyTypeUi(def.type).quickFilter;
-}
-
 /** True when a stored value is actually set (false and 0 count; '' and [] do not). */
 export function hasPropertyValue(value: PropertyValue | undefined): boolean {
   if (value === undefined || value === null || value === '') return false;

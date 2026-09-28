@@ -171,4 +171,4 @@ function CalendarDayButton({ className, day, modifiers, color: _color, ...props 
   );
 }
 
-export { Calendar, CalendarDayButton };
+export { Calendar };

@@ -1,4 +1,3 @@
-import type { RoleAccess } from '@crm/lib/backend';
 /**
  * Vendored shared types.
  */
@@ -13,18 +12,3 @@ export const zEmailSchema = z
   .string({ error: EMAIL_ERROR_MESSAGES.empty })
   .min(1, EMAIL_ERROR_MESSAGES.empty)
   .pipe(z.email({ error: EMAIL_ERROR_MESSAGES.invalid }));
-
-export const zOptionalEmailSchema = zEmailSchema.or(z.literal(''));
-
-export type EmailErrorMessages = typeof EMAIL_ERROR_MESSAGES;
-
-/** Normalized user returned by session validation. */
-export type SessionUser = {
-  _id: string;
-  email: string;
-  type: 'employee';
-  role: string;
-  roleLabel: string;
-  access: RoleAccess;
-  name: string;
-};

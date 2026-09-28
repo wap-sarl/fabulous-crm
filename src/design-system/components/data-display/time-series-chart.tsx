@@ -107,4 +107,3 @@ function TimeSeriesChart({
 }
 
 export { TimeSeriesChart };
-export type { TimeSeriesChartProps, TimeSeriesPoint };

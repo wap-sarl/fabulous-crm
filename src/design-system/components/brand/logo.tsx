@@ -2,7 +2,7 @@ import type * as React from 'react';
 import { cn } from '../../theme/utils';
 import { LogoIcon } from './logo-icon';
 
-export interface LogoProps extends React.HTMLAttributes<HTMLDivElement> {
+interface LogoProps extends React.HTMLAttributes<HTMLDivElement> {
   /**
    * Logo variant: 'light' for dark backgrounds, 'dark' for light backgrounds
    * @default 'dark'

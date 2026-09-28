@@ -33,4 +33,4 @@ function Collapse({
   );
 }
 
-export { Collapse, type CollapseProps };
+export { Collapse };

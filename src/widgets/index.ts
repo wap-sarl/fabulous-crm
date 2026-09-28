@@ -10,21 +10,16 @@ export {
 export {
   AuthProvider,
   useAuth,
-  authClient,
   ProtectedRoute,
   PublicRoute,
   SetupGate,
   LoginPage,
-  type LoginPageProps,
   ContinuePage,
-  type ContinuePageProps,
 } from './auth';
-export { PublicConfigProvider, usePublicConfig, type PublicConfig } from './config';
-export { BrandingHead, ImageUploadField, type ImageUploadFieldProps } from './config';
+export { PublicConfigProvider, usePublicConfig } from './config';
+export { BrandingHead, ImageUploadField } from './config';
 export {
   ColorPickerField,
-  type ColorPickerFieldProps,
-  DEFAULT_PRIMARY_COLOR,
   applyPrimaryColor,
   resetPrimaryColor,
   bootstrapPrimaryColor,

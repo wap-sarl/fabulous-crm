@@ -1,5 +1,5 @@
 /** French messages for the company mutations' error codes. */
-export const COMPANY_ERROR_MESSAGES: Record<string, string> = {
+const COMPANY_ERROR_MESSAGES: Record<string, string> = {
   company_name_required: 'Le nom de l’entreprise est requis.',
   company_registration_exists: 'Une entreprise porte déjà ce numéro d’immatriculation.',
   company_domain_exists: 'Une entreprise porte déjà ce domaine.',

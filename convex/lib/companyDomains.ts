@@ -81,7 +81,7 @@ export function normalizeDomain(raw: string | undefined): string | undefined {
 }
 
 /** The domain part of an email address, normalized; undefined when malformed. */
-export function emailDomain(email: string | undefined): string | undefined {
+function emailDomain(email: string | undefined): string | undefined {
   if (!email) return undefined;
   const at = email.lastIndexOf('@');
   if (at === -1) return undefined;

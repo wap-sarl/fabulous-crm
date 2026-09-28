@@ -35,6 +35,10 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # Exports, types, files and dependencies that nothing uses.
+      - name: Unused code
+        run: bun run unused
+
       # A new order on every run: a test that leans on another one shows up here, with the seed to replay it.
       - name: Test
         run: bun test --randomize

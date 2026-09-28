@@ -20,7 +20,7 @@ import { resolveAddressProvider } from './addressProviders';
 // Fields + block
 // ---------------------------------------------------------------------------
 
-export interface AddressFieldsProps {
+interface AddressFieldsProps {
   value: AddressValue;
   onChange: (value: AddressValue) => void;
   /** The country the fields are laid out for (`value.country`). */
@@ -30,7 +30,7 @@ export interface AddressFieldsProps {
 }
 
 /** The country's nested fields in its writing order, from the metadata. */
-export function MetadataAddressFields({
+function MetadataAddressFields({
   value,
   onChange,
   country,

@@ -23,7 +23,7 @@ export const PROPERTY_TYPE_KEYS = [
 ] as const;
 export type PropertyTypeKey = (typeof PROPERTY_TYPE_KEYS)[number];
 
-export type PropertyRuleKey = keyof PropertyValidation;
+type PropertyRuleKey = keyof PropertyValidation;
 
 export interface PropertyTypeDescriptor {
   /** Validation rule keys the type supports (settings dialog + mutation cleaning). */
@@ -165,7 +165,3 @@ export const PROPERTY_TYPES: Record<PropertyTypeKey, PropertyTypeDescriptor> = {
     formatParam: asString,
   },
 };
-
-export function propertyTypeDescriptor(type: PropertyTypeKey): PropertyTypeDescriptor {
-  return PROPERTY_TYPES[type];
-}

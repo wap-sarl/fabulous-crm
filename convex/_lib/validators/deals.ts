@@ -6,7 +6,7 @@ export const dealStatusValidator = v.union(v.literal('open'), v.literal('won'), 
 export type DealStatus = Infer<typeof dealStatusValidator>;
 
 /** A stage tag (a loss reason on the lost stage, for instance); the key is stable like a property option's. */
-export const pipelineStageTagValidator = v.object({ key: v.string(), label: v.string() });
+const pipelineStageTagValidator = v.object({ key: v.string(), label: v.string() });
 export type PipelineStageTag = Infer<typeof pipelineStageTagValidator>;
 
 export const pipelineStageValidator = v.object({
@@ -74,7 +74,7 @@ export const dealValidator = v.object({
 });
 export type Deal = Infer<typeof dealValidator>;
 
-export const dealStageChangeSourceValidator = v.union(
+const dealStageChangeSourceValidator = v.union(
   v.literal('create'),
   v.literal('manual'),
   v.literal('workflow'),
@@ -99,7 +99,7 @@ export type DealStageHistory = Infer<typeof dealStageHistoryValidator>;
 export const DEFAULT_CURRENCY = 'EUR';
 export const MAX_PIPELINE_STAGES = 20;
 export const MAX_STAGE_TAGS = 20;
-export const PIPELINE_STAGE_KEY_RE = /^[a-z0-9_]{1,32}$/;
+const PIPELINE_STAGE_KEY_RE = /^[a-z0-9_]{1,32}$/;
 
 /** The pipeline every instance starts with (ensureDefaultPipeline). */
 export const DEFAULT_PIPELINE_STAGES: readonly PipelineStage[] = [

@@ -50,14 +50,14 @@ export const SIRET_SCHEME: RegistrationScheme = {
 };
 
 /** Fallback for countries without a dedicated scheme. */
-export const GENERIC_REGISTRATION_SCHEME: RegistrationScheme = {
+const GENERIC_REGISTRATION_SCHEME: RegistrationScheme = {
   id: 'generic',
   label: "Numéro d'immatriculation",
   normalize: (raw) => raw.trim(),
   validate: (value) => (value.length > 64 ? 'Numéro trop long (64 caractères max).' : null),
 };
 
-export const REGISTRATION_SCHEMES: Record<string, RegistrationScheme> = {
+const REGISTRATION_SCHEMES: Record<string, RegistrationScheme> = {
   FR: SIRET_SCHEME,
 };
 
@@ -127,11 +127,6 @@ export interface VatScheme {
 const jsvatByCountry = new Map(
   jsvatCountries.flatMap((c) => c.codes.map((code) => [code, c] as const)),
 );
-
-/** Countries whose VAT format (and checksum) jsvat knows — EU plus a few others. */
-export function hasVatChecksum(country: string): boolean {
-  return jsvatByCountry.has(normalizeCountryCode(country));
-}
 
 const VAT_PLACEHOLDERS: Record<string, string> = {
   FR: 'FR12345678901',

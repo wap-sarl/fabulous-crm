@@ -16,7 +16,7 @@ export type FieldValueGetter<F extends string> = (
 ) => PropertyValue | undefined;
 
 /** A stored value is "empty" for isEmpty/isNotEmpty. `false`/`0` count as set. */
-export function isEmptyValue(value: PropertyValue | undefined): boolean {
+function isEmptyValue(value: PropertyValue | undefined): boolean {
   if (value === undefined || value === null || value === '') return true;
   if (Array.isArray(value)) return value.length === 0;
   return false;
@@ -158,7 +158,7 @@ export function evalFilterRule<F extends string>(
 }
 
 /** A group's verdict, or null when it holds no active rules (neutral). */
-export function evalFilterGroup<F extends string>(
+function evalFilterGroup<F extends string>(
   getValue: FieldValueGetter<F>,
   group: FilterGroup<F>,
   now: number = Date.now(),

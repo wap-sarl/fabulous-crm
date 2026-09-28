@@ -59,4 +59,3 @@ function Sparkline({
 }
 
 export { Sparkline };
-export type { SparklineProps };

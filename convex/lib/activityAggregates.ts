@@ -4,17 +4,14 @@ import type { DataModel, Doc, Id } from '../_generated/dataModel';
 import type { QueryCtx } from '../_generated/server';
 import { activityDueKey, type ActivityStatus } from '../_lib/validators/activities';
 
-export const ownerNamespace = (
+const ownerNamespace = (
   ownerId: Id<'users'> | undefined,
   status: ActivityStatus,
   deleted: boolean,
 ) => `${ownerId ?? 'none'}|${status}|${deleted ? 'deleted' : 'live'}`;
 
-export const teamNamespace = (
-  teamId: Id<'teams'> | undefined,
-  status: ActivityStatus,
-  deleted: boolean,
-) => `${teamId ?? 'none'}|${status}|${deleted ? 'deleted' : 'live'}`;
+const teamNamespace = (teamId: Id<'teams'> | undefined, status: ActivityStatus, deleted: boolean) =>
+  `${teamId ?? 'none'}|${status}|${deleted ? 'deleted' : 'live'}`;
 
 export const activitiesByOwner = new TableAggregate<{
   Namespace: string;

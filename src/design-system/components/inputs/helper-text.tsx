@@ -19,4 +19,4 @@ function HelperText({ variant = 'default', className, ...props }: HelperTextProp
   );
 }
 
-export { HelperText, type HelperTextProps };
+export { HelperText };

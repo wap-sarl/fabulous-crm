@@ -11,7 +11,6 @@ export const importEntityValidator = v.union(
   v.literal('activity'),
 );
 export type ImportEntity = Infer<typeof importEntityValidator>;
-export const IMPORT_ENTITIES: ImportEntity[] = ['lead', 'company', 'deal', 'activity'];
 
 /** Rows handled per scheduled batch; an update writes several documents, so this stays well under the transaction limit. */
 export const IMPORT_BATCH_SIZE = 200;
@@ -33,9 +32,8 @@ export const importMappingValidator = v.object({
   createdBy: v.id('users'),
   updatedBy: v.id('users'),
 });
-export type ImportMapping = Infer<typeof importMappingValidator>;
 
-export const importJobStatusValidator = v.union(
+const importJobStatusValidator = v.union(
   // Rows are being uploaded.
   v.literal('uploading'),
   // The dry run is going through the rows, nothing is written to the CRM.
@@ -52,7 +50,7 @@ export const importJobStatusValidator = v.union(
 export type ImportJobStatus = Infer<typeof importJobStatusValidator>;
 
 /** What the dry run or the run did with the rows so far. */
-export const importCountsValidator = v.object({
+const importCountsValidator = v.object({
   created: v.number(),
   updated: v.number(),
   duplicates: v.number(),
@@ -96,7 +94,6 @@ export const importJobValidator = v.object({
   updatedAt: v.number(),
   createdBy: v.id('users'),
 });
-export type ImportJob = Infer<typeof importJobValidator>;
 
 /** What became of one row: the dry run's verdict, then the run's. */
 export const importRowOutcomeValidator = v.union(
@@ -136,7 +133,7 @@ export const leadImportRowValidator = v.object({
 });
 export type LeadImportRow = Infer<typeof leadImportRowValidator>;
 
-export const companyImportRowValidator = v.object({
+const companyImportRowValidator = v.object({
   name: v.string(),
   country: v.optional(v.string()),
   registrationNumber: v.optional(v.string()),
@@ -151,7 +148,7 @@ export const companyImportRowValidator = v.object({
 });
 export type CompanyImportRow = Infer<typeof companyImportRowValidator>;
 
-export const dealImportRowValidator = v.object({
+const dealImportRowValidator = v.object({
   title: v.string(),
   amount: v.optional(v.number()),
   currency: v.optional(v.string()),
@@ -167,7 +164,7 @@ export const dealImportRowValidator = v.object({
 });
 export type DealImportRow = Infer<typeof dealImportRowValidator>;
 
-export const activityImportRowValidator = v.object({
+const activityImportRowValidator = v.object({
   type: activityTypeValidator,
   title: v.string(),
   description: v.optional(v.string()),
@@ -187,7 +184,6 @@ export const importRowDataValidator = v.union(
   dealImportRowValidator,
   activityImportRowValidator,
 );
-export type ImportRowData = Infer<typeof importRowDataValidator>;
 
 /** One row of a job: the source cells, the mapped data, and what the dry run then the run made of it. */
 export const importRowValidator = v.object({
@@ -205,4 +201,3 @@ export const importRowValidator = v.object({
   matchLabel: v.optional(v.string()),
   reasons: v.optional(v.array(v.string())),
 });
-export type ImportRow = Infer<typeof importRowValidator>;

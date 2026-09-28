@@ -1,6 +1,6 @@
-import { type Infer, v } from 'convex/values';
+import { v } from 'convex/values';
 
-export const rgpdRequestTypeValidator = v.union(
+const rgpdRequestTypeValidator = v.union(
   // Right of access: the archive was exported.
   v.literal('access'),
   // Right to erasure: the contact and everything it owns are hard-deleted.
@@ -9,7 +9,6 @@ export const rgpdRequestTypeValidator = v.union(
   v.literal('objection'),
   v.literal('objection_lifted'),
 );
-export type RgpdRequestType = Infer<typeof rgpdRequestTypeValidator>;
 
 /** One row per request handled; `leadId` is kept as a string so the row outlives the contact and holds no personal data. */
 export const rgpdRequestValidator = v.object({
@@ -22,7 +21,6 @@ export const rgpdRequestValidator = v.object({
   // Counts of what an erasure removed, whether an export was cut short.
   detail: v.optional(v.any()),
 });
-export type RgpdRequest = Infer<typeof rgpdRequestValidator>;
 
 /** Rows read per table for an export; a table with more is reported as cut. */
 export const EXPORT_ROW_CAP = 2000;

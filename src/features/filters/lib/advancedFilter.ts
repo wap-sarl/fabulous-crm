@@ -31,7 +31,7 @@ export interface FieldCatalog<F extends string = string> {
 }
 
 /** French labels for each operator (shown in the operator dropdown). */
-export const OPERATOR_LABEL: Record<FilterOperator, string> = {
+const OPERATOR_LABEL: Record<FilterOperator, string> = {
   equals: 'Égal à',
   notEquals: 'Différent de',
   contains: 'Contient',
@@ -88,15 +88,6 @@ export function fieldTypeOf<F extends string>(
   if (field.kind === 'standard') return standardSpec(field, catalog)?.type ?? 'text';
   const def = definitionOf(field, catalog);
   return def ? customPropertyType(def.type) : 'text';
-}
-
-/** Human label for a rule field (standard label or the custom definition label). */
-export function fieldLabelOf<F extends string>(
-  field: FilterField<F>,
-  catalog: FieldCatalog<F>,
-): string {
-  if (field.kind === 'standard') return standardSpec(field, catalog)?.label ?? field.field;
-  return definitionOf(field, catalog)?.label ?? 'Propriété supprimée';
 }
 
 /** The fixed choices of a list-valued field (definition options or the spec's). */

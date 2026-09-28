@@ -31,8 +31,8 @@ export interface LeadFilters {
 }
 
 /** URL param prefixes for custom-property filters (select vs boolean). */
-export const CP_SELECT_PREFIX = 'cps_';
-export const CP_BOOLEAN_PREFIX = 'cpb_';
+const CP_SELECT_PREFIX = 'cps_';
+const CP_BOOLEAN_PREFIX = 'cpb_';
 
 const VALID_SORT: LeadSortField[] = ['recent', 'lastName', 'lifecycleStage', 'leadScore'];
 

@@ -5,7 +5,7 @@ import type { ImportEntity } from '../../_lib/validators/imports';
 import type { Visibility } from '../../lib/visibility';
 
 /** The module an entity's import writes to; a role without it cannot import it. */
-export const MODULE_OF_ENTITY: Record<ImportEntity, AccessModule> = {
+const MODULE_OF_ENTITY: Record<ImportEntity, AccessModule> = {
   lead: 'leads',
   company: 'companies',
   deal: 'deals',

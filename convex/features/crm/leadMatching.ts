@@ -17,7 +17,7 @@ export interface LeadFilterExtras {
 }
 
 /** Resolve the stored value of a rule's field (standard column or custom prop). */
-export function getFieldValue(
+function getFieldValue(
   lead: Doc<'leads'>,
   field: FilterField<LeadStandardField>,
   extras?: LeadFilterExtras,

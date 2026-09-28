@@ -21,7 +21,7 @@ export function useActivityActions() {
   };
 }
 
-export const ACTIVITY_ERROR_MESSAGES: Record<string, string> = {
+const ACTIVITY_ERROR_MESSAGES: Record<string, string> = {
   activity_title_required: 'L’intitulé est requis.',
   activity_not_found: 'Activité introuvable.',
   activity_link_required: 'Rattachez l’appel à un lead, une entreprise ou une transaction.',

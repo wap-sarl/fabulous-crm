@@ -55,7 +55,7 @@ export const formFieldValidator = v.object({
 const FIELD_KEY_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 /** A public key for a field: its label as an ASCII slug (« Prénom » → `prenom`). */
-export function slugifyFieldKey(label: string): string {
+function slugifyFieldKey(label: string): string {
   const slug = label
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')

@@ -7,9 +7,9 @@ import type { DealStatus } from '../_lib/validators/deals';
 const aliveness = (doc: Doc<'deals'>): 0 | 1 => (doc.deletedAt != null ? 1 : 0);
 const amount = (doc: Doc<'deals'>): number => doc.amount ?? 0;
 
-export const stageNamespace = (pipelineId: Id<'pipelines'>, stageKey: string) =>
+const stageNamespace = (pipelineId: Id<'pipelines'>, stageKey: string) =>
   `${pipelineId}|${stageKey}`;
-export const statusNamespace = (pipelineId: Id<'pipelines'>, status: DealStatus) =>
+const statusNamespace = (pipelineId: Id<'pipelines'>, status: DealStatus) =>
   `${pipelineId}|${status}`;
 
 export const dealsByStage = new TableAggregate<{

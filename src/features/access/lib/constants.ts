@@ -17,7 +17,7 @@ export const ACCESS_LEVEL_LABEL: Record<AccessLevel, string> = {
 };
 
 /** Top-level route → module, for navigation and route guards. */
-export const MODULE_OF_PATH: Record<string, AccessModule> = {
+const MODULE_OF_PATH: Record<string, AccessModule> = {
   '/leads': 'leads',
   '/companies': 'companies',
   '/deals': 'deals',

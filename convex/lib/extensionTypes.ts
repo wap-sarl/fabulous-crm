@@ -47,7 +47,7 @@ export type RecordChange =
       source: LifecycleChangeSource;
     };
 
-export interface ApiRefusal {
+interface ApiRefusal {
   status: number;
   code: string;
   message: string;

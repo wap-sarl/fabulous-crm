@@ -112,4 +112,4 @@ function SIRETInput({
   );
 }
 
-export { SIRETInput, type SIRETInputProps, type SIRETMode };
+export { SIRETInput, type SIRETInputProps };

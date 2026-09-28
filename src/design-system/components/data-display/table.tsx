@@ -33,22 +33,6 @@ function TableBody({
   return <tbody ref={ref} className={cn('[&_tr:last-child]:border-0', className)} {...props} />;
 }
 
-function TableFooter({
-  ref,
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLTableSectionElement> & {
-  ref?: React.Ref<HTMLTableSectionElement>;
-}) {
-  return (
-    <tfoot
-      ref={ref}
-      className={cn('border-t bg-muted/50 font-medium [&>tr]:last:border-b-0', className)}
-      {...props}
-    />
-  );
-}
-
 function TableRow({
   ref,
   className,
@@ -100,16 +84,4 @@ function TableCell({
   );
 }
 
-function TableCaption({
-  ref,
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLTableCaptionElement> & {
-  ref?: React.Ref<HTMLTableCaptionElement>;
-}) {
-  return (
-    <caption ref={ref} className={cn('mt-4 text-sm text-muted-foreground', className)} {...props} />
-  );
-}
-
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export { Table, TableHeader, TableBody, TableHead, TableRow, TableCell };

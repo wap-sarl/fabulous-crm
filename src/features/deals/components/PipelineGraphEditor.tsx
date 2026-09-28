@@ -336,10 +336,7 @@ function TransitionEdge(props: EdgeProps<Edge>) {
 const nodeTypes = { stage: StageGraphNode };
 const edgeTypes = { transition: TransitionEdge };
 
-export function describeGraphIssue(
-  issue: PipelineGraphIssue,
-  labelOf: (key: string) => string,
-): string {
+function describeGraphIssue(issue: PipelineGraphIssue, labelOf: (key: string) => string): string {
   switch (issue.kind) {
     case 'unreachable':
       return `« ${labelOf(issue.stageKey)} » est inaccessible : aucune flèche n'y mène depuis le premier stade.`;

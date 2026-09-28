@@ -15,7 +15,7 @@ export type SiretVerificationResult =
   | { status: 'not_found'; message: string }
   | { status: 'error'; message: string };
 
-export interface VerifiedSIRETInputProps extends Omit<SIRETInputProps, 'value' | 'onChange'> {
+interface VerifiedSIRETInputProps extends Omit<SIRETInputProps, 'value' | 'onChange'> {
   value?: string;
   onChange?: (digits: string) => void;
   compareTo?: SiretCompanyCardCompareTo;

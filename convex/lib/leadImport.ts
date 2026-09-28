@@ -167,7 +167,7 @@ export type LeadImportResult =
  * Add a lead to a list if it isn't already a member. Idempotent across import
  * batches and re-imported emails (same lead appearing in several batches).
  */
-export async function addLeadToList(
+async function addLeadToList(
   ctx: MutationCtx,
   listId: Id<'leadLists'>,
   leadId: Id<'leads'>,

@@ -77,7 +77,7 @@ function hslToHex({ h, s, l }: Hsl): string {
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 /** Compute the derived `--primary-strong` / `--primary-soft` from a base hex. */
-export function derivePrimaryShades(hex: string): { strong: string; soft: string } {
+function derivePrimaryShades(hex: string): { strong: string; soft: string } {
   const { h, s, l } = hexToHsl(hex);
   return {
     // Darker + slightly muted for the button gradient end + hover states.

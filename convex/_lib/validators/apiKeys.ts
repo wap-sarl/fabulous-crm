@@ -6,7 +6,7 @@ export const API_KEY_PREFIX = 'wap';
 export const API_KEY_ID_BYTES = 4;
 export const API_KEY_SECRET_BYTES = 24;
 
-export const MAX_API_KEY_NAME_LENGTH = 60;
+const MAX_API_KEY_NAME_LENGTH = 60;
 
 /** A write scope implies the read scope of the same resource (see hasScope). */
 export const API_SCOPES = [
@@ -67,5 +67,3 @@ export const apiIdempotencyKeyValidator = v.object({
   responseBody: v.optional(v.string()),
   expiresAt: v.number(),
 });
-
-export type ApiIdempotencyKey = Infer<typeof apiIdempotencyKeyValidator>;

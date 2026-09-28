@@ -28,5 +28,3 @@ export const employeeValidator = v.object({
   phone: v.string(),
   address: addressValidator,
 });
-
-export type Employee = Infer<typeof employeeValidator>;

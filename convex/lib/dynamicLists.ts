@@ -24,7 +24,7 @@ export async function loadDynamicLists(ctx: MutationCtx): Promise<DynamicList[]>
 }
 
 /** Whether a lead belongs in a dynamic list right now. Deleted leads never do. */
-export function matchesDynamicList(lead: Doc<'leads'> | null, list: DynamicList): boolean {
+function matchesDynamicList(lead: Doc<'leads'> | null, list: DynamicList): boolean {
   return !!lead && lead.deletedAt === undefined && evalAdvancedFilter(lead, list.criteria);
 }
 

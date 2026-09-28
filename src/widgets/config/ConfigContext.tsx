@@ -2,7 +2,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { useQuery } from 'convex/react';
 import { api } from '@crm/lib/backend';
 
-export type PublicConfig = {
+type PublicConfig = {
   setupComplete: boolean;
   organizationName: string;
   /** Resolved custom-branding URLs (null when the deployment uses defaults). */

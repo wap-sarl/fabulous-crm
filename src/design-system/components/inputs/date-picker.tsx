@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/no-autofocus -- DayPicker uses autoFocus to preserve popover keyboard focus. */
 import * as React from 'react';
 import { format, parse, isValid } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -8,7 +7,7 @@ import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from '../surfa
 import { Input } from './input';
 import { cn } from '../../theme/utils';
 
-export interface DatePickerProps {
+interface DatePickerProps {
   /** Date value as yyyy-MM-dd string */
   value?: string;
   /** Callback when date changes, receives yyyy-MM-dd string */
@@ -137,6 +136,7 @@ function DatePicker({
           disabled={disabledDays}
           defaultMonth={calendarDefaultMonth}
           locale={fr}
+          // The calendar takes the focus, so the keyboard stays in the popover.
           autoFocus
         />
       </PopoverContent>

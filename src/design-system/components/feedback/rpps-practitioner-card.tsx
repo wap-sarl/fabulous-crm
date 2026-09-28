@@ -27,7 +27,7 @@ export interface RppsPractitionerCardCompareTo {
   profession?: string;
 }
 
-export interface RppsPractitionerCardProps {
+interface RppsPractitionerCardProps {
   data: RppsPractitionerData | null;
   compareTo?: RppsPractitionerCardCompareTo;
   variant?: 'full' | 'simple';

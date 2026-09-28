@@ -64,4 +64,4 @@ function EmailInput({
   );
 }
 
-export { EmailInput, validateEmail, type EmailInputProps };
+export { EmailInput, validateEmail };

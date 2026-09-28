@@ -11,7 +11,7 @@ import {
 import { IMPORT_SPECS, type ImportRowOf } from './registry';
 
 /** A row as `appendRows` takes it: built, or refused with the reason. */
-export interface BuiltRow<E extends ImportEntity> {
+interface BuiltRow<E extends ImportEntity> {
   index: number;
   line: number;
   raw: string[];
