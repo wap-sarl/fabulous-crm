@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'bun:test';
-import type { WorkflowNode } from '@crm/lib/backend';
-import type { WorkflowDraft } from '../types';
-import { draftReducer, emptyDraft, subtreeIds } from '../hooks/useWorkflowDraft';
-import { layoutWorkflow, NODE_W, ROW_H, X_GAP } from './layout';
+import type { WorkflowNode } from '../../src/lib/backend';
+import type { WorkflowDraft } from '../../src/features/workflows/types';
+import {
+  draftReducer,
+  emptyDraft,
+  subtreeIds,
+} from '../../src/features/workflows/hooks/useWorkflowDraft';
+import { layoutWorkflow, NODE_W, ROW_H, X_GAP } from '../../src/features/workflows/lib/layout';
 
 const draftWith = (nodes: WorkflowNode[], startNodeId: string | null): WorkflowDraft => ({
   ...emptyDraft(),

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { attachmentKey, normalizeFolder } from '../../convex/lib/fileStorage';
-import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, type T, seedConfig } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -12,17 +12,7 @@ async function setup() {
     firstName: 'Jean',
     lastName: 'Dupont',
   });
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'WAP',
-      appUrl: 'http://localhost:4202',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      attachments: { maxSizeBytes: 1024 },
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t, { attachments: { maxSizeBytes: 1024 } });
   return { t, emp, as, leadId };
 }
 

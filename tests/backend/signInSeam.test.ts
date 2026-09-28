@@ -5,7 +5,7 @@ import { SIGN_IN_HOOK_FAILURE_ENTITY_ID } from '../../convex/auth';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { describeSignInError, emailCodeForm } from '../../src/lib/errors';
 import { extensions as frontend } from '../../src/extensions';
-import { createTestConvex, seedEmployee, type T } from './helpers';
+import { createTestConvex, runDue, seedEmployee, type T, seedConfig } from './helpers';
 
 const ENV = ['SITE_URL', 'CONVEX_SITE_URL', 'BETTER_AUTH_SECRET', 'DEV_WHITELIST_EMAILS'] as const;
 let saved: Record<string, string | undefined> = {};
@@ -13,14 +13,10 @@ const realFetch = globalThis.fetch;
 /** Every mail the provider answered for, and a gate it waits on before answering, when a test holds one. */
 let mails: string[] = [];
 let providerGate: Promise<void> | null = null;
-const opened: T[] = [];
 /** An address no other test file uses. */
 const RECIPIENT = 'ada.sign-in-seam@example.com';
 /** The delivery is scheduled: let it run to its end. */
-const delivered = async (t: T) => {
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  await t.finishInProgressScheduledFunctions();
-};
+const delivered = (t: T) => runDue(t);
 beforeEach(() => {
   saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
   process.env.SITE_URL = 'https://crm.example.com';
@@ -41,8 +37,6 @@ beforeEach(() => {
   }) as typeof fetch;
 });
 afterEach(async () => {
-  // No delivery may outlive its test and land in another file's mock.
-  for (const t of opened.splice(0)) await delivered(t);
   setExtensionsForTests(null);
   frontend.describeRefusal = undefined;
   frontend.loginMethods = undefined;
@@ -55,19 +49,12 @@ afterEach(async () => {
 
 async function setup() {
   const t = createTestConvex();
-  opened.push(t);
   await seedEmployee(t, { email: RECIPIENT, role: 'member' });
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'Test',
-      appUrl: 'https://crm.example.com',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      email: { provider: 'brevo', brevoApiKey: 'xkeysib-test' },
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t, {
+    organizationName: 'Test',
+    appUrl: 'https://crm.example.com',
+    email: { provider: 'brevo', brevoApiKey: 'xkeysib-test' },
+  });
   return t;
 }
 const requestCode = (t: T, email: string) =>

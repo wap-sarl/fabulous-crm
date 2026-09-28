@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   formatPropertyParamValue,
+  type PropertyValue,
   OPTION_BASED_TYPES,
   propertyTypeValidator,
   validatePropertyValue,
@@ -52,7 +53,7 @@ describe('property type registry', () => {
     ['boolean', 'true', undefined],
     ['rpps', '10001234567', '10001234567'],
   ] as const)('sanitize %s %p → %p', (type, input, expected) => {
-    expect(PROPERTY_TYPES[type].sanitize(input, { options })).toEqual(expected);
+    expect(PROPERTY_TYPES[type].sanitize(input, { options })).toEqual(expected as PropertyValue);
   });
 
   test.each([
@@ -95,6 +96,6 @@ describe('property type registry', () => {
     ['number', 12, '12'],
     ['text', 'hi', 'hi'],
   ] as const)('formatParam %s %p → %p', (type, value, expected) => {
-    expect(formatPropertyParamValue({ type, options }, value)).toBe(expected);
+    expect(formatPropertyParamValue({ type, options }, value as PropertyValue)).toBe(expected);
   });
 });

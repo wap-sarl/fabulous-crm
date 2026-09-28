@@ -11,6 +11,15 @@ export interface FakeElement {
   attributes: Record<string, string>;
   listeners: Record<string, (event: unknown) => void>;
   contentWindow?: { postMessage: (data: unknown, origin: string) => void };
+  setAttribute: (name: string, value: string) => void;
+  getAttribute: (name: string) => string | null;
+  appendChild: (child: FakeElement) => FakeElement;
+  insertBefore: (child: FakeElement, before: FakeElement | null) => FakeElement;
+  removeChild: (child: FakeElement) => void;
+  addEventListener: (name: string, fn: (event: unknown) => void) => void;
+  focus: () => void;
+  readonly firstChild: FakeElement | null;
+  readonly nextSibling: FakeElement | null;
   [key: string]: unknown;
 }
 
@@ -178,6 +187,13 @@ export function fakeBrowser(options: FakeBrowserOptions) {
     moveTo(url: string) {
       href = new URL(url, href);
     },
+    /** Lets what the scripts started finish: a turn of the event loop that no fake clock holds back. */
+    flush: () =>
+      new Promise<void>((resolve) => {
+        const { port1, port2 } = new MessageChannel();
+        port2.onmessage = () => resolve();
+        port1.postMessage(null);
+      }),
     /** Runs a served script as a page would; timers fire at once. */
     run(script: string) {
       new Function(

@@ -1,32 +1,32 @@
 import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
-import { api, internal } from '../../convex/_generated/api';
+import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { IMPORT_BATCH_SIZE } from '../../convex/_lib/validators/imports';
 import { ConvexError } from 'convex/values';
 import { setExtensionsForTests } from '../../convex/extensions';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  seedLead,
+  type T,
+  pinClock,
+  runAll,
+} from './helpers';
 
 const NOW = Date.parse('2026-09-25T09:00:00Z');
-const opened: T[] = [];
 beforeEach(() => {
-  jest.useFakeTimers();
-  jest.setSystemTime(new Date(NOW));
+  pinClock(NOW);
 });
 afterEach(async () => {
   setExtensionsForTests(null);
-  for (const t of opened.splice(0)) await settle(t);
-  jest.useRealTimers();
 });
 
-/** Runs the scheduled batches; the fake clock lands on the real time afterwards, so it goes back for the seeded sessions. */
-async function settle(t: T) {
-  await t.finishAllScheduledFunctions(() => jest.runAllTimers());
-  jest.setSystemTime(new Date(NOW));
-}
+// Running timers moves the date: it goes back, for the seeded sessions.
+const settle = (t: T, backTo = NOW) => runAll(t, backTo);
 
 async function setup() {
   const t = createTestConvex();
-  opened.push(t);
   const admin = await seedEmployee(t, { email: 'admin@example.com', role: 'admin' });
   const as = asIdentity(t, admin.identity);
   await as.mutation(api.features.deals.mutations.ensureDefaultPipeline, {});
@@ -672,7 +672,6 @@ describe('advanced import', () => {
 
   test('a deals job opened before any pipeline exists creates the default one', async () => {
     const t = createTestConvex();
-    opened.push(t);
     const admin = await seedEmployee(t, { email: 'admin2@example.com', role: 'admin' });
     const as = asIdentity(t, admin.identity);
     expect(await t.run((ctx) => ctx.db.query('pipelines').collect())).toEqual([]);

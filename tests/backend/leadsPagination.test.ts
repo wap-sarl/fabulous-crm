@@ -8,6 +8,8 @@ import { api } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
 
+type Page = { page: Doc<'leads'>[]; isDone: boolean; continueCursor: string };
+
 async function setup() {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com' });
@@ -35,7 +37,7 @@ async function collectAllPages(
   const pageSizes: number[] = [];
   let cursor: string | null = null;
   for (;;) {
-    const res = await as.query(api.features.crm.queries.listLeadsPaginated, {
+    const res: Page = await as.query(api.features.crm.queries.listLeadsPaginated, {
       ...args,
       paginationOpts: { numItems, cursor },
     });

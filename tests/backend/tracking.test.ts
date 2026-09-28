@@ -1,51 +1,41 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
+import { beforeEach, describe, expect, jest, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import { evalRule } from '../../convex/features/crm/leadMatching';
-import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  type T,
+  seedConfig,
+  pinClock,
+  runAll,
+} from './helpers';
 
 const NOW = Date.parse('2026-09-26T09:00:00Z');
 const DAY = 24 * 60 * 60 * 1000;
 const SITE = 'https://www.example.fr';
-const opened: T[] = [];
 beforeEach(() => {
   process.env.BETTER_AUTH_SECRET = 'test-auth-secret';
-  jest.useFakeTimers();
-  jest.setSystemTime(new Date(NOW));
+  pinClock(NOW);
 });
-afterEach(async () => {
-  for (const t of opened.splice(0)) await settle(t);
-  jest.useRealTimers();
-});
-/** Runs the scheduled work; the fake clock lands on the real time afterwards, so it goes back. */
-async function settle(t: T, backTo = NOW) {
-  await t.finishAllScheduledFunctions(() => jest.runAllTimers());
-  jest.setSystemTime(new Date(backTo));
-}
+// Running timers moves the date: it goes back, for the seeded sessions.
+const settle = (t: T, backTo = NOW) => runAll(t, backTo);
 const advance = (ms: number) => jest.setSystemTime(new Date(Date.now() + ms));
 
 async function setup(tracking: { enabled?: boolean; mode?: 'anonymous' | 'named' } = {}) {
   const t = createTestConvex();
-  opened.push(t);
   const emp = await seedEmployee(t, { email: 'admin@example.com', role: 'admin' });
   const as = asIdentity(t, emp.identity);
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'WAP',
-      appUrl: 'http://localhost:4202',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      tracking: {
-        enabled: tracking.enabled ?? true,
-        mode: tracking.mode ?? 'named',
-        retentionDays: 90,
-        allowedOrigins: [SITE],
-        privacyUrl: `${SITE}/confidentialite`,
-      },
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t, {
+    tracking: {
+      enabled: tracking.enabled ?? true,
+      mode: tracking.mode ?? 'named',
+      retentionDays: 90,
+      allowedOrigins: [SITE],
+      privacyUrl: `${SITE}/confidentialite`,
+    },
+  });
   return { t, as, emp };
 }
 

@@ -2,23 +2,21 @@ import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { DEFAULT_LIFECYCLE_STAGES } from '../../convex/_lib/validators/lifecycle';
-import { asIdentity, createTestConvex, seedEmployee, type SeededEmployee, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  type SeededEmployee,
+  type T,
+  seedConfig,
+} from './helpers';
 
 async function setup(role: 'admin' | 'member' = 'admin') {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com', role });
   const as = asIdentity(t, emp.identity);
   // updateLifecycleConfig needs a config doc, like every settings mutation.
-  await t.run(async (ctx) => {
-    await ctx.db.insert('appConfig', {
-      organizationName: 'Test',
-      appUrl: 'http://localhost:4202',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: { magicLinkEnabled: true },
-      updatedAt: Date.now(),
-    });
-  });
+  await seedConfig(t, { organizationName: 'Test' });
   return { t, emp, as };
 }
 

@@ -368,11 +368,32 @@ bun run dev
 | `bun run dev` | `convex dev` + `vite` en parallèle |
 | `bun run dev:frontend` / `dev:backend` | l'un des deux seulement |
 | `bun run build` | `tsc --noEmit` + `vite build` → `dist/` |
-| `bun run typecheck` | tsconfig app + tsconfig convex |
+| `bun run typecheck` | tsconfig app + tsconfig convex + tsconfig tests |
 | `bun run codegen` | régénère `convex/_generated` (commité) |
 | `bun run openapi` | régénère `convex/lib/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
+
+### Tests
+
+Tous les tests sont sous `tests/` (`backend/` avec `convex-test`, `frontend/`),
+aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
+(`bunfig.toml`), pose trois règles :
+
+- **Aucun test ne sort de la machine** : une requête que le test n'a pas
+  simulée est refusée et fait échouer le test qui l'a émise.
+- **Rien ne survit à un test** : à la fin de chacun, ce qu'il a planifié sans
+  l'exécuter est annulé, pour ne pas s'exécuter plus tard dans un autre test.
+- **L'horloge appartient au test** : un backend de test (`createTestConvex`)
+  tourne sur une horloge que seul le test fait avancer ; rien de planifié ne
+  part tout seul. `runDue(t)` exécute ce qui est dû maintenant, `runAfter(t,
+  ms)` avance puis exécute, `runAll(t)` exécute tout, `pinClock(date)` fixe la
+  date de départ.
+
+Les tests sont typés comme le reste (`tests/tsconfig.json`, dans
+`bun run typecheck`). La suite ne dépend pas de l'ordre : la CI la lance dans
+un ordre aléatoire (`bun test --randomize`, la graine est affichée pour
+rejouer un échec avec `--seed`).
 
 ### Bootstrap & connexion locale
 

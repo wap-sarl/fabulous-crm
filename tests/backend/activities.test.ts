@@ -137,7 +137,7 @@ describe('activities', () => {
       leadId,
     });
     // Open first, then the done call.
-    expect(forLead.map((a) => a._id)).toEqual([res.followUpId, res.callId]);
+    expect(forLead.map((a): string | null => a._id)).toEqual([res.followUpId, res.callId]);
 
     await expect(
       as.mutation(api.features.activities.mutations.logCall, { outcome: 'Répondu' }),

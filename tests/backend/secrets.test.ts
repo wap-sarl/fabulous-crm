@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from '../../convex/lib/crypto';
 import { resolveBrevo, resolveEmailProvider } from '../../convex/lib/emailProvider';
-import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, type T, seedConfig } from './helpers';
 
 const KEY_A = 'a'.repeat(64);
 const KEY_B = 'b'.repeat(64);
@@ -21,24 +21,17 @@ afterEach(() => {
 
 const CIPHERTEXT = /^v1:[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*$/;
 
-async function seedConfig(t: T, email?: Record<string, string>) {
+async function seedAdmin(t: T, email?: Record<string, string>) {
   const emp = await seedEmployee(t, { email: 'admin@example.com', role: 'admin' });
-  await t.run((ctx) =>
-    ctx.db.insert('appConfig', {
-      organizationName: 'WAP',
-      appUrl: 'http://localhost:4202',
-      senderEmail: 'crm@example.com',
-      senderName: 'CRM',
-      auth: {
-        magicLinkEnabled: true,
-        socialProviders: [
-          { id: 'google', clientId: 'gid', clientSecret: 'google-clear', enabled: true },
-        ],
-      },
-      ...(email ? { email: { provider: 'brevo' as const, ...email } } : {}),
-      updatedAt: Date.now(),
-    }),
-  );
+  await seedConfig(t, {
+    auth: {
+      magicLinkEnabled: true,
+      socialProviders: [
+        { id: 'google', clientId: 'gid', clientSecret: 'google-clear', enabled: true },
+      ],
+    },
+    ...(email ? { email: { provider: 'brevo' as const, ...email } } : {}),
+  });
   return asIdentity(t, emp.identity);
 }
 
@@ -86,7 +79,7 @@ describe('secrets at rest', () => {
   test('the settings mutation stores ciphertext, the resolvers and the auth read the clear value, no query returns it', async () => {
     process.env.SECRETS_KEY = KEY_A;
     const t = createTestConvex();
-    const as = await seedConfig(t);
+    const as = await seedAdmin(t);
     await as.mutation(api.features.config.mutations.updateConfig, {
       email: { provider: 'brevo', brevoApiKey: 'xkeysib-stored', brevoWebhookSecret: 'wh-stored' },
       socialProviders: [
@@ -136,7 +129,7 @@ describe('secrets at rest', () => {
   test('the migration encrypts clear values once, and the rotation re-encrypts with the next key', async () => {
     process.env.SECRETS_KEY = KEY_A;
     const t = createTestConvex();
-    await seedConfig(t, { brevoApiKey: 'brevo-clear', smtpPass: 'smtp-clear' });
+    await seedAdmin(t, { brevoApiKey: 'brevo-clear', smtpPass: 'smtp-clear' });
     await t.mutation(internal.migrations.encryptAppConfigSecrets, {});
     const encrypted = await storedConfig(t);
     expect(encrypted?.email?.brevoApiKey).toMatch(CIPHERTEXT);

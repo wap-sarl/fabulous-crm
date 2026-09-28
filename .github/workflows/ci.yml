@@ -35,8 +35,9 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      # A new order on every run: a test that leans on another one shows up here, with the seed to replay it.
       - name: Test
-        run: bun test
+        run: bun test --randomize
 
       - name: Build
         run: bun run build

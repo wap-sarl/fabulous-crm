@@ -143,7 +143,7 @@ describe('lead timeline', () => {
     for (let i = 1; i < events.length; i++)
       expect(events[i - 1].at).toBeGreaterThanOrEqual(events[i].at);
 
-    const kinds = new Set(events.map((e) => e.kind));
+    const kinds = new Set<string>(events.map((e) => e.kind));
     expect([...kinds].sort()).toEqual(
       [
         'activity',

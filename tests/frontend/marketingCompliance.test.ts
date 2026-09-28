@@ -4,7 +4,7 @@ import {
   SMS_STOP_LINE,
   withEmailCompliance,
   withSmsCompliance,
-} from './marketingCompliance';
+} from '../../src/features/campaigns/lib/marketingCompliance';
 
 describe('withSmsCompliance', () => {
   it('appends the STOP line for marketing', () => {
