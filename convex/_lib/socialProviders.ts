@@ -16,5 +16,3 @@ export const SOCIAL_PROVIDERS = [
   { key: 'github', label: 'GitHub' },
   { key: 'linkedin', label: 'LinkedIn' },
 ] as const;
-
-export type SocialProviderKey = (typeof SOCIAL_PROVIDERS)[number]['key'];

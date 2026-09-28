@@ -20,7 +20,7 @@ import { formatMoney } from '../../../lib/constants';
 const COLUMN_PAGE = 25;
 const dateFormat = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
 
-export interface StageTotals {
+interface StageTotals {
   count: number;
   amount: number;
 }

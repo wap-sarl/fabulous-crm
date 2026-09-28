@@ -47,4 +47,3 @@ function StatCard({
 }
 
 export { StatCard };
-export type { StatCardProps };

@@ -1,5 +1,5 @@
 /** What the connectors' callback reports in `?error=`: ours, or a provider's own code we know how to say. */
-export const CONNECTION_ERRORS: Record<string, string> = {
+const CONNECTION_ERRORS: Record<string, string> = {
   invalid_state: 'La demande de connexion a expiré ou n’est pas valide. Recommencez.',
   invalid_finish: 'La demande de connexion a expiré ou n’est pas valide. Recommencez.',
   account_mismatch:

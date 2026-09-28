@@ -23,7 +23,7 @@ export interface CountryInputRegistration {
   helperText?: string;
 }
 
-export const ANY_COUNTRY = '*';
+const ANY_COUNTRY = '*';
 
 const registry = new Map<string, Map<string, CountryInputRegistration>>();
 
@@ -41,7 +41,7 @@ export function registerCountryInput(
 }
 
 /** The default control: a bare text input. Exported for reuse by registrations. */
-export function PlainCountryInput({ context: _context, ...props }: CountryInputProps) {
+function PlainCountryInput({ context: _context, ...props }: CountryInputProps) {
   return (
     <Input
       {...props}
@@ -62,11 +62,6 @@ export function resolveCountryInput(
   const byCountry = registry.get(inputType);
   if (!byCountry) return FALLBACK;
   return byCountry.get((country ?? '').toUpperCase()) ?? byCountry.get(ANY_COUNTRY) ?? FALLBACK;
-}
-
-/** Registered countries for an input type (for tests / diagnostics). */
-export function registeredCountries(inputType: string): string[] {
-  return [...(registry.get(inputType)?.keys() ?? [])];
 }
 
 export interface CountryInputElementProps extends CountryInputProps {

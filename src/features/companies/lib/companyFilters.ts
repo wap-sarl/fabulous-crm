@@ -4,7 +4,7 @@ import type { FieldCatalog, StandardFieldSpec } from '../../filters/lib/advanced
 import type { PropertyDefinitionRow } from '../../properties/types';
 
 /** Built-in company columns exposed in the builder, with French label + filter type. */
-export const COMPANY_FILTER_FIELDS: StandardFieldSpec<CompanyStandardField>[] = [
+const COMPANY_FILTER_FIELDS: StandardFieldSpec<CompanyStandardField>[] = [
   { field: 'name', label: 'Nom', type: 'text' },
   { field: 'domain', label: 'Domaine', type: 'text' },
   {

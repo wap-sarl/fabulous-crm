@@ -60,7 +60,7 @@ export type SocialProviderConfig = Infer<typeof socialProviderConfigValidator>;
  * presence flags). The SMTP `From` identity reuses the top-level
  * `senderEmail`/`senderName`; there is no separate SMTP from-address.
  */
-export const emailConfigValidator = v.object({
+const emailConfigValidator = v.object({
   provider: v.union(v.literal('brevo'), v.literal('smtp')),
   brevoApiKey: v.optional(v.string()), // SECRET — also powers SMS + webhooks
   brevoWebhookSecret: v.optional(v.string()), // SECRET

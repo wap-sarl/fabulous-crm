@@ -20,9 +20,9 @@ export interface AddressFormatData {
 }
 
 /** Address fields the CRM edits, as libaddressinput letters. */
-export type AddressFieldKey = 'street' | 'city' | 'region' | 'postalCode';
+type AddressFieldKey = 'street' | 'city' | 'region' | 'postalCode';
 
-export interface AddressFieldSpec {
+interface AddressFieldSpec {
   key: AddressFieldKey;
   label: string;
   placeholder?: string;
@@ -74,12 +74,12 @@ const LETTER_TO_KEY: Record<string, AddressFieldKey> = {
   Z: 'postalCode',
 };
 
-export function normalizeCountry(country: string | undefined): string {
+function normalizeCountry(country: string | undefined): string {
   return (country ?? '').trim().toUpperCase();
 }
 
 /** The raw metadata for a country, defaulting to libaddressinput's `ZZ` fallback. */
-export function addressFormatDataFor(country: string | undefined): AddressFormatData {
+function addressFormatDataFor(country: string | undefined): AddressFormatData {
   return ADDRESS_FORMAT_DATA[normalizeCountry(country)] ?? DEFAULT;
 }
 
@@ -147,7 +147,7 @@ export interface FormattableAddress {
 }
 
 /** Display name of a region key (falls back to the key). */
-export function regionLabel(country: string | undefined, region: string | undefined): string {
+function regionLabel(country: string | undefined, region: string | undefined): string {
   if (!region) return '';
   const regions = addressFormatDataFor(country).regions;
   return regions?.find(([key]) => key === region)?.[1] ?? region;

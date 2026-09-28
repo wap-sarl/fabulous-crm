@@ -123,13 +123,3 @@ export const employeeAction = customAction(
     return {};
   }),
 );
-
-export function assertSelfOrEmployee(
-  ctx: { userId: Id<'users'>; user: Doc<'users'> },
-  targetId: Id<'users'>,
-  message = 'Unauthorized: can only access your own profile',
-) {
-  if (targetId !== ctx.userId && ctx.user.type !== 'employee') {
-    throw new Error(message);
-  }
-}

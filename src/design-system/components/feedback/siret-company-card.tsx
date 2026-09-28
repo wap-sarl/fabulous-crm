@@ -3,7 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from './alert';
 import { formatDate } from './format-date';
 import { Collapse } from '../surfaces/collapse';
 
-export interface SiretCompanyAddress {
+interface SiretCompanyAddress {
   numeroVoie: string | null;
   typeVoie: string | null;
   libelleVoie: string | null;
@@ -32,7 +32,7 @@ export interface SiretCompanyCardCompareTo {
   city?: string;
 }
 
-export interface SiretCompanyCardProps {
+interface SiretCompanyCardProps {
   data: SiretCompanyData | null;
   compareTo?: SiretCompanyCardCompareTo;
   notFound?: string | null;

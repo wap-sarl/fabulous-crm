@@ -38,4 +38,3 @@ function KeyValueList({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 }
 
 export { KeyValueList, KeyValueRow };
-export type { KeyValueRowProps };

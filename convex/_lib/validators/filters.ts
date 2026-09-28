@@ -1,7 +1,7 @@
 import { type Infer, v, type Validator } from 'convex/values';
 
 /** Built-in lead columns that can be filtered in the builder. */
-export const leadStandardFieldValidator = v.union(
+const leadStandardFieldValidator = v.union(
   v.literal('firstName'),
   v.literal('lastName'),
   v.literal('email'),
@@ -30,7 +30,7 @@ export const leadStandardFieldValidator = v.union(
 );
 
 /** Built-in company columns that can be filtered in the builder. */
-export const companyStandardFieldValidator = v.union(
+const companyStandardFieldValidator = v.union(
   v.literal('name'),
   v.literal('domain'),
   v.literal('country'),
@@ -41,7 +41,7 @@ export const companyStandardFieldValidator = v.union(
 );
 
 /** Built-in deal columns that can be filtered in the builder. */
-export const dealStandardFieldValidator = v.union(
+const dealStandardFieldValidator = v.union(
   v.literal('title'),
   v.literal('amount'),
   v.literal('currency'),
@@ -59,7 +59,7 @@ export const dealStandardFieldValidator = v.union(
  * numbers & dates; `inLastDays`/`inNextDays`/`moreThanDaysAgo` compare a date
  * to now (value = whole days). Offered per type by {@link operatorsForType}.
  */
-export const filterOperatorValidator = v.union(
+const filterOperatorValidator = v.union(
   v.literal('equals'),
   v.literal('notEquals'),
   v.literal('contains'),
@@ -74,7 +74,7 @@ export const filterOperatorValidator = v.union(
 );
 
 /** Inclusive bounds for the `between` operator (numbers or ISO date strings). */
-export const filterRangeValidator = v.object({
+const filterRangeValidator = v.object({
   min: v.optional(v.union(v.number(), v.string())),
   max: v.optional(v.union(v.number(), v.string())),
 });
@@ -84,7 +84,7 @@ export const filterRangeValidator = v.object({
  * a string[] for "is one of" / option membership, or a range for `between`.
  * Absent for isEmpty/isNotEmpty.
  */
-export const filterRuleValueValidator = v.union(
+const filterRuleValueValidator = v.union(
   v.string(),
   v.number(),
   v.boolean(),
@@ -92,10 +92,10 @@ export const filterRuleValueValidator = v.union(
   filterRangeValidator,
 );
 
-export const filterCombinatorValidator = v.union(v.literal('and'), v.literal('or'));
+const filterCombinatorValidator = v.union(v.literal('and'), v.literal('or'));
 
 /** The rule/group/filter validators for one entity's standard-field union. */
-export function advancedFilterValidators<F extends Validator<string, 'required', never>>(
+function advancedFilterValidators<F extends Validator<string, 'required', never>>(
   standardField: F,
 ) {
   const filterField = v.union(
@@ -119,8 +119,8 @@ export function advancedFilterValidators<F extends Validator<string, 'required',
 }
 
 export const leadFilterValidators = advancedFilterValidators(leadStandardFieldValidator);
-export const companyFilterValidators = advancedFilterValidators(companyStandardFieldValidator);
-export const dealFilterValidators = advancedFilterValidators(dealStandardFieldValidator);
+const companyFilterValidators = advancedFilterValidators(companyStandardFieldValidator);
+const dealFilterValidators = advancedFilterValidators(dealStandardFieldValidator);
 
 export const leadAdvancedFilterValidator = leadFilterValidators.advancedFilter;
 export const companyAdvancedFilterValidator = companyFilterValidators.advancedFilter;

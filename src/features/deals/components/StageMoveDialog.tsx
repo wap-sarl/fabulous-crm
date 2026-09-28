@@ -23,7 +23,7 @@ export interface StageEntry {
 }
 
 /** Asked when a deal enters a stage that has tags: which tags apply, and a comment. */
-export function StageMoveDialog({
+function StageMoveDialog({
   stage,
   dealTitle,
   onConfirm,

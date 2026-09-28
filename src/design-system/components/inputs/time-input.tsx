@@ -61,4 +61,4 @@ function TimeInput({
   );
 }
 
-export { TimeInput, type TimeInputProps };
+export { TimeInput };

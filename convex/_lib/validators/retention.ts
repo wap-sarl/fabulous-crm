@@ -1,4 +1,4 @@
-import { type Infer, v } from 'convex/values';
+import { v } from 'convex/values';
 import type { AppConfig } from './appConfig';
 import { TRACKING_RETENTION_BOUNDS } from './tracking';
 
@@ -19,7 +19,6 @@ export const retentionConfigValidator = v.object({
   eventDays: v.optional(v.number()),
   auditDays: v.optional(v.number()),
 });
-export type RetentionConfig = Infer<typeof retentionConfigValidator>;
 /** The policy in force, the tracking's own duration included (appConfig.tracking). */
 export type RetentionPolicy = Record<RetentionKey, number> & { trackingDays: number };
 /** A policy frozen for one purge run, carried from page to page. */

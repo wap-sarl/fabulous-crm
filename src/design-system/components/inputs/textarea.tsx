@@ -25,4 +25,4 @@ function Textarea({
   );
 }
 
-export { Textarea, type TextareaProps };
+export { Textarea };

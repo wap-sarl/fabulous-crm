@@ -11,7 +11,7 @@ import type { MessageType } from '../schema';
  * Sender identity (alphanumeric ID, max 11 chars) shown on every outgoing SMS.
  * Configure per deployment with `bunx convex env set BREVO_SMS_SENDER …`.
  */
-export const SMS_SENDER = process.env.BREVO_SMS_SENDER || 'CRM';
+const SMS_SENDER = process.env.BREVO_SMS_SENDER || 'CRM';
 
 /**
  * Normalize a stored lead phone to Brevo's recipient format: the E.164 number

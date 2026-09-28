@@ -48,7 +48,6 @@ export const contactPatchBody = v.object({
   companyId: v.optional(nullable(idString)),
   customProperties: v.optional(customPropertiesPatch),
 });
-export type ContactPatchBody = Infer<typeof contactPatchBody>;
 
 /** Consent is the lead's own (GDPR trail on the consent page); the rest is computed. */
 const CONTACT_READ_ONLY = [
@@ -76,7 +75,6 @@ export const companyCreateBody = v.object({
   ownerIds: v.optional(idList),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 });
-export type CompanyCreateBody = Infer<typeof companyCreateBody>;
 
 export const companyPatchBody = v.object({
   name: v.optional(v.string()),
@@ -91,7 +89,6 @@ export const companyPatchBody = v.object({
   ownerIds: v.optional(idList),
   customProperties: v.optional(customPropertiesPatch),
 });
-export type CompanyPatchBody = Infer<typeof companyPatchBody>;
 
 export const dealCreateBody = v.object({
   title: v.string(),
@@ -107,7 +104,6 @@ export const dealCreateBody = v.object({
   sourceCampaignId: v.optional(idString),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 });
-export type DealCreateBody = Infer<typeof dealCreateBody>;
 
 export const dealPatchBody = v.object({
   title: v.optional(v.string()),
@@ -123,7 +119,6 @@ export const dealPatchBody = v.object({
   sourceCampaignId: v.optional(nullable(idString)),
   customProperties: v.optional(customPropertiesPatch),
 });
-export type DealPatchBody = Infer<typeof dealPatchBody>;
 
 const DEAL_READ_ONLY = ['status', 'closedAt', 'pipelineId'];
 
@@ -144,7 +139,6 @@ export const activityCreateBody = v.object({
   outcome: v.optional(v.string()),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 });
-export type ActivityCreateBody = Infer<typeof activityCreateBody>;
 
 export const activityPatchBody = v.object({
   type: v.optional(activityTypeValidator),
@@ -160,7 +154,6 @@ export const activityPatchBody = v.object({
   outcome: v.optional(nullable(v.string())),
   customProperties: v.optional(customPropertiesPatch),
 });
-export type ActivityPatchBody = Infer<typeof activityPatchBody>;
 
 const ACTIVITY_READ_ONLY = ['completedAt'];
 

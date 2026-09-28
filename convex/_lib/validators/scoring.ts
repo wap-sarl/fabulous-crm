@@ -53,8 +53,6 @@ export const scoringStateValidator = v.object({
   ),
 });
 
-export type ScoringState = Infer<typeof scoringStateValidator>;
-
 /**
  * Criteria must hold at least one active rule and may not reference `listIds`
  * (membership reads on every lead write, cascade risk) or `leadScore` (a score

@@ -35,9 +35,7 @@ export interface LeadCatalogOptions {
 const BEHAVIOUR = 'Comportement';
 
 /** Every lead column the advanced filter offers, behavioural signals included. */
-export function leadFilterFields(
-  opts: LeadCatalogOptions = {},
-): StandardFieldSpec<LeadStandardField>[] {
+function leadFilterFields(opts: LeadCatalogOptions = {}): StandardFieldSpec<LeadStandardField>[] {
   const companies = (opts.companies ?? []).map((c) => ({ value: c._id, label: c.name }));
   const lists = (opts.lists ?? []).map((l) => ({ value: l._id, label: l.name }));
   return [

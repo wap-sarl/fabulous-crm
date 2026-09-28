@@ -15,7 +15,7 @@ export type RppsVerificationResult =
   | { status: 'not_found'; message: string }
   | { status: 'error'; message: string };
 
-export interface VerifiedRPPSInputProps extends Omit<RPPSInputProps, 'value' | 'onChange'> {
+interface VerifiedRPPSInputProps extends Omit<RPPSInputProps, 'value' | 'onChange'> {
   value?: string;
   onChange?: (digits: string) => void;
   compareTo?: RppsPractitionerCardCompareTo;

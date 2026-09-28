@@ -101,7 +101,7 @@ export function formatSendError(raw: string | undefined | null): string {
 }
 
 /** Campaign delivery/engagement event types with French labels and badge tones. */
-export const EVENT_TYPES: {
+const EVENT_TYPES: {
   value: CampaignEventType;
   label: string;
   tone: StatusTone;

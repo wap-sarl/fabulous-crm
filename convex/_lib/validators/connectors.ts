@@ -13,7 +13,7 @@ export const connectorConfigValidator = v.object({
 });
 export type ConnectorConfig = Infer<typeof connectorConfigValidator>;
 
-export const connectorAccountStatusValidator = v.union(
+const connectorAccountStatusValidator = v.union(
   v.literal('active'),
   // The provider refused the refresh token: the user has to connect again.
   v.literal('error'),

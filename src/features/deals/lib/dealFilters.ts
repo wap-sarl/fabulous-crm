@@ -7,9 +7,7 @@ import type { PropertyDefinitionRow } from '../../properties/types';
  * Built-in deal columns exposed in the builder. Stages come from the live
  * pipelines: one option per stage, prefixed by the pipeline name when several exist.
  */
-export function dealFilterFields(
-  pipelines: Doc<'pipelines'>[],
-): StandardFieldSpec<DealStandardField>[] {
+function dealFilterFields(pipelines: Doc<'pipelines'>[]): StandardFieldSpec<DealStandardField>[] {
   const stages = pipelines.flatMap((p) =>
     p.stages.map((s) => ({
       value: s.key,

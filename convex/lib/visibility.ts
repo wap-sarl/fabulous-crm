@@ -53,7 +53,7 @@ export async function loadVisibility(
 }
 
 /** Whether owners `ownerIds` are inside `level` for this user. Empty = pool. */
-export function ownersAllowed(
+function ownersAllowed(
   visibility: Visibility,
   level: AccessLevel,
   ownerIds: readonly Id<'users'>[] | undefined,

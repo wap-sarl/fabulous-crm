@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from './dialog';
 
-export interface ConfirmDialogProps {
+interface ConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: React.ReactNode;

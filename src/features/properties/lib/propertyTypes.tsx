@@ -26,7 +26,7 @@ import type { PropertyDefinitionRow } from '../types';
  * (`coerceCsv`).
  */
 
-export interface PropertyInputProps {
+interface PropertyInputProps {
   id: string;
   def: PropertyDefinitionRow;
   value: PropertyValue | undefined;
@@ -41,7 +41,7 @@ export interface PropertyInputProps {
   };
 }
 
-export interface CsvHelpers {
+interface CsvHelpers {
   /** An option value matched by value or label, case-insensitive. */
   matchOption: (def: PropertyDefinitionRow, raw: string) => string | undefined;
   /** Split a multi-value cell (`;`-separated). */
@@ -49,7 +49,7 @@ export interface CsvHelpers {
   parseBool: (raw: string) => boolean | undefined;
 }
 
-export type CsvCoercion = { value: PropertyValue } | { error: string };
+type CsvCoercion = { value: PropertyValue } | { error: string };
 
 export interface PropertyTypeUi {
   /** French label in the settings type picker. */

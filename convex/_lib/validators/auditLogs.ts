@@ -1,6 +1,6 @@
 import { type Infer, v } from 'convex/values';
 
-export const auditLogEntityTypeValidator = v.union(
+const auditLogEntityTypeValidator = v.union(
   v.literal('lead'),
   v.literal('company'),
   v.literal('deal'),
@@ -27,7 +27,7 @@ export const auditLogEntityTypeValidator = v.union(
   v.literal('importJob'),
 );
 
-export const auditLogActionValidator = v.union(
+const auditLogActionValidator = v.union(
   v.literal('create'),
   v.literal('update'),
   v.literal('delete'),

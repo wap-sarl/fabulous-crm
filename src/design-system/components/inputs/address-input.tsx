@@ -28,7 +28,7 @@ export interface AddressValue {
   coordinates?: { lat: number; lng: number };
 }
 
-export interface AddressSuggestion {
+interface AddressSuggestion {
   /** Stable key — the provider place id. */
   id: string;
   placeId: string;
@@ -283,7 +283,7 @@ export function createBanAddressProvider({ limit = 5 }: BanAddressProviderOption
 // Component
 // ---------------------------------------------------------------------------
 
-export interface AddressInputProps {
+interface AddressInputProps {
   value: AddressValue;
   onChange: (value: AddressValue) => void;
   /** Suggestions provider. Omit to render the street as a plain (manual-only) field. */

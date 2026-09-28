@@ -5,11 +5,11 @@ export const firstAndLastNameValidator = v.object({
   lastName: v.string(),
 });
 
-export const timestampableValidator = v.object({
+const timestampableValidator = v.object({
   updatedAt: v.number(),
 });
 
-export const blameableValidator = v.object({
+const blameableValidator = v.object({
   createdBy: v.optional(v.id('users')),
   updatedBy: v.optional(v.id('users')),
 });

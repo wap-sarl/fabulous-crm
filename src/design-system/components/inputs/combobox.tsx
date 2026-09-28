@@ -13,14 +13,14 @@ import {
 } from './command';
 import { Popover, PopoverContent, PopoverTrigger } from '../surfaces/popover';
 
-export interface ComboboxItem {
+interface ComboboxItem {
   value: string;
   label: string;
   disabled?: boolean;
   group?: string;
 }
 
-export interface ComboboxProps {
+interface ComboboxProps {
   /** Items to display in the dropdown */
   items: ComboboxItem[];
   /** Currently selected value */

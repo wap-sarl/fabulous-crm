@@ -3,7 +3,7 @@ import { Input, Label, cn } from '@crm/design-system';
 import { Check } from 'lucide-react';
 
 /** Theme default (`--primary` in theme.css) — the fallback when nothing is set. */
-export const DEFAULT_PRIMARY_COLOR = '#5b50f5';
+const DEFAULT_PRIMARY_COLOR = '#5b50f5';
 
 /** Curated brand accents shown as one-click presets (includes the default). */
 const PRESETS = [

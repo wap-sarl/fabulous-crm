@@ -14,4 +14,4 @@ export const IMPORTERS: Record<ImportEntity, EntityImporter<any, any, any>> = {
   activity: activityImporter,
 };
 
-export type { EntityImporter, ImportActor, ImportApplied, ImportVerdict } from './types';
+export type { EntityImporter } from './types';

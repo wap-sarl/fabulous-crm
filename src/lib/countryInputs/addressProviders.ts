@@ -23,13 +23,13 @@ export interface AddressProvider {
 }
 
 /** Builds the provider for a country (called once per country, memoized). */
-export type AddressProviderFactory = (country: string) => AddressProvider;
+type AddressProviderFactory = (country: string) => AddressProvider;
 
-export const ANY_COUNTRY = '*';
+const ANY_COUNTRY = '*';
 const factories = new Map<string, AddressProviderFactory>();
 const instances = new Map<string, AddressProvider>();
 
-export function registerAddressProvider(country: string, factory: AddressProviderFactory): void {
+function registerAddressProvider(country: string, factory: AddressProviderFactory): void {
   factories.set(country.toUpperCase(), factory);
   for (const key of [...instances.keys()]) {
     if (country === ANY_COUNTRY || key === country.toUpperCase()) instances.delete(key);
@@ -85,7 +85,7 @@ function regionKeyFor(country: string, state: string | undefined): string | unde
   return hit ? hit[0] : state;
 }
 
-export function createPhotonAddressProvider(country: string): AddressProvider {
+function createPhotonAddressProvider(country: string): AddressProvider {
   const cache = new Map<string, AddressValue>();
   // Countries with an enumerated region list are queried in English so the
   // OSM state name matches the metadata's Latin names ("California").

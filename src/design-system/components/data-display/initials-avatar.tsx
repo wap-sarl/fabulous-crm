@@ -62,5 +62,4 @@ function InitialsAvatar({ name, size = 36, className, style, ...props }: Initial
   );
 }
 
-export { InitialsAvatar, AVATAR_PALETTE };
-export type { InitialsAvatarProps };
+export { InitialsAvatar };

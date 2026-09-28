@@ -10,7 +10,7 @@ import { profilingExcluded } from './leadSignals';
 const NAME_MAX_DISTANCE = 2;
 const NAME_MIN_LENGTH = 6;
 /** Candidates read per index per lead — bounds a scan step whatever the data. */
-export const CANDIDATE_LIMIT = 100;
+const CANDIDATE_LIMIT = 100;
 
 const REASON_WEIGHT: Record<DuplicateReason, number> = {
   email: 3,
@@ -153,7 +153,7 @@ export async function findDuplicateCandidates(
 }
 
 /** Rows re-pointed per table per call; a full batch reschedules itself. */
-export const REPOINT_BATCH = 200;
+const REPOINT_BATCH = 200;
 
 /**
  * Move every row attached to `absorbedId` onto `survivorId`: notes,

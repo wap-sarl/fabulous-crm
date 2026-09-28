@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cn } from '../../theme/utils';
 
-export interface OtpInputProps {
+interface OtpInputProps {
   length?: number;
   value?: string;
   onChange?: (value: string) => void;

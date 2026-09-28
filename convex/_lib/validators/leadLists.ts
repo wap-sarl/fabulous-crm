@@ -39,7 +39,6 @@ export const leadListMemberValidator = v.object({
 
 export type LeadList = Infer<typeof leadListValidator>;
 export type LeadListMember = Infer<typeof leadListMemberValidator>;
-export type LeadListKind = 'static' | 'dynamic';
 
 export function validateDynamicListCriteria(
   criteria: LeadAdvancedFilter | undefined,

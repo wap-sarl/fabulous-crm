@@ -10,7 +10,7 @@ import { generateHexToken } from './crypto';
 import { isNotDeleted } from './dbHelpers';
 
 /** Input widget of a public form field (embed + preview render on this). */
-export type FormInputKind =
+type FormInputKind =
   | 'text'
   | 'email'
   | 'tel'
@@ -110,7 +110,7 @@ export async function findLiveLeadByEmail(
 }
 
 /** Whether the lead already carries a value for this form field. */
-export function leadHasFieldValue(
+function leadHasFieldValue(
   lead: Doc<'leads'>,
   target: Doc<'forms'>['fields'][number]['target'],
 ): boolean {

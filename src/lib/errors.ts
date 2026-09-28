@@ -3,7 +3,7 @@ import { extensions } from '../extensions';
 import type { LoginMethods, Refusal } from './extensionTypes';
 
 /** The refusal behind an error, a code string, or a ConvexError with `{ code, ...data }`; null for anything else. */
-export function refusalOf(error: unknown): Refusal | null {
+function refusalOf(error: unknown): Refusal | null {
   if (typeof error === 'string') return error ? { code: error, data: {} } : null;
   if (error instanceof ConvexError) {
     const data: unknown = error.data;

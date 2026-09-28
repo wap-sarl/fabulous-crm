@@ -14,9 +14,9 @@ export interface ImportContext {
   lifecycleStageByName: Map<string, string>;
 }
 
-export type ParseResult = { value: unknown } | { error: string };
+type ParseResult = { value: unknown } | { error: string };
 
-export type AddressKey =
+type AddressKey =
   | 'streetNumber'
   | 'street'
   | 'line2'
@@ -43,14 +43,14 @@ export interface ImportFieldDef<Row> {
   apply: (row: Row, value: unknown, parts: AddressParts) => void;
 }
 
-export const ADDRESS_GROUP = 'Adresse';
-export const CUSTOM_GROUP = 'Propriétés personnalisées';
+const ADDRESS_GROUP = 'Adresse';
+const CUSTOM_GROUP = 'Propriétés personnalisées';
 
 /** Prefix marking a mapping target that points at a custom property (`custom:<defId>`). */
-export const CUSTOM_TARGET_PREFIX = 'custom:';
+const CUSTOM_TARGET_PREFIX = 'custom:';
 
 /** Split a multi-value cell on `;`, trimming and dropping empties. */
-export const splitMulti = (raw: string): string[] =>
+const splitMulti = (raw: string): string[] =>
   raw
     .replace(/^\[|\]$/g, '') // tolerate array-style cells: "[]" -> empty, "[a;b]" -> "a;b"
     .split(';')
@@ -116,7 +116,7 @@ export function coerceCustomPropertyValue(
 export const customTargetDefId = (target: string): string | null =>
   target.startsWith(CUSTOM_TARGET_PREFIX) ? target.slice(CUSTOM_TARGET_PREFIX.length) : null;
 
-export interface TargetOption {
+interface TargetOption {
   id: string;
   label: string;
 }

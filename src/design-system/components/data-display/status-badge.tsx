@@ -44,5 +44,5 @@ function StatusBadge({ tone, withDot = true, className, children, ...props }: St
   );
 }
 
-export { StatusBadge, TONE_STYLES };
-export type { StatusBadgeProps, StatusTone };
+export { StatusBadge };
+export type { StatusTone };

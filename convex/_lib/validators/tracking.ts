@@ -28,7 +28,7 @@ export type TrackingConfig = Omit<Infer<typeof trackingConfigValidator>, 'allowe
 };
 
 export const TRACKING_RETENTION_BOUNDS = { min: 7, max: 395, default: 90 } as const;
-export const MAX_ALLOWED_ORIGINS = 20;
+const MAX_ALLOWED_ORIGINS = 20;
 export const DEFAULT_TRACKING: TrackingConfig = {
   enabled: false,
   mode: 'anonymous',
@@ -51,7 +51,7 @@ const isHttpUrl = (value: string, protocols: string[]): boolean => {
 };
 
 /** A site's address as typed, kept as its origin (`https://www.example.fr`). */
-export const trackingOriginSchema = z
+const trackingOriginSchema = z
   .string()
   .trim()
   .refine((value) => isHttpUrl(value, ['https:', 'http:']), 'Adresse de site invalide.')
@@ -67,7 +67,7 @@ export const trackingPrivacyUrlSchema = z
   .refine((value) => isHttpUrl(value, ['https:']), 'Adresse https invalide.');
 
 /** Views waiting on the browser's row for the next write to its contact. */
-export const pendingViewsValidator = v.object({
+const pendingViewsValidator = v.object({
   count: v.number(),
   latest: v.number(),
   paths: v.array(v.string()),
@@ -84,7 +84,6 @@ export const webVisitorValidator = v.object({
   // Set while a flush to the contact is scheduled.
   pending: v.optional(pendingViewsValidator),
 });
-export type WebVisitor = Infer<typeof webVisitorValidator>;
 
 export const pageViewValidator = v.object({
   visitorId: v.string(),
@@ -97,7 +96,6 @@ export const pageViewValidator = v.object({
   referrer: v.optional(v.string()),
   at: v.number(),
 });
-export type PageView = Infer<typeof pageViewValidator>;
 
 /** A view as the route hands it to the mutation: parsed, bounded, on an allowed site. */
 export const beaconViewValidator = v.object({

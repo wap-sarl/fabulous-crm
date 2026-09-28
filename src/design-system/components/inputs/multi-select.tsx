@@ -14,13 +14,13 @@ import {
   CommandList,
 } from './command';
 
-export interface MultiSelectItem {
+interface MultiSelectItem {
   value: string;
   label: string;
   disabled?: boolean;
 }
 
-export interface MultiSelectProps {
+interface MultiSelectProps {
   items: MultiSelectItem[];
   value: string[];
   onValueChange: (value: string[]) => void;

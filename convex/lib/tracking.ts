@@ -140,7 +140,7 @@ export async function readCapped(request: Request, max: number): Promise<string 
 }
 
 /** The contact's visited paths with these added: distinct, in the order of the last visits, bounded. */
-export function mergeVisitedPages(
+function mergeVisitedPages(
   current: string[] | undefined,
   paths: string[],
   earlier = false,

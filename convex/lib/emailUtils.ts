@@ -3,7 +3,7 @@
  * Extracts brand constants, HTML layout, and API helper used across multiple action files.
  */
 
-export const BRAND_COLORS = {
+const BRAND_COLORS = {
   primary: '#2dd4bf',
   secondary: '#003C55',
   brandGreen: '#0EC17C',
@@ -14,59 +14,10 @@ export const BRAND_COLORS = {
  * `bunx convex env set EMAIL_SENDER_NAME …` / `EMAIL_SENDER_EMAIL …`;
  * the email domain must be a verified Brevo sender.
  */
-export const SENDER = {
+const SENDER = {
   name: process.env.EMAIL_SENDER_NAME || 'CRM',
   email: process.env.EMAIL_SENDER_EMAIL || 'noreply@example.com',
 };
-
-/**
- * Format a timestamp to French date/time string in Europe/Paris timezone.
- * Example: "15 mars 2026 à 14h00"
- */
-export function formatDateTimeFrench(timestampMs: number): string {
-  const date = new Date(timestampMs);
-  const dayMonth = new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Europe/Paris',
-  }).format(date);
-  const hours = new Intl.DateTimeFormat('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Europe/Paris',
-    hour12: false,
-  }).format(date);
-  // Intl gives "14:00", we want "14h00"
-  return `${dayMonth} à ${hours.replace(':', 'h')}`;
-}
-
-/**
- * Format a timestamp to French date-only string in Europe/Paris timezone.
- * Example: "15 mars 2026"
- */
-export function formatDateOnlyFrench(timestampMs: number): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-    timeZone: 'Europe/Paris',
-  }).format(new Date(timestampMs));
-}
-
-/**
- * Format a timestamp to French time string in Europe/Paris timezone.
- * Example: "09h00"
- */
-export function formatTimeFrenchFromMs(timestampMs: number): string {
-  const time = new Intl.DateTimeFormat('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: 'Europe/Paris',
-    hour12: false,
-  }).format(new Date(timestampMs));
-  return time.replace(':', 'h');
-}
 
 /** Escape a value for safe interpolation into HTML text/attribute context. */
 function escapeHtml(value: string): string {
