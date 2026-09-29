@@ -2,7 +2,7 @@
 export function slugOf(text: string, separator = '-'): string {
   const words = text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .match(/[a-z0-9]+/g);
   return words ? words.join(separator) : '';

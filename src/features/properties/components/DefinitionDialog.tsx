@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation } from 'convex/react';
-import { api } from '@crm/lib/backend';
-import { slugOf } from '@crm/lib/backend';
+import { api, slugOf } from '@crm/lib/backend';
 import type { PropertyEntityType, PropertyType, PropertyValidation } from '@crm/lib/backend';
 import {
   Button,
