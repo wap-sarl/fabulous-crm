@@ -29,6 +29,7 @@ import {
 } from '@crm/design-system';
 import { convexSiteUrl } from '../../lib/convexSite';
 import { usePageTitle } from '../../layouts/DashboardShell';
+import { dateTimeFormat, numberFormat } from '@crm/lib/format';
 
 const schema = z
   .object({
@@ -81,11 +82,9 @@ type Counts = {
   identified: number;
   identifiedCapped: boolean;
 };
-
-const fmt = new Intl.NumberFormat('fr-FR');
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 const RECENT_MS = 7 * 24 * 60 * 60 * 1000;
-const count = (n: number, capped: boolean) => (capped ? `Plus de ${fmt.format(n)}` : fmt.format(n));
+const count = (n: number, capped: boolean) =>
+  capped ? `Plus de ${numberFormat.format(n)}` : numberFormat.format(n);
 
 /** « Suivi web »: the switch, the sites, the mode, the retention, the snippet. */
 export function TrackingPage() {
@@ -311,9 +310,9 @@ export function TrackingPage() {
             <HelperText
               variant={Date.now() - settings.ceilingHitAt < RECENT_MS ? 'error' : undefined}
             >
-              Le plafond de {fmt.format(TRACK_TOTAL_PER_MINUTE)} pages vues par minute a été atteint
-              le {DATE_FMT.format(settings.ceilingHitAt)} : des pages vues n’ont pas été
-              enregistrées.
+              Le plafond de {numberFormat.format(TRACK_TOTAL_PER_MINUTE)} pages vues par minute a
+              été atteint le {dateTimeFormat.format(settings.ceilingHitAt)} : des pages vues n’ont
+              pas été enregistrées.
             </HelperText>
           )}
           {counts && (

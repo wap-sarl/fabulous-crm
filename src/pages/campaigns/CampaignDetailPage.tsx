@@ -49,7 +49,8 @@ import {
   SEND_STATUS_TONE,
   formatSendError,
 } from '../../lib/constants';
-import { describeError } from '@crm/lib/errors';
+import { describeError, errorCode } from '@crm/lib/errors';
+import { dateFormat, dateTimeFormat, numberFormat, shortDateFormat } from '@crm/lib/format';
 
 /** Build a recipient's display name from the merge values stored on the send. */
 function sendLeadName(params: Record<string, string>): string {
@@ -68,7 +69,7 @@ const RETRY_ERRORS: Record<string, string> = {
 /** Map a resend mutation error to a user-facing French message. */
 function retryErrorMessage(err: unknown): string {
   const raw = err instanceof Error ? err.message : '';
-  const code = Object.keys(RETRY_ERRORS).find((k) => raw.includes(k));
+  const code = errorCode(err, RETRY_ERRORS);
   if (code) return RETRY_ERRORS[code];
   // The provider guards throw already-French, user-facing messages.
   if (raw.includes('fournisseur')) {
@@ -79,13 +80,6 @@ function retryErrorMessage(err: unknown): string {
   }
   return "L'action a échoué. Veuillez réessayer.";
 }
-
-const numberFormat = new Intl.NumberFormat('fr-FR');
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -98,7 +92,7 @@ function buildSendSeries(sentAts: number[]): { label: string; value: number }[] 
   const bucketSize = max - min > 2 * DAY ? DAY : HOUR;
   const labelFormat =
     bucketSize === DAY
-      ? new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' })
+      ? shortDateFormat
       : new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
   const buckets = new Map<number, number>();

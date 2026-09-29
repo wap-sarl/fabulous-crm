@@ -15,11 +15,7 @@ import {
   LogCallDialog,
   type ActivityLinks,
 } from './ActivityDialogs';
-
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateTimeFormat } from '@crm/lib/format';
 
 /** One activity line: icon, title, due/completed date, outcome, complete/reopen. */
 export function ActivityListItem({

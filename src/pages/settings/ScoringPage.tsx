@@ -22,15 +22,12 @@ import { useScoringActions } from '../../features/scoring/hooks/useScoringAction
 import type { ScoringRuleRow } from '../../features/scoring/types';
 import { RuleDialog } from '../../features/scoring/components/RuleDialog';
 import { SimulationCard } from '../../features/scoring/components/SimulationCard';
-
-const DATETIME_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+import { dateTimeFormat } from '@crm/lib/format';
 
 /** Scoring settings: ordered rule list, activation, simulation. */
 export function ScoringPage() {
   usePageTitle('Scoring');
-  const rules = useAuthQuery(api.features.scoring.queries.listScoringRules, {}) as
-    | ScoringRuleRow[]
-    | undefined;
+  const rules = useAuthQuery(api.features.scoring.queries.listScoringRules, {});
   const state = useAuthQuery(api.features.scoring.queries.getScoringState, {});
   const { updateScoringRule, deleteScoringRule, reorderScoringRules, recomputeScores } =
     useScoringActions();
@@ -83,7 +80,7 @@ export function ScoringPage() {
   const recomputeSubtitle = recomputing
     ? `Recalcul en cours (${state?.recalcProcessed} traités)…`
     : state?.lastRecalcAt
-      ? `Scores recalculés le ${DATETIME_FMT.format(state.lastRecalcAt)}`
+      ? `Scores recalculés le ${dateTimeFormat.format(state.lastRecalcAt)}`
       : null;
 
   return (

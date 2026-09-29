@@ -17,11 +17,7 @@ import {
   formatSendError,
 } from '../../../lib/constants';
 import { CampaignMessagePreview } from './CampaignMessagePreview';
-
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateTimeFormat } from '@crm/lib/format';
 
 /** What one recipient received: the template rendered again with the merge values stored on the send, fetched only while the drawer is open. */
 export function RecipientPreviewSheet({

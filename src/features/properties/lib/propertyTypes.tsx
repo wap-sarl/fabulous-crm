@@ -14,6 +14,7 @@ import {
 } from '@crm/design-system';
 import type { FilterFieldType, PropertyType, PropertyValue } from '@crm/lib/backend';
 import type { PropertyDefinitionRow } from '../types';
+import { dateFormat } from '@crm/lib/format';
 
 /** The UI half of `convex/_lib/validators/propertyTypes.ts`, keyed identically: `Record<PropertyType, …>` fails to compile when a key is missing on either side. */
 
@@ -59,8 +60,6 @@ export interface PropertyTypeUi {
 
 /** Sentinel for the "no selection" item of a select (Radix forbids ''). */
 const NONE = '__none__';
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 /** Parse a 'YYYY-MM-DD' string into a local Date (no timezone shift). */
 function parseIsoDate(value: string): Date | null {

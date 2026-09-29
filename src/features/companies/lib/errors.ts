@@ -1,3 +1,4 @@
+import { errorCode } from '@crm/lib/errors';
 /** French messages for the company mutations' error codes. */
 const COMPANY_ERROR_MESSAGES: Record<string, string> = {
   company_name_required: 'Le nom de l’entreprise est requis.',
@@ -14,7 +15,7 @@ const COMPANY_ERROR_MESSAGES: Record<string, string> = {
 
 export function companyErrorMessage(e: unknown, fallback: string): string {
   const message = e instanceof Error ? e.message : '';
-  const known = Object.keys(COMPANY_ERROR_MESSAGES).find((k) => message.includes(k));
+  const known = errorCode(e, COMPANY_ERROR_MESSAGES);
   if (!known) return fallback;
   // Validation codes carry the scheme's own reason after the colon.
   if (

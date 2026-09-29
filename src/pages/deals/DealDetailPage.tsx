@@ -26,12 +26,7 @@ import { dealErrorMessage } from '../../features/deals/lib/errors';
 import { useStageMove } from '../../features/deals/components/StageMoveDialog';
 import { CustomPropertyRows } from '../../features/properties/components/CustomPropertyRows';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateFormat, dateTimeFormat } from '@crm/lib/format';
 const SOURCE_LABEL: Record<string, string> = {
   create: 'Création',
   manual: 'Manuel',

@@ -11,12 +11,7 @@ import type { LeadListRow } from '../../features/leadLists/types';
 import { ListMembersDialog } from '../../features/leadLists/components/ListMembersDialog';
 import { DynamicListDialog } from '../../features/leadLists/components/DynamicListDialog';
 import { DeleteListDialog } from '../../features/leadLists/components/DeleteListDialog';
-
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-const DATETIME_FMT = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateFormat, dateTimeFormat } from '@crm/lib/format';
 
 /** One list row's subtitle: members, origin, and for dynamic lists the recalc state. */
 function listSubtitle(list: LeadListRow): string {
@@ -26,19 +21,17 @@ function listSubtitle(list: LeadListRow): string {
       list.recalcProcessed !== null
         ? `recalcul en cours (${list.recalcProcessed} traités)`
         : list.lastRecalcAt
-          ? `recalculée le ${DATETIME_FMT.format(list.lastRecalcAt)}`
+          ? `recalculée le ${dateTimeFormat.format(list.lastRecalcAt)}`
           : 'en attente de recalcul';
     return `${list.memberCount} lead(s) · ${rules} règle(s) · ${state}`;
   }
-  return `${list.memberCount} lead(s) · importée par ${list.createdByName ?? '—'} · ${DATE_FMT.format(list.createdAt)}`;
+  return `${list.memberCount} lead(s) · importée par ${list.createdByName ?? '—'} · ${dateFormat.format(list.createdAt)}`;
 }
 
 /** Lists management: static (CSV imports) and dynamic (criteria-driven) lists. */
 export function LeadListsPage() {
   usePageTitle('Listes');
-  const lists = useAuthQuery(api.features.leadLists.queries.listLeadLists, {}) as
-    | LeadListRow[]
-    | undefined;
+  const lists = useAuthQuery(api.features.leadLists.queries.listLeadLists, {});
   const navigate = useNavigate();
   const limits = useAuthQuery(api.features.leadLists.queries.getListLimits, {});
   const { recalcLeadList } = useLeadActions();

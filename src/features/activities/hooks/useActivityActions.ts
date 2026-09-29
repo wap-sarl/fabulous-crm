@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 import { useAuthMutation } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 
@@ -31,8 +32,5 @@ const ACTIVITY_ERROR_MESSAGES: Record<string, string> = {
   deal_not_found: 'Transaction introuvable.',
 };
 
-export function activityErrorMessage(e: unknown, fallback: string): string {
-  const message = e instanceof Error ? e.message : '';
-  const known = Object.keys(ACTIVITY_ERROR_MESSAGES).find((k) => message.includes(k));
-  return known ? ACTIVITY_ERROR_MESSAGES[known] : fallback;
-}
+export const activityErrorMessage = (e: unknown, fallback: string) =>
+  errorLabel(e, ACTIVITY_ERROR_MESSAGES, fallback);

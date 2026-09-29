@@ -13,11 +13,7 @@ import {
   TableRow,
 } from '@crm/design-system';
 import { EVENT_TYPE_LABEL, EVENT_TYPE_TONE } from '../../../lib/constants';
-
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateTimeFormat } from '@crm/lib/format';
 
 const PAGE_SIZE = 30;
 

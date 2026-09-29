@@ -27,10 +27,10 @@ import {
 } from '../../features/filters/lib/advancedFilter';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { formatPropertyValue } from '../../features/properties/lib/customProperties';
+import { dateFormat } from '@crm/lib/format';
 
 const PAGE_SIZE = 30;
 const SKELETON_ROWS = ['s1', 's2', 's3', 's4', 's5', 's6'];
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 export function CompaniesPage() {
   usePageTitle('Entreprises');

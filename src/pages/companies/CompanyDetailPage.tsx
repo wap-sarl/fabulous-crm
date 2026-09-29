@@ -28,12 +28,7 @@ import { useCompanyActions } from '../../features/companies/hooks/useCompanyActi
 import { companyErrorMessage } from '../../features/companies/lib/errors';
 import { CustomPropertyRows } from '../../features/properties/components/CustomPropertyRows';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateFormat, dateTimeFormat } from '@crm/lib/format';
 const CONTACTS_PAGE = 25;
 
 const ACTION_LABEL: Record<string, string> = {

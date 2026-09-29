@@ -34,8 +34,7 @@ import {
 } from '../../features/campaigns/components/CampaignContentFields';
 import { buildPlaceholders } from '../../features/campaigns/lib/placeholders';
 import { describeError } from '@crm/lib/errors';
-
-const numberFormat = new Intl.NumberFormat('fr-FR');
+import { numberFormat } from '@crm/lib/format';
 
 export function CampaignCreatePage() {
   usePageTitle('Nouvelle campagne');

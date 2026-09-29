@@ -19,6 +19,7 @@ import type { LeadRow } from '../types';
 import type { PropertyDefinitionRow } from '../../properties/types';
 import { formatPropertyValue } from '../../properties/lib/customProperties';
 import { LeadScoreBadge } from './LeadScoreBadge';
+import { dateFormat } from '@crm/lib/format';
 
 interface LeadsTableProps {
   leads: LeadRow[];
@@ -39,8 +40,6 @@ interface LeadsTableProps {
   onDelete: (lead: LeadRow) => void;
   onOpen: (lead: LeadRow) => void;
 }
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 /** Short chip labels for the consent channels (full labels are too long for a cell). */
 const CONSENT_CHIP_LABEL: Record<string, string> = {

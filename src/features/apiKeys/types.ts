@@ -1,12 +1,5 @@
-import type { ApiScope, Id } from '@crm/lib/backend';
+import type { api } from '@crm/lib/backend';
+import type { FunctionReturnType } from 'convex/server';
 
-export type ApiKeyRow = {
-  _id: Id<'apiKeys'>;
-  keyId: string;
-  name: string;
-  scopes: ApiScope[];
-  expiresAt?: number;
-  revokedAt?: number;
-  lastUsedAt?: number;
-  createdAt: number;
-};
+/** A key as the list gives it. */
+export type ApiKeyRow = FunctionReturnType<typeof api.features.api.queries.listApiKeys>[number];

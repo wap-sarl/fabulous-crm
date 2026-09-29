@@ -16,6 +16,24 @@ function refusalOf(error: unknown): Refusal | null {
   return null;
 }
 
+/** The code of `labels` an error's message carries, the longest first so that a code never hides one it is part of. */
+export function errorCode(error: unknown, labels: Record<string, string>): string | undefined {
+  const message = error instanceof Error ? error.message : String(error);
+  return Object.keys(labels)
+    .sort((a, b) => b.length - a.length)
+    .find((code) => message.includes(code));
+}
+
+/** The sentence for the code an error carries, else `fallback`. */
+export function errorLabel(
+  error: unknown,
+  labels: Record<string, string>,
+  fallback: string,
+): string {
+  const code = errorCode(error, labels);
+  return code ? labels[code] : fallback;
+}
+
 /** The overlay's message for a refusal it owns, else `fallback`. Generic error toasts go through here. */
 export function describeError(error: unknown, fallback: string): string {
   const refusal = refusalOf(error);

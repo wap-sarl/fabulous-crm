@@ -16,9 +16,7 @@ import { usePageTitle } from '../../layouts/DashboardShell';
 import type { ApiKeyRow } from '../../features/apiKeys/types';
 import { RevealKeyDialog } from '../../features/apiKeys/components/RevealKeyDialog';
 import { KeyEditorDialog } from '../../features/apiKeys/components/KeyEditorDialog';
-
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-const DATETIME_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+import { dateFormat, dateTimeFormat } from '@crm/lib/format';
 
 const SCOPE_LABEL: Record<ApiScope, string> = {
   'contacts:read': 'Contacts · lecture',
@@ -43,11 +41,11 @@ function keyStatus(row: ApiKeyRow): { tone: 'green' | 'red' | 'gray'; label: str
 }
 
 function keySubtitle(row: ApiKeyRow): string {
-  const parts = [`créée le ${DATE_FMT.format(row.createdAt)}`];
-  if (row.expiresAt !== undefined) parts.push(`expire le ${DATE_FMT.format(row.expiresAt)}`);
+  const parts = [`créée le ${dateFormat.format(row.createdAt)}`];
+  if (row.expiresAt !== undefined) parts.push(`expire le ${dateFormat.format(row.expiresAt)}`);
   parts.push(
     row.lastUsedAt !== undefined
-      ? `dernière utilisation le ${DATETIME_FMT.format(row.lastUsedAt)}`
+      ? `dernière utilisation le ${dateTimeFormat.format(row.lastUsedAt)}`
       : 'jamais utilisée',
   );
   return parts.join(' · ');
@@ -56,7 +54,7 @@ function keySubtitle(row: ApiKeyRow): string {
 /** Admin management of the public REST API keys (/api/v1/). */
 export function ApiKeysPage() {
   usePageTitle('Clés d’API');
-  const keys = useAuthQuery(api.features.api.queries.listApiKeys, {}) as ApiKeyRow[] | undefined;
+  const keys = useAuthQuery(api.features.api.queries.listApiKeys, {});
   const revokeApiKey = useAuthMutation(api.features.api.mutations.revokeApiKey);
   const [editorOpen, setEditorOpen] = useState(false);
   const [toEdit, setToEdit] = useState<ApiKeyRow | null>(null);

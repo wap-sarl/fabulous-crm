@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 import { useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
 import { api } from '@crm/lib/backend';
@@ -31,11 +32,7 @@ const TEAM_ERRORS: Record<string, string> = {
   team_not_found: 'Cette équipe n’existe plus.',
 };
 
-function teamErrorMessage(e: unknown): string {
-  const message = e instanceof Error ? e.message : '';
-  const key = Object.keys(TEAM_ERRORS).find((k) => message.includes(k));
-  return key ? TEAM_ERRORS[key] : 'Une erreur est survenue.';
-}
+const teamErrorMessage = (e: unknown) => errorLabel(e, TEAM_ERRORS, 'Une erreur est survenue.');
 
 export function TeamsSection() {
   const teams = useQuery(api.features.teams.queries.listTeams, {});

@@ -16,9 +16,9 @@ import type { DealRow, Doc, PipelineStage } from '@crm/lib/backend';
 import { Button, InitialsAvatar, Skeleton, StatusBadge, cn } from '@crm/design-system';
 import { User } from 'lucide-react';
 import { formatMoney } from '../../../lib/constants';
+import { shortDateFormat } from '@crm/lib/format';
 
 const COLUMN_PAGE = 25;
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'short' });
 
 interface StageTotals {
   count: number;
@@ -67,7 +67,7 @@ function DealCardBody({ deal, dragging }: { deal: DealRow; dragging?: boolean })
       <div className="mt-2 flex items-center justify-between">
         {deal.expectedCloseDate ? (
           <span className="text-[11px] text-faint">
-            {dateFormat.format(new Date(deal.expectedCloseDate))}
+            {shortDateFormat.format(new Date(deal.expectedCloseDate))}
           </span>
         ) : (
           <span />

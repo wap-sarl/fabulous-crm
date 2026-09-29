@@ -5,11 +5,7 @@ import { Card, Spinner } from '@crm/design-system';
 import { ArrowRight } from 'lucide-react';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { LIFECYCLE_SOURCE_LABEL } from '../lib/lifecycle';
-
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateTimeFormat } from '@crm/lib/format';
 
 /** Human-readable duration between two transitions ("3 j", "5 h", "12 min"). */
 function formatDuration(ms: number): string {

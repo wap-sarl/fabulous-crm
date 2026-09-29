@@ -32,8 +32,7 @@ import {
   WORKFLOW_STATUS_TONE,
   triggerLabel,
 } from '../../features/workflows/lib/constants';
-
-const numberFormat = new Intl.NumberFormat('fr-FR');
+import { numberFormat } from '@crm/lib/format';
 const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
   day: 'numeric',
   month: 'short',

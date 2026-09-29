@@ -36,11 +36,11 @@ import { AdvancedFilterBuilder } from '../../filters/components/AdvancedFilterBu
 import { parseAdvancedFilter, serializeAdvancedFilter } from '../../filters/lib/advancedFilter';
 import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { formatPropertyValue } from '../../properties/lib/customProperties';
+import { dateFormat } from '@crm/lib/format';
 
 const ALL = '__all__';
 const LIST_PAGE = 30;
 const SKELETON_ROWS = ['s1', 's2', 's3', 's4', 's5'];
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 /** Filterable list view of a pipeline's deals (or every pipeline). */
 export function DealsList({
