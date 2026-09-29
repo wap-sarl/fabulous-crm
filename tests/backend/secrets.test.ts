@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
-import { decryptSecret, encryptSecret, isEncryptedSecret } from '../../convex/lib/crypto';
-import { resolveBrevo, resolveEmailProvider } from '../../convex/lib/emailProvider';
+import { decryptSecret, encryptSecret, isEncryptedSecret } from '../../convex/lib/security/crypto';
+import { resolveBrevo, resolveEmailProvider } from '../../convex/lib/email/provider';
 import { asIdentity, createTestConvex, seedEmployee, type T, seedConfig } from './helpers';
 
 const KEY_A = 'a'.repeat(64);

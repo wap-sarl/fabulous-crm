@@ -6,7 +6,7 @@ import { v } from 'convex/values';
 import { internalAction } from '../../_generated/server';
 import { internal } from '../../_generated/api';
 import { employeeAction } from '../../_lib/auth';
-import { resolveEmailProvider } from '../../lib';
+import { resolveEmailProvider } from '../../lib/email/provider';
 import { sendEmail } from './send';
 
 export const sendProviderEmail = internalAction({

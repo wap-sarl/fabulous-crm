@@ -6,7 +6,7 @@ import {
   vatSchemeFor,
   viesCountryCode,
 } from '../../_lib/validators/companyRegistry';
-import { enforceRateLimit } from '../../lib/rateLimits';
+import { enforceRateLimit } from '../../lib/security/rateLimits';
 
 // Mirrors the design-system SiretCompanyData shape: convex cannot import from src/, the frontend casts the result.
 type SiretCompanyAddress = {

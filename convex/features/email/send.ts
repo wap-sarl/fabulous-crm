@@ -2,8 +2,9 @@
 
 /** NODE-ONLY (nodemailer): callers hand over a resolved provider and stay blind to Brevo versus SMTP; neither path ever throws. */
 
-import { type ResolvedEmailProvider, sendBrevoEmail } from '../../lib';
-import { createSmtpTransport, sendSmtpEmail } from '../../lib/smtpUtils';
+import type { ResolvedEmailProvider } from '../../lib/email/provider';
+import { sendBrevoEmail } from '../../lib/email/brevo';
+import { createSmtpTransport, sendSmtpEmail } from '../../lib/email/smtp';
 
 export type EmailMessage = {
   to: { email: string; name?: string }[];

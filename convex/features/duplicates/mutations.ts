@@ -5,22 +5,24 @@ import type { MutationCtx } from '../../_generated/server';
 import { employeeMutation, settingsMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { addressValidator } from '../../schema';
+import { computeChanges, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
 import {
-  computeChanges,
-  filterUndefined,
   insertLifecycleHistory,
-  isNotDeleted,
   loadLifecycleConfig,
-  logAudit,
   planLifecycleTransition,
-  updateAuditFields,
-} from '../../lib';
-import { requireValidAddress } from '../../lib/addresses';
-import { requireCompany } from '../../lib/companies';
-import { repointLeadRows } from '../../lib/duplicates';
-import { cleanOwnerIds } from '../../lib/owners';
-import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
-import { hasViewMarks, mergedViewMarks, NO_VIEW_MARKS, stopLeadTracking } from '../../lib/tracking';
+} from '../../lib/leads/lifecycle';
+import { requireValidAddress } from '../../lib/addresses/validation';
+import { requireCompany } from '../../lib/companies/lookup';
+import { repointLeadRows } from '../../lib/duplicates/detection';
+import { cleanOwnerIds } from '../../lib/users/owners';
+import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties/definitions';
+import {
+  hasViewMarks,
+  mergedViewMarks,
+  NO_VIEW_MARKS,
+  stopLeadTracking,
+} from '../../lib/tracking/views';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 

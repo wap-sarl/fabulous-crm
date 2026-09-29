@@ -3,7 +3,7 @@ import {
   isEmailProviderConfigured,
   resolveBrevo,
   resolveEmailProvider,
-} from '../../convex/lib/emailProvider';
+} from '../../convex/lib/email/provider';
 import type { AppConfig } from '../../convex/_lib/validators/appConfig';
 
 // Minimal config factory — only the fields the resolvers read.

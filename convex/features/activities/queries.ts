@@ -4,8 +4,8 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
 import { employeeQuery } from '../../_lib/auth';
 import { UNDATED_KEY, activityStatusValidator } from '../../_lib/validators/activities';
-import { isNotDeleted } from '../../lib';
-import { countActivitiesDue, countTeamActivitiesDue } from '../../lib/activityAggregates';
+import { isNotDeleted } from '../../lib/shared/db';
+import { countActivitiesDue, countTeamActivitiesDue } from '../../lib/activities/aggregates';
 
 /** The bounds an index range builder offers on `dueAt`, shared by the owner and team indexes. */
 interface DueRange extends IndexRange {

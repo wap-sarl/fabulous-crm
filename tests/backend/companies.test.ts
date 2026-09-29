@@ -6,7 +6,7 @@ import {
   companyDomainOfEmail,
   isFreeMailDomain,
   normalizeDomain,
-} from '../../convex/lib/companyDomains';
+} from '../../convex/lib/companies/domains';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 async function setup() {

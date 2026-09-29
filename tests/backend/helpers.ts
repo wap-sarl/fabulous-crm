@@ -10,7 +10,7 @@ import migrationsSchema from '../../node_modules/@convex-dev/migrations/dist/com
 import rateLimiterSchema from '../../node_modules/@convex-dev/rate-limiter/dist/component/schema.js';
 import { components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
-import { leadSearchText } from '../../convex/lib/leadSearch';
+import { leadSearchText } from '../../convex/lib/leads/search';
 import schema from '../../convex/schema';
 import { onTestEnd } from '../support/teardown';
 

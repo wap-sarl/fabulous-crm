@@ -3,14 +3,14 @@ import { paginationOptsValidator } from 'convex/server';
 import { query } from '../../_generated/server';
 import { employeeQuery } from '../../_lib/auth';
 import type { QueryCtx } from '../../_generated/server';
-import { ownerNamespaces } from '../../lib/visibility';
+import { ownerNamespaces } from '../../lib/roles/visibility';
 import type { Doc } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
-import { renderPlaceholders, wrapEmailHtml } from '../../lib/emailUtils';
-import { countLiveLeadsByLifecycleStage, countLiveLeadsByOwner } from '../../lib/leadAggregates';
-import { loadLifecycleConfig } from '../../lib/lifecycle';
-import { normalizeSearchText } from '../../lib/leadSearch';
-import { leadListMemberCounts } from '../../lib/leadListMembers';
+import { renderPlaceholders, wrapEmailHtml } from '../../lib/email/brevo';
+import { countLiveLeadsByLifecycleStage, countLiveLeadsByOwner } from '../../lib/leads/aggregates';
+import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
+import { normalizeSearchText } from '../../lib/leads/search';
+import { leadListMemberCounts } from '../../lib/leadLists/members';
 import { DEFAULT_MAX_DYNAMIC_LISTS } from '../../_lib/validators/leadLists';
 import {
   leadFilterArgs,

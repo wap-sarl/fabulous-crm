@@ -6,8 +6,8 @@ import { internalQuery } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { MAX_FILL_MS, MIN_FILL_MS } from '../../_lib/validators/forms';
 import { propertyValueValidator, type PropertyValue } from '../../_lib/validators/properties';
-import { computeChanges, logAudit } from '../../lib/audit';
-import { generateHexToken } from '../../lib/crypto';
+import { computeChanges, logAudit } from '../../lib/audit/log';
+import { generateHexToken } from '../../lib/security/crypto';
 import {
   buildPublicForm,
   cleanSubmissionValues,
@@ -22,12 +22,12 @@ import {
   loadLiveForm,
   signRender,
   verifyRender,
-} from '../../lib/forms';
-import { gateLeadCreate } from '../../lib/gates';
-import { normalizeEmail } from '../../lib/leadImport';
-import { stampLeadSignal } from '../../lib/leadSignals';
-import { insertLifecycleHistory, loadLifecycleConfig } from '../../lib/lifecycle';
-import { loadPropertyDefsById } from '../../lib/properties';
+} from '../../lib/forms/submission';
+import { gateLeadCreate } from '../../lib/extensions/gates';
+import { normalizeEmail } from '../../lib/leads/import';
+import { stampLeadSignal } from '../../lib/leads/signals';
+import { insertLifecycleHistory, loadLifecycleConfig } from '../../lib/leads/lifecycle';
+import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
 
 const CONSENT_TOKEN_BYTES = 24;

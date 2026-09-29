@@ -1,6 +1,6 @@
 import type { Id } from '../../../_generated/dataModel';
 import type { LeadImportRow } from '../../../_lib/validators/imports';
-import { gateLeadCreate } from '../../../lib/gates';
+import { gateLeadCreate } from '../../../lib/extensions/gates';
 import {
   applyLeadImport,
   type LeadImportCaches,
@@ -8,10 +8,10 @@ import {
   leadLabel,
   loadLeadImportCaches,
   planLeadImport,
-} from '../../../lib/leadImport';
+} from '../../../lib/leads/import';
 import type { EntityImporter } from './types';
 
-/** Contacts: the upsert of lib/leadImport.ts, matched by email, with the probable duplicates of the duplicate module. */
+/** Contacts: the upsert of lib/leads/import.ts, matched by email, with the probable duplicates of the duplicate module. */
 export const leadImporter: EntityImporter<LeadImportRow, LeadImportCaches, LeadImportPlan> = {
   loadCaches: loadLeadImportCaches,
   gate: (ctx, count) => gateLeadCreate(ctx, count, 'import'),

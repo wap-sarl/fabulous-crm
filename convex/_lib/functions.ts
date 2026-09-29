@@ -5,21 +5,21 @@ import {
   internalMutation as rawInternalMutation,
   mutation as rawMutation,
 } from '../_generated/server';
-import { activitiesByOwner, activitiesByTeam } from '../lib/activityAggregates';
-import { companiesByOwner, companiesTotal, leadsByCompany } from '../lib/companyAggregates';
-import { companySearchText } from '../lib/companySearch';
+import { activitiesByOwner, activitiesByTeam } from '../lib/activities/aggregates';
+import { companiesByOwner, companiesTotal, leadsByCompany } from '../lib/companies/aggregates';
+import { companySearchText } from '../lib/companies/search';
 import {
   dealsByOwnerStage,
   dealsByOwnerStatus,
   dealsByPipelineStatus,
   dealsByStage,
-} from '../lib/dealAggregates';
-import { leadsByLifecycle, leadsByOwner } from '../lib/leadAggregates';
+} from '../lib/deals/aggregates';
+import { leadsByLifecycle, leadsByOwner } from '../lib/leads/aggregates';
 import type { LeadDedupe } from './validators/duplicates';
-import { dedupeKeys } from '../lib/duplicates';
-import { syncLeadDynamicLists } from '../lib/dynamicLists';
-import { syncLeadScore } from '../lib/leadScoring';
-import { leadSearchText } from '../lib/leadSearch';
+import { dedupeKeys } from '../lib/duplicates/detection';
+import { syncLeadDynamicLists } from '../lib/leadLists/dynamic';
+import { syncLeadScore } from '../lib/scoring/score';
+import { leadSearchText } from '../lib/leads/search';
 
 const triggers = new Triggers<DataModel>();
 

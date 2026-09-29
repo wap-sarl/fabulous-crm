@@ -11,8 +11,8 @@ import {
   PURGE_ENTITY_PAGE,
   PURGE_WRITE_BUDGET,
   purgePage,
-} from '../../convex/lib/retention';
-import { insertListMember } from '../../convex/lib/leadListMembers';
+} from '../../convex/lib/retention/purge';
+import { insertListMember } from '../../convex/lib/leadLists/members';
 import {
   asIdentity,
   createTestConvex,

@@ -9,16 +9,16 @@ import {
   companyAdvancedFilterValidator,
 } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
-import { evalFilter } from '../../lib/filterMatching';
+import { evalFilter } from '../../lib/filters/matching';
 import {
   countLiveCompanies,
   countLiveCompaniesByOwner,
   countLiveLeadsByCompany,
-} from '../../lib/companyAggregates';
-import { ownerNamespaces } from '../../lib/visibility';
-import { normalizeSearchText } from '../../lib/leadSearch';
-import { findCompanyByDomain } from '../../lib/companies';
-import { companyDomainOfEmail } from '../../lib/companyDomains';
+} from '../../lib/companies/aggregates';
+import { ownerNamespaces } from '../../lib/roles/visibility';
+import { normalizeSearchText } from '../../lib/leads/search';
+import { findCompanyByDomain } from '../../lib/companies/lookup';
+import { companyDomainOfEmail } from '../../lib/companies/domains';
 
 /** A list row: the company plus its live contact count (aggregate, O(log n)). */
 async function withContactCount(

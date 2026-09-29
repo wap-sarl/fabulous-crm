@@ -4,7 +4,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
 import { employeeQuery } from '../../_lib/auth';
 import type { DuplicateReason } from '../../_lib/validators/duplicates';
-import { isNotDeleted } from '../../lib';
+import { isNotDeleted } from '../../lib/shared/db';
 import {
   compareIdentities,
   findDuplicateCandidates,
@@ -13,7 +13,7 @@ import {
   nameKey,
   phoneKey,
   postalKey,
-} from '../../lib/duplicates';
+} from '../../lib/duplicates/detection';
 
 /** What the pairs list shows of each side. */
 export type DuplicateLeadSummary = {

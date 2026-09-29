@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
 import { connectorProviderValidator } from '../../_lib/validators/connectors';
-import { logAudit } from '../../lib';
+import { logAudit } from '../../lib/audit/log';
 import {
   discardPendingAccount,
   PROVIDERS,
@@ -12,7 +12,7 @@ import {
   sha256Base64Url,
   signState,
   STATE_TTL_MS,
-} from '../../lib/connectors';
+} from '../../lib/connectors/oauth';
 
 /** Starts a connection: a one-time signed state and a PKCE challenge, and the provider's consent URL to go to. */
 export const startConnection = employeeMutation({

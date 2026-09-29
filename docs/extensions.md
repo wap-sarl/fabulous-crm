@@ -9,7 +9,7 @@ tables; everything else in the repository stays untouched.
 | `convex/extensions.ts` | yes | backend hooks, exported as `extensions` |
 | `convex/extensionsSchema.ts` | yes | extra tables merged into `defineSchema` |
 | `src/extensions.tsx` | yes | extra routes, nav items and a shell guard for the SPA |
-| `convex/lib/extensionTypes.ts` | no | the backend contract and its no-op defaults |
+| `convex/lib/extensions/types.ts` | no | the backend contract and its no-op defaults |
 | `src/lib/extensionTypes.ts` | no | the frontend contract |
 
 ## Backend hooks
@@ -25,7 +25,7 @@ tables; everything else in the repository stays untouched.
 | `beforeWorkflowRun(ctx, workflow)` | every enrollment | `false` skips the enrollment; the host write succeeds |
 | `beforeApiRequest(ctx, key, method)` | after API authentication and rate limits | a `{ status, code, message, details? }` answers instead of the route |
 | `beforeScheduledWork(ctx, { kind })` | the background entry points: `campaign_prepare` (`prepareCampaignBatch`), `campaign_drain` (`sendCampaignBatch`), `workflow_step` (`executeStep`), `workflow_action` (`runWorkflowActionStep`), `retention_purge` (the nightly purge, `features/retention/internal.ts`; deferred, it deletes nothing) | `false` defers: the same function is rescheduled `SCHEDULED_WORK_RETRY_MS` (15 min) later and nothing changes, so background work pauses and resumes on its own |
-| `afterChange(ctx, change)` | through `notifyChange` in `convex/lib/observers.ts`: `logAudit` (every audited write of any entity: UI, public API, CSV import, workflows, system events) and `insertLifecycleHistory` (every lifecycle transition, whatever moved the lead) | none: an observer. It runs in the writer's transaction; what it throws is swallowed and traced, the write stands (see Changes) |
+| `afterChange(ctx, change)` | through `notifyChange` in `convex/lib/extensions/observers.ts`: `logAudit` (every audited write of any entity: UI, public API, CSV import, workflows, system events) and `insertLifecycleHistory` (every lifecycle transition, whatever moved the lead) | none: an observer. It runs in the writer's transaction; what it throws is swallowed and traced, the write stands (see Changes) |
 | `registerHttpRoutes(http)` | `convex/http.ts`, before the `/api/v1/` routes | register extra routes |
 
 The recipient count of a campaign is not known at creation: resolving it means scanning
@@ -36,8 +36,8 @@ marked `failed`. Overlays that reserve quota should do it at `prepared`.
 
 ## What each gate is asked to bill
 
-The core invokes the gates from one place, `convex/lib/gates.ts` (the `afterChange` observer
-lives in `convex/lib/observers.ts`), whose helpers are named after
+The core invokes the gates from one place, `convex/lib/extensions/gates.ts` (the `afterChange` observer
+lives in `convex/lib/extensions/observers.ts`), whose helpers are named after
 the unit they bill: `gateLeadCreate`, `gateInvitation`, `requireSendAllowed` and `trySend`, and
 `deferUnlessAllowed` for the background entry points.
 
@@ -102,7 +102,7 @@ hour so a failing hook under a large import cannot flood the table, and the cap 
 once per mutation, so that import does not pay one read per row either. An overlay that must not
 lose events watches that row, or its own outbox, itself.
 
-**Imports.** `lib/audit.ts` and `lib/lifecycle.ts` reach the overlay through `lib/observers.ts` and
+**Imports.** `lib/audit/log.ts` and `lib/leads/lifecycle.ts` reach the overlay through `lib/extensions/observers.ts` and
 `convex/extensions.ts`. The hook is looked up when it is called, not when the modules load, so
 an overlay importing from `convex/lib` closes no cycle, as long as it reads nothing from those
 modules at its own top level.
@@ -170,7 +170,7 @@ The hook runs in an action: no `ctx.db`, use `ctx.runQuery` on a function of the
 A hook refuses by throwing. Throw a `ConvexError` whose data is `{ code, ...details }` to give
 clients a structured reason, for example `{ code: 'quota_exceeded', quota: 'emails', limit: 1000,
 used: 1000 }`; a plain `Error` refuses with its message as the code. `refusalCode(error)` in
-`convex/lib/extensionTypes.ts` extracts the code on the server; `refusalOf(error)` in
+`convex/lib/extensions/types.ts` extracts the code on the server; `refusalOf(error)` in
 `src/lib/errors.ts` does the same on the client, and `describeError(error, fallback)` asks the
 overlay's `describeRefusal` for a user message before falling back. The generic error toasts of
 the lead, company, deal and activity dialogs, the CSV import, the team invitation and the

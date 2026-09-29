@@ -10,17 +10,20 @@ import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import type { MutationCtx } from './_generated/server';
 import authConfig from './auth.config';
-import { enforceRateLimit } from './lib/rateLimits';
+import { enforceRateLimit } from './lib/security/rateLimits';
 import { SOCIAL_PROVIDERS } from './_lib/socialProviders';
-import { decryptSecret } from './lib/crypto';
+import { decryptSecret } from './lib/security/crypto';
 import type { SsoProvider } from './_lib/validators/appConfig';
-import { appOrigin, appOrigins, isEmailWhitelisted, logAudit, serializeUser } from './lib';
+import { appOrigin, appOrigins } from './lib/config/appUrl';
+import { isEmailWhitelisted } from './lib/shared/devWhitelist';
+import { logAudit } from './lib/audit/log';
+import { serializeUser } from './lib/users/serialize';
 import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
 import { internalAction, internalMutation, internalQuery, query } from './_generated/server';
-import { resolveRoleAccess } from './lib/roles';
-import { gateInvitation, gateSignInCode } from './lib/gates';
-import { traceHookFailure } from './lib/observers';
-import { countPendingInvitations } from './lib/invitations';
+import { resolveRoleAccess } from './lib/roles/access';
+import { gateInvitation, gateSignInCode } from './lib/extensions/gates';
+import { traceHookFailure } from './lib/extensions/observers';
+import { countPendingInvitations } from './lib/invitations/pending';
 
 /** Better Auth is the only session authority; the one custom layer is invite-only membership: a gate on user creation, then the employee row linked through `users.authId`. */
 

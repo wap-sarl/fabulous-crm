@@ -4,14 +4,10 @@ import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
-import {
-  appOrigin,
-  computeChanges,
-  deleteListMember,
-  insertListMember,
-  isNotDeleted,
-  logAudit,
-} from '../../lib';
+import { appOrigin } from '../../lib/config/appUrl';
+import { computeChanges, logAudit } from '../../lib/audit/log';
+import { deleteListMember, insertListMember } from '../../lib/leadLists/members';
+import { isNotDeleted } from '../../lib/shared/db';
 import { evalAdvancedFilter } from '../crm/leadMatching';
 import { loadLeadFilterExtras } from '../crm/leadTableFilters';
 import { buildLeadParams, buildLeadTargetPatch } from '../crm/leadTargets';
@@ -19,14 +15,14 @@ import {
   applyLifecycleTransition,
   loadLifecycleConfig,
   planLifecycleTransition,
-} from '../../lib/lifecycle';
-import { createDealRecord, latestOpenDealOfLead, moveDealToStage } from '../../lib/deals';
-import { createActivityRecord } from '../../lib/activities';
-import { renderPlaceholders } from '../../lib/emailUtils';
+} from '../../lib/leads/lifecycle';
+import { createDealRecord, latestOpenDealOfLead, moveDealToStage } from '../../lib/deals/records';
+import { createActivityRecord } from '../../lib/activities/records';
+import { renderPlaceholders } from '../../lib/email/brevo';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
 import type { FilterField, LeadStandardField } from '../../_lib/validators/filters';
-import { loadPropertyDefinitions } from '../../lib/properties';
+import { loadPropertyDefinitions } from '../../lib/properties/definitions';
 import {
   delayMs,
   diffLeadFilterFields,
@@ -34,7 +30,7 @@ import {
   MAX_STEPS_PER_RUN,
 } from './lib';
 import { dispatchWorkflowTrigger, enrollLead } from './triggerDispatch';
-import { deferUnlessAllowed, trySend } from '../../lib/gates';
+import { deferUnlessAllowed, trySend } from '../../lib/extensions/gates';
 
 /** The engine runs one node per transaction, chained through the scheduler: the step log is visible live and a crash never loses more than one step. */
 

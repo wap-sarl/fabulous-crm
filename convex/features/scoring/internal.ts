@@ -4,15 +4,15 @@ import { internalMutation } from '../../_lib/functions';
 import { internal } from '../../_generated/api';
 import { scoringNeedsNightlyRecompute } from '../../_lib/validators/scoring';
 import { isNotDeleted } from '../../_lib/softDelete';
-import { loadLifecycleConfig } from '../../lib/lifecycle';
-import { DAY_MS } from '../../lib/timeConstants';
+import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
+import { DAY_MS } from '../../lib/shared/time';
 import {
   applyLeadScore,
   computeLeadScore,
   ensureScoringState,
   loadScoringRules,
   startScoreRecompute,
-} from '../../lib/leadScoring';
+} from '../../lib/scoring/score';
 import { loadActiveWorkflows } from '../workflows/triggerDispatch';
 
 const RECOMPUTE_BATCH = 100;

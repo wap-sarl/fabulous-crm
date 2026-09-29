@@ -6,7 +6,8 @@ import {
   type AttachmentEntityType,
   attachmentEntityTypeValidator,
 } from '../../_lib/validators/attachments';
-import { createAuditFields, isNotDeleted, logAudit, updateAuditFields } from '../../lib';
+import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { isNotDeleted } from '../../lib/shared/db';
 import {
   attachmentKey,
   attachmentMaxBytes,
@@ -14,7 +15,7 @@ import {
   fileStore,
   normalizeFileName,
   normalizeFolder,
-} from '../../lib/fileStorage';
+} from '../../lib/attachments/storage';
 import { attachmentPurgeAt } from '../../_lib/validators/attachments';
 import { internal } from '../../_generated/api';
 

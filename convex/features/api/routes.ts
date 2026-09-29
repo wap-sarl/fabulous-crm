@@ -8,7 +8,7 @@ import {
   apiKeyAccepts,
   hasScope,
   parseApiBearer,
-} from '../../lib/apiAuth';
+} from '../../lib/api/auth';
 import {
   activityCreateBody,
   activityPatchBody,
@@ -20,11 +20,11 @@ import {
   dealPatchBody,
   parseBody,
   READ_ONLY_FIELDS,
-} from '../../lib/apiBodies';
+} from '../../lib/api/bodies';
 import { extensions } from '../../extensions';
-import { apiError, isApiError } from '../../lib/apiErrors';
-import { openapiDocument } from '../../lib/openapi.generated';
-import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../lib/rateLimits';
+import { apiError, isApiError } from '../../lib/api/errors';
+import { openapiDocument } from '../../lib/api/openapi.generated';
+import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../lib/security/rateLimits';
 
 const API_PREFIX = '/api/v1/';
 const METHODS = ['GET', 'POST', 'PATCH', 'DELETE'] as const;

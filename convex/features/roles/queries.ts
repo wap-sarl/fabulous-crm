@@ -1,6 +1,6 @@
 import { employeeQuery } from '../../_lib/auth';
 import { ADMIN_ACCESS, ADMIN_ROLE_KEY, DEFAULT_ROLES } from '../../_lib/validators/roles';
-import { isNotDeleted } from '../../lib';
+import { isNotDeleted } from '../../lib/shared/db';
 
 export const listRoles = employeeQuery({
   args: {},

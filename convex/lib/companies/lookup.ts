@@ -1,0 +1,181 @@
+import type { FilterBuilder, NamedTableInfo } from 'convex/server';
+import type { DataModel, Doc, Id } from '../../_generated/dataModel';
+import type { MutationCtx, QueryCtx } from '../../_generated/server';
+import {
+  COUNTRY_CODE_RE,
+  normalizeCountryCode,
+  registrationSchemeFor,
+  vatSchemeFor,
+} from '../../_lib/validators/companyRegistry';
+import { type AuditActor, createAuditFields } from '../audit/log';
+import { companyDomainOfEmail, normalizeDomain, websiteOfDomain } from './domains';
+import { logAudit } from '../audit/log';
+
+const notDeleted = (q: FilterBuilder<NamedTableInfo<DataModel, 'companies'>>) =>
+  q.eq(q.field('deletedAt'), undefined);
+
+/** Live company by (country, registration number), or null. */
+export async function findCompanyByRegistration(
+  ctx: QueryCtx | MutationCtx,
+  country: string,
+  registrationNumber: string,
+): Promise<Doc<'companies'> | null> {
+  return await ctx.db
+    .query('companies')
+    .withIndex('by_country_registrationNumber', (q) =>
+      q.eq('country', country).eq('registrationNumber', registrationNumber),
+    )
+    .filter(notDeleted)
+    .first();
+}
+
+/** Assert a live company exists — an explicit pick that no longer exists is a form bug. */
+export async function requireCompany(
+  ctx: QueryCtx | MutationCtx,
+  companyId: Id<'companies'>,
+): Promise<void> {
+  const company = await ctx.db.get(companyId);
+  if (!company || company.deletedAt != null) throw new Error('company_not_found');
+}
+
+/** Live company by normalized VAT number, or null. */
+export async function findCompanyByVat(
+  ctx: QueryCtx | MutationCtx,
+  vatNumber: string,
+): Promise<Doc<'companies'> | null> {
+  return await ctx.db
+    .query('companies')
+    .withIndex('by_vatNumber', (q) => q.eq('vatNumber', vatNumber))
+    .filter(notDeleted)
+    .first();
+}
+
+/** Throws `invalid_vat_number: <reason>`. */
+export function normalizeVatNumber(country: string, raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const scheme = vatSchemeFor(country);
+  const normalized = scheme.normalize(raw);
+  if (!normalized) return undefined;
+  const error = scheme.validate(normalized, country);
+  if (error) throw new Error(`invalid_vat_number: ${error}`);
+  return normalized;
+}
+
+/** Live company by normalized domain, or null. */
+export async function findCompanyByDomain(
+  ctx: QueryCtx | MutationCtx,
+  domain: string,
+): Promise<Doc<'companies'> | null> {
+  return await ctx.db
+    .query('companies')
+    .withIndex('by_domain', (q) => q.eq('domain', domain))
+    .filter(notDeleted)
+    .first();
+}
+
+/** Throws `invalid_registration_number: <reason>`: a form bug or a bad CSV cell, surfaced as is. */
+export function normalizeRegistrationNumber(
+  country: string,
+  raw: string | undefined,
+): string | undefined {
+  if (raw === undefined) return undefined;
+  const scheme = registrationSchemeFor(country);
+  const normalized = scheme.normalize(raw);
+  if (!normalized) return undefined;
+  const error = scheme.validate(normalized);
+  if (error) throw new Error(`invalid_registration_number: ${error}`);
+  return normalized;
+}
+
+/** A trimmed string, or undefined when blank. */
+export const blank = (s: string | undefined) => (s?.trim() ? s.trim() : undefined);
+
+export async function normalizeIdentifiers(
+  ctx: QueryCtx | MutationCtx,
+  args: { country?: string; registrationNumber?: string; vatNumber?: string; domain?: string },
+  selfId?: string,
+) {
+  const country = normalizeCountryCode(args.country);
+  if (!COUNTRY_CODE_RE.test(country)) throw new Error('invalid_country');
+  const registrationNumber = normalizeRegistrationNumber(country, args.registrationNumber);
+  const vatNumber = normalizeVatNumber(country, args.vatNumber);
+  const domain = args.domain === undefined ? undefined : normalizeDomain(args.domain);
+  if (args.domain?.trim() && !domain) throw new Error('invalid_domain');
+
+  if (registrationNumber) {
+    const other = await findCompanyByRegistration(ctx, country, registrationNumber);
+    if (other && other._id !== selfId) throw new Error('company_registration_exists');
+  }
+  if (vatNumber) {
+    const other = await findCompanyByVat(ctx, vatNumber);
+    if (other && other._id !== selfId) throw new Error('company_vat_exists');
+  }
+  if (domain) {
+    const other = await findCompanyByDomain(ctx, domain);
+    if (other && other._id !== selfId) throw new Error('company_domain_exists');
+  }
+  return { country, registrationNumber, vatNumber, domain };
+}
+
+export type CompanyHint = {
+  name?: string;
+  country?: string;
+  registrationNumber?: string;
+  vatNumber?: string;
+  domain?: string;
+};
+
+export async function resolveCompanyForLead(
+  ctx: MutationCtx,
+  hint: CompanyHint,
+  email: string | undefined,
+  actor: AuditActor,
+  cache?: Map<string, Id<'companies'>>,
+): Promise<Id<'companies'> | null> {
+  const country = normalizeCountryCode(hint.country);
+  const registrationNumber = normalizeRegistrationNumber(country, hint.registrationNumber);
+  const vatNumber = normalizeVatNumber(country, hint.vatNumber);
+  const domain = normalizeDomain(hint.domain) ?? companyDomainOfEmail(email);
+  const name = hint.name?.trim();
+
+  const cacheKey = registrationNumber
+    ? `reg:${country}:${registrationNumber}`
+    : vatNumber
+      ? `vat:${vatNumber}`
+      : domain
+        ? `dom:${domain}`
+        : null;
+  if (cacheKey && cache?.has(cacheKey)) return cache.get(cacheKey)!;
+
+  let found: Doc<'companies'> | null = null;
+  if (registrationNumber) found = await findCompanyByRegistration(ctx, country, registrationNumber);
+  if (!found && vatNumber) found = await findCompanyByVat(ctx, vatNumber);
+  if (!found && domain) found = await findCompanyByDomain(ctx, domain);
+  if (found) {
+    if (cacheKey) cache?.set(cacheKey, found._id);
+    return found._id;
+  }
+
+  if (!name) return null;
+
+  const companyId = await ctx.db.insert('companies', {
+    name,
+    country,
+    registrationNumber,
+    vatNumber,
+    domain,
+    website: domain ? websiteOfDomain(domain) : undefined,
+    ownerIds: [],
+    ...createAuditFields(actor.userId),
+  });
+  await logAudit({
+    ctx,
+    ...actor,
+    entityType: 'company',
+    entityId: companyId,
+    action: 'create',
+    metadata: { source: actor.apiKeyId ? 'api' : 'import' },
+  });
+  if (cacheKey) cache?.set(cacheKey, companyId);
+  return companyId;
+}

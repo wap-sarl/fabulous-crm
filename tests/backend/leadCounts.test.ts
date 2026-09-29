@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { countLiveLeadsByOwner } from '../../convex/lib/leadAggregates';
+import { countLiveLeadsByOwner } from '../../convex/lib/leads/aggregates';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 async function setup() {

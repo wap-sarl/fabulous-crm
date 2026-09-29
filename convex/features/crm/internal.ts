@@ -1,9 +1,10 @@
 import { v } from 'convex/values';
-import { loadLifecycleConfig } from '../../lib/lifecycle';
+import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import { internalQuery, type MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
 import { internalMutation } from '../../_lib/functions';
-import { computeChanges, logAudit, toBrevoRecipient } from '../../lib';
+import { computeChanges, logAudit } from '../../lib/audit/log';
+import { toBrevoRecipient } from '../../lib/sms/brevo';
 import { campaignSendStatusValidator, campaignEventTypeValidator } from '../../schema';
 import type {
   CampaignEvent,
@@ -16,27 +17,27 @@ import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/trigg
 import { diffLeadFilterFields } from '../workflows/lib';
 import { evalAdvancedFilter } from './leadMatching';
 import { criteriaUsesRelativeDates } from '../../_lib/validators/leadLists';
-import { startDynamicListRecalc, syncDynamicMembership } from '../../lib/dynamicLists';
+import { startDynamicListRecalc, syncDynamicMembership } from '../../lib/leadLists/dynamic';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { internal } from '../../_generated/api';
-import { appOrigin } from '../../lib';
+import { appOrigin } from '../../lib/config/appUrl';
 import { buildSendParams } from './mutations';
-import { loadPropertyDefsById } from '../../lib/properties';
-import { loadVisibility, scopedReader } from '../../lib/visibility';
+import { loadPropertyDefsById } from '../../lib/properties/definitions';
+import { loadVisibility, scopedReader } from '../../lib/roles/visibility';
 import {
   BEHAVIOURAL_CAMPAIGN_EVENTS,
   profilingExcluded,
   stampLeadSignal,
-} from '../../lib/leadSignals';
+} from '../../lib/leads/signals';
 import { LINK_GRANT_MS } from '../../_lib/validators/tracking';
-import { loadTrackingConfig, namedTracking, onAllowedSite } from '../../lib/tracking';
+import { loadTrackingConfig, namedTracking, onAllowedSite } from '../../lib/tracking/views';
 import {
   leadFilterArgs,
   loadAdvancedListMembers,
   loadListMemberIdsForLeads,
   matchesLeadFilters,
 } from './leadTableFilters';
-import { deferUnlessAllowed, trySend } from '../../lib/gates';
+import { deferUnlessAllowed, trySend } from '../../lib/extensions/gates';
 
 const BATCH_SIZE = 50;
 

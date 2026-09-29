@@ -6,7 +6,7 @@ import { advancedFilterListIds, leadAdvancedFilterValidator } from '../../_lib/v
 import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
 import { propertyValueValidator } from '../../schema';
-import { normalizeSearchText } from '../../lib/leadSearch';
+import { normalizeSearchText } from '../../lib/leads/search';
 import { evalAdvancedFilter, type LeadFilterExtras } from './leadMatching';
 
 /** One filter shape for the table, the campaign resolver and the batched recipient resolution, so they all select the same leads. */

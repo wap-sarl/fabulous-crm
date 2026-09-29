@@ -3,7 +3,7 @@ import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { LeadAdvancedFilter } from '../../convex/_lib/validators/filters';
 import { DEFAULT_LIFECYCLE_STAGES } from '../../convex/_lib/validators/lifecycle';
-import { computeLeadScore } from '../../convex/lib/leadScoring';
+import { computeLeadScore } from '../../convex/lib/scoring/score';
 import {
   asIdentity,
   createTestConvex,

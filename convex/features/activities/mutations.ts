@@ -4,9 +4,14 @@ import type { MutationCtx } from '../../_generated/server';
 import { employeeMutation } from '../../_lib/auth';
 import { activityTypeValidator } from '../../_lib/validators/activities';
 import { propertyValueValidator } from '../../_lib/validators/properties';
-import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
-import { computeChanges, filterUndefined, logAudit, updateAuditFields } from '../../lib';
-import { createActivityRecord, loadActivity, requireActivityLinks } from '../../lib/activities';
+import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties/definitions';
+import { computeChanges, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { filterUndefined } from '../../lib/shared/db';
+import {
+  createActivityRecord,
+  loadActivity,
+  requireActivityLinks,
+} from '../../lib/activities/records';
 
 const activityFieldArgs = {
   type: activityTypeValidator,

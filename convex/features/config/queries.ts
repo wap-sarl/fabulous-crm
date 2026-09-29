@@ -1,14 +1,14 @@
 import { retentionPolicyOf } from '../../_lib/validators/retention';
-import { trackingConfigOf } from '../../lib/tracking';
+import { trackingConfigOf } from '../../lib/tracking/views';
 import { CONNECTOR_PROVIDERS } from '../../_lib/validators/connectors';
-import { credentialsSource, PROVIDERS, redirectUriOrNull } from '../../lib/connectors';
+import { credentialsSource, PROVIDERS, redirectUriOrNull } from '../../lib/connectors/oauth';
 import { query } from '../../_generated/server';
 import { settingsQuery, employeeQuery } from '../../_lib/auth';
 import { isSetupComplete } from '../../setup/helpers';
 import { SOCIAL_PROVIDERS } from '../../_lib/socialProviders';
-import { emailPresence } from '../../lib';
+import { emailPresence } from '../../lib/email/provider';
 import { extensions } from '../../extensions';
-import { loadLifecycleConfig } from '../../lib/lifecycle';
+import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import {
   DEFAULT_ATTACHMENT_MAX_BYTES,
   DEFAULT_ATTACHMENT_RETENTION_DAYS,

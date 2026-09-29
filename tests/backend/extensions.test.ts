@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import type { HttpRouter } from 'convex/server';
 import { ConvexError } from 'convex/values';
-import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensionTypes';
+import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensions/types';
 import { api, internal } from '../../convex/_generated/api';
 import { extensions, setExtensionsForTests } from '../../convex/extensions';
-import { HOOK_FAILURE_ENTITY_ID, notifyChange } from '../../convex/lib/observers';
+import { HOOK_FAILURE_ENTITY_ID, notifyChange } from '../../convex/lib/extensions/observers';
 import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
 
 afterEach(() => setExtensionsForTests(null));

@@ -1,0 +1,95 @@
+import type { Doc, Id } from '../../_generated/dataModel';
+import type { MutationCtx } from '../../_generated/server';
+import type { ActivityStatus, ActivityType } from '../../_lib/validators/activities';
+import type { PropertyValue } from '../../_lib/validators/properties';
+import { logAudit } from '../audit/log';
+import { isNotDeleted } from '../shared/db';
+import { stampLeadSignal } from '../leads/signals';
+
+export type NewActivity = {
+  type: ActivityType;
+  title: string;
+  description?: string;
+  dueAt?: number;
+  status?: ActivityStatus;
+  ownerId?: Id<'users'>;
+  teamId?: Id<'teams'>;
+  leadId?: Id<'leads'>;
+  companyId?: Id<'companies'>;
+  dealId?: Id<'deals'>;
+  outcome?: string;
+  customProperties?: Record<string, PropertyValue>;
+};
+
+/** Assert the linked records are live; throws `<entity>_not_found`. */
+export async function requireActivityLinks(
+  ctx: MutationCtx,
+  links: Pick<NewActivity, 'leadId' | 'companyId' | 'dealId'>,
+): Promise<void> {
+  if (links.leadId) {
+    const lead = await ctx.db.get(links.leadId);
+    if (!lead || !isNotDeleted(lead)) throw new Error('lead_not_found');
+  }
+  if (links.companyId) {
+    const company = await ctx.db.get(links.companyId);
+    if (!company || !isNotDeleted(company)) throw new Error('company_not_found');
+  }
+  if (links.dealId) {
+    const deal = await ctx.db.get(links.dealId);
+    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+  }
+}
+
+/** An activity created `done` (a logged call, a note) is stamped completed at once; the audit row is written only when a user is behind the creation. */
+export async function createActivityRecord(
+  ctx: MutationCtx,
+  data: NewActivity,
+  meta: { changedBy?: Id<'users'>; apiKeyId?: Id<'apiKeys'>; workflowId?: Id<'workflows'> },
+): Promise<Id<'activities'>> {
+  const title = data.title.trim();
+  if (!title) throw new Error('activity_title_required');
+  await requireActivityLinks(ctx, data);
+  const status = data.status ?? 'open';
+  const now = Date.now();
+  const activityId = await ctx.db.insert('activities', {
+    type: data.type,
+    title,
+    description: data.description?.trim() || undefined,
+    dueAt: data.dueAt,
+    status,
+    ownerId: data.ownerId,
+    teamId: data.teamId,
+    leadId: data.leadId,
+    companyId: data.companyId,
+    dealId: data.dealId,
+    outcome: data.outcome?.trim() || undefined,
+    customProperties: data.customProperties,
+    completedAt: status === 'done' ? now : undefined,
+    updatedAt: now,
+    createdBy: meta.changedBy,
+    updatedBy: meta.changedBy,
+  });
+  if (meta.changedBy || meta.apiKeyId) {
+    await logAudit({
+      ctx,
+      userId: meta.changedBy,
+      apiKeyId: meta.apiKeyId,
+      entityType: 'activity',
+      entityId: activityId,
+      action: 'create',
+      metadata: { type: data.type, status, workflowId: meta.workflowId },
+    });
+  }
+  if (data.leadId) await stampLeadSignal(ctx, data.leadId, 'activity', now);
+  return activityId;
+}
+
+/** A live activity, or throw. */
+export async function loadActivity(
+  ctx: MutationCtx,
+  activityId: Id<'activities'>,
+): Promise<Doc<'activities'>> {
+  const activity = await ctx.db.get(activityId);
+  if (!activity || !isNotDeleted(activity)) throw new Error('activity_not_found');
+  return activity;
+}

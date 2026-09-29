@@ -7,7 +7,7 @@ import type {
   LeadStandardField,
 } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
-import { evalFilter, evalFilterRule } from '../../lib/filterMatching';
+import { evalFilter, evalFilterRule } from '../../lib/filters/matching';
 
 /** Out-of-document inputs a lead filter can need: list membership, eval time. */
 export interface LeadFilterExtras {

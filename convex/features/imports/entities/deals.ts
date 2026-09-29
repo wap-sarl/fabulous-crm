@@ -3,22 +3,22 @@ import type { MutationCtx } from '../../../_generated/server';
 import { defaultPipelineStage, type PipelineStage } from '../../../_lib/validators/deals';
 import type { DealImportRow } from '../../../_lib/validators/imports';
 import type { PropertyValue } from '../../../_lib/validators/properties';
-import { computeChanges, logAudit, updateAuditFields } from '../../../lib/audit';
-import { filterUndefined, isNotDeleted } from '../../../lib/dbHelpers';
+import { computeChanges, logAudit, updateAuditFields } from '../../../lib/audit/log';
+import { filterUndefined, isNotDeleted } from '../../../lib/shared/db';
 import {
   createDealRecord,
   defaultPipeline,
   listLivePipelines,
   moveDealToStage,
   validateDealFields,
-} from '../../../lib/deals';
-import { findLeadByEmail, normalizeEmail } from '../../../lib/leadImport';
-import { cleanOwnerIds } from '../../../lib/owners';
+} from '../../../lib/deals/records';
+import { findLeadByEmail, normalizeEmail } from '../../../lib/leads/import';
+import { cleanOwnerIds } from '../../../lib/users/owners';
 import {
   loadPropertyDefsById,
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
-} from '../../../lib/properties';
+} from '../../../lib/properties/definitions';
 import type { EntityImporter } from './types';
 
 interface Caches {

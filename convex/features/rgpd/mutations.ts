@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { settingsMutation } from '../../_lib/auth';
-import { logAudit } from '../../lib';
-import { NO_VIEW_MARKS, stopLeadTracking } from '../../lib/tracking';
+import { logAudit } from '../../lib/audit/log';
+import { NO_VIEW_MARKS, stopLeadTracking } from '../../lib/tracking/views';
 
 /** Right to erasure: recorded, then done in scheduled steps that outlive this call; the contact may already be in the trash. */
 export const eraseContact = settingsMutation({

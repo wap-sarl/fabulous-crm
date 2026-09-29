@@ -4,7 +4,7 @@ export const CONNECTOR_PROVIDERS = ['google', 'microsoft'] as const;
 export const connectorProviderValidator = v.union(...CONNECTOR_PROVIDERS.map((p) => v.literal(p)));
 export type ConnectorProvider = Infer<typeof connectorProviderValidator>;
 
-/** The deployment's own OAuth app for a provider; `clientSecret` is a SECRET (ciphertext, lib/crypto.ts). */
+/** The deployment's own OAuth app for a provider; `clientSecret` is a SECRET (ciphertext, lib/security/crypto.ts). */
 export const connectorConfigValidator = v.object({
   provider: connectorProviderValidator,
   clientId: v.string(),

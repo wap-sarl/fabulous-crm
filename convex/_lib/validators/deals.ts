@@ -56,7 +56,7 @@ export const dealValidator = v.object({
   currency: v.string(),
   pipelineId: v.id('pipelines'),
   stageKey: v.string(),
-  // Kind of the current stage: the stage-move helper (lib/deals.ts) is the only writer of it and of `stageKey`.
+  // Kind of the current stage: the stage-move helper (lib/deals/records.ts) is the only writer of it and of `stageKey`.
   status: dealStatusValidator,
   // 'YYYY-MM-DD'.
   expectedCloseDate: v.optional(v.string()),

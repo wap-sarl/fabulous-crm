@@ -11,17 +11,17 @@ import {
   dealAdvancedFilterValidator,
 } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
-import { evalFilter } from '../../lib/filterMatching';
-import { isNotDeleted } from '../../lib';
+import { evalFilter } from '../../lib/filters/matching';
+import { isNotDeleted } from '../../lib/shared/db';
 import {
   scopedStageTotals,
   scopedStatusTotals,
   stageTotals,
   statusTotals,
-} from '../../lib/dealAggregates';
-import { ownerNamespaces } from '../../lib/visibility';
-import { listLivePipelines } from '../../lib/deals';
-import { normalizeSearchText } from '../../lib/leadSearch';
+} from '../../lib/deals/aggregates';
+import { ownerNamespaces } from '../../lib/roles/visibility';
+import { listLivePipelines } from '../../lib/deals/records';
+import { normalizeSearchText } from '../../lib/leads/search';
 
 /** Pipelines in display order (default first). */
 export const listPipelines = employeeQuery({
@@ -146,7 +146,7 @@ type DealFilters = {
   advancedFilter?: DealAdvancedFilter;
 };
 
-/** The deal binding of the shared advanced-filter evaluator (lib/filterMatching.ts). */
+/** The deal binding of the shared advanced-filter evaluator (lib/filters/matching.ts). */
 export function getDealFieldValue(
   deal: Doc<'deals'>,
   field: FilterField<DealStandardField>,

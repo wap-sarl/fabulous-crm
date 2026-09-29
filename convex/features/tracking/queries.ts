@@ -1,6 +1,6 @@
 import type { Id } from '../../_generated/dataModel';
 import { settingsQuery } from '../../_lib/auth';
-import { loadTrackingConfig } from '../../lib/tracking';
+import { loadTrackingConfig } from '../../lib/tracking/views';
 
 const COUNT_CAP = 1000;
 

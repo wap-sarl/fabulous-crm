@@ -3,17 +3,17 @@ import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
 import { addressValidator } from '../../schema';
 import { propertyValueValidator } from '../../_lib/validators/properties';
-import { cleanOwnerIds } from '../../lib/owners';
-import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
+import { cleanOwnerIds } from '../../lib/users/owners';
+import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties/definitions';
 import {
   computeChanges,
   createAuditFields,
-  filterUndefined,
   logAudit,
   updateAuditFields,
-} from '../../lib';
-import { blank, normalizeIdentifiers } from '../../lib/companies';
-import { requireValidAddress } from '../../lib/addresses';
+} from '../../lib/audit/log';
+import { filterUndefined } from '../../lib/shared/db';
+import { blank, normalizeIdentifiers } from '../../lib/companies/lookup';
+import { requireValidAddress } from '../../lib/addresses/validation';
 
 const companyFieldArgs = {
   name: v.string(),

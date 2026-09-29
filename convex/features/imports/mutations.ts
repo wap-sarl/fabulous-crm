@@ -8,7 +8,7 @@ import {
   importEntityValidator,
   importRowDataValidator,
 } from '../../_lib/validators/imports';
-import { ensureDefaultPipeline } from '../../lib/deals';
+import { ensureDefaultPipeline } from '../../lib/deals/records';
 import { loadOwnJob, requireImportAccess } from './lib';
 
 const targetsValidator = v.array(v.union(v.string(), v.null()));

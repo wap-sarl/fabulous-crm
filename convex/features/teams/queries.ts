@@ -1,5 +1,5 @@
 import { employeeQuery } from '../../_lib/auth';
-import { isNotDeleted } from '../../lib';
+import { isNotDeleted } from '../../lib/shared/db';
 
 /** Live teams with their members' names, for the settings screen and pickers. */
 export const listTeams = employeeQuery({

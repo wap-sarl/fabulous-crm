@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { attachmentKey, normalizeFolder } from '../../convex/lib/fileStorage';
+import { attachmentKey, normalizeFolder } from '../../convex/lib/attachments/storage';
 import { asIdentity, createTestConvex, seedEmployee, type T, seedConfig } from './helpers';
 
 async function setup() {

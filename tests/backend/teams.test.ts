@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { countLiveLeadsByOwner } from '../../convex/lib/leadAggregates';
+import { countLiveLeadsByOwner } from '../../convex/lib/leads/aggregates';
 import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 
 /** Nord has manager Marc and rep Nina, Sud has rep Sam; each rep owns a lead, one is co-owned, one unowned: Marc sees Nord's records and the pool. */

@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { FORM_EMBED_JS } from '../../convex/lib/formEmbed';
-import { trackingScript } from '../../convex/lib/tracking';
+import { FORM_EMBED_JS } from '../../convex/lib/forms/embed';
+import { trackingScript } from '../../convex/lib/tracking/views';
 import { type FakeElement, fakeBrowser } from './fakeBrowser';
 
 const BASE = 'https://crm.convex.site';

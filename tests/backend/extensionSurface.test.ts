@@ -18,25 +18,25 @@ import {
   toPublicCompany,
   toPublicContact,
   toPublicDeal,
-} from '../../convex/lib/apiDtos';
-import { appOrigins } from '../../convex/lib/appUrl';
-import { logAudit } from '../../convex/lib/audit';
+} from '../../convex/lib/api/dtos';
+import { appOrigins } from '../../convex/lib/config/appUrl';
+import { logAudit } from '../../convex/lib/audit/log';
 import {
   decryptSecret,
   encryptSecret,
   generateHexToken,
   timingSafeEqual,
-} from '../../convex/lib/crypto';
+} from '../../convex/lib/security/crypto';
 import {
   defaultExtensions,
   type Extensions,
   type RecordChange,
   SCHEDULED_WORK_RETRY_MS,
-} from '../../convex/lib/extensionTypes';
-import { leadsByLifecycle } from '../../convex/lib/leadAggregates';
-import { loadLifecycleConfig } from '../../convex/lib/lifecycle';
-import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../convex/lib/rateLimits';
-import { ensureDefaultRoles } from '../../convex/lib/roles';
+} from '../../convex/lib/extensions/types';
+import { leadsByLifecycle } from '../../convex/lib/leads/aggregates';
+import { loadLifecycleConfig } from '../../convex/lib/leads/lifecycle';
+import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../convex/lib/security/rateLimits';
+import { ensureDefaultRoles } from '../../convex/lib/roles/access';
 import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
 
 // What an overlay builds on besides the three files it replaces (docs/extensions.md): a name that moves breaks it, so it breaks here first.

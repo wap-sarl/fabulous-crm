@@ -2,19 +2,16 @@ import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { internal } from '../../_generated/api';
 import { settingsMutation } from '../../_lib/auth';
-import {
-  appOrigin,
-  isEmailWhitelisted,
-  isEmailProviderConfigured,
-  logAudit,
-  resolveEmailProvider,
-} from '../../lib';
+import { appOrigin } from '../../lib/config/appUrl';
+import { isEmailWhitelisted } from '../../lib/shared/devWhitelist';
+import { isEmailProviderConfigured, resolveEmailProvider } from '../../lib/email/provider';
+import { logAudit } from '../../lib/audit/log';
 import { INVITE_EMAIL, LOGIN_ACCENT, generateEmailHtml } from '../../auth/emailTemplates';
 import { invitationRoleValidator } from '../../_lib/validators/invitations';
 import { DEFAULT_ROLES } from '../../_lib/validators/roles';
-import { gateInvitation } from '../../lib/gates';
-import { countPendingInvitations } from '../../lib/invitations';
-import { findRole } from '../../lib/roles';
+import { gateInvitation } from '../../lib/extensions/gates';
+import { countPendingInvitations } from '../../lib/invitations/pending';
+import { findRole } from '../../lib/roles/access';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

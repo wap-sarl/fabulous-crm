@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import { settingsMutation, employeeMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
-import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties';
+import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties/definitions';
 import {
   normalizeTransitions,
   pipelineLayoutValidator,
@@ -18,19 +18,18 @@ import {
 import {
   computeChanges,
   createAuditFields,
-  filterUndefined,
-  isNotDeleted,
   logAudit,
   updateAuditFields,
-} from '../../lib';
-import { stageTotals, statusTotals } from '../../lib/dealAggregates';
+} from '../../lib/audit/log';
+import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { stageTotals, statusTotals } from '../../lib/deals/aggregates';
 import {
   createDealRecord,
   ensureDefaultPipeline as ensureDefault,
   loadPipeline,
   moveDealToStage,
   validateDealFields,
-} from '../../lib/deals';
+} from '../../lib/deals/records';
 
 function normalizeStages(stages: PipelineStage[]): PipelineStage[] {
   const normalized = stages.map((s) => ({

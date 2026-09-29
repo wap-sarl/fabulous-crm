@@ -2,7 +2,7 @@ import { Migrations } from '@convex-dev/migrations';
 import { components } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import type { AppConfig } from './_lib/validators/appConfig';
-import { decryptSecret, encryptSecret, isEncryptedSecret } from './lib/crypto';
+import { decryptSecret, encryptSecret, isEncryptedSecret } from './lib/security/crypto';
 
 // Online migrations (@convex-dev/migrations): `bunx convex run migrations:run '{"fn":"migrations:<name>"}'`.
 export const migrations = new Migrations<DataModel>(components.migrations);

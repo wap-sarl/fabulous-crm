@@ -1,10 +1,10 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
 import { ssoProviderValidator, socialProviderConfigValidator } from '../_lib/validators/appConfig';
-import { logAudit } from '../lib';
-import { encryptSecret } from '../lib/crypto';
+import { logAudit } from '../lib/audit/log';
+import { encryptSecret } from '../lib/security/crypto';
 import { isSetupComplete } from './helpers';
-import { ensureDefaultRoles } from '../lib/roles';
+import { ensureDefaultRoles } from '../lib/roles/access';
 
 const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const hexColorRe = /^#[0-9a-fA-F]{6}$/;
@@ -108,7 +108,7 @@ export const completeSetup = mutation({
       ...(args.logoStorageId && { logoStorageId: args.logoStorageId }),
       ...(args.faviconStorageId && { faviconStorageId: args.faviconStorageId }),
       ...(args.primaryColor && { primaryColor: args.primaryColor.toLowerCase() }),
-      // Secrets are stored as ciphertext (lib/crypto.ts).
+      // Secrets are stored as ciphertext (lib/security/crypto.ts).
       auth: {
         ...args.auth,
         ssoProviders: await Promise.all(

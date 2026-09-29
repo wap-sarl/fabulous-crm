@@ -1,4 +1,4 @@
-import { defaultExtensions, type Extensions } from './lib/extensionTypes';
+import { defaultExtensions, type Extensions } from './lib/extensions/types';
 
 let active: Extensions = defaultExtensions;
 
