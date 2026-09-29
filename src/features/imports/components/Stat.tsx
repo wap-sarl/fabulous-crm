@@ -1,5 +1,5 @@
+import { numberFormat } from '@crm/lib/format';
 import { Card } from '@crm/design-system';
-import { fmt } from '../lib/jobFormat';
 
 export function Stat({
   label,
@@ -22,7 +22,7 @@ export function Stat({
               : 'text-lg font-semibold'
         }
       >
-        {fmt.format(value)}
+        {numberFormat.format(value)}
       </p>
     </Card>
   );

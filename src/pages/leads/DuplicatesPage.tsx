@@ -21,13 +21,10 @@ import {
 } from '../../features/leads/hooks/useDuplicateActions';
 import { DUPLICATE_REASON_LABEL, DUPLICATE_REASON_TONE } from '../../features/leads/lib/duplicates';
 import { LeadSide } from '../../features/leads/components/LeadSide';
+import { dateTimeFormat } from '@crm/lib/format';
 
 const PAGE_SIZE = 20;
 const SKELETON_ROWS = ['s1', 's2', 's3'];
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
 
 /** « Doublons potentiels »: scan control, open pairs, compare & merge. */
 export function DuplicatesPage() {

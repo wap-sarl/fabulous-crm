@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 import { useAuthMutation } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 
@@ -20,8 +21,5 @@ const ERROR_MESSAGES: Record<string, string> = {
   company_not_found: 'Entreprise introuvable.',
 };
 
-export function duplicateErrorMessage(e: unknown, fallback: string): string {
-  const message = e instanceof Error ? e.message : String(e);
-  const code = Object.keys(ERROR_MESSAGES).find((k) => message.includes(k));
-  return code ? ERROR_MESSAGES[code] : fallback;
-}
+export const duplicateErrorMessage = (e: unknown, fallback: string) =>
+  errorLabel(e, ERROR_MESSAGES, fallback);

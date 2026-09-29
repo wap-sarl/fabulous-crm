@@ -1,13 +1,7 @@
-import type { Id, LeadAdvancedFilter } from '@crm/lib/backend';
+import type { api } from '@crm/lib/backend';
+import type { FunctionReturnType } from 'convex/server';
 
-export type LeadListRow = {
-  _id: Id<'leadLists'>;
-  name: string;
-  kind: 'static' | 'dynamic';
-  criteria: LeadAdvancedFilter | null;
-  lastRecalcAt: number | null;
-  recalcProcessed: number | null;
-  memberCount: number;
-  createdByName: string | null;
-  createdAt: number;
-};
+/** A list as the list of lists gives it, its member count included. */
+export type LeadListRow = FunctionReturnType<
+  typeof api.features.leadLists.queries.listLeadLists
+>[number];

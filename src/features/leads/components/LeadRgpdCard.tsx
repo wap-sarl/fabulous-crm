@@ -6,6 +6,7 @@ import { describeError } from '@crm/lib/errors';
 import { useAuth, useAuthAction, useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { Button, Card, ConfirmDialog, Label, Switch, toast } from '@crm/design-system';
 import { Download, ShieldAlert } from 'lucide-react';
+import { dateTimeFormat } from '@crm/lib/format';
 
 const REQUEST_LABEL: Record<string, string> = {
   access: 'Droit d’accès : export remis',
@@ -13,7 +14,6 @@ const REQUEST_LABEL: Record<string, string> = {
   objection: 'Opposition au profilage',
   objection_lifted: 'Opposition levée',
 };
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
 
 /** The person's rights on their data, for the settings holders: access (an export), objection to profiling, erasure. */
 export function LeadRgpdCard({
@@ -106,7 +106,7 @@ export function LeadRgpdCard({
         <ul className="mt-4 space-y-1 border-t border-border pt-3 text-xs text-soft">
           {requests.map((r) => (
             <li key={r._id}>
-              {DATE_FMT.format(r.requestedAt)} · {REQUEST_LABEL[r.type] ?? r.type}
+              {dateTimeFormat.format(r.requestedAt)} · {REQUEST_LABEL[r.type] ?? r.type}
               {r.outcome === 'in_progress' ? ' (en cours)' : ''}
               {r.requestedBy ? ` · ${r.requestedBy}` : ''}
             </li>

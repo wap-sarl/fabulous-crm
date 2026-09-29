@@ -19,16 +19,7 @@ import {
   WORKFLOW_STATUS_LABEL,
   WORKFLOW_STATUS_TONE,
 } from '../../features/workflows/lib/constants';
-
-const numberFormat = new Intl.NumberFormat('fr-FR');
-
-function formatDate(ms: number): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(ms));
-}
+import { dateFormat, numberFormat } from '@crm/lib/format';
 
 export function WorkflowsPage() {
   usePageTitle('Workflows');
@@ -136,7 +127,7 @@ export function WorkflowsPage() {
                   </span>
                   <span className="inline-flex items-center gap-1.5">
                     <Calendar className="size-3.5" />
-                    {formatDate(w._creationTime)}
+                    {dateFormat.format(new Date(w._creationTime))}
                   </span>
                 </div>
 

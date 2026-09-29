@@ -15,11 +15,7 @@ import {
   toast,
 } from '@crm/design-system';
 import { MoreHorizontal, Pencil, Pin, PinOff, Trash2 } from 'lucide-react';
-
-const noteDateFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateTimeFormat } from '@crm/lib/format';
 
 type LeadNote = {
   _id: Id<'leadNotes'>;
@@ -202,7 +198,7 @@ export function LeadNotes({ leadId }: { leadId: Id<'leads'> }) {
                       </div>
                     </div>
                     <p className="mt-1.5 text-xs text-faint">
-                      {note.authorName ?? 'Inconnu'} · {noteDateFormat.format(note.createdAt)}
+                      {note.authorName ?? 'Inconnu'} · {dateTimeFormat.format(note.createdAt)}
                     </p>
                   </>
                 )}

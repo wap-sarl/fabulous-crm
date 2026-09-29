@@ -49,8 +49,7 @@ import {
   formatFileSize,
   previewKindOf,
 } from '../lib/files';
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
+import { dateFormat } from '@crm/lib/format';
 const ROOT_LABEL = 'Fichiers';
 
 interface EntityAttachmentsCardProps {

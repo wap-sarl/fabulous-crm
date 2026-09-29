@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 /** French messages for the deal / pipeline mutations' error codes. */
 export const DEAL_ERROR_MESSAGES: Record<string, string> = {
   deal_title_required: 'L’intitulé de la transaction est requis.',
@@ -35,10 +36,5 @@ export const DEAL_ERROR_MESSAGES: Record<string, string> = {
   stage_tag_required: 'Choisissez au moins une étiquette pour ce stade.',
 };
 
-export function dealErrorMessage(e: unknown, fallback: string): string {
-  const message = e instanceof Error ? e.message : '';
-  const known = Object.keys(DEAL_ERROR_MESSAGES)
-    .sort((a, b) => b.length - a.length)
-    .find((k) => message.includes(k));
-  return known ? DEAL_ERROR_MESSAGES[known] : fallback;
-}
+export const dealErrorMessage = (e: unknown, fallback: string) =>
+  errorLabel(e, DEAL_ERROR_MESSAGES, fallback);

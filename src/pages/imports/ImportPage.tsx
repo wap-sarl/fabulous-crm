@@ -50,6 +50,7 @@ import {
   isImportEntity,
 } from '../../features/imports/lib/registry';
 import { JOB_STATUS_LABEL, JOB_STATUS_TONE } from './importStatus';
+import { dateTimeFormat, numberFormat } from '@crm/lib/format';
 
 // Radix Select forbids an empty string value; a sentinel stands for "don't import".
 const IGNORE = '__ignore__';
@@ -66,9 +67,6 @@ function defaultListName(): string {
   }).format(now);
   return `Import du ${date} à ${now.getHours()}h`;
 }
-
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-const fmt = new Intl.NumberFormat('fr-FR');
 
 /** « Importer »: a file, its columns mapped (or a saved mapping), then the dry run on the job page. */
 export function ImportPage() {
@@ -158,7 +156,7 @@ export function ImportPage() {
         return;
       }
       if (rows.length - 1 > IMPORT_MAX_ROWS) {
-        toast.error(`Au plus ${fmt.format(IMPORT_MAX_ROWS)} lignes par import.`);
+        toast.error(`Au plus ${numberFormat.format(IMPORT_MAX_ROWS)} lignes par import.`);
         return;
       }
       setParsed(rows);
@@ -411,8 +409,8 @@ export function ImportPage() {
             <p className="text-xs text-muted-foreground">
               {fileName ? (
                 <>
-                  <span className="font-mono">{fileName}</span> · {fmt.format(parsed.length - 1)}{' '}
-                  ligne(s)
+                  <span className="font-mono">{fileName}</span> ·{' '}
+                  {numberFormat.format(parsed.length - 1)} ligne(s)
                 </>
               ) : (
                 <>
@@ -525,7 +523,8 @@ export function ImportPage() {
               <div className="space-y-1">
                 <Progress value={upload.done} max={upload.total} />
                 <p className="text-xs text-muted-foreground">
-                  Envoi des lignes… {fmt.format(upload.done)}/{fmt.format(upload.total)}
+                  Envoi des lignes… {numberFormat.format(upload.done)}/
+                  {numberFormat.format(upload.total)}
                 </p>
               </div>
             ) : (
@@ -554,13 +553,14 @@ export function ImportPage() {
                       <span className="font-medium">{job.fileName}</span>
                       <span className="text-soft">
                         {' '}
-                        · {IMPORT_SPECS[job.entity].label} · {fmt.format(job.totalRows)} ligne(s)
+                        · {IMPORT_SPECS[job.entity].label} · {numberFormat.format(job.totalRows)}{' '}
+                        ligne(s)
                       </span>
                     </span>
                     <StatusBadge tone={JOB_STATUS_TONE[job.status]}>
                       {JOB_STATUS_LABEL[job.status]}
                     </StatusBadge>
-                    <Badge variant="secondary">{DATE_FMT.format(job._creationTime)}</Badge>
+                    <Badge variant="secondary">{dateTimeFormat.format(job._creationTime)}</Badge>
                     {job.createdByName ? (
                       <span className="text-xs text-faint">{job.createdByName}</span>
                     ) : null}

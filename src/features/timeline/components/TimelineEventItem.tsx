@@ -37,12 +37,9 @@ import { ACTIVITY_ICON } from '../../activities/lib/constants';
 import { LIFECYCLE_SOURCE_LABEL } from '../../leads/lib/lifecycle';
 import { RUN_STATUS_LABEL, RUN_STATUS_TONE } from '../../workflows/lib/constants';
 import { LEAD_FIELD_LABEL } from '../lib/constants';
+import { dateTimeFormat } from '@crm/lib/format';
 
 const timeFormat = new Intl.DateTimeFormat('fr-FR', { timeStyle: 'short' });
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
 
 const TONE_ICON_STYLE: Record<StatusTone, string> = {
   blue: 'bg-[#E8F0FE] text-[#1A56DB]',

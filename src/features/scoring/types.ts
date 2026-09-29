@@ -1,11 +1,7 @@
-import type { Id, LeadAdvancedFilter } from '@crm/lib/backend';
+import type { api } from '@crm/lib/backend';
+import type { FunctionReturnType } from 'convex/server';
 
-export type ScoringRuleRow = {
-  _id: Id<'scoringRules'>;
-  name: string;
-  description: string | undefined;
-  criteria: LeadAdvancedFilter;
-  points: number;
-  active: boolean;
-  decayHalfLifeDays: number | undefined;
-};
+/** A rule as the list of rules gives it. */
+export type ScoringRuleRow = FunctionReturnType<
+  typeof api.features.scoring.queries.listScoringRules
+>[number];

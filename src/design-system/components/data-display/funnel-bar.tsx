@@ -1,5 +1,6 @@
 import type * as React from 'react';
 import { cn } from '../../theme/utils';
+import { numberFormat } from '@crm/lib/format';
 
 interface FunnelBarProps extends React.HTMLAttributes<HTMLDivElement> {
   label: string;
@@ -9,8 +10,6 @@ interface FunnelBarProps extends React.HTMLAttributes<HTMLDivElement> {
   /** Bar fill color. @default 'var(--chart-1)' */
   color?: string;
 }
-
-const numberFormat = new Intl.NumberFormat('fr-FR');
 
 function FunnelBar({
   label,

@@ -16,10 +16,9 @@ import {
 import { Plug } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { ProviderApps } from '../../features/connectors/components/ProviderApps';
+import { dateFormat } from '@crm/lib/format';
 
 type Provider = 'google' | 'microsoft';
-
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 const SCOPE_LABEL: Record<string, string> = {
   openid: 'Identité',
@@ -118,7 +117,7 @@ export function IntegrationsPage() {
                       <>
                         <p className="text-xs text-soft">
                           {p.account.email ?? 'Compte connecté'} · depuis le{' '}
-                          {DATE_FMT.format(p.account.connectedAt)}
+                          {dateFormat.format(p.account.connectedAt)}
                         </p>
                         <div className="flex flex-wrap gap-1">
                           {p.account.scopes.map((scope) => (

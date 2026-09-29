@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 import { useMemo, useState } from 'react';
 import { useAuthMutation } from '@crm/widgets';
 import { api, FORM_STANDARD_FIELDS, formFieldKey } from '@crm/lib/backend';
@@ -55,11 +56,8 @@ const SAVE_ERRORS: Record<string, string> = {
   form_unknown_property: 'Une propriété du formulaire n’existe plus.',
 };
 
-function saveErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  const known = Object.keys(SAVE_ERRORS).find((code) => message.includes(code));
-  return known ? SAVE_ERRORS[known] : 'Échec de l’enregistrement du formulaire.';
-}
+const saveErrorMessage = (error: unknown) =>
+  errorLabel(error, SAVE_ERRORS, 'Échec de l’enregistrement du formulaire.');
 
 function draftOf(form: Form & { _id: Id<'forms'> }): EditorDraft {
   return {

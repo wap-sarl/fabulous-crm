@@ -20,16 +20,7 @@ import {
   CAMPAIGN_STATUS_LABEL,
   CAMPAIGN_STATUS_TONE,
 } from '../../lib/constants';
-
-const numberFormat = new Intl.NumberFormat('fr-FR');
-
-function formatDate(ms: number): string {
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(ms));
-}
+import { dateFormat, numberFormat } from '@crm/lib/format';
 
 export function CampaignsPage() {
   usePageTitle('Campagnes');
@@ -134,7 +125,7 @@ export function CampaignsPage() {
                     </span>
                     <span className="inline-flex items-center gap-1.5">
                       <Calendar className="size-3.5" />
-                      {formatDate(c._creationTime)}
+                      {dateFormat.format(new Date(c._creationTime))}
                     </span>
                   </div>
 

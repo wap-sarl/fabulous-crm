@@ -25,10 +25,9 @@ import { downloadText, errorRowsCsv } from '../../features/imports/lib/errorCsv'
 import { describeImportError, describeJobError } from '../../features/imports/lib/errorLabels';
 import { IMPORT_SPECS } from '../../features/imports/lib/registry';
 import { JOB_STATUS_LABEL, JOB_STATUS_TONE } from './importStatus';
-import { fmt } from '../../features/imports/lib/jobFormat';
 import { Stat } from '../../features/imports/components/Stat';
 import { RowList } from '../../features/imports/components/RowList';
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+import { dateTimeFormat, numberFormat } from '@crm/lib/format';
 
 /** « Import » of one file: the dry run's verdicts, the run and its report. */
 export function ImportJobPage() {
@@ -100,7 +99,7 @@ export function ImportJobPage() {
             {JOB_STATUS_LABEL[job.status]}
           </StatusBadge>
         }
-        subtitle={`${spec.label} · ${fmt.format(job.totalRows)} ligne(s) · ${DATE_FMT.format(job._creationTime)}${
+        subtitle={`${spec.label} · ${numberFormat.format(job.totalRows)} ligne(s) · ${dateTimeFormat.format(job._creationTime)}${
           job.listName ? ` · liste « ${job.listName} »` : ''
         }${job.mappingName ? ` · correspondance « ${job.mappingName} »` : ''}`}
         actions={
@@ -160,8 +159,8 @@ export function ImportJobPage() {
                 : job.status === 'running'
                   ? 'Import en cours'
                   : 'Envoi des lignes'}{' '}
-              · {fmt.format(Math.min(job.totalRows, job.nextBatch * job.batchSize))}/
-              {fmt.format(job.totalRows)} ligne(s)
+              · {numberFormat.format(Math.min(job.totalRows, job.nextBatch * job.batchSize))}/
+              {numberFormat.format(job.totalRows)} ligne(s)
             </p>
           </Card>
         )}
@@ -198,8 +197,8 @@ export function ImportJobPage() {
             {counts.duplicates > 0 && (
               <div className="space-y-1.5 rounded-md border border-amber-300 bg-amber-50 p-3">
                 <p className="font-medium text-ink">
-                  {fmt.format(counts.duplicates)} ligne(s) ressemblent à des fiches existantes sans
-                  partager leur e-mail.
+                  {numberFormat.format(counts.duplicates)} ligne(s) ressemblent à des fiches
+                  existantes sans partager leur e-mail.
                 </p>
                 <Select value={policy} onValueChange={(v) => setPolicy(v as 'update' | 'create')}>
                   <SelectTrigger className="h-9" data-testid="duplicate-policy">
@@ -217,11 +216,11 @@ export function ImportJobPage() {
 
         {finished && job.simulated && (
           <p className="text-xs text-faint">
-            Simulation : {fmt.format(job.simulated.created)} à créer,{' '}
-            {fmt.format(job.simulated.updated)} à mettre à jour,{' '}
-            {fmt.format(job.simulated.duplicates)} doublon(s) probable(s),{' '}
-            {fmt.format(job.simulated.errors)} en erreur.
-            {job.finishedAt ? ` Terminé le ${DATE_FMT.format(job.finishedAt)}.` : ''}
+            Simulation : {numberFormat.format(job.simulated.created)} à créer,{' '}
+            {numberFormat.format(job.simulated.updated)} à mettre à jour,{' '}
+            {numberFormat.format(job.simulated.duplicates)} doublon(s) probable(s),{' '}
+            {numberFormat.format(job.simulated.errors)} en erreur.
+            {job.finishedAt ? ` Terminé le ${dateTimeFormat.format(job.finishedAt)}.` : ''}
           </p>
         )}
 

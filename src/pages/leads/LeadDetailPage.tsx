@@ -35,12 +35,7 @@ import {
   formatPropertyValue,
   hasPropertyValue,
 } from '../../features/properties/lib/customProperties';
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
+import { dateFormat, dateTimeFormat } from '@crm/lib/format';
 
 const CONSENT_SOURCE_LABEL: Record<string, string> = {
   crm: 'CRM',

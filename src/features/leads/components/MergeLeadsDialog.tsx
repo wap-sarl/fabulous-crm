@@ -23,11 +23,10 @@ import { formatPropertyValue, hasPropertyValue } from '../../properties/lib/cust
 import { duplicateErrorMessage, useDuplicateActions } from '../hooks/useDuplicateActions';
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { DUPLICATE_REASON_LABEL, DUPLICATE_REASON_TONE } from '../lib/duplicates';
+import { dateFormat } from '@crm/lib/format';
 
 type Side = 'a' | 'b';
 type Enriched = { lead: Doc<'leads'>; ownerNames: string[]; companyName: string | null };
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
 
 /** One comparable row: how to read each side and how to express "take the other side". */
 interface FieldRow {

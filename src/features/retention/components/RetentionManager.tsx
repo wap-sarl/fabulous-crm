@@ -3,6 +3,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { z } from 'zod';
 import { api, RETENTION_BOUNDS, type RetentionKey } from '@crm/lib/backend';
 import { Button, Card, HelperText, Input, Label, Spinner, toast } from '@crm/design-system';
+import { dateTimeFormat, numberFormat } from '@crm/lib/format';
 
 const FIELDS: { key: RetentionKey; label: string; hint: string }[] = [
   {
@@ -36,9 +37,6 @@ const schema = z.object({
   auditDays: days('auditDays'),
 });
 type Form = Record<RetentionKey, string>;
-
-const DATE_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-const fmt = new Intl.NumberFormat('fr-FR');
 
 const COUNT_LABELS: Record<string, string> = {
   leads: 'leads',
@@ -151,7 +149,7 @@ export function RetentionManager() {
         ) : (
           <>
             <p className="text-sm text-soft">
-              {DATE_FMT.format(last.at)}
+              {dateTimeFormat.format(last.at)}
               {typeof last.report.pages === 'number' && last.report.pages > 1
                 ? ` · ${last.report.pages} lots`
                 : ''}
@@ -163,7 +161,7 @@ export function RetentionManager() {
               <ul className="text-sm text-soft">
                 {purged.map(([key, n]) => (
                   <li key={key}>
-                    {fmt.format(n)} {COUNT_LABELS[key] ?? key}
+                    {numberFormat.format(n)} {COUNT_LABELS[key] ?? key}
                   </li>
                 ))}
               </ul>

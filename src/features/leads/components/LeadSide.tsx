@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import type { DuplicateLeadSummary } from '@crm/lib/backend';
-
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
+import { dateFormat } from '@crm/lib/format';
 
 export function LeadSide({ lead }: { lead: DuplicateLeadSummary }) {
   return (

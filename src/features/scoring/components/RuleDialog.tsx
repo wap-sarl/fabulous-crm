@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 import { useState } from 'react';
 import type { LeadAdvancedFilter } from '@crm/lib/backend';
 import {
@@ -27,11 +28,8 @@ const SAVE_ERRORS: Record<string, string> = {
     'Les critères ne peuvent pas porter sur les listes ni sur le score.',
 };
 
-function saveErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  const known = Object.keys(SAVE_ERRORS).find((code) => message.includes(code));
-  return known ? SAVE_ERRORS[known] : 'Échec de l’enregistrement de la règle.';
-}
+const saveErrorMessage = (error: unknown) =>
+  errorLabel(error, SAVE_ERRORS, 'Échec de l’enregistrement de la règle.');
 
 /** Create/edit modal: name, points, decay and the lead criteria builder. */
 export function RuleDialog({

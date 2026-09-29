@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 import { useState } from 'react';
 import { useAuthMutation } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
@@ -33,11 +34,8 @@ const SAVE_ERRORS: Record<string, string> = {
   api_key_expiry_in_past: 'La date d’expiration est déjà passée.',
 };
 
-function saveErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  const known = Object.keys(SAVE_ERRORS).find((code) => message.includes(code));
-  return known ? SAVE_ERRORS[known] : 'Échec de l’enregistrement de la clé.';
-}
+const saveErrorMessage = (error: unknown) =>
+  errorLabel(error, SAVE_ERRORS, 'Échec de l’enregistrement de la clé.');
 
 /** Create/edit modal: name + scope matrix (+ optional expiry at creation). */
 export function KeyEditorDialog({

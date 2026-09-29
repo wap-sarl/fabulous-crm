@@ -9,6 +9,7 @@ import { Spinner } from '../feedback/spinner';
 import { Collapse } from '../surfaces/collapse';
 import { HelperText } from './helper-text';
 import { cn } from '../../theme/utils';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 
 export type SiretVerificationResult =
   | { status: 'found'; data: SiretCompanyData }
@@ -28,15 +29,6 @@ interface VerifiedSIRETInputProps extends Omit<SIRETInputProps, 'value' | 'onCha
 const VERIFY_TIMEOUT_MS = 10_000;
 
 type LastState = { kind: 'idle' } | { kind: 'result'; result: SiretVerificationResult };
-
-function useDebouncedValue<T>(value: T, delay: number): T {
-  const [debounced, setDebounced] = React.useState(value);
-  React.useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(t);
-  }, [value, delay]);
-  return debounced;
-}
 
 function VerifiedSIRETInput({
   value,

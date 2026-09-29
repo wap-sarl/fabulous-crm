@@ -1,3 +1,4 @@
+import { errorLabel } from '@crm/lib/errors';
 const ROLE_ERRORS: Record<string, string> = {
   role_label_required: 'Le nom du rôle est requis.',
   role_label_too_long: 'Nom trop long.',
@@ -9,8 +10,5 @@ const ROLE_ERRORS: Record<string, string> = {
   role_not_found: 'Ce rôle n’existe plus.',
 };
 
-export function roleErrorMessage(e: unknown): string {
-  const message = e instanceof Error ? e.message : '';
-  const key = Object.keys(ROLE_ERRORS).find((k) => message.includes(k));
-  return key ? ROLE_ERRORS[key] : 'Une erreur est survenue.';
-}
+export const roleErrorMessage = (e: unknown) =>
+  errorLabel(e, ROLE_ERRORS, 'Une erreur est survenue.');
