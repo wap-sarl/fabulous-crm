@@ -150,12 +150,14 @@ describe('advanced import', () => {
       email: 'ada@example.com',
     });
     // Through the mutation: the dedupe keys the duplicate search reads are stamped by the trigger.
-    const twin = await as.mutation(api.features.crm.mutations.createLead, {
+    const twin = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Bob',
       lastName: 'Marley',
       phone: '+33612345678',
     });
-    const listId = await as.mutation(api.features.crm.mutations.createLeadList, { name: 'Import' });
+    const listId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
+      name: 'Import',
+    });
     const jobId = await upload(
       as,
       'lead',
@@ -238,7 +240,7 @@ describe('advanced import', () => {
 
   test('contacts: the policy « create anyway » creates the probable duplicate', async () => {
     const { t, as } = await setup();
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Bob',
       lastName: 'Marley',
       phone: '+33612345678',

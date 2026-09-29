@@ -46,7 +46,7 @@ const DATETIME_FMT = new Intl.DateTimeFormat('fr-FR', {
 /** Modal listing the leads that belong to a list. */
 function ListMembersDialog({ list, onClose }: { list: LeadListRow; onClose: () => void }) {
   const { results, status, loadMore } = useAuthPaginatedQuery(
-    api.features.crm.queries.listLeadsPaginated,
+    api.features.leads.queries.listLeadsPaginated,
     { listIds: [list._id], sortField: 'recent', sortDirection: 'desc' },
     { initialNumItems: 50 },
   );
@@ -249,11 +249,11 @@ function listSubtitle(list: LeadListRow): string {
 /** Lists management: static (CSV imports) and dynamic (criteria-driven) lists. */
 export function LeadListsPage() {
   usePageTitle('Listes');
-  const lists = useAuthQuery(api.features.crm.queries.listLeadLists, {}) as
+  const lists = useAuthQuery(api.features.leadLists.queries.listLeadLists, {}) as
     | LeadListRow[]
     | undefined;
   const navigate = useNavigate();
-  const limits = useAuthQuery(api.features.crm.queries.getListLimits, {});
+  const limits = useAuthQuery(api.features.leadLists.queries.getListLimits, {});
   const { recalcLeadList } = useLeadActions();
   const [members, setMembers] = useState<LeadListRow | null>(null);
   const [toDelete, setToDelete] = useState<LeadListRow | null>(null);

@@ -367,7 +367,7 @@ describe('retention purge', () => {
     await sendWith(t, campaignId, lead, NOW);
     await sendWith(t, campaignId, other, NOW);
     await workflowWithRun(ctx, lead, NOW);
-    const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+    const listId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
       name: 'Static',
       kind: 'static',
     });
@@ -438,7 +438,7 @@ describe('retention purge', () => {
     expect(await count(t, 'campaignEvents')).toBe(1);
     const members = await t.run((ctx) => ctx.db.query('leadListMembers').collect());
     expect(members.map((m) => m.leadId)).toEqual([other]);
-    const lists = await as.query(api.features.crm.queries.listLeadLists, {});
+    const lists = await as.query(api.features.leadLists.queries.listLeadLists, {});
     expect(lists.find((l) => l._id === listId)?.memberCount).toBe(1);
     expect((await t.run((ctx) => ctx.db.get(dealId)))?.leadId).toBeUndefined();
     expect((await t.run((ctx) => ctx.db.get(activityId)))?.leadId).toBeUndefined();
@@ -524,7 +524,7 @@ describe('retention purge', () => {
     const { t, as } = await setup();
     const lead = await seedLead(t, { email: 'lead@example.com', lifecycleStage: 'mql' });
     await trash(t, lead, 40);
-    const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+    const listId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
       name: 'Dynamic',
       kind: 'dynamic',
       criteria: {

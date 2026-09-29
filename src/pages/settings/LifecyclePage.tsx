@@ -55,7 +55,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 export function LifecyclePage() {
   usePageTitle('Statuts');
   const config = useAuthQuery(api.features.config.queries.getLifecycleConfig, {});
-  const counts = useAuthQuery(api.features.crm.queries.countLeadsByLifecycleStage, {});
+  const counts = useAuthQuery(api.features.leads.queries.countLeadsByLifecycleStage, {});
   const updateLifecycleConfig = useAuthMutation(
     api.features.config.mutations.updateLifecycleConfig,
   );

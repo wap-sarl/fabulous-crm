@@ -38,7 +38,7 @@ async function setup() {
     memberIds: [sam.userId],
   });
   const lead = (lastName: string, ownerIds: Id<'users'>[]) =>
-    as.admin.mutation(api.features.crm.mutations.createLead, {
+    as.admin.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Lead',
       lastName,
       lifecycleStage: 'lead',
@@ -55,7 +55,7 @@ async function setup() {
 
 const listLeadIds = (as: ReturnType<typeof asIdentity>) =>
   as
-    .query(api.features.crm.queries.listLeadsPaginated, {
+    .query(api.features.leads.queries.listLeadsPaginated, {
       paginationOpts: { numItems: 50, cursor: null },
     })
     .then((r) => r.page.map((l) => l._id).sort());
@@ -187,9 +187,12 @@ describe('access levels', () => {
     expect(await listLeadIds(as.sam)).toEqual([leads.sam, leads.shared, leads.pool].sort());
     // Sam cannot touch Nina's lead; can claim the pool.
     await expect(
-      as.sam.mutation(api.features.crm.mutations.updateLead, { leadId: leads.nina, comment: 'x' }),
+      as.sam.mutation(api.features.leads.mutations.updateLead, {
+        leadId: leads.nina,
+        comment: 'x',
+      }),
     ).rejects.toThrow('lead_not_found');
-    await as.sam.mutation(api.features.crm.mutations.updateLead, {
+    await as.sam.mutation(api.features.leads.mutations.updateLead, {
       leadId: leads.pool,
       ownerIds: [(await as.sam.query(api.auth.getCurrentUser, {}))!._id as Id<'users'>],
     });
@@ -211,13 +214,13 @@ describe('access levels', () => {
     });
     expect(await listLeadIds(as.sam)).toEqual([]);
     expect(
-      await as.sam.query(api.features.crm.queries.getLeadDetail, { leadId: leads.sam }),
+      await as.sam.query(api.features.leads.queries.getLeadDetail, { leadId: leads.sam }),
     ).toBeNull();
     expect(
-      (await as.sam.query(api.features.crm.queries.countLeadsByLifecycleStage, {})).total,
+      (await as.sam.query(api.features.leads.queries.countLeadsByLifecycleStage, {})).total,
     ).toBe(0);
     await expect(
-      as.sam.mutation(api.features.crm.mutations.createLead, {
+      as.sam.mutation(api.features.leads.mutations.createLead, {
         firstName: 'X',
         lastName: 'Y',
         ownerIds: [sam.userId],
@@ -265,7 +268,7 @@ describe('access levels', () => {
       startNodeId: 'n1',
     });
     // A note on Sam's lead follows the lead.
-    await as.sam.mutation(api.features.crm.mutations.createNote, {
+    await as.sam.mutation(api.features.leads.mutations.createNote, {
       leadId: leads.sam,
       content: 'n',
     });
@@ -291,20 +294,20 @@ describe('access levels', () => {
     expect((await as.nina.query(api.features.companies.queries.countCompanies, {})).total).toBe(1);
     expect((await as.sam.query(api.features.companies.queries.countCompanies, {})).total).toBe(2);
 
-    const campaigns = await as.nina.query(api.features.crm.queries.listCampaigns, {});
+    const campaigns = await as.nina.query(api.features.campaigns.queries.listCampaigns, {});
     expect(campaigns.map((c) => c._id)).toEqual([]);
     expect(
-      (await as.sam.query(api.features.crm.queries.listCampaigns, {})).map((c) => c._id),
+      (await as.sam.query(api.features.campaigns.queries.listCampaigns, {})).map((c) => c._id),
     ).toEqual([samCampaign]);
     const workflows = await as.marc.query(api.features.workflows.queries.listWorkflows, {});
     expect(workflows.map((w) => w._id)).toEqual([ninaWorkflow]);
     expect((await as.sam.query(api.features.workflows.queries.listWorkflows, {})).length).toBe(0);
 
     expect(
-      await as.nina.query(api.features.crm.queries.listLeadNotes, { leadId: leads.sam }),
+      await as.nina.query(api.features.leads.queries.listLeadNotes, { leadId: leads.sam }),
     ).toEqual([]);
     expect(
-      (await as.sam.query(api.features.crm.queries.listLeadNotes, { leadId: leads.sam })).length,
+      (await as.sam.query(api.features.leads.queries.listLeadNotes, { leadId: leads.sam })).length,
     ).toBe(1);
 
     // Scoped pipeline stats sum the per-owner aggregates.
@@ -377,7 +380,7 @@ describe('access levels', () => {
 
   test('a campaign only reaches the leads its creator can see', async () => {
     const { t, as, leads } = await setup();
-    const resolved = await as.sam.query(api.features.crm.queries.listMatchingLeadIds, {});
+    const resolved = await as.sam.query(api.features.leads.queries.listMatchingLeadIds, {});
     expect(resolved.leadIds.sort()).toEqual([leads.sam, leads.shared, leads.pool].sort());
     void t;
   });

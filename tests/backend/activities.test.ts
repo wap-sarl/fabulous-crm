@@ -9,7 +9,7 @@ async function setup() {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com', role: 'admin' });
   const as = asIdentity(t, emp.identity);
-  const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+  const leadId = await as.mutation(api.features.leads.mutations.createLead, {
     firstName: 'Jean',
     lastName: 'Dupont',
     ownerIds: [emp.userId],

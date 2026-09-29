@@ -8,9 +8,9 @@ import { appOrigin } from '../../lib/config/appUrl';
 import { computeChanges, logAudit } from '../../lib/audit/log';
 import { deleteListMember, insertListMember } from '../../lib/leadLists/members';
 import { isNotDeleted } from '../../lib/shared/db';
-import { evalAdvancedFilter } from '../crm/leadMatching';
-import { loadLeadFilterExtras } from '../crm/leadTableFilters';
-import { buildLeadParams, buildLeadTargetPatch } from '../crm/leadTargets';
+import { evalAdvancedFilter } from '../../lib/leads/matching';
+import { loadLeadFilterExtras } from '../../lib/leads/tableFilters';
+import { buildLeadParams, buildLeadTargetPatch } from '../../lib/leads/targets';
 import {
   applyLifecycleTransition,
   loadLifecycleConfig,

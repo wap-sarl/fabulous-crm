@@ -23,13 +23,13 @@ async function setup(): Promise<{ t: T; emp: SeededEmployee }> {
 }
 
 type CampaignFilter = FunctionArgs<
-  typeof internal.features.crm.internal.prepareCampaignBatch
+  typeof internal.features.campaigns.internal.prepareCampaignBatch
 >['filter'];
 
 async function prepareCampaign(t: T, campaignId: Id<'campaigns'>, filter: CampaignFilter = {}) {
   let cursor: string | undefined;
   for (;;) {
-    const res = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+    const res = await t.mutation(internal.features.campaigns.internal.prepareCampaignBatch, {
       campaignId,
       filter,
       ...(cursor !== undefined ? { cursor } : {}),
@@ -62,28 +62,31 @@ describe('recipient resolution by consent (listMatchingLeadIds)', () => {
   test('the marketing consent rule excludes non-consenting leads', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const consenting = await as.mutation(api.features.crm.mutations.createLead, {
+    const consenting = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Oui',
       lastName: 'Consent',
       email: 'oui@example.com',
     });
-    const notConsenting = await as.mutation(api.features.crm.mutations.createLead, {
+    const notConsenting = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Non',
       lastName: 'Consent',
       email: 'non@example.com',
     });
     const token = (await t.run((ctx) => ctx.db.get(consenting)))?.consentToken ?? '';
-    await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token,
       channels: ['email'],
     });
 
-    const result = await as.query(api.features.crm.queries.listMatchingLeadIds, emailConsentFilter);
+    const result = await as.query(
+      api.features.leads.queries.listMatchingLeadIds,
+      emailConsentFilter,
+    );
     expect(result.leadIds).toContain(consenting);
     expect(result.leadIds).not.toContain(notConsenting);
 
     // Transactional sends use no consent rule: both leads match.
-    const unfiltered = await as.query(api.features.crm.queries.listMatchingLeadIds, {});
+    const unfiltered = await as.query(api.features.leads.queries.listMatchingLeadIds, {});
     expect(unfiltered.leadIds).toContain(consenting);
     expect(unfiltered.leadIds).toContain(notConsenting);
   });
@@ -92,12 +95,12 @@ describe('recipient resolution by consent (listMatchingLeadIds)', () => {
 describe('createCampaign', () => {
   async function createLeads(t: T, emp: SeededEmployee): Promise<Id<'leads'>[]> {
     const as = asIdentity(t, emp.identity);
-    const withEmail = await as.mutation(api.features.crm.mutations.createLead, {
+    const withEmail = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Avec',
       lastName: 'Email',
       email: 'avec@example.com',
     });
-    const withoutEmail = await as.mutation(api.features.crm.mutations.createLead, {
+    const withoutEmail = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Sans',
       lastName: 'Email',
       email: '',
@@ -109,7 +112,7 @@ describe('createCampaign', () => {
     const { t, emp } = await setup();
     const [withEmail, withoutEmail] = await createLeads(t, emp);
     const campaignId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createCampaign,
+      api.features.campaigns.mutations.createCampaign,
       {
         name: 'Newsletter test',
         channel: 'email',
@@ -143,23 +146,23 @@ describe('createCampaign', () => {
   test('the campaign filter drives recipient resolution server-side', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const consenting = await as.mutation(api.features.crm.mutations.createLead, {
+    const consenting = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Oui',
       lastName: 'Consent',
       email: 'oui@example.com',
     });
-    const notConsenting = await as.mutation(api.features.crm.mutations.createLead, {
+    const notConsenting = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Non',
       lastName: 'Consent',
       email: 'non@example.com',
     });
     const token = (await t.run((ctx) => ctx.db.get(consenting)))?.consentToken ?? '';
-    await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token,
       channels: ['email'],
     });
 
-    const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
+    const campaignId = await as.mutation(api.features.campaigns.mutations.createCampaign, {
       name: 'Marketing filtrée',
       channel: 'email',
       filter: emailConsentFilter,
@@ -181,7 +184,7 @@ describe('createCampaign', () => {
       await seedLead(t, { email: `bulk-${i}@example.com` });
     }
     const campaignId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createCampaign,
+      api.features.campaigns.mutations.createCampaign,
       {
         name: 'Grosse campagne',
         channel: 'email',
@@ -205,7 +208,7 @@ describe('createCampaign', () => {
     const { t, emp } = await setup();
     await seedLead(t, { email: 'a@example.com' });
     const campaignId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createCampaign,
+      api.features.campaigns.mutations.createCampaign,
       {
         name: 'Annulée',
         channel: 'email',
@@ -218,7 +221,7 @@ describe('createCampaign', () => {
       await ctx.db.patch(campaignId, { deletedAt: Date.now() });
     });
 
-    const res = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+    const res = await t.mutation(internal.features.campaigns.internal.prepareCampaignBatch, {
       campaignId,
       filter: {},
     });
@@ -233,7 +236,7 @@ describe('createCampaign', () => {
     await createLeads(t, emp);
     const as = asIdentity(t, emp.identity);
     await expect(
-      as.mutation(api.features.crm.mutations.createCampaign, {
+      as.mutation(api.features.campaigns.mutations.createCampaign, {
         name: '   ',
         channel: 'email',
         filter: {},
@@ -242,7 +245,7 @@ describe('createCampaign', () => {
       }),
     ).rejects.toThrow('Le nom de la campagne est requis.');
     await expect(
-      as.mutation(api.features.crm.mutations.createCampaign, {
+      as.mutation(api.features.campaigns.mutations.createCampaign, {
         name: 'Template',
         channel: 'email',
         filter: {},
@@ -255,7 +258,7 @@ describe('createCampaign', () => {
     const { t, emp } = await setup();
     await createLeads(t, emp);
     await expect(
-      asIdentity(t, emp.identity).mutation(api.features.crm.mutations.createCampaign, {
+      asIdentity(t, emp.identity).mutation(api.features.campaigns.mutations.createCampaign, {
         name: 'Sans objet',
         channel: 'email',
         filter: {},

@@ -19,25 +19,25 @@ function rows(...names: string[]) {
 }
 
 async function memberCountOf(as: ReturnType<typeof asIdentity>, listId: Id<'leadLists'>) {
-  const lists = await as.query(api.features.crm.queries.listLeadLists, {});
+  const lists = await as.query(api.features.leadLists.queries.listLeadLists, {});
   return lists.find((list) => list._id === listId)?.memberCount;
 }
 
 describe('listLeadLists member counts', () => {
   test('import into a list is counted, idempotently across re-imports', async () => {
     const { as } = await setup();
-    const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+    const listId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
       name: 'Prospects',
     });
 
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: rows('Anna', 'Bruno', 'Chloe'),
       listId,
     });
     expect(await memberCountOf(as, listId)).toBe(3);
 
     // Re-importing the same emails upserts the leads and must not double-count.
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: rows('Anna', 'Bruno'),
       listId,
     });
@@ -46,28 +46,28 @@ describe('listLeadLists member counts', () => {
 
   test('deleting a list drains its count without touching other lists', async () => {
     const { as } = await setup();
-    const keepId = await as.mutation(api.features.crm.mutations.createLeadList, {
+    const keepId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
       name: 'Keep',
     });
-    const dropId = await as.mutation(api.features.crm.mutations.createLeadList, {
+    const dropId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
       name: 'Drop',
     });
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: rows('Anna', 'Bruno'),
       listId: keepId,
     });
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: rows('Denis'),
       listId: dropId,
     });
 
-    const result = await as.mutation(api.features.crm.mutations.deleteLeadList, {
+    const result = await as.mutation(api.features.leadLists.mutations.deleteLeadList, {
       listId: dropId,
       deleteLeads: false,
     });
     expect(result.done).toBe(true);
 
-    const lists = await as.query(api.features.crm.queries.listLeadLists, {});
+    const lists = await as.query(api.features.leadLists.queries.listLeadLists, {});
     expect(lists.find((list) => list._id === dropId)).toBeUndefined();
     expect(await memberCountOf(as, keepId)).toBe(2);
   });
@@ -92,26 +92,31 @@ describe('advanced-filter list membership', () => {
 
   test('« est membre de » follows list adds and removals, through the index', async () => {
     const { as } = await setup();
-    const listId = await as.mutation(api.features.crm.mutations.createLeadList, { name: 'Cible' });
-    await as.mutation(api.features.crm.mutations.importLeads, { rows: rows('Anna'), listId });
-    await as.mutation(api.features.crm.mutations.importLeads, { rows: rows('Bruno') });
+    const listId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
+      name: 'Cible',
+    });
+    await as.mutation(api.features.leads.mutations.importLeads, { rows: rows('Anna'), listId });
+    await as.mutation(api.features.leads.mutations.importLeads, { rows: rows('Bruno') });
 
-    const members = await as.query(api.features.crm.queries.listMatchingLeadIds, {
+    const members = await as.query(api.features.leads.queries.listMatchingLeadIds, {
       advancedFilter: membershipFilter(listId, 'equals'),
     });
     expect(members.total).toBe(1);
-    const outsiders = await as.query(api.features.crm.queries.listMatchingLeadIds, {
+    const outsiders = await as.query(api.features.leads.queries.listMatchingLeadIds, {
       advancedFilter: membershipFilter(listId, 'notEquals'),
     });
     expect(outsiders.total).toBe(1);
 
     // Removing the membership (list deleted, leads kept) flips the verdicts.
-    await as.mutation(api.features.crm.mutations.deleteLeadList, { listId, deleteLeads: false });
-    const after = await as.query(api.features.crm.queries.listMatchingLeadIds, {
+    await as.mutation(api.features.leadLists.mutations.deleteLeadList, {
+      listId,
+      deleteLeads: false,
+    });
+    const after = await as.query(api.features.leads.queries.listMatchingLeadIds, {
       advancedFilter: membershipFilter(listId, 'equals'),
     });
     expect(after.total).toBe(0);
-    const afterNot = await as.query(api.features.crm.queries.listMatchingLeadIds, {
+    const afterNot = await as.query(api.features.leads.queries.listMatchingLeadIds, {
       advancedFilter: membershipFilter(listId, 'notEquals'),
     });
     expect(afterNot.total).toBe(2);

@@ -214,7 +214,7 @@ describe('pipeline stage tags', () => {
 describe('deals', () => {
   test('creation lands in the default pipeline/stage, logs history, audits, links the lead', async () => {
     const { t, as, emp, pipelineId } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
       email: 'jean@acme.fr',
@@ -428,7 +428,7 @@ describe('deals', () => {
       workflowId,
       status: 'active',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
     });
@@ -468,7 +468,7 @@ describe('deals', () => {
       workflowId,
       status: 'active',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
     });
@@ -538,7 +538,7 @@ describe('workflow deal steps', () => {
 
   test('create_deal renders the title from the lead and attaches lead and owner', async () => {
     const { t, as, emp, pipelineId } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
       email: 'jean@acme.fr',
@@ -567,7 +567,7 @@ describe('workflow deal steps', () => {
   test('update_deal_stage moves the lead’s latest open deal; skips when there is none', async () => {
     const { t, as, emp } = await setup();
     const workflowId = await activeWorkflow(t, emp, { type: 'update_deal_stage', stageKey: 'won' });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
     });
@@ -646,7 +646,7 @@ describe('workflow deal steps', () => {
       transitions: LINEAR,
     });
     const workflowId = await activeWorkflow(t, emp, { type: 'update_deal_stage', stageKey: 'won' });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
     });
@@ -691,7 +691,7 @@ describe('workflow deal steps', () => {
       stageKey: 'lost',
       tags: ['no_answer'],
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
     });

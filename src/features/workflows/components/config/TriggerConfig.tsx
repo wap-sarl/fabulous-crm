@@ -57,7 +57,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
   const lists = useLeadLists();
   const leadCatalog = useLeadFieldCatalog(definitions);
   const { pipelines, byId: pipelineById } = usePipelines();
-  const campaigns = useAuthQuery(api.features.crm.queries.listCampaigns, {}) ?? [];
+  const campaigns = useAuthQuery(api.features.campaigns.queries.listCampaigns, {}) ?? [];
   const forms = useAuthQuery(api.features.forms.queries.listFormOptions, {}) ?? [];
   const { trigger } = value;
 

@@ -8,7 +8,7 @@ describe('updateConsentByToken', () => {
     const t = createTestConvex();
     const emp = await seedEmployee(t, { email: 'agent@example.com' });
     const leadId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createLead,
+      api.features.leads.mutations.createLead,
       {
         firstName: 'Lea',
         lastName: 'Durand',
@@ -19,7 +19,7 @@ describe('updateConsentByToken', () => {
     if (!token) throw new Error('lead has no consent token');
 
     // No identity: the public consent page is unauthenticated by design.
-    const result = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    const result = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token,
       channels: ['email', 'sms', 'email'],
     });
@@ -33,7 +33,7 @@ describe('updateConsentByToken', () => {
 
   test('an unknown token is rejected without writing anything', async () => {
     const t = createTestConvex();
-    const result = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    const result = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token: 'deadbeefdeadbeefdeadbeefdeadbeef',
       channels: ['email'],
     });
@@ -44,15 +44,15 @@ describe('updateConsentByToken', () => {
     const t = createTestConvex();
     const emp = await seedEmployee(t, { email: 'agent@example.com' });
     const as = asIdentity(t, emp.identity);
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Gone',
       lastName: 'Lead',
       email: 'gone@example.com',
     });
     const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken;
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId });
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId });
 
-    const result = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    const result = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token: token ?? '',
       channels: ['email'],
     });
@@ -63,7 +63,7 @@ describe('updateConsentByToken', () => {
     const t = createTestConvex();
     const emp = await seedEmployee(t, { email: 'agent@example.com' });
     const leadId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createLead,
+      api.features.leads.mutations.createLead,
       {
         firstName: 'Optout',
         lastName: 'Lead',
@@ -71,11 +71,11 @@ describe('updateConsentByToken', () => {
       },
     );
     const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
-    await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token,
       channels: ['email'],
     });
-    await t.mutation(api.features.crm.mutations.updateConsentByToken, { token, channels: [] });
+    await t.mutation(api.features.consent.mutations.updateConsentByToken, { token, channels: [] });
     const lead = await t.run((ctx) => ctx.db.get(leadId));
     expect(lead?.marketingConsent).toEqual([]);
   });

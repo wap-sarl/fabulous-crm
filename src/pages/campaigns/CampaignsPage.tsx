@@ -34,7 +34,7 @@ function formatDate(ms: number): string {
 export function CampaignsPage() {
   usePageTitle('Campagnes');
   const navigate = useNavigate();
-  const campaigns = useAuthQuery(api.features.crm.queries.listCampaigns, {});
+  const campaigns = useAuthQuery(api.features.campaigns.queries.listCampaigns, {});
 
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CampaignStatus>('all');

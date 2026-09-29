@@ -16,7 +16,7 @@ import {
   stageRequiresTag,
   validateStageTags,
 } from '../../_lib/validators/deals';
-import { validateLeadTargetValue } from '../crm/leadTargets';
+import { validateLeadTargetValue } from '../../lib/leads/targets';
 
 /** Pure helpers, without ctx or db: the public mutations and the trigger dispatcher share them. */
 

@@ -133,7 +133,7 @@ function DealFormBody({
   const { pipelines, defaultPipeline, byId } = usePipelines();
   const { employees } = useEmployees();
   const definitions = usePropertyDefinitions('deal');
-  const campaigns = useAuthQuery(api.features.crm.queries.listCampaigns, {}) ?? [];
+  const campaigns = useAuthQuery(api.features.campaigns.queries.listCampaigns, {}) ?? [];
   const [form, setForm] = useState<FormState>(() =>
     initialForm(
       deal,

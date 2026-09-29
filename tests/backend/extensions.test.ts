@@ -28,7 +28,7 @@ describe('extension seam', () => {
       /tenant_suspended/,
     );
     await expect(
-      as.mutation(api.features.crm.mutations.createLead, { firstName: 'A', lastName: 'B' }),
+      as.mutation(api.features.leads.mutations.createLead, { firstName: 'A', lastName: 'B' }),
     ).rejects.toThrow(/tenant_suspended/);
   });
 
@@ -67,8 +67,8 @@ describe('extension seam', () => {
         if (info.source === 'api') throw new Error('contact_limit_reached');
       },
     });
-    await as.mutation(api.features.crm.mutations.createLead, { firstName: 'A', lastName: 'B' });
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.createLead, { firstName: 'A', lastName: 'B' });
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         { firstName: 'C', lastName: 'D' },
         { firstName: 'E', lastName: 'F' },
@@ -111,7 +111,7 @@ describe('extension seam', () => {
     setExtensionsForTests({
       beforeWorkflowRun: async (_ctx, workflow) => workflow._id !== workflowId,
     });
-    await as.mutation(api.features.crm.mutations.createLead, { firstName: 'A', lastName: 'B' });
+    await as.mutation(api.features.leads.mutations.createLead, { firstName: 'A', lastName: 'B' });
     await t.run(async (ctx) => {
       expect(await ctx.db.query('leads').collect()).toHaveLength(1);
       expect(await ctx.db.query('workflowRuns').collect()).toHaveLength(0);
@@ -124,7 +124,7 @@ describe('extension seam', () => {
     const savedKey = process.env.BREVO_API_KEY;
     process.env.BREVO_API_KEY = 'test-brevo-key';
     try {
-      await as.mutation(api.features.crm.mutations.createLead, {
+      await as.mutation(api.features.leads.mutations.createLead, {
         firstName: 'A',
         lastName: 'B',
         email: 'a@example.com',
@@ -139,7 +139,7 @@ describe('extension seam', () => {
         },
       });
       const create = () =>
-        as.mutation(api.features.crm.mutations.createCampaign, {
+        as.mutation(api.features.campaigns.mutations.createCampaign, {
           name: 'Newsletter',
           channel: 'email',
           filter: {},
@@ -152,7 +152,7 @@ describe('extension seam', () => {
       ) => {
         let cursor: string | undefined;
         for (;;) {
-          const res = await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+          const res = await t.mutation(internal.features.campaigns.internal.prepareCampaignBatch, {
             campaignId,
             filter: {},
             batchSize,
@@ -194,16 +194,19 @@ describe('extension seam', () => {
       });
       allow = false;
       await expect(
-        as.mutation(api.features.crm.mutations.retryCampaignSend, { campaignId, sendId: send._id }),
+        as.mutation(api.features.campaigns.mutations.retryCampaignSend, {
+          campaignId,
+          sendId: send._id,
+        }),
       ).rejects.toThrow(/quota_exceeded/);
       await expect(
-        as.mutation(api.features.crm.mutations.resendAllCampaignSends, { campaignId }),
+        as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, { campaignId }),
       ).rejects.toThrow(/quota_exceeded/);
       // The refused retry rolled back: the send is still failed and the campaign still sent.
       expect((await t.run((ctx) => ctx.db.get(send._id)))?.status).toBe('failed');
       expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sent');
       allow = true;
-      await as.mutation(api.features.crm.mutations.retryCampaignSend, {
+      await as.mutation(api.features.campaigns.mutations.retryCampaignSend, {
         campaignId,
         sendId: send._id,
       });
@@ -222,7 +225,7 @@ describe('extension seam', () => {
 
       // Large campaigns are gated page by page with the running count: a refusal stops within one page and never reaches the drain.
       for (const n of [2, 3, 4]) {
-        await as.mutation(api.features.crm.mutations.createLead, {
+        await as.mutation(api.features.leads.mutations.createLead, {
           firstName: `L${n}`,
           lastName: 'Page',
           email: `l${n}@example.com`,
@@ -325,7 +328,7 @@ describe('extension seam', () => {
 
   test('beforeLeadCreate is asked for every import row, updates and invalid rows included', async () => {
     const { t, as } = await setup();
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Live',
       lastName: 'One',
       email: 'live@example.com',
@@ -337,7 +340,7 @@ describe('extension seam', () => {
         if (info.source === 'import') counts.push(info.count);
       },
     });
-    const result = await as.mutation(api.features.crm.mutations.importLeads, {
+    const result = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         { firstName: 'Live', lastName: 'Renamed', email: 'live@example.com' },
         { firstName: 'New', lastName: 'One', email: 'new@example.com' },
@@ -354,7 +357,7 @@ describe('extension seam', () => {
     expect(counts).toEqual([4]);
     expect(result).toMatchObject({ created: 1, updated: 2 });
     expect(result.errors).toHaveLength(1);
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [{ firstName: 'Live', lastName: 'Again', email: 'live@example.com' }],
     });
     expect(counts).toEqual([4, 1]);
@@ -374,7 +377,7 @@ describe('extension seam', () => {
           ),
       );
     };
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'B',
       email: 'a@example.com',
@@ -448,7 +451,7 @@ describe('extension seam', () => {
     // campaign_prepare: the page is rescheduled and no recipient is materialised.
     defer(['campaign_prepare']);
     expect(
-      await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+      await t.mutation(internal.features.campaigns.internal.prepareCampaignBatch, {
         campaignId: preparing,
         filter: {},
       }),
@@ -461,7 +464,7 @@ describe('extension seam', () => {
 
     // campaign_drain: the pending send waits, the campaign stays sending, the drain is rescheduled.
     defer(['campaign_drain']);
-    await t.action(internal.features.crm.actions.sendCampaignBatch, { campaignId: sending });
+    await t.action(internal.features.campaigns.actions.sendCampaignBatch, { campaignId: sending });
     expect((await t.run((ctx) => ctx.db.get(sendId)))?.status).toBe('pending');
     expect((await t.run((ctx) => ctx.db.get(sending)))?.status).toBe('sending');
     expect(await scheduledLater('sendCampaignBatch', { campaignId: sending })).toHaveLength(1);
@@ -500,12 +503,12 @@ describe('extension seam', () => {
     });
     const drain = () => seen.splice(0);
     // The UI: a creation is one audited write, then one lifecycle entry.
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ada',
       lastName: 'Lovelace',
     });
     expect(drain()).toEqual(['lead.create (user)', 'lifecycle ->lead (manual)']);
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId,
       lifecycleStage: 'customer',
     });
@@ -524,7 +527,7 @@ describe('extension seam', () => {
     expect(created.status).toBe(201);
     expect(drain()).toEqual(['lead.create (api)', 'lifecycle ->lead (api)']);
     // A CSV import: every created row is audited (it was not before), every updated one too.
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         { firstName: 'Linus', lastName: 'T', email: 'linus@example.com' },
         { firstName: 'Grace', lastName: 'Hopper-Murray', email: 'grace@example.com' },
@@ -542,7 +545,7 @@ describe('extension seam', () => {
       email: 'gone@example.com',
       deletedAt: Date.now(),
     });
-    await as.mutation(api.features.crm.mutations.importLeads, {
+    await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [{ firstName: 'Back', lastName: 'Again', email: 'gone@example.com' }],
     });
     expect(drain()).toEqual(['lead.update (user)']);
@@ -552,7 +555,7 @@ describe('extension seam', () => {
     expect(revival?.metadata).toMatchObject({ revived: true });
     // The system: a consent change through the preference link is audited now, so the hook hears of it.
     const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
-    await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token,
       channels: ['email'],
     });
@@ -568,7 +571,7 @@ describe('extension seam', () => {
 
   test('a throwing afterChange never costs the write, and leaves one audit trace an hour', async () => {
     const { t, as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ada',
       lastName: 'Lovelace',
     });
@@ -588,8 +591,8 @@ describe('extension seam', () => {
     const logged: unknown[][] = [];
     console.error = (...args: unknown[]) => void logged.push(args);
     try {
-      await as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'kept' });
-      await as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'kept again' });
+      await as.mutation(api.features.leads.mutations.updateLead, { leadId, comment: 'kept' });
+      await as.mutation(api.features.leads.mutations.updateLead, { leadId, comment: 'kept again' });
     } finally {
       console.error = error;
     }
@@ -621,7 +624,7 @@ describe('extension seam', () => {
     await t.run((ctx) => ctx.db.patch(traces[0]!._id, { timestamp: Date.now() - 61 * 60 * 1000 }));
     console.error = () => {};
     try {
-      await as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'later' });
+      await as.mutation(api.features.leads.mutations.updateLead, { leadId, comment: 'later' });
     } finally {
       console.error = error;
     }

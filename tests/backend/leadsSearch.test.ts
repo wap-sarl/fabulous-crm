@@ -10,7 +10,7 @@ async function setup() {
 }
 
 async function searchLeads(as: ReturnType<typeof asIdentity>, search: string, extra = {}) {
-  const res = await as.query(api.features.crm.queries.listLeadsPaginated, {
+  const res = await as.query(api.features.leads.queries.listLeadsPaginated, {
     search,
     ...extra,
     paginationOpts: { numItems: 10, cursor: null },
@@ -21,12 +21,12 @@ async function searchLeads(as: ReturnType<typeof asIdentity>, search: string, ex
 describe('lead search (by_searchText index)', () => {
   test('is accent-insensitive: "helene" finds Hélène', async () => {
     const { as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Hélène',
       lastName: 'Lefèvre',
       email: 'helene@example.com',
     });
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Marc',
       lastName: 'Durand',
       email: 'marc@example.com',
@@ -40,7 +40,7 @@ describe('lead search (by_searchText index)', () => {
 
   test('matches word prefixes and email fragments', async () => {
     const { as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Marie',
       lastName: 'Curie',
       email: 'marie.curie@radium.fr',
@@ -53,12 +53,12 @@ describe('lead search (by_searchText index)', () => {
 
   test('searchText follows identity updates', async () => {
     const { as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ancien',
       lastName: 'Nom',
       email: 'a@example.com',
     });
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId,
       lastName: 'Nouveau',
     });
@@ -69,12 +69,12 @@ describe('lead search (by_searchText index)', () => {
 
   test('other filters stay residual on the search path', async () => {
     const { as } = await setup();
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Paul',
       lastName: 'Test',
       email: 'p1@example.com',
     });
-    const converted = await as.mutation(api.features.crm.mutations.createLead, {
+    const converted = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Paul',
       lastName: 'Test',
       email: 'p2@example.com',
@@ -87,13 +87,13 @@ describe('lead search (by_searchText index)', () => {
 
   test('the campaign-filter substring match is accent-insensitive too', async () => {
     const { as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Hélène',
       lastName: 'Lefèvre',
       email: 'helene@example.com',
     });
 
-    const result = await as.query(api.features.crm.queries.listMatchingLeadIds, {
+    const result = await as.query(api.features.leads.queries.listMatchingLeadIds, {
       search: 'helene',
     });
     expect(result.leadIds).toEqual([leadId]);

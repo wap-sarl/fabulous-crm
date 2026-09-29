@@ -196,7 +196,7 @@ describe('capture forms', () => {
       ],
     });
     // An existing contact with a name and a phone, no consent, watched by a workflow on property changes.
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Léa',
       lastName: 'Martin',
       email: 'lea@example.com',
@@ -257,12 +257,12 @@ describe('capture forms', () => {
   test('a deleted contact is a stranger, and a token with another address names nobody', async () => {
     const { t, as } = await setup();
     const formId = await createAcceptanceForm(as);
-    const ghost = await as.mutation(api.features.crm.mutations.createLead, {
+    const ghost = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ghost',
       lastName: 'Lead',
       email: 'ghost@example.com',
     });
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId: ghost });
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId: ghost });
     await submit(t, formId, { prenom: 'Revenant', 'e-mail': 'ghost@example.com' });
     const live = await liveLeads(t);
     expect(live).toHaveLength(1);

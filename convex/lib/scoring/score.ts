@@ -2,7 +2,7 @@ import { internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { MAX_LEAD_SCORE, MIN_LEAD_SCORE, type ScoringRule } from '../../_lib/validators/scoring';
-import { evalAdvancedFilter } from '../../features/crm/leadMatching';
+import { evalAdvancedFilter } from '../leads/matching';
 import { dispatchWorkflowTrigger } from '../../features/workflows/triggerDispatch';
 import {
   applyLifecycleTransition,

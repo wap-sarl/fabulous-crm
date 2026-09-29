@@ -10,7 +10,7 @@ describe('employeeQuery / employeeMutation', () => {
       'Unauthenticated',
     );
     await expect(
-      t.mutation(api.features.crm.mutations.createLead, {
+      t.mutation(api.features.leads.mutations.createLead, {
         firstName: 'A',
         lastName: 'B',
         email: 'x@example.com',

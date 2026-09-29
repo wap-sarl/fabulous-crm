@@ -130,14 +130,14 @@ describe('lead ↔ company matching', () => {
       }),
     ).toEqual({ _id: companyId, name: 'Initech', domain: 'acme.fr' });
     // …but nothing is attached without its answer.
-    const detached = await as.mutation(api.features.crm.mutations.createLead, {
+    const detached = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
       email: 'jean@ACME.fr',
     });
     expect((await leadOf(t, detached)).companyId).toBeUndefined();
     // « Oui » sends the company id.
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
       email: 'jean2@ACME.fr',
@@ -148,7 +148,7 @@ describe('lead ↔ company matching', () => {
     const company = await as.query(api.features.companies.queries.getCompany, { companyId });
     expect(company?.contactCount).toBe(1);
     // The company name is folded into the attached lead's search text only.
-    const found = await as.query(api.features.crm.queries.listLeadsPaginated, {
+    const found = await as.query(api.features.leads.queries.listLeadsPaginated, {
       search: 'initech',
       paginationOpts: { numItems: 10, cursor: null },
     });
@@ -163,7 +163,7 @@ describe('lead ↔ company matching', () => {
     expect(await find('a@newco.io')).toBeNull();
     expect(await find('b@gmail.com')).toBeNull();
     expect(await find('not-an-email')).toBeNull();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@newco.io',
@@ -189,7 +189,7 @@ describe('lead ↔ company matching', () => {
     const other = await as.mutation(api.features.companies.mutations.createCompany, {
       name: 'Other',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@acme.fr',
@@ -198,11 +198,11 @@ describe('lead ↔ company matching', () => {
     expect((await leadOf(t, leadId)).companyId).toBe(other);
 
     // Detach, then change the email: still detached until the form's « Oui ».
-    await as.mutation(api.features.crm.mutations.updateLead, { leadId, companyId: null });
+    await as.mutation(api.features.leads.mutations.updateLead, { leadId, companyId: null });
     expect((await leadOf(t, leadId)).companyId).toBeUndefined();
-    await as.mutation(api.features.crm.mutations.updateLead, { leadId, email: 'a2@acme.fr' });
+    await as.mutation(api.features.leads.mutations.updateLead, { leadId, email: 'a2@acme.fr' });
     expect((await leadOf(t, leadId)).companyId).toBeUndefined();
-    await as.mutation(api.features.crm.mutations.updateLead, { leadId, companyId: acme });
+    await as.mutation(api.features.leads.mutations.updateLead, { leadId, companyId: acme });
     expect((await leadOf(t, leadId)).companyId).toBe(acme);
   });
 
@@ -232,7 +232,7 @@ describe('lead ↔ company matching', () => {
         })
       )?._id,
     ).toBe(acme);
-    const res = await as.mutation(api.features.crm.mutations.importLeads, {
+    const res = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         { firstName: 'A', lastName: 'A', email: 'a@acme.fr' },
         {
@@ -276,7 +276,7 @@ describe('lead ↔ company matching', () => {
       registrationNumber: SIRET,
       domain: 'acme.fr',
     });
-    const res = await as.mutation(api.features.crm.mutations.importLeads, {
+    const res = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         // SIRET match (spaces tolerated), email on another domain.
         {
@@ -329,7 +329,7 @@ describe('company lifecycle side effects', () => {
       name: 'Acme',
       domain: 'acme.fr',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@acme.fr',
@@ -352,7 +352,7 @@ describe('company lifecycle side effects', () => {
       name: 'Acme',
       domain: 'acme.fr',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@acme.fr',
@@ -378,18 +378,18 @@ describe('company lifecycle side effects', () => {
       name: 'Acme',
       domain: 'acme.fr',
     });
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@acme.fr',
       companyId: acme,
     });
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'B',
       lastName: 'B',
       email: 'b@gmail.com',
     });
-    const page = await as.query(api.features.crm.queries.listLeadsPaginated, {
+    const page = await as.query(api.features.leads.queries.listLeadsPaginated, {
       companyIds: [acme],
       paginationOpts: { numItems: 10, cursor: null },
     });
@@ -439,7 +439,7 @@ describe('VAT numbers', () => {
       }),
     ).rejects.toThrow('invalid_vat_number');
 
-    const res = await as.mutation(api.features.crm.mutations.importLeads, {
+    const res = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         {
           firstName: 'A',

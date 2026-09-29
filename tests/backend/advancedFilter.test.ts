@@ -6,7 +6,7 @@ import type {
   FilterRule,
   LeadStandardField,
 } from '../../convex/_lib/validators/filters';
-import { evalAdvancedFilter, evalRule } from '../../convex/features/crm/leadMatching';
+import { evalAdvancedFilter, evalRule } from '../../convex/lib/leads/matching';
 
 /** Dynamic lists and lead scoring rest on this evaluator, so every operator meets every kind of stored value. */
 
