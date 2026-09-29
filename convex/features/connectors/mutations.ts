@@ -6,13 +6,12 @@ import { logAudit } from '../../lib/audit/log';
 import {
   discardPendingAccount,
   PROVIDERS,
-  randomToken,
   redirectUri,
   resolveClientId,
-  sha256Base64Url,
   signState,
   STATE_TTL_MS,
 } from '../../lib/connectors/oauth';
+import { randomToken, sha256Base64Url } from '../../lib/security/crypto';
 
 /** Starts a connection: a one-time signed state and a PKCE challenge, and the provider's consent URL to go to. */
 export const startConnection = employeeMutation({

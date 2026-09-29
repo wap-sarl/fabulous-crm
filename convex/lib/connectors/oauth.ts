@@ -5,6 +5,7 @@ import type { MutationCtx } from '../../_generated/server';
 import type { AppConfig } from '../../_lib/validators/appConfig';
 import { CONNECTOR_PROVIDERS, type ConnectorProvider } from '../../_lib/validators/connectors';
 import { decryptSecret, timingSafeEqual } from '../security/crypto';
+import { toBase64Url, bufferOf, encoder, fromBase64Url } from '../security/encoding';
 
 export const STATE_TTL_MS = 10 * 60 * 1000;
 /** How long an exchanged grant waits for the signed-in user to claim it. */
@@ -42,31 +43,6 @@ export const PROVIDERS: Record<ConnectorProvider, ProviderEndpoints> = {
     authorizeParams: {},
   },
 };
-
-const encoder = new TextEncoder();
-const toBase64Url = (bytes: Uint8Array): string =>
-  btoa(String.fromCharCode(...bytes))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-const fromBase64Url = (text: string): string =>
-  atob(
-    text
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-      .padEnd(Math.ceil(text.length / 4) * 4, '='),
-  );
-const bufferOf = (text: string): ArrayBuffer => {
-  const bytes = encoder.encode(text);
-  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
-};
-
-export const randomToken = (bytes = 32): string =>
-  toBase64Url(crypto.getRandomValues(new Uint8Array(bytes)));
-
-export async function sha256Base64Url(text: string): Promise<string> {
-  return toBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', bufferOf(text))));
-}
 
 /** The key the state is signed with: `OAUTH_STATE_SECRET`, shared with a callback dispatcher; else the auth secret. */
 function stateSecret(): string {

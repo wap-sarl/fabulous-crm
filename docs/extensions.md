@@ -26,7 +26,7 @@ tables; everything else in the repository stays untouched.
 | `beforeApiRequest(ctx, key, method)` | after API authentication and rate limits | a `{ status, code, message, details? }` answers instead of the route |
 | `beforeScheduledWork(ctx, { kind })` | the background entry points: `campaign_prepare` (`prepareCampaignBatch`), `campaign_drain` (`sendCampaignBatch`), `workflow_step` (`executeStep`), `workflow_action` (`runWorkflowActionStep`), `retention_purge` (the nightly purge, `features/retention/internal.ts`; deferred, it deletes nothing) | `false` defers: the same function is rescheduled `SCHEDULED_WORK_RETRY_MS` (15 min) later and nothing changes, so background work pauses and resumes on its own |
 | `afterChange(ctx, change)` | through `notifyChange` in `convex/lib/extensions/observers.ts`: `logAudit` (every audited write of any entity: UI, public API, CSV import, workflows, system events) and `insertLifecycleHistory` (every lifecycle transition, whatever moved the lead) | none: an observer. It runs in the writer's transaction; what it throws is swallowed and traced, the write stands (see Changes) |
-| `registerHttpRoutes(http)` | `convex/http.ts`, before the `/api/v1/` routes | register extra routes |
+| `registerHttpRoutes(http)` | `convex/http.ts`, after the features' own routes and before the `/api/v1/` routes | register extra routes |
 
 The recipient count of a campaign is not known at creation: resolving it means scanning
 every lead, which is exactly why preparation runs in pages. `create` therefore only asks

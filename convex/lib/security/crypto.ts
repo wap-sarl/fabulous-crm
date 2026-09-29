@@ -1,3 +1,4 @@
+import { toBase64Url, bufferOf } from './encoding';
 export function generateHexToken(bytes = 32): string {
   const array = new Uint8Array(bytes);
   crypto.getRandomValues(array);
@@ -85,4 +86,11 @@ export async function decryptSecret(stored: string): Promise<string> {
     } catch {}
   }
   throw new Error('secret_key_mismatch');
+}
+
+export const randomToken = (bytes = 32): string =>
+  toBase64Url(crypto.getRandomValues(new Uint8Array(bytes)));
+
+export async function sha256Base64Url(text: string): Promise<string> {
+  return toBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', bufferOf(text))));
 }

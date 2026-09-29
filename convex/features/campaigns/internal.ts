@@ -25,7 +25,7 @@ import {
   stampLeadSignal,
 } from '../../lib/leads/signals';
 import { LINK_GRANT_MS } from '../../_lib/validators/tracking';
-import { loadTrackingConfig, namedTracking, onAllowedSite } from '../../lib/tracking/views';
+import { loadTrackingConfig, namedTracking, onAllowedSite } from '../../lib/tracking/config';
 import {
   leadFilterArgs,
   loadAdvancedListMembers,

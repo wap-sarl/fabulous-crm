@@ -1,5 +1,5 @@
 import { retentionPolicyOf } from '../../_lib/validators/retention';
-import { trackingConfigOf } from '../../lib/tracking/views';
+import { trackingConfigOf } from '../../lib/tracking/config';
 import { CONNECTOR_PROVIDERS } from '../../_lib/validators/connectors';
 import { credentialsSource, PROVIDERS, redirectUriOrNull } from '../../lib/connectors/oauth';
 import { query } from '../../_generated/server';

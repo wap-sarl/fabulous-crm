@@ -11,11 +11,10 @@ import {
   idTokenClaims,
   PROVIDERS,
   providerErrorDescription,
-  randomToken,
   redirectUri,
-  sha256Base64Url,
   verifyState,
 } from '../../lib/connectors/oauth';
+import { randomToken, sha256Base64Url } from '../../lib/security/crypto';
 
 interface TokenResponse {
   access_token?: string;

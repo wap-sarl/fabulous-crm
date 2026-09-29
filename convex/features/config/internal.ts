@@ -1,5 +1,5 @@
 import { internalQuery } from '../../_generated/server';
-import { loadTrackingConfig } from '../../lib/tracking/views';
+import { loadTrackingConfig } from '../../lib/tracking/config';
 
 /** The whole configuration, secrets included: for server functions only, never for the client. */
 export const getConfig = internalQuery({

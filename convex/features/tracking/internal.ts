@@ -16,12 +16,11 @@ import {
   addMarks,
   applyViewsToLead,
   detachLeadTracking,
-  loadTrackingConfig,
   marksOf,
-  namedTracking,
   NO_VIEW_MARKS,
   refreshViewMarks,
 } from '../../lib/tracking/views';
+import { loadTrackingConfig, namedTracking } from '../../lib/tracking/config';
 
 /** A contact tracking may write on: there, live, and not objecting to profiling. */
 async function trackableLead(
