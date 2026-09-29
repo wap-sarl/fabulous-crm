@@ -1,126 +1,32 @@
 import { v } from 'convex/values';
-import { internalQuery, type MutationCtx } from '../../_generated/server';
+import { internalQuery } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps the lead aggregates in sync (functions.ts).
 import { internalMutation } from '../../_lib/functions';
-import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
-import { appOrigin } from '../../lib/config/appUrl';
-import { computeChanges, logAudit } from '../../lib/audit/log';
-import { deleteListMember, insertListMember } from '../../lib/leadLists/members';
+import { logAudit } from '../../lib/audit/log';
 import { isNotDeleted } from '../../lib/shared/db';
 import { evalAdvancedFilter } from '../../lib/leads/matching';
 import { loadLeadFilterExtras } from '../../lib/leads/tableFilters';
-import { buildLeadParams, buildLeadTargetPatch } from '../../lib/leads/targets';
-import {
-  applyLifecycleTransition,
-  loadLifecycleConfig,
-  planLifecycleTransition,
-} from '../../lib/leads/lifecycle';
-import { createDealRecord, latestOpenDealOfLead, moveDealToStage } from '../../lib/deals/records';
-import { createActivityRecord } from '../../lib/activities/records';
-import { renderPlaceholders } from '../../lib/email/brevo';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
-import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
-import type { FilterField, LeadStandardField } from '../../_lib/validators/filters';
-import { loadPropertyDefinitions } from '../../lib/properties/definitions';
+import { MAX_ENROLLMENTS_PER_LEAD_PER_DAY, MAX_STEPS_PER_RUN } from '../../lib/workflows/rules';
+import { enrollLead } from '../../lib/workflows/dispatch';
+import { advanceRun, failRun, type StepContext } from '../../lib/workflows/runs';
+import { createDealStep, updateDealStageStep } from '../../lib/workflows/steps/deals';
+import { branchStep, waitStep } from '../../lib/workflows/steps/flow';
+import { setLifecycleStageStep, updatePropertyStep } from '../../lib/workflows/steps/lead';
+import { addToListStep, removeFromListStep } from '../../lib/workflows/steps/lists';
 import {
-  delayMs,
-  diffLeadFilterFields,
-  MAX_ENROLLMENTS_PER_LEAD_PER_DAY,
-  MAX_STEPS_PER_RUN,
-} from '../../lib/workflows/rules';
-import { dispatchWorkflowTrigger, enrollLead } from '../../lib/workflows/dispatch';
-import { deferUnlessAllowed, trySend } from '../../lib/extensions/gates';
+  type ActionStepContext,
+  actionStepContextOf,
+  sendEmailStep,
+  sendSmsStep,
+  webhookStep,
+} from '../../lib/workflows/steps/sends';
+import { createTaskStep } from '../../lib/workflows/steps/tasks';
+import { deferUnlessAllowed } from '../../lib/extensions/gates';
 import { DAY_MS } from '../../_lib/time';
 
 /** The engine runs one node per transaction, chained through the scheduler: the step log is visible live and a crash never loses more than one step. */
-
-/** Insert a workflowRunSteps row. Non-pending outcomes are final immediately. */
-async function logStep(
-  ctx: MutationCtx,
-  run: Doc<'workflowRuns'>,
-  node: WorkflowNode,
-  status: WorkflowStepOutcome,
-  extra?: { detail?: string; branchResult?: boolean },
-): Promise<Id<'workflowRunSteps'>> {
-  const now = Date.now();
-  return await ctx.db.insert('workflowRunSteps', {
-    runId: run._id,
-    workflowId: run.workflowId,
-    leadId: run.leadId,
-    nodeId: node.id,
-    nodeType: node.type,
-    status,
-    startedAt: now,
-    finishedAt: status === 'pending' ? undefined : now,
-    branchResult: extra?.branchResult,
-    detail: extra?.detail,
-  });
-}
-
-/** With `scheduleNext: false` (workflow paused mid-action) the pointer advances without scheduling: the resume kicks the run. */
-async function advanceRun(
-  ctx: MutationCtx,
-  run: Doc<'workflowRuns'>,
-  workflow: Doc<'workflows'>,
-  nextId: string | undefined,
-  scheduleNext = true,
-): Promise<void> {
-  if (nextId === undefined) {
-    await ctx.db.patch(run._id, {
-      status: 'completed',
-      finishedAt: Date.now(),
-      currentNodeId: undefined,
-      wakeAt: undefined,
-      scheduledFnId: undefined,
-    });
-    await ctx.db.patch(workflow._id, {
-      activeCount: Math.max(0, workflow.activeCount - 1),
-      completedCount: workflow.completedCount + 1,
-    });
-    return;
-  }
-  await ctx.db.patch(run._id, {
-    currentNodeId: nextId,
-    wakeAt: undefined,
-    scheduledFnId: undefined,
-  });
-  if (scheduleNext) {
-    await ctx.scheduler.runAfter(0, internal.features.workflows.internal.executeStep, {
-      runId: run._id,
-      nodeId: nextId,
-    });
-  }
-}
-
-/** Fail a run on a structural problem (removed node, deleted workflow…). */
-async function failRun(
-  ctx: MutationCtx,
-  run: Doc<'workflowRuns'>,
-  workflow: Doc<'workflows'> | null,
-  error: string,
-): Promise<void> {
-  await ctx.db.patch(run._id, {
-    status: 'failed',
-    finishedAt: Date.now(),
-    currentNodeId: undefined,
-    wakeAt: undefined,
-    scheduledFnId: undefined,
-    error,
-  });
-  if (workflow) {
-    await ctx.db.patch(workflow._id, { activeCount: Math.max(0, workflow.activeCount - 1) });
-  }
-}
-
-/** The `changedFields` payload for an engine-made property write. */
-function targetAsFilterField(
-  target: Extract<WorkflowNode, { type: 'update_property' }>['target'],
-): FilterField<LeadStandardField> {
-  return target.kind === 'custom'
-    ? { kind: 'custom', definitionId: target.propertyDefId }
-    : { kind: 'standard', field: target.field };
-}
 
 /** A run only ever executes its `currentNodeId`, exactly once: duplicate or stale schedules are no-ops, so pause, resume and replays are safe. */
 export const executeStep = internalMutation({
@@ -187,358 +93,42 @@ export const executeStep = internalMutation({
     }
 
     await ctx.db.patch(run._id, { stepCount: run.stepCount + 1 });
-    const source = { runId: run._id, workflowId: workflow._id };
+    const step: StepContext = {
+      ctx,
+      run,
+      workflow,
+      lead,
+      source: { runId: run._id, workflowId: workflow._id },
+    };
 
     switch (node.type) {
-      case 'branch': {
-        const extras = await loadLeadFilterExtras(ctx, lead._id, node.condition);
-        const result = evalAdvancedFilter(lead, node.condition, extras);
-        await logStep(ctx, run, node, 'success', { branchResult: result });
-        await advanceRun(ctx, run, workflow, result ? node.nextTrue : node.nextFalse);
-        return;
-      }
-
-      case 'wait': {
-        // A wait with nothing after it is a no-op end of path.
-        if (node.next === undefined) {
-          await logStep(ctx, run, node, 'success');
-          await advanceRun(ctx, run, workflow, undefined);
-          return;
-        }
-        const wakeAt = Date.now() + delayMs(node);
-        await logStep(ctx, run, node, 'success', {
-          detail: `réveil le ${new Date(wakeAt).toISOString()}`,
-        });
-        const scheduledFnId = await ctx.scheduler.runAt(
-          wakeAt,
-          internal.features.workflows.internal.executeStep,
-          { runId: run._id, nodeId: node.next },
-        );
-        await ctx.db.patch(run._id, { currentNodeId: node.next, wakeAt, scheduledFnId });
-        return;
-      }
-
-      case 'update_property': {
-        const patch = await buildLeadTargetPatch(ctx, lead, node.target, node.value);
-        if (!patch) {
-          await logStep(ctx, run, node, 'skipped', { detail: 'cible invalide ou supprimée' });
-        } else {
-          const changedFields = diffLeadFilterFields(lead, patch).length
-            ? [targetAsFilterField(node.target)]
-            : [];
-          await ctx.db.patch(lead._id, { ...patch, updatedAt: Date.now() });
-          const changes = computeChanges(lead, patch);
-          if (changes) {
-            await logAudit({
-              ctx,
-              entityType: 'lead',
-              entityId: lead._id,
-              action: 'update',
-              metadata: { source: 'workflow', workflowId: workflow._id, changes },
-            });
-          }
-          await logStep(ctx, run, node, 'success');
-          if (changedFields.length > 0) {
-            await dispatchWorkflowTrigger(
-              ctx,
-              lead._id,
-              { type: 'lead_property_changed', changedFields },
-              { source },
-            );
-          }
-        }
-        await advanceRun(ctx, run, workflow, node.next);
-        return;
-      }
-
-      case 'set_lifecycle_stage': {
-        const config = await loadLifecycleConfig(ctx);
-        const plan = node.stage
-          ? planLifecycleTransition(config, lead, node.stage)
-          : ({ kind: 'unknown_stage' } as const);
-        switch (plan.kind) {
-          case 'unknown_stage':
-            await logStep(ctx, run, node, 'skipped', { detail: 'statut introuvable' });
-            break;
-          case 'regression_blocked':
-            await logStep(ctx, run, node, 'skipped', { detail: 'retour en arrière interdit' });
-            break;
-          case 'unchanged':
-            await logStep(ctx, run, node, 'success', { detail: 'déjà à ce statut' });
-            break;
-          case 'change':
-            await applyLifecycleTransition(ctx, lead._id, plan, {
-              source: 'workflow',
-              workflowId: workflow._id,
-            });
-            await logStep(ctx, run, node, 'success');
-            await dispatchWorkflowTrigger(
-              ctx,
-              lead._id,
-              {
-                type: 'lead_property_changed',
-                changedFields: [{ kind: 'standard', field: 'lifecycleStage' }],
-              },
-              { source },
-            );
-            break;
-        }
-        await advanceRun(ctx, run, workflow, node.next);
-        return;
-      }
-
-      case 'create_deal': {
-        const defs = await loadPropertyDefinitions(ctx, 'lead');
-        const defsById = new Map(defs.map((d) => [d._id as string, d]));
-        const params = buildLeadParams(
-          lead,
-          defsById,
-          appOrigin() || 'http://localhost:4202',
-          await loadLifecycleConfig(ctx),
-        );
-        const title = renderPlaceholders(node.title, params, false).trim();
-        try {
-          const dealId = await createDealRecord(
-            ctx,
-            {
-              title: title || node.title,
-              amount: node.amount,
-              currency: node.currency,
-              pipelineId: node.pipelineId,
-              stageKey: node.stageKey,
-              ownerIds: lead.ownerIds,
-              leadId: lead._id,
-            },
-            { source: 'workflow', workflowId: workflow._id, runSource: source },
-          );
-          await logStep(ctx, run, node, 'success', { detail: `transaction ${dealId}` });
-        } catch (e) {
-          await logStep(ctx, run, node, 'skipped', {
-            detail: e instanceof Error ? e.message : 'pipeline introuvable',
-          });
-        }
-        await advanceRun(ctx, run, workflow, node.next);
-        return;
-      }
-
-      case 'create_task': {
-        const defs = await loadPropertyDefinitions(ctx, 'lead');
-        const defsById = new Map(defs.map((d) => [d._id as string, d]));
-        const params = buildLeadParams(
-          lead,
-          defsById,
-          appOrigin() || 'http://localhost:4202',
-          await loadLifecycleConfig(ctx),
-        );
-        const team = node.teamId ? await ctx.db.get(node.teamId) : null;
-        const teamId = team && team.deletedAt === undefined ? team._id : undefined;
-        const ownerId =
-          node.ownerId ??
-          (teamId ? undefined : (lead.ownerIds[0] ?? workflow.createdBy ?? workflow.updatedBy));
-        if (!teamId && (!ownerId || !(await ctx.db.get(ownerId)))) {
-          await logStep(ctx, run, node, 'skipped', { detail: 'aucun propriétaire' });
-        } else {
-          const dueAt =
-            node.dueInDays === undefined ? undefined : Date.now() + node.dueInDays * DAY_MS;
-          const activityId = await createActivityRecord(
-            ctx,
-            {
-              type: node.activityType ?? 'task',
-              title: renderPlaceholders(node.title, params, false).trim() || node.title,
-              description: node.description
-                ? renderPlaceholders(node.description, params, false)
-                : undefined,
-              dueAt,
-              ownerId,
-              teamId,
-              leadId: lead._id,
-              companyId: lead.companyId,
-            },
-            { workflowId: workflow._id },
-          );
-          await logStep(ctx, run, node, 'success', { detail: `activité ${activityId}` });
-        }
-        await advanceRun(ctx, run, workflow, node.next);
-        return;
-      }
-
-      case 'update_deal_stage': {
-        const deal = await latestOpenDealOfLead(ctx, lead._id, node.pipelineId);
-        if (!deal || !node.stageKey) {
-          await logStep(ctx, run, node, 'skipped', { detail: 'aucune transaction ouverte' });
-        } else {
-          const move = await moveDealToStage(
-            ctx,
-            deal,
-            node.stageKey,
-            { source: 'workflow', workflowId: workflow._id, runSource: source },
-            { tags: node.tags },
-          );
-          if (move.kind === 'unknown_stage') {
-            await logStep(ctx, run, node, 'skipped', { detail: 'stade introuvable' });
-          } else if (move.kind === 'unknown_tag') {
-            await logStep(ctx, run, node, 'skipped', { detail: 'étiquette introuvable' });
-          } else if (move.kind === 'tag_required') {
-            await logStep(ctx, run, node, 'skipped', { detail: 'étiquette requise' });
-          } else if (move.kind === 'forbidden') {
-            await logStep(ctx, run, node, 'skipped', {
-              detail: `transition interdite depuis « ${deal.stageKey} »`,
-            });
-          } else if (move.kind === 'unchanged') {
-            await logStep(ctx, run, node, 'success', { detail: 'déjà à ce stade' });
-          } else {
-            await logStep(ctx, run, node, 'success', { detail: `transaction ${deal._id}` });
-          }
-        }
-        await advanceRun(ctx, run, workflow, node.next);
-        return;
-      }
-
-      case 'add_to_list': {
-        const listId = node.listId;
-        const list = listId ? await ctx.db.get(listId) : null;
-        if (!listId || !list) {
-          await logStep(ctx, run, node, 'skipped', { detail: 'liste introuvable' });
-        } else if (list.kind === 'dynamic') {
-          await logStep(ctx, run, node, 'skipped', {
-            detail: 'liste dynamique (membres calculés)',
-          });
-        } else {
-          const existing = await ctx.db
-            .query('leadListMembers')
-            .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', lead._id))
-            .first();
-          if (existing) {
-            await logStep(ctx, run, node, 'success', { detail: 'déjà dans la liste' });
-          } else {
-            // Junction rows require an author; attribute to the workflow's owner.
-            const addedBy = workflow.createdBy ?? workflow.updatedBy;
-            if (!addedBy) {
-              await logStep(ctx, run, node, 'skipped', { detail: 'workflow sans auteur' });
-            } else {
-              await insertListMember(ctx, { listId, leadId: lead._id, addedBy });
-              await logStep(ctx, run, node, 'success');
-              await dispatchWorkflowTrigger(
-                ctx,
-                lead._id,
-                { type: 'list_membership_changed', change: 'added', listId },
-                { source },
-              );
-            }
-          }
-        }
-        await advanceRun(ctx, run, workflow, node.next);
-        return;
-      }
-
-      case 'remove_from_list': {
-        const listId = node.listId;
-        const list = listId ? await ctx.db.get(listId) : null;
-        if (!listId || !list) {
-          await logStep(ctx, run, node, 'skipped', { detail: 'liste introuvable' });
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        if (list.kind === 'dynamic') {
-          await logStep(ctx, run, node, 'skipped', {
-            detail: 'liste dynamique (membres calculés)',
-          });
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        const member = await ctx.db
-          .query('leadListMembers')
-          .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', lead._id))
-          .first();
-        if (!member) {
-          await logStep(ctx, run, node, 'success', { detail: 'déjà hors de la liste' });
-        } else {
-          await deleteListMember(ctx, member);
-          await logStep(ctx, run, node, 'success');
-          await dispatchWorkflowTrigger(
-            ctx,
-            lead._id,
-            { type: 'list_membership_changed', change: 'removed', listId },
-            { source },
-          );
-        }
-        await advanceRun(ctx, run, workflow, node.next);
-        return;
-      }
-
-      case 'send_email': {
-        if (!lead.email) {
-          await logStep(ctx, run, node, 'skipped_no_email');
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        // Server-side consent gate — workflow sends are marketing messages.
-        if (!lead.marketingConsent.includes('email')) {
-          await logStep(ctx, run, node, 'skipped_no_consent');
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        const refused = await trySend(ctx, { channel: 'email', count: 1, source: 'workflow' });
-        if (refused) {
-          await logStep(ctx, run, node, 'skipped', { detail: refused });
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        const stepId = await logStep(ctx, run, node, 'pending');
-        await ctx.scheduler.runAfter(0, internal.features.workflows.actions.runWorkflowActionStep, {
-          runId: run._id,
-          stepId,
-          nodeId: node.id,
-        });
-        // currentNodeId stays on this node until completeActionStep advances it.
-        return;
-      }
-
-      case 'send_sms': {
-        if (!lead.phone) {
-          await logStep(ctx, run, node, 'skipped_no_phone');
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        if (!lead.marketingConsent.includes('sms')) {
-          await logStep(ctx, run, node, 'skipped_no_consent');
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        const refused = await trySend(ctx, { channel: 'sms', count: 1, source: 'workflow' });
-        if (refused) {
-          await logStep(ctx, run, node, 'skipped', { detail: refused });
-          await advanceRun(ctx, run, workflow, node.next);
-          return;
-        }
-        const stepId = await logStep(ctx, run, node, 'pending');
-        await ctx.scheduler.runAfter(0, internal.features.workflows.actions.runWorkflowActionStep, {
-          runId: run._id,
-          stepId,
-          nodeId: node.id,
-        });
-        return;
-      }
-
-      case 'webhook': {
-        const stepId = await logStep(ctx, run, node, 'pending');
-        await ctx.scheduler.runAfter(0, internal.features.workflows.actions.runWorkflowActionStep, {
-          runId: run._id,
-          stepId,
-          nodeId: node.id,
-        });
-        return;
-      }
+      case 'branch':
+        return await branchStep(step, node);
+      case 'wait':
+        return await waitStep(step, node);
+      case 'update_property':
+        return await updatePropertyStep(step, node);
+      case 'set_lifecycle_stage':
+        return await setLifecycleStageStep(step, node);
+      case 'create_deal':
+        return await createDealStep(step, node);
+      case 'create_task':
+        return await createTaskStep(step, node);
+      case 'update_deal_stage':
+        return await updateDealStageStep(step, node);
+      case 'add_to_list':
+        return await addToListStep(step, node);
+      case 'remove_from_list':
+        return await removeFromListStep(step, node);
+      case 'send_email':
+        return await sendEmailStep(step, node);
+      case 'send_sms':
+        return await sendSmsStep(step, node);
+      case 'webhook':
+        return await webhookStep(step, node);
     }
   },
 });
-
-/** What `runWorkflowActionStep` needs to perform one async step. */
-export type ActionStepContext =
-  | { kind: 'email'; to: string; subject: string; htmlBody: string; params: Record<string, string> }
-  | { kind: 'sms'; phone: string; smsBody: string; params: Record<string, string> }
-  | { kind: 'webhook'; url: string; payload: Record<string, unknown> }
-  | null;
 
 /** Null when the run or the node is no longer actionable (cancelled meanwhile, node edited away): the action then completes the step as skipped. */
 export const getActionStepContext = internalQuery({
@@ -553,56 +143,7 @@ export const getActionStepContext = internalQuery({
     const lead = await ctx.db.get(run.leadId);
     if (!lead || lead.deletedAt !== undefined) return null;
 
-    if (node.type === 'send_email' || node.type === 'send_sms') {
-      const defs = await loadPropertyDefinitions(ctx, 'lead');
-      const defsById = new Map(defs.map((d) => [d._id as string, d]));
-      const params = buildLeadParams(
-        lead,
-        defsById,
-        appOrigin() || 'http://localhost:4202',
-        await loadLifecycleConfig(ctx),
-      );
-      if (node.type === 'send_email') {
-        if (!lead.email) return null;
-        return {
-          kind: 'email',
-          to: lead.email,
-          subject: node.subject,
-          htmlBody: node.htmlBody,
-          params,
-        };
-      }
-      if (!lead.phone) return null;
-      return { kind: 'sms', phone: lead.phone, smsBody: node.smsBody, params };
-    }
-
-    if (node.type === 'webhook') {
-      return {
-        kind: 'webhook',
-        url: node.url,
-        payload: {
-          workflow: { id: workflow._id, name: workflow.name },
-          run: { id: run._id, enrolledAt: run.enrolledAt, triggerType: run.triggerType },
-          node: { id: node.id },
-          // consentToken deliberately excluded — it is a per-lead secret.
-          lead: {
-            id: lead._id,
-            firstName: lead.firstName,
-            lastName: lead.lastName,
-            email: lead.email,
-            phone: lead.phone,
-            lifecycleStage: lead.lifecycleStage,
-            comment: lead.comment,
-            address: lead.address,
-            marketingConsent: lead.marketingConsent,
-            customProperties: lead.customProperties,
-          },
-          timestamp: Date.now(),
-        },
-      };
-    }
-
-    return null;
+    return await actionStepContextOf(ctx, run, workflow, node, lead);
   },
 });
 
