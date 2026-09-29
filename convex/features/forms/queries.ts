@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { employeeQuery, settingsQuery } from '../../_lib/auth';
-import { isNotDeleted } from '../../lib/dbHelpers';
+import { isNotDeleted } from '../../lib/shared/db';
 
 /** Live forms for the settings list. Tiny table — read in full. */
 export const listForms = settingsQuery({

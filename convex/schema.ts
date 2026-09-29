@@ -308,10 +308,10 @@ const tables = {
     // The contacts that carry page-view marks, for the sweep when named tracking is left.
     .index('by_lastPageViewAt', ['lastPageViewAt'])
     .index('by_email', ['email'])
-    // Duplicate detection candidates (lib/duplicates.ts): same phone / name block.
+    // Duplicate detection candidates (lib/duplicates/detection.ts): same phone / name block.
     .index('by_dedupe_phone', ['dedupe.phone'])
     .index('by_dedupe_block', ['dedupe.block'])
-    // The nightly purge reads the trash oldest first (lib/retention.ts).
+    // The nightly purge reads the trash oldest first (lib/retention/purge.ts).
     .index('by_deletedAt', ['deletedAt'])
     .searchIndex('by_searchText', { searchField: 'searchText' }),
 

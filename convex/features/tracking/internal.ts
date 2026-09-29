@@ -10,8 +10,8 @@ import {
   CEILING_NOTE_MS,
   FLUSH_MS,
 } from '../../_lib/validators/tracking';
-import { isNotDeleted } from '../../lib/dbHelpers';
-import { profilingExcluded } from '../../lib/leadSignals';
+import { isNotDeleted } from '../../lib/shared/db';
+import { profilingExcluded } from '../../lib/leads/signals';
 import {
   addMarks,
   applyViewsToLead,
@@ -21,7 +21,7 @@ import {
   namedTracking,
   NO_VIEW_MARKS,
   refreshViewMarks,
-} from '../../lib/tracking';
+} from '../../lib/tracking/views';
 
 /** A contact tracking may write on: there, live, and not objecting to profiling. */
 async function trackableLead(

@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 // Trigger-wrapped constructor: keeps aggregates and searchText in sync.
 import { internalMutation } from '../../_lib/functions';
-import { leadSearchText } from '../../lib/leadSearch';
+import { leadSearchText } from '../../lib/leads/search';
 
 const LEADS_BATCH = 200;
 

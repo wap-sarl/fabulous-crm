@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import SwaggerParser from '@apidevtools/swagger-parser';
 import { API_ROUTE_TABLE } from '../../convex/features/api/routes';
-import { openapiDocument } from '../../convex/lib/openapi.generated';
+import { openapiDocument } from '../../convex/lib/api/openapi.generated';
 import { createTestConvex } from './helpers';
 
 const YAML_PATH = new URL('../../docs/openapi.yaml', import.meta.url);

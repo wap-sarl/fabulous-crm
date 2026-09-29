@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { compareIdentities, levenshtein, phoneKey } from '../../convex/lib/duplicates';
-import { insertListMember } from '../../convex/lib/leadListMembers';
+import { compareIdentities, levenshtein, phoneKey } from '../../convex/lib/duplicates/detection';
+import { insertListMember } from '../../convex/lib/leadLists/members';
 import { asIdentity, createTestConvex, seedEmployee, type T } from './helpers';
 
 async function setup() {

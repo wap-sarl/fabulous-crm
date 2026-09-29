@@ -107,7 +107,7 @@ workspaces.
   (`appConfig.attachments.maxSizeBytes` / `retentionDays`), la taille étant
   appliquée côté serveur à la demande d'URL d'envoi puis sur le blob stocké. Les octets
   vivent dans Convex Storage derrière l'interface `FileStore`
-  (`convex/lib/fileStorage.ts`) ; chaque ligne porte déjà la clé
+  (`convex/lib/attachments/storage.ts`) ; chaque ligne porte déjà la clé
   `type/identifiant/dossier/nom` d'un stockage objet, pour migrer vers S3 en
   copiant les blobs clé par clé.
 - **Conservation des données** : une purge nocturne (`convex/crons.ts`, 03:30 UTC,
@@ -153,7 +153,7 @@ workspaces.
   pour la même adresse. Chaque écriture est auditée (`source: form`).
   Anti-abus : honeypot (réponse factice, jeton compris), temps de remplissage
   minimum sur un horodatage signé, limites par IP, par formulaire et pour le
-  déploiement (`lib/rateLimits.ts`), passage par le seam `beforeLeadCreate`
+  déploiement (`lib/security/rateLimits.ts`), passage par le seam `beforeLeadCreate`
   (source `form`). L'adresse IP est **pseudonymisée** (HMAC sous une clé
   secrète, `FORM_IP_HASH_SALT` ou dérivée de `BETTER_AUTH_SECRET`) et suit la
   rétention du contact ; un formulaire supprimé suit celle des fiches
@@ -234,19 +234,19 @@ workspaces.
   erreur** (colonnes source + ligne + erreur) ; les jobs terminés se suppriment
   depuis le rapport, et la purge de rétention les efface avec les événements
   (`eventDays`). La mutation `importLeads` reste disponible (mêmes règles,
-  `lib/leadImport.ts`). Le consentement marketing n'est jamais importable.
+  `lib/leads/import.ts`). Le consentement marketing n'est jamais importable.
 - **Historique unifié** : la fiche lead affiche notes, activités, envois et
   événements de campagne, inscriptions aux workflows, changements de statut,
   transactions et modifications de la fiche dans un seul fil chronologique,
   filtrable par type (`features/timeline`). Chaque source est paginée sur son
-  propre index et fusionnée par curseur (`lib/timeline.ts`) : charger la suite
+  propre index et fusionnée par curseur (`lib/timeline/pagination.ts`) : charger la suite
   ne relit jamais une table entière.
 - **Propriétés personnalisées** : champs définis par un admin (9 types :
   texte, nombre, e-mail, liste, choix unique/multiple, date, boolean, RPPS)
   sur les leads, entreprises, transactions et activités (`propertyDefinitions`,
   `entityType`), valeurs stockées dans `customProperties` de chaque fiche.
   Validation partagée front/back (`_lib/validators/properties.ts`,
-  `lib/properties.ts`), colonnes optionnelles dans les listes, formulaires et
+  `lib/properties/definitions.ts`), colonnes optionnelles dans les listes, formulaires et
   filtres avancés génériques par entité (`_lib/validators/filters.ts`,
   `features/filters`). Chaque type est décrit une fois de chaque côté par un
   **registre** : `convex/_lib/validators/propertyTypes.ts` (forme stockée,
@@ -323,9 +323,9 @@ convex/              Backend Convex
   http.ts            Routes HTTP publiques (webhooks, liens suivis, formulaires, suivi web, API)
   auth.ts, auth/     Better Auth et ses e-mails
   extensions.ts      Points d'accroche (voir Extensions)
-  _lib/              Wrappers d'auth (employeeQuery/Mutation…), validators
+  _lib/              Le socle : constructeurs de fonctions (auth, triggers) et validators du schéma
   features/<nom>/    Une fonctionnalité : queries, mutations, actions, internal
-  lib/               Helpers serveur partagés (Brevo, audit, crypto, rétention…)
+  lib/<domaine>/     Le code partagé d'un domaine (leads, email, security, extensions…), sans fonction Convex
   seed/, setup/      Premier employé, assistant de configuration initiale
 src/
   design-system/     Composants d'interface
@@ -340,6 +340,11 @@ docs/                Contrats : API publique (openapi.yaml), extensions, connect
 
 Alias d'import : `@crm/*` → `./src/*` (déclaré dans `tsconfig.json` et
 `vite.config.mts`).
+
+Où va un nouveau fichier du backend : une fonction Convex (query, mutation,
+action) dans `features/<fonctionnalité>/` ; ce que plusieurs fonctionnalités
+partagent dans `lib/<domaine>/`, importé par son module, sans fichier
+d'index ; un validator de table dans `_lib/validators/`.
 
 ## Développement
 
@@ -376,7 +381,7 @@ bun run dev
 | `bun run build` | `tsc --noEmit` + `vite build` → `dist/` |
 | `bun run typecheck` | tsconfig app + tsconfig convex + tsconfig tests |
 | `bun run codegen` | régénère `convex/_generated` (commité) |
-| `bun run openapi` | régénère `convex/lib/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
+| `bun run openapi` | régénère `convex/lib/api/openapi.generated.ts` depuis `docs/openapi.yaml` (commité) |
 | `bun run lint` | Biome : format et règles ; un avertissement fait échouer la commande |
 | `bun run unused` | knip : exports, types, fichiers et dépendances que rien n'utilise (`knip.ts`) ; la CI échoue s'il en trouve. Ce qu'une surcouche importe est listé dans `tests/*/extensionSurface.test.ts` et compte comme utilisé |
 | `bun run test` | lance les suites `bun:test` |
@@ -669,7 +674,7 @@ code) et servi sans clé par le déploiement :
   votre clé pour essayer les appels.
 
 Après une modification du YAML, `bun run openapi` régénère le module servi
-(`convex/lib/openapi.generated.ts`, commité) ; `tests/backend/openapi.test.ts`
+(`convex/lib/api/openapi.generated.ts`, commité) ; `tests/backend/openapi.test.ts`
 vérifie que le module est à jour, que le document est un OpenAPI valide et
 qu'il décrit exactement les routes du routeur avec leurs portées.
 

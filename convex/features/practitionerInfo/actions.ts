@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { employeeAction } from '../../_lib/auth';
-import { enforceRateLimit } from '../../lib/rateLimits';
+import { enforceRateLimit } from '../../lib/security/rateLimits';
 
 /** RPPS verification against the FHIR Annuaire Santé API: the key (`FHIR_API_KEY`) is a server secret, so this never runs in the browser. */
 

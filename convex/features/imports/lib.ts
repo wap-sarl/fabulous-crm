@@ -2,7 +2,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import type { AccessModule } from '../../_lib/validators/access';
 import type { ImportEntity } from '../../_lib/validators/imports';
-import type { Visibility } from '../../lib/visibility';
+import type { Visibility } from '../../lib/roles/visibility';
 
 /** The module an entity's import writes to; a role without it cannot import it. */
 const MODULE_OF_ENTITY: Record<ImportEntity, AccessModule> = {

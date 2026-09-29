@@ -2,16 +2,16 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { internalMutation } from '../../_lib/functions';
 import { retentionPolicyOf, retentionPolicyValidator } from '../../_lib/validators/retention';
-import { logAudit } from '../../lib';
-import { loadDynamicLists, startDynamicListRecalc } from '../../lib/dynamicLists';
-import { deferUnlessAllowed } from '../../lib/gates';
+import { logAudit } from '../../lib/audit/log';
+import { loadDynamicLists, startDynamicListRecalc } from '../../lib/leadLists/dynamic';
+import { deferUnlessAllowed } from '../../lib/extensions/gates';
 import {
   addCounts,
   emptyCounts,
   PURGE_MAX_PAGES,
   purgeCountsValidator,
   purgePage,
-} from '../../lib/retention';
+} from '../../lib/retention/purge';
 
 /** The nightly purge: the policy and the reference time are frozen on the first page, so a setting changed during a run does not mix cutoffs. */
 export const runPurge = internalMutation({

@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { internalAction } from '../../_generated/server';
-import { decryptSecret } from '../../lib';
+import { decryptSecret } from '../../lib/security/crypto';
 import {
   type ConnectorProvider,
   connectorProviderValidator,
@@ -15,7 +15,7 @@ import {
   redirectUri,
   sha256Base64Url,
   verifyState,
-} from '../../lib/connectors';
+} from '../../lib/connectors/oauth';
 
 interface TokenResponse {
   access_token?: string;

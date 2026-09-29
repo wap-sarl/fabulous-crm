@@ -5,22 +5,23 @@ import { mutation } from '../../_lib/functions';
 import type { Doc } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
+import { appOrigin } from '../../lib/config/appUrl';
 import {
-  appOrigin,
   createAuditFields,
   updateAuditFields,
   computeChanges,
-  filterUndefined,
-  isNotDeleted,
   logAudit,
-  generateHexToken,
+} from '../../lib/audit/log';
+import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { generateHexToken } from '../../lib/security/crypto';
+import {
   resolveEmailProvider,
   resolveBrevo,
   isEmailProviderConfigured,
-  toBrevoRecipient,
-  deleteListMember,
-  stampLeadSignal,
-} from '../../lib';
+} from '../../lib/email/provider';
+import { toBrevoRecipient } from '../../lib/sms/brevo';
+import { deleteListMember } from '../../lib/leadLists/members';
+import { stampLeadSignal } from '../../lib/leads/signals';
 import {
   addressValidator,
   propertyValueValidator,
@@ -30,7 +31,7 @@ import {
   loadPropertyDefsById,
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
-} from '../../lib/properties';
+} from '../../lib/properties/definitions';
 import {
   campaignChannelValidator,
   campaignTrackedLinkValidator,
@@ -39,17 +40,17 @@ import {
 } from '../../_lib/validators/crm';
 import { buildLeadParams, validateLeadTargetValue } from './leadTargets';
 import { leadFilterArgs } from './leadTableFilters';
-import { enforceRateLimit } from '../../lib/rateLimits';
+import { enforceRateLimit } from '../../lib/security/rateLimits';
 import {
   assertLifecycleTransition,
   insertLifecycleHistory,
   loadLifecycleConfig,
   planLifecycleTransition,
-} from '../../lib/lifecycle';
+} from '../../lib/leads/lifecycle';
 import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators/lifecycle';
-import { requireCompany, resolveCompanyForLead } from '../../lib/companies';
-import { requireValidAddress } from '../../lib/addresses';
-import { cleanOwnerIds } from '../../lib/owners';
+import { requireCompany, resolveCompanyForLead } from '../../lib/companies/lookup';
+import { requireValidAddress } from '../../lib/addresses/validation';
+import { cleanOwnerIds } from '../../lib/users/owners';
 import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
 import { diffLeadFilterFields } from '../workflows/lib';
 import {
@@ -57,17 +58,17 @@ import {
   validateDynamicListCriteria,
 } from '../../_lib/validators/leadLists';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
-import { startDynamicListRecalc } from '../../lib/dynamicLists';
-import { gateLeadCreate, requireSendAllowed } from '../../lib/gates';
+import { startDynamicListRecalc } from '../../lib/leadLists/dynamic';
+import { gateLeadCreate, requireSendAllowed } from '../../lib/extensions/gates';
 import {
   applyLeadImport,
   loadLeadImportCaches,
   normalizeEmail,
   planLeadImport,
-} from '../../lib/leadImport';
+} from '../../lib/leads/import';
 import { leadImportRowValidator } from '../../_lib/validators/imports';
 
-import { CONSENT_TOKEN_BYTES } from '../../lib/leadImport';
+import { CONSENT_TOKEN_BYTES } from '../../lib/leads/import';
 // 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
 const TRACKED_LINK_TOKEN_BYTES = 8;
 

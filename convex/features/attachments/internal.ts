@@ -1,6 +1,6 @@
 import { v } from 'convex/values';
 import { internalMutation } from '../../_lib/functions';
-import { fileStore } from '../../lib/fileStorage';
+import { fileStore } from '../../lib/attachments/storage';
 
 /** Scheduled at soft delete for `purgeAt`; a no-op unless the row is still trashed for that very date. */
 export const purgeAttachmentAt = internalMutation({

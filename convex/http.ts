@@ -4,23 +4,25 @@ import { internal } from './_generated/api';
 import { authComponent, createAuth } from './auth';
 import { extensions } from './extensions';
 import { registerApiRoutes } from './features/api/routes';
-import { appOrigin, resolveBrevo, timingSafeEqual } from './lib';
+import { appOrigin } from './lib/config/appUrl';
+import { resolveBrevo } from './lib/email/provider';
+import { timingSafeEqual } from './lib/security/crypto';
 import {
   providerErrorDescription,
   randomToken,
   sha256Base64Url,
   verifyState,
-} from './lib/connectors';
-import { FORM_EMBED_JS, formIframeHtml } from './lib/formEmbed';
-import { hashClientIp } from './lib/forms';
-import { parseBeacon, readCapped, trackingScript } from './lib/tracking';
+} from './lib/connectors/oauth';
+import { FORM_EMBED_JS, formIframeHtml } from './lib/forms/embed';
+import { hashClientIp } from './lib/forms/submission';
+import { parseBeacon, readCapped, trackingScript } from './lib/tracking/views';
 import {
   CEILING_NOTE_MS,
   LINK_GRANT_PARAM,
   MAX_BEACON_BYTES,
   VISITOR_ID_RE,
 } from './_lib/validators/tracking';
-import { clientIpOf, enforceRateLimit } from './lib/rateLimits';
+import { clientIpOf, enforceRateLimit } from './lib/security/rateLimits';
 import type { CampaignEventType } from './schema';
 
 const http = httpRouter();

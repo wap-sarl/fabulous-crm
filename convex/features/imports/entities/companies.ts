@@ -4,8 +4,13 @@ import type { MutationCtx } from '../../../_generated/server';
 import { normalizeCountryCode } from '../../../_lib/validators/companyRegistry';
 import type { CompanyImportRow } from '../../../_lib/validators/imports';
 import type { PropertyValue } from '../../../_lib/validators/properties';
-import { requireValidAddress } from '../../../lib/addresses';
-import { computeChanges, createAuditFields, logAudit, updateAuditFields } from '../../../lib/audit';
+import { requireValidAddress } from '../../../lib/addresses/validation';
+import {
+  computeChanges,
+  createAuditFields,
+  logAudit,
+  updateAuditFields,
+} from '../../../lib/audit/log';
 import {
   blank,
   findCompanyByDomain,
@@ -14,15 +19,15 @@ import {
   normalizeIdentifiers,
   normalizeRegistrationNumber,
   normalizeVatNumber,
-} from '../../../lib/companies';
-import { normalizeDomain } from '../../../lib/companyDomains';
-import { filterUndefined, isNotDeleted } from '../../../lib/dbHelpers';
-import { cleanOwnerIds } from '../../../lib/owners';
+} from '../../../lib/companies/lookup';
+import { normalizeDomain } from '../../../lib/companies/domains';
+import { filterUndefined, isNotDeleted } from '../../../lib/shared/db';
+import { cleanOwnerIds } from '../../../lib/users/owners';
 import {
   loadPropertyDefsById,
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
-} from '../../../lib/properties';
+} from '../../../lib/properties/definitions';
 import type { EntityImporter } from './types';
 
 interface Caches {

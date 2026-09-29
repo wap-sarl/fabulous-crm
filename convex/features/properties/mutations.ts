@@ -4,11 +4,10 @@ import {
   createAuditFields,
   updateAuditFields,
   computeChanges,
-  filterUndefined,
   logAudit,
-  isNotDeleted,
-} from '../../lib';
-import { loadPropertyDefinitions } from '../../lib/properties';
+} from '../../lib/audit/log';
+import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { loadPropertyDefinitions } from '../../lib/properties/definitions';
 import {
   propertyEntityTypeValidator,
   propertyTypeValidator,

@@ -2,8 +2,9 @@ import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { employeeRoleValidator } from '../../_lib/validators/employees';
 import { DEFAULT_ROLES } from '../../_lib/validators/roles';
-import { findRole } from '../../lib/roles';
-import { isNotDeleted, logAudit, updateAuditFields } from '../../lib';
+import { findRole } from '../../lib/roles/access';
+import { isNotDeleted } from '../../lib/shared/db';
+import { logAudit, updateAuditFields } from '../../lib/audit/log';
 
 /** Change an employee's role. An admin cannot change their own (no lock-out). */
 export const setEmployeeRole = settingsMutation({

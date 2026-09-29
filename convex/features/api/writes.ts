@@ -6,8 +6,8 @@ import type { MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { lifecycleStageIndex } from '../../_lib/validators/lifecycle';
 import type { PropertyValue } from '../../_lib/validators/properties';
-import { requireValidAddress } from '../../lib/addresses';
-import { createActivityRecord, requireActivityLinks } from '../../lib/activities';
+import { requireValidAddress } from '../../lib/addresses/validation';
+import { createActivityRecord, requireActivityLinks } from '../../lib/activities/records';
 import {
   activityCreateBody,
   activityPatchBody,
@@ -19,43 +19,39 @@ import {
   dealPatchBody,
   type ContactCreateBody,
   requireText,
-} from '../../lib/apiBodies';
+} from '../../lib/api/bodies';
 import {
   toPublicActivity,
   toPublicCompany,
   toPublicContact,
   toPublicDeal,
-} from '../../lib/apiDtos';
-import { apiError, toApiError } from '../../lib/apiErrors';
-import {
-  computeChanges,
-  filterUndefined,
-  generateHexToken,
-  isNotDeleted,
-  logAudit,
-} from '../../lib';
+} from '../../lib/api/dtos';
+import { apiError, toApiError } from '../../lib/api/errors';
+import { computeChanges, logAudit } from '../../lib/audit/log';
+import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { generateHexToken } from '../../lib/security/crypto';
 import {
   blank,
   normalizeIdentifiers,
   requireCompany,
   resolveCompanyForLead,
-} from '../../lib/companies';
-import { createDealRecord, moveDealToStage, validateDealFields } from '../../lib/deals';
+} from '../../lib/companies/lookup';
+import { createDealRecord, moveDealToStage, validateDealFields } from '../../lib/deals/records';
 import {
   assertLifecycleTransition,
   insertLifecycleHistory,
   loadLifecycleConfig,
   planLifecycleTransition,
-} from '../../lib/lifecycle';
-import { cleanOwnerIds } from '../../lib/owners';
+} from '../../lib/leads/lifecycle';
+import { cleanOwnerIds } from '../../lib/users/owners';
 import {
   loadPropertyDefsById,
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
-} from '../../lib/properties';
+} from '../../lib/properties/definitions';
 import { diffLeadFilterFields } from '../workflows/lib';
 import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
-import { gateLeadCreate } from '../../lib/gates';
+import { gateLeadCreate } from '../../lib/extensions/gates';
 
 const CONSENT_TOKEN_BYTES = 24;
 

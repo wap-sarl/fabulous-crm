@@ -4,14 +4,14 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: keeps aggregates, searchText and dedupe keys in sync.
 import { internalMutation } from '../../_lib/functions';
-import { isNotDeleted } from '../../lib';
+import { isNotDeleted } from '../../lib/shared/db';
 import {
   compareIdentities,
   dedupeKeys,
   findDuplicateCandidates,
   identityOf,
   repointLeadRows,
-} from '../../lib/duplicates';
+} from '../../lib/duplicates/detection';
 
 /** Leads examined per scan step (each reads up to three bounded index ranges). */
 const SCAN_BATCH = 25;

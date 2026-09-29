@@ -6,12 +6,12 @@ import {
   trackingPrivacyUrlSchema,
   trackingRetentionSchema,
 } from '../../_lib/validators/tracking';
-import { trackingConfigOf } from '../../lib/tracking';
+import { trackingConfigOf } from '../../lib/tracking/views';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { settingsMutation } from '../../_lib/auth';
-import { logAudit } from '../../lib';
-import { encryptSecret } from '../../lib/crypto';
+import { logAudit } from '../../lib/audit/log';
+import { encryptSecret } from '../../lib/security/crypto';
 import {
   ATTACHMENT_MAX_BYTES_CEILING,
   ATTACHMENT_RETENTION_MAX_DAYS,
@@ -19,9 +19,9 @@ import {
   DEFAULT_ATTACHMENT_MAX_BYTES,
 } from '../../_lib/validators/attachments';
 import { MAX_DYNAMIC_LISTS_CEILING } from '../../_lib/validators/leadLists';
-import { countLiveLeadsByLifecycleStage } from '../../lib/leadAggregates';
-import { startScoreRecompute } from '../../lib/leadScoring';
-import { loadLifecycleConfig } from '../../lib/lifecycle';
+import { countLiveLeadsByLifecycleStage } from '../../lib/leads/aggregates';
+import { startScoreRecompute } from '../../lib/scoring/score';
+import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import {
   LIFECYCLE_STAGE_KEY_RE,
   MAX_LIFECYCLE_STAGES,
@@ -157,7 +157,7 @@ export const updateConfig = settingsMutation({
       await ctx.storage.delete(cfg.faviconStorageId);
     }
 
-    // Secrets are stored as ciphertext (lib/crypto.ts); an omitted or empty one keeps the stored value.
+    // Secrets are stored as ciphertext (lib/security/crypto.ts); an omitted or empty one keeps the stored value.
     const mergedSso: SsoProvider[] | undefined = args.ssoProviders
       ? await Promise.all(
           args.ssoProviders.map(async (p) => {

@@ -3,7 +3,7 @@ import { internal } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
 import { internalMutation } from '../../_lib/functions';
 import type { ImportCounts } from '../../_lib/validators/imports';
-import { logAudit } from '../../lib/audit';
+import { logAudit } from '../../lib/audit/log';
 import { IMPORTERS } from './entities';
 
 /** Rows deleted per call when a job is dropped. */

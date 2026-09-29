@@ -4,7 +4,7 @@ import type { Doc } from '../../_generated/dataModel';
 import { internalMutation, internalQuery } from '../../_generated/server';
 import { API_IDEMPOTENCY_TTL_MS } from '../../_lib/validators/apiKeys';
 import { PROPERTY_ENTITY_TYPES, type PropertyEntityType } from '../../_lib/validators/properties';
-import { API_KEY_TOUCH_INTERVAL_MS } from '../../lib/apiAuth';
+import { API_KEY_TOUCH_INTERVAL_MS } from '../../lib/api/auth';
 import {
   toPublicActivity,
   toPublicCompany,
@@ -12,8 +12,8 @@ import {
   toPublicDeal,
   toPublicList,
   toPublicPropertyDefinition,
-} from '../../lib/apiDtos';
-import { isNotDeleted } from '../../lib/dbHelpers';
+} from '../../lib/api/dtos';
+import { isNotDeleted } from '../../lib/shared/db';
 
 export const getApiKeyByKeyId = internalQuery({
   args: { keyId: v.string() },

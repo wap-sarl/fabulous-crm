@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import crons from '../../convex/crons';
 import type { Id } from '../../convex/_generated/dataModel';
-import { insertListMember } from '../../convex/lib/leadListMembers';
-import { syncLeadScore } from '../../convex/lib/leadScoring';
-import { stampLeadSignal } from '../../convex/lib/leadSignals';
-import { PURGE_CASCADE_BATCH } from '../../convex/lib/retention';
+import { insertListMember } from '../../convex/lib/leadLists/members';
+import { syncLeadScore } from '../../convex/lib/scoring/score';
+import { stampLeadSignal } from '../../convex/lib/leads/signals';
+import { PURGE_CASCADE_BATCH } from '../../convex/lib/retention/purge';
 import { uniformAccess } from '../../convex/_lib/validators/access';
 import {
   asIdentity,

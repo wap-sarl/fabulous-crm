@@ -3,7 +3,7 @@
 The connector foundation lets each user connect their Google or Microsoft account to the CRM.
 It stores the account and its tokens and keeps an access token fresh; the features that use an
 account (calendar, e-mail sync) build on it and bring their own scopes. Code:
-`convex/lib/connectors.ts`, `convex/features/connectors/`, the page under
+`convex/lib/connectors/oauth.ts`, `convex/features/connectors/`, the page under
 « Intégrations » (`/settings/integrations`).
 
 ## Credentials
@@ -30,7 +30,7 @@ Register the redirect address shown on the page in the provider's console. Reque
    client secret and the PKCE verifier, and reads the account's identity from the ID token
    (`sub`; `oid` for Microsoft, whose `sub` changes with the app registration). It links
    nothing yet: the grant is parked in `connectorPendingAccounts`, tokens as ciphertext
-   (`lib/crypto.ts`), under the hash of a one-time **finish token**, five minutes to live. The
+   (`lib/security/crypto.ts`), under the hash of a one-time **finish token**, five minutes to live. The
    browser lands on « Intégrations » with `#finish=<token>` (a fragment: it reaches neither a
    server log nor a referrer), `?error=<code>`, or `#failed=<token>` when the provider said
    something about a failure (below).

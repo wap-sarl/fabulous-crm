@@ -2,15 +2,15 @@ import type { Doc, Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
 import type { ActivityImportRow } from '../../../_lib/validators/imports';
 import type { PropertyValue } from '../../../_lib/validators/properties';
-import { createActivityRecord } from '../../../lib/activities';
-import { computeChanges, logAudit, updateAuditFields } from '../../../lib/audit';
-import { filterUndefined, isNotDeleted } from '../../../lib/dbHelpers';
-import { findLeadByEmail, normalizeEmail } from '../../../lib/leadImport';
+import { createActivityRecord } from '../../../lib/activities/records';
+import { computeChanges, logAudit, updateAuditFields } from '../../../lib/audit/log';
+import { filterUndefined, isNotDeleted } from '../../../lib/shared/db';
+import { findLeadByEmail, normalizeEmail } from '../../../lib/leads/import';
 import {
   loadPropertyDefsById,
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
-} from '../../../lib/properties';
+} from '../../../lib/properties/definitions';
 import type { EntityImporter } from './types';
 
 interface Caches {

@@ -1,8 +1,8 @@
 import { v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
 import { propertyEntityTypeValidator } from '../../_lib/validators/properties';
-import { isNotDeleted, sortByOrder } from '../../lib';
-import { loadPropertyDefinitions } from '../../lib/properties';
+import { isNotDeleted, sortByOrder } from '../../lib/shared/db';
+import { loadPropertyDefinitions } from '../../lib/properties/definitions';
 
 export const listDefinitions = employeeQuery({
   args: { entityType: v.optional(propertyEntityTypeValidator) },

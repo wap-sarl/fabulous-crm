@@ -6,7 +6,11 @@ import {
   type AttachmentEntityType,
   attachmentEntityTypeValidator,
 } from '../../_lib/validators/attachments';
-import { attachmentMaxBytes, attachmentRetentionDays, fileStore } from '../../lib/fileStorage';
+import {
+  attachmentMaxBytes,
+  attachmentRetentionDays,
+  fileStore,
+} from '../../lib/attachments/storage';
 import { attachmentDaysLeft, attachmentPurgeAt } from '../../_lib/validators/attachments';
 
 export type AttachmentRow = Doc<'attachments'> & {

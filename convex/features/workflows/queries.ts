@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
-import { isNotDeleted } from '../../lib';
+import { isNotDeleted } from '../../lib/shared/db';
 import { workflowRunStatusValidator } from '../../_lib/validators/workflows';
 
 /** Public reads for the workflow pages. */

@@ -8,9 +8,9 @@ import {
   validateFormShape,
   type FormFieldInput,
 } from '../../_lib/validators/forms';
-import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit';
-import { isNotDeleted } from '../../lib/dbHelpers';
-import { loadPropertyDefsById } from '../../lib/properties';
+import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { isNotDeleted } from '../../lib/shared/db';
+import { loadPropertyDefsById } from '../../lib/properties/definitions';
 
 /** Every custom target must be a live, non-computed lead property. */
 async function checkCustomTargets(ctx: MutationCtx, fields: FormFieldInput[]): Promise<void> {

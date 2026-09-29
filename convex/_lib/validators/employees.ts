@@ -6,7 +6,7 @@ import {
   softDeleteValidator,
 } from './shared';
 
-/** A `roles.key`, built-in or custom: its access matrix decides what the employee sees (lib/visibility.ts). */
+/** A `roles.key`, built-in or custom: its access matrix decides what the employee sees (lib/roles/visibility.ts). */
 export const employeeRoleValidator = v.string();
 export type EmployeeRole = Infer<typeof employeeRoleValidator>;
 

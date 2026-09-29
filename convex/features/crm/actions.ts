@@ -3,21 +3,17 @@
 import { v } from 'convex/values';
 import { internalAction } from '../../_generated/server';
 import { internal } from '../../_generated/api';
+import { isEmailWhitelisted, isPhoneWhitelisted } from '../../lib/shared/devWhitelist';
 import {
-  isEmailWhitelisted,
   isEmailProviderConfigured,
-  isPhoneWhitelisted,
-  renderPlaceholders,
   resolveBrevo,
   resolveEmailProvider,
-  sendBrevoSms,
-  sendBrevoTemplateEmail,
-  toBrevoRecipient,
-  wrapEmailHtml,
-} from '../../lib';
+} from '../../lib/email/provider';
+import { renderPlaceholders, sendBrevoTemplateEmail, wrapEmailHtml } from '../../lib/email/brevo';
+import { sendBrevoSms, toBrevoRecipient } from '../../lib/sms/brevo';
 import { createEmailDispatcher } from '../email/send';
 import type { CampaignSendStatus } from '../../schema';
-import { deferUnlessAllowed } from '../../lib/gates';
+import { deferUnlessAllowed } from '../../lib/extensions/gates';
 
 const BATCH_DELAY_MS = 1000;
 

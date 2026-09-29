@@ -18,14 +18,14 @@ import {
   timelineKindValidator,
 } from '../../_lib/validators/timeline';
 import type { WorkflowRunStatus } from '../../_lib/validators/workflows';
-import { isNotDeleted } from '../../lib';
+import { isNotDeleted } from '../../lib/shared/db';
 import {
   paginateTimeline,
   type TimelineRow,
   type TimelineSource,
   type TimelineWindow,
   withinWindow,
-} from '../../lib/timeline';
+} from '../../lib/timeline/pagination';
 
 interface TimelineEventBase<K extends TimelineKind> {
   kind: K;

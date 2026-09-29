@@ -7,8 +7,9 @@ import {
   apiScopeValidator,
   validateApiKeyShape,
 } from '../../_lib/validators/apiKeys';
-import { createAuditFields, generateHexToken, logAudit, updateAuditFields } from '../../lib';
-import { hashApiKeySecret } from '../../lib/apiAuth';
+import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { generateHexToken } from '../../lib/security/crypto';
+import { hashApiKeySecret } from '../../lib/api/auth';
 
 /** The full key is returned once: only its salted hash is stored, so it can never be shown again. */
 export const createApiKey = settingsMutation({

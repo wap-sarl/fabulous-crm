@@ -6,7 +6,7 @@ import {
   providerErrorDescription,
   signState,
   verifyState,
-} from '../../convex/lib/connectors';
+} from '../../convex/lib/connectors/oauth';
 import { describeConnectionError } from '../../src/lib/connectors';
 import {
   asIdentity,

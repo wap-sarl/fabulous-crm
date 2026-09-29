@@ -5,13 +5,14 @@ import {
   type ConnectorProvider,
   connectorProviderValidator,
 } from '../../_lib/validators/connectors';
-import { decryptSecret, encryptSecret, logAudit } from '../../lib';
+import { decryptSecret, encryptSecret } from '../../lib/security/crypto';
+import { logAudit } from '../../lib/audit/log';
 import {
   discardPendingAccount,
   FINISH_TTL_MS,
   resolveCredentials,
   sha256Base64Url,
-} from '../../lib/connectors';
+} from '../../lib/connectors/oauth';
 
 /** A state is good for one callback: consuming it deletes it, so a replayed callback finds nothing. */
 export const consumeState = internalMutation({

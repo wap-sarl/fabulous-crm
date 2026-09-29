@@ -28,7 +28,7 @@ export const socialProviderConfigValidator = v.object({
 
 export type SocialProviderConfig = Infer<typeof socialProviderConfigValidator>;
 
-/** `provider` only routes email: SMS always goes through Brevo once `brevoApiKey` is set; a missing Brevo field falls back to its env var (convex/lib/emailProvider.ts). */
+/** `provider` only routes email: SMS always goes through Brevo once `brevoApiKey` is set; a missing Brevo field falls back to its env var (convex/lib/email/provider.ts). */
 const emailConfigValidator = v.object({
   provider: v.union(v.literal('brevo'), v.literal('smtp')),
   brevoApiKey: v.optional(v.string()), // SECRET — also powers SMS + webhooks
@@ -70,7 +70,7 @@ export const appConfigValidator = v.object({
   retention: v.optional(retentionConfigValidator),
   // Web tracking: the script's switch, anonymous or named, the views' retention (validators/tracking.ts).
   tracking: v.optional(trackingConfigValidator),
-  // The deployment's own OAuth apps for connectors; absent, the environment may supply managed ones (lib/connectors.ts).
+  // The deployment's own OAuth apps for connectors; absent, the environment may supply managed ones (lib/connectors/oauth.ts).
   connectors: v.optional(v.array(connectorConfigValidator)),
   updatedAt: v.number(),
   updatedBy: v.optional(v.id('users')),

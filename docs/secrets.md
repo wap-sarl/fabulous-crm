@@ -4,7 +4,7 @@ The five secrets a deployment stores in `appConfig` (`email.brevoApiKey`,
 `email.brevoWebhookSecret`, `email.smtpPass`, `auth.socialProviders[].clientSecret`,
 `auth.ssoProviders[].clientSecret`) are written as ciphertext when `SECRETS_KEY` is set:
 AES-256-GCM through Web Crypto, one random nonce per write, `v1:<nonce>:<ciphertext>` in base64
-(`convex/lib/crypto.ts`, `encryptSecret` / `decryptSecret`). They are decrypted only where they
+(`convex/lib/security/crypto.ts`, `encryptSecret` / `decryptSecret`). They are decrypted only where they
 are used: the Better Auth request handler (`createAuth`), `resolveEmailProvider` and
 `resolveBrevo`. Queries never return a clear value; the settings screens see presence flags.
 

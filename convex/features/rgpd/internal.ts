@@ -4,8 +4,8 @@ import type { Doc } from '../../_generated/dataModel';
 import { internalQuery, type MutationCtx, type QueryCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { EXPORT_ROW_CAP } from '../../_lib/validators/rgpd';
-import { logAudit } from '../../lib';
-import { computeLeadScore, loadScoringRules } from '../../lib/leadScoring';
+import { logAudit } from '../../lib/audit/log';
+import { computeLeadScore, loadScoringRules } from '../../lib/scoring/score';
 import {
   addCounts,
   emptyCounts,
@@ -14,8 +14,8 @@ import {
   PURGE_ROW_PAGE,
   type PurgeCounts,
   purgeLeadRows,
-} from '../../lib/retention';
-import { loadVisibility, moduleAllows } from '../../lib/visibility';
+} from '../../lib/retention/purge';
+import { loadVisibility, moduleAllows } from '../../lib/roles/visibility';
 
 /** For the export action, which has no db: the settings switch is not enough, a custom role may hold settings with leads at own, team or none. */
 export const exportAccessOf = internalQuery({

@@ -1,6 +1,6 @@
 import { employeeQuery } from '../../_lib/auth';
 import { CONNECTOR_PROVIDERS } from '../../_lib/validators/connectors';
-import { credentialsSource, PROVIDERS } from '../../lib/connectors';
+import { credentialsSource, PROVIDERS } from '../../lib/connectors/oauth';
 
 /** The integrations page: which providers can be connected, and the caller's accounts. Never a token. */
 export const overview = employeeQuery({

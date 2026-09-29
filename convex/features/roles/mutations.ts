@@ -10,8 +10,9 @@ import {
   ROLE_KEY_RE,
   roleKeyOf,
 } from '../../_lib/validators/roles';
-import { computeChanges, isNotDeleted, logAudit, updateAuditFields } from '../../lib';
-import { ensureDefaultRoles, findRole } from '../../lib/roles';
+import { computeChanges, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { isNotDeleted } from '../../lib/shared/db';
+import { ensureDefaultRoles, findRole } from '../../lib/roles/access';
 
 function cleanLabel(raw: string): string {
   const label = raw.trim();

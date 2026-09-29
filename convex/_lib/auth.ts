@@ -11,7 +11,7 @@ import { authComponent } from '../auth';
 // The trigger-wrapped base keeps the aggregates in sync on every write (see _lib/functions.ts).
 import { mutation } from './functions';
 import { extensions } from '../extensions';
-import { loadVisibility, scopedReader, scopedWriter } from '../lib/visibility';
+import { loadVisibility, scopedReader, scopedWriter } from '../lib/roles/visibility';
 
 /** Better Auth owns the session (convex/auth.ts); these wrappers resolve the app employee linked to it by `users.authId`, which the `triggers.user.onCreate` hook fills. */
 

@@ -12,8 +12,8 @@ import {
   MIN_LEAD_SCORE,
   validateScoringCriteria,
 } from '../../_lib/validators/scoring';
-import { createAuditFields, logAudit, updateAuditFields } from '../../lib';
-import { ensureScoringState, loadScoringRules, startScoreRecompute } from '../../lib/leadScoring';
+import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { ensureScoringState, loadScoringRules, startScoreRecompute } from '../../lib/scoring/score';
 
 function checkPoints(points: number): void {
   if (!Number.isInteger(points) || points === 0 || Math.abs(points) > MAX_LEAD_SCORE) {

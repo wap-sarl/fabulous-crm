@@ -6,10 +6,10 @@ import { MAX_TEAM_NAME_LENGTH } from '../../_lib/validators/teams';
 import {
   computeChanges,
   createAuditFields,
-  isNotDeleted,
   logAudit,
   updateAuditFields,
-} from '../../lib';
+} from '../../lib/audit/log';
+import { isNotDeleted } from '../../lib/shared/db';
 
 function cleanName(raw: string): string {
   const name = raw.trim();
