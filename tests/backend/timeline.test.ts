@@ -15,14 +15,14 @@ async function seedTimeline() {
   const emp = await seedEmployee(t, { email: 'agent@example.com', role: 'admin' });
   const as = asIdentity(t, emp.identity);
   // → audit 'create' + initial lifecycle row
-  const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+  const leadId = await as.mutation(api.features.leads.mutations.createLead, {
     firstName: 'Jean',
     lastName: 'Dupont',
     email: 'jean@dupont.fr',
     ownerIds: [emp.userId],
   });
   for (const content of ['Première note', 'Deuxième note', 'Troisième note']) {
-    await as.mutation(api.features.crm.mutations.createNote, { leadId, content });
+    await as.mutation(api.features.leads.mutations.createNote, { leadId, content });
   }
   await as.mutation(api.features.activities.mutations.createActivity, {
     type: 'task',
@@ -98,7 +98,7 @@ async function seedTimeline() {
     leadId,
   });
   // → audit 'update' + lifecycle transition
-  await as.mutation(api.features.crm.mutations.updateLead, {
+  await as.mutation(api.features.leads.mutations.updateLead, {
     leadId,
     phone: '+33612345678',
     lifecycleStage: 'mql',
@@ -224,7 +224,7 @@ describe('lead timeline', () => {
       }) as Promise<Page>;
     expect((await pinned()).page.map((e) => e.id)).toEqual(first.page.map((e) => e.id));
 
-    const noteId = await as.mutation(api.features.crm.mutations.createNote, {
+    const noteId = await as.mutation(api.features.leads.mutations.createNote, {
       leadId,
       content: 'Nouvelle note',
     });
@@ -263,7 +263,7 @@ describe('lead timeline', () => {
     const { events: before } = await readAllPages(as, leadId, 50);
     const note = before.find((e) => e.kind === 'note');
     if (note?.kind !== 'note') throw new Error('note expected');
-    await as.mutation(api.features.crm.mutations.deleteNote, { noteId: note.noteId });
+    await as.mutation(api.features.leads.mutations.deleteNote, { noteId: note.noteId });
     const { events: after } = await readAllPages(as, leadId, 50);
     expect(after.map((e) => e.id)).not.toContain(note.id);
     expect(after.length).toBe(before.length - 1);

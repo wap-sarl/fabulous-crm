@@ -18,19 +18,19 @@ async function countByOwner(t: T, owner: Id<'users'> | null) {
 describe('countLeadsByLifecycleStage (aggregate-backed)', () => {
   test('creations land in their status bucket and the total', async () => {
     const { as } = await setup();
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@example.com',
     });
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'B',
       lastName: 'B',
       email: 'b@example.com',
       lifecycleStage: 'customer',
     });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
+    const counts = await as.query(api.features.leads.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(2);
     expect(counts.byStage.lead).toBe(1);
     expect(counts.byStage.customer).toBe(1);
@@ -38,18 +38,18 @@ describe('countLeadsByLifecycleStage (aggregate-backed)', () => {
 
   test('a status change moves the lead between buckets', async () => {
     const { as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@example.com',
     });
 
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId,
       lifecycleStage: 'sql',
     });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
+    const counts = await as.query(api.features.leads.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(1);
     expect(counts.byStage.lead).toBe(0);
     expect(counts.byStage.sql).toBe(1);
@@ -57,20 +57,20 @@ describe('countLeadsByLifecycleStage (aggregate-backed)', () => {
 
   test('a soft delete leaves the live counts', async () => {
     const { as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@example.com',
     });
-    await as.mutation(api.features.crm.mutations.createLead, {
+    await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'B',
       lastName: 'B',
       email: 'b@example.com',
     });
 
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId });
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
+    const counts = await as.query(api.features.leads.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(1);
     expect(counts.byStage.lead).toBe(1);
   });
@@ -81,11 +81,11 @@ describe('countLeadsByLifecycleStage (aggregate-backed)', () => {
       { firstName: 'A', lastName: 'A', email: 'a@example.com' },
       { firstName: 'B', lastName: 'B', email: 'b@example.com' },
     ];
-    await as.mutation(api.features.crm.mutations.importLeads, { rows });
+    await as.mutation(api.features.leads.mutations.importLeads, { rows });
     // Re-import: updates, not duplicates.
-    await as.mutation(api.features.crm.mutations.importLeads, { rows });
+    await as.mutation(api.features.leads.mutations.importLeads, { rows });
 
-    const counts = await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
+    const counts = await as.query(api.features.leads.queries.countLeadsByLifecycleStage, {});
     expect(counts.total).toBe(2);
   });
 });
@@ -93,7 +93,7 @@ describe('countLeadsByLifecycleStage (aggregate-backed)', () => {
 describe('leadsByOwner aggregate', () => {
   test('assignment moves a lead between owner namespaces', async () => {
     const { t, emp, as } = await setup();
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@example.com',
@@ -101,7 +101,7 @@ describe('leadsByOwner aggregate', () => {
     expect(await countByOwner(t, null)).toBe(1);
     expect(await countByOwner(t, emp.userId)).toBe(0);
 
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId,
       ownerIds: [emp.userId],
     });

@@ -61,7 +61,7 @@ http.route({
     } | null;
 
     if (event?.msg_status && (event.messageId !== undefined || event.to !== undefined)) {
-      await ctx.runMutation(internal.features.crm.internal.handleSmsEvent, {
+      await ctx.runMutation(internal.features.campaigns.internal.handleSmsEvent, {
         brevoMessageId: event.messageId !== undefined ? String(event.messageId) : undefined,
         recipient: event.to !== undefined ? String(event.to) : undefined,
         msgStatus: event.msg_status,
@@ -123,7 +123,7 @@ http.route({
     const type = event?.event ? BREVO_EMAIL_EVENT_TYPE[event.event] : undefined;
     const messageId = event?.['message-id'];
     if (type && messageId) {
-      await ctx.runMutation(internal.features.crm.internal.recordBrevoEmailEvent, {
+      await ctx.runMutation(internal.features.campaigns.internal.recordBrevoEmailEvent, {
         brevoMessageId: messageId,
         type,
         eventAt:
@@ -158,7 +158,7 @@ http.route({
     // The link's own token never reaches the landing URL: a one-time value does, and only its hash is kept.
     const grant = randomToken();
     const result = token
-      ? await ctx.runMutation(internal.features.crm.internal.handleTrackedLinkClick, {
+      ? await ctx.runMutation(internal.features.campaigns.internal.handleTrackedLinkClick, {
           token,
           grantHash: await sha256Base64Url(grant),
         })

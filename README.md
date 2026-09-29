@@ -325,6 +325,7 @@ convex/              Backend Convex
   extensions.ts      Points d'accroche (voir Extensions)
   _lib/              Le socle : constructeurs de fonctions (auth, triggers) et validators du schéma
   features/<nom>/    Une fonctionnalité : queries, mutations, actions, internal
+  features/crm/      Les chemins d'avant le découpage en leads, leadLists, campaigns et consent, gardés une version
   lib/<domaine>/     Le code partagé d'un domaine (leads, email, security, extensions…), sans fonction Convex
   seed/, setup/      Premier employé, assistant de configuration initiale
 src/
@@ -479,8 +480,8 @@ Les deux secrets se tournent indépendamment, sans interruption de service :
    e-mail et SMS entrants :
    ```bash
    bunx convex env set BREVO_WEBHOOK_SECRET $(openssl rand -hex 32) --prod
-   bunx convex run features/crm/actions:registerBrevoEmailWebhook --prod
-   bunx convex run features/crm/actions:registerBrevoSmsWebhook --prod
+   bunx convex run features/campaigns/actions:registerBrevoEmailWebhook --prod
+   bunx convex run features/campaigns/actions:registerBrevoSmsWebhook --prod
    ```
    L'enregistrement met à jour l'en-tête `x-webhook-secret` chez Brevo ; les
    routes comparent en temps constant et acceptent immédiatement la nouvelle

@@ -41,7 +41,7 @@ export function CampaignCreatePage() {
   usePageTitle('Nouvelle campagne');
   const navigate = useNavigate();
 
-  const createCampaign = useAuthMutation(api.features.crm.mutations.createCampaign);
+  const createCampaign = useAuthMutation(api.features.campaigns.mutations.createCampaign);
   const capabilities = useQuery(api.features.config.queries.getEmailCapabilities);
   const smsAvailable = capabilities?.smsAvailable ?? true;
   const emailConfigured = capabilities?.emailConfigured ?? true;

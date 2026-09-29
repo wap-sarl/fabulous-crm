@@ -55,7 +55,7 @@ export function LeadDetailPage() {
   const navigate = useNavigate();
   const { leadId } = useParams<{ leadId: string }>();
   const data = useAuthQuery(
-    api.features.crm.queries.getLeadDetail,
+    api.features.leads.queries.getLeadDetail,
     leadId ? { leadId: leadId as Id<'leads'> } : 'skip',
   );
 

@@ -19,20 +19,20 @@ describe('consent rate limits', () => {
     void leadB;
 
     for (let i = 0; i < 10; i++) {
-      const res = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+      const res = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
         token: 'token-aaaa',
         channels: i % 2 === 0 ? ['email'] : [],
       });
       expect(res.success).toBe(true);
     }
-    const eleventh = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    const eleventh = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token: 'token-aaaa',
       channels: ['email'],
     });
     expect(eleventh).toEqual({ success: false, error: 'rate_limited' });
 
     // The acceptance case: a legitimate second user is unaffected.
-    const other = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    const other = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token: 'token-bbbb',
       channels: ['email'],
     });
@@ -42,13 +42,13 @@ describe('consent rate limits', () => {
   test('invalid tokens share a global bucket: enumeration gets rate_limited', async () => {
     const { t } = await setup();
     for (let i = 0; i < 30; i++) {
-      const res = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+      const res = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
         token: `guess-${i}`,
         channels: [],
       });
       expect(res).toEqual({ success: false, error: 'invalid_token' });
     }
-    const overrun = await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    const overrun = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token: 'guess-final',
       channels: [],
     });

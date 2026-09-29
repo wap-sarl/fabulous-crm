@@ -15,7 +15,7 @@ interface LeadPickerProps {
 /** Searchable lead selector (search index, 10 rows). */
 export function LeadPicker({ value, onChange, selectedName, disabled, modal }: LeadPickerProps) {
   const [search, setSearch] = useState('');
-  const results = useAuthQuery(api.features.crm.queries.searchLeads, {
+  const results = useAuthQuery(api.features.leads.queries.searchLeads, {
     search: search || undefined,
   });
   const items = useMemo(() => {

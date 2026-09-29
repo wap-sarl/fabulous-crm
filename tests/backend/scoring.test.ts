@@ -101,7 +101,7 @@ describe('lead scoring', () => {
     const r3 = await createRule(as, 'E-mail bloqué', emailContains('blocked'), -30);
     await settleScoring(t);
 
-    const leadA = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadA = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ada',
       lastName: 'Lovelace',
       lifecycleStage: 'mql',
@@ -111,7 +111,7 @@ describe('lead scoring', () => {
     expect(doc?.scoreBreakdown).toEqual({ [r1]: 60, [r2]: 60 });
 
     // Negative-only match clamps at 0, and the breakdown still explains it.
-    const leadB = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadB = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Bob',
       lastName: 'Bloqué',
       email: 'blocked@example.com',
@@ -123,7 +123,7 @@ describe('lead scoring', () => {
     expect(doc?.scoreBreakdown).toEqual({ [r3]: -30 });
 
     // The very write that breaks a rule re-scores the lead.
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId: leadA,
       ownerIds: [emp.userId],
     });
@@ -151,12 +151,12 @@ describe('lead scoring', () => {
     const { t, as } = await setup();
     await createRule(as, 'Actif 30 j', activeInLastDays(30), 10, { decayHalfLifeDays: 7 });
     await settleScoring(t);
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Tim',
       lastName: 'Décroissant',
     });
     // A note stamps lastActivityAt through the wrapped db → scored on the spot.
-    await as.mutation(api.features.crm.mutations.createNote, { leadId, content: 'Appelé.' });
+    await as.mutation(api.features.leads.mutations.createNote, { leadId, content: 'Appelé.' });
     expect((await leadDoc(t, leadId))?.leadScore).toBe(10);
 
     // The finished recompute booked the nightly drift job (decay present).
@@ -190,7 +190,7 @@ describe('lead scoring', () => {
       status: 'active',
     });
 
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Grace',
       lastName: 'Hopper',
       lifecycleStage: 'lead',
@@ -200,12 +200,12 @@ describe('lead scoring', () => {
     expect(await runCount()).toBe(0);
 
     // 0 → 60 crosses 50 upward: one enrollment.
-    await as.mutation(api.features.crm.mutations.updateLead, { leadId, lifecycleStage: 'mql' });
+    await as.mutation(api.features.leads.mutations.updateLead, { leadId, lifecycleStage: 'mql' });
     expect((await leadDoc(t, leadId))?.leadScore).toBe(60);
     expect(await runCount()).toBe(1);
 
     // Unrelated edit, score unchanged: no new run.
-    await as.mutation(api.features.crm.mutations.updateLead, { leadId, firstName: 'Grace M.' });
+    await as.mutation(api.features.leads.mutations.updateLead, { leadId, firstName: 'Grace M.' });
     expect(await runCount()).toBe(1);
 
     // 60 → 0 crosses downward: the up-workflow stays quiet.
@@ -236,7 +236,7 @@ describe('lead scoring', () => {
     await createRule(as, 'Sans propriétaire', noOwner(), 60);
     await settleScoring(t);
 
-    const leadA = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadA = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Marie',
       lastName: 'Curie',
       lifecycleStage: 'lead',
@@ -254,7 +254,7 @@ describe('lead scoring', () => {
     expect(history.filter((h) => h.source === 'score' && h.to === 'mql')).toHaveLength(1);
 
     // Already past the target stage: the score never demotes.
-    const leadB = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadB = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Claire',
       lastName: 'Cliente',
       lifecycleStage: 'customer',
@@ -269,7 +269,7 @@ describe('lead scoring', () => {
     await createRule(as, 'Sans propriétaire', noOwner(), 60);
     await settleScoring(t);
 
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Rosa',
       lastName: 'Retard',
       lifecycleStage: 'lead',
@@ -301,7 +301,7 @@ describe('lead scoring', () => {
     const rPerso = await createRule(as, 'E-mail perso', emailContains('gmail'), -5);
     await settleScoring(t);
 
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Perso',
       email: 'jean.perso@gmail.com',
@@ -311,14 +311,14 @@ describe('lead scoring', () => {
     expect(doc?.scoreBreakdown).toEqual({ [rPerso]: -5 });
 
     // Wire an email campaign send so the Brevo webhook path has a message to hit.
-    const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
+    const campaignId = await as.mutation(api.features.campaigns.mutations.createCampaign, {
       name: 'Newsletter',
       channel: 'email',
       filter: {},
       subject: 'Bonjour',
       htmlBody: '<p>x</p>',
     });
-    await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+    await t.mutation(internal.features.campaigns.internal.prepareCampaignBatch, {
       campaignId,
       filter: {},
     });
@@ -328,7 +328,7 @@ describe('lead scoring', () => {
       if (!send) throw new Error('missing campaign send for the lead');
       await ctx.db.patch(send._id, { brevoMessageId: 'msg-1' });
     });
-    await t.mutation(internal.features.crm.internal.recordBrevoEmailEvent, {
+    await t.mutation(internal.features.campaigns.internal.recordBrevoEmailEvent, {
       brevoMessageId: 'msg-1',
       type: 'opened',
       eventAt: Date.now(),
@@ -386,7 +386,7 @@ describe('lead scoring', () => {
     await createRule(as, 'MQL', stageIs('mql'), 60);
     await settleScoring(t);
     for (const [i, stage] of ['mql', 'mql', 'sql'].entries()) {
-      await as.mutation(api.features.crm.mutations.createLead, {
+      await as.mutation(api.features.leads.mutations.createLead, {
         firstName: `Lead${i}`,
         lastName: 'Simulé',
         lifecycleStage: stage,

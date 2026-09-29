@@ -25,7 +25,7 @@ export function LeadsPage() {
 
   const { filters, setParam, setAdvancedFilter, toggleSort } = useLeadFilters();
   const { results, isLoading, hasMore, loadMore } = useLeadsPaginated(filters);
-  const counts = useAuthQuery(api.features.crm.queries.countLeadsByLifecycleStage, {});
+  const counts = useAuthQuery(api.features.leads.queries.countLeadsByLifecycleStage, {});
   const duplicates = useAuthQuery(api.features.duplicates.queries.countOpenDuplicates, {});
   const lifecycle = useLifecycleConfig();
   const { employees } = useEmployees();

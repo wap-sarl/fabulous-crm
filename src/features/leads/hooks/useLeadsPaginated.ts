@@ -38,7 +38,7 @@ export function useLeadsPaginated(filters: LeadFilters) {
   const filterKey = JSON.stringify(args);
 
   const { results, status, loadMore } = useAuthPaginatedQuery(
-    api.features.crm.queries.listLeadsPaginated,
+    api.features.leads.queries.listLeadsPaginated,
     args,
     { initialNumItems: PAGE_SIZE },
   );
@@ -75,5 +75,5 @@ export function useMatchingLeads(filters: LeadFilters) {
   const { sortField, sortDirection, ...rest } = toQueryArgs(filters);
   void sortField;
   void sortDirection;
-  return useAuthQuery(api.features.crm.queries.listMatchingLeadIds, rest);
+  return useAuthQuery(api.features.leads.queries.listMatchingLeadIds, rest);
 }

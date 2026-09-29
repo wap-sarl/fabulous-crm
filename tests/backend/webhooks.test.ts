@@ -5,7 +5,7 @@ import { asIdentity, createTestConvex, seedEmployee, type SeededEmployee, type T
 
 /** Materialize the sends of a freshly created campaign (single prep batch). */
 async function prepareCampaign(t: T, campaignId: Id<'campaigns'>) {
-  await t.mutation(internal.features.crm.internal.prepareCampaignBatch, {
+  await t.mutation(internal.features.campaigns.internal.prepareCampaignBatch, {
     campaignId,
     filter: {},
   });
@@ -32,12 +32,12 @@ async function seedEmailSend(
   brevoMessageId: string,
 ): Promise<{ leadId: Id<'leads'>; sendId: Id<'campaignSends'> }> {
   const as = asIdentity(t, emp.identity);
-  const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+  const leadId = await as.mutation(api.features.leads.mutations.createLead, {
     firstName: 'Mail',
     lastName: 'Lead',
     email: 'mail@example.com',
   });
-  const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
+  const campaignId = await as.mutation(api.features.campaigns.mutations.createCampaign, {
     name: 'Webhook email',
     channel: 'email',
     filter: {},
@@ -56,7 +56,7 @@ async function seedEmailSend(
 /** SMS campaign + one sent row for a lead with a phone (smsRecipient stamped). */
 async function seedSmsSend(t: T, emp: SeededEmployee): Promise<{ leadId: Id<'leads'> }> {
   const as = asIdentity(t, emp.identity);
-  const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+  const leadId = await as.mutation(api.features.leads.mutations.createLead, {
     firstName: 'Sms',
     lastName: 'Lead',
     email: 'sms@example.com',
@@ -64,11 +64,11 @@ async function seedSmsSend(t: T, emp: SeededEmployee): Promise<{ leadId: Id<'lea
   });
   // The STOP path only revokes consent the lead actually holds.
   const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
-  await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+  await t.mutation(api.features.consent.mutations.updateConsentByToken, {
     token,
     channels: ['email', 'sms'],
   });
-  const campaignId = await as.mutation(api.features.crm.mutations.createCampaign, {
+  const campaignId = await as.mutation(api.features.campaigns.mutations.createCampaign, {
     name: 'Webhook sms',
     channel: 'sms',
     filter: {},
@@ -281,7 +281,7 @@ describe('SMS STOP', () => {
       return 'tok-1';
     });
     const click = () =>
-      t.mutation(internal.features.crm.internal.handleTrackedLinkClick, { token });
+      t.mutation(internal.features.campaigns.internal.handleTrackedLinkClick, { token });
     await click();
     await click();
     const audits = await t.run(async (ctx) =>

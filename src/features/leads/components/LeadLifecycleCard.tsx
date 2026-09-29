@@ -27,7 +27,7 @@ interface LeadLifecycleCardProps {
 
 export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardProps) {
   const lifecycle = useLifecycleConfig();
-  const history = useAuthQuery(api.features.crm.queries.listLifecycleHistory, { leadId });
+  const history = useAuthQuery(api.features.leads.queries.listLifecycleHistory, { leadId });
   const currentIndex = lifecycle.indexOf(currentStage);
 
   return (

@@ -56,7 +56,7 @@ export function CompanyDetailPage() {
     companyId ? { companyId: id } : 'skip',
   );
   const contacts = useAuthPaginatedQuery(
-    api.features.crm.queries.listLeadsPaginated,
+    api.features.leads.queries.listLeadsPaginated,
     companyId ? { companyIds: [id], sortField: 'recent', sortDirection: 'desc' } : 'skip',
     { initialNumItems: CONTACTS_PAGE },
   );

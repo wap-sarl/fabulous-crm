@@ -102,7 +102,7 @@ describe('enrollment', () => {
   }
 
   async function fireConsentUpdated(t: T, token: string): Promise<void> {
-    await t.mutation(api.features.crm.mutations.updateConsentByToken, {
+    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token,
       channels: ['email'],
     });
@@ -127,7 +127,7 @@ describe('enrollment', () => {
     const { t, emp } = await setup();
     const workflowId = await createActiveWorkflow(t, emp);
     const leadId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createLead,
+      api.features.leads.mutations.createLead,
       { firstName: 'W', lastName: 'F', email: 'wf@example.com' },
     );
     const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
@@ -149,7 +149,7 @@ describe('enrollment', () => {
     const { t, emp } = await setup();
     const workflowId = await createActiveWorkflow(t, emp, { allowReEnrollment: true });
     const leadId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createLead,
+      api.features.leads.mutations.createLead,
       { firstName: 'Cap', lastName: 'Lead', email: 'cap@example.com' },
     );
     const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
@@ -172,7 +172,7 @@ describe('enrollment', () => {
     const { t, emp } = await setup();
     const workflowId = await createActiveWorkflow(t, emp, { allowReEnrollment: false });
     const leadId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createLead,
+      api.features.leads.mutations.createLead,
       { firstName: 'Once', lastName: 'Only', email: 'once@example.com' },
     );
     const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
@@ -213,7 +213,7 @@ describe('run execution guards', () => {
       workflowId,
       status: 'active',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Prop',
       lastName: 'Step',
       email: 'prop@example.com',
@@ -260,7 +260,7 @@ describe('run execution guards', () => {
       workflowId,
       status: 'active',
     });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Step',
       lastName: 'Limit',
       email: 'steps@example.com',

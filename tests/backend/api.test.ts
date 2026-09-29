@@ -533,7 +533,7 @@ describe('public REST API writes', () => {
     expect(created.created).toBe(true);
 
     // Promote through the UI so the merge can prove it leaves the stage alone.
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId: created.data.id,
       lifecycleStage: 'lead',
     });

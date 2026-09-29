@@ -51,7 +51,7 @@ async function seedWorld({ t, as, admin }: Awaited<ReturnType<typeof setup>>) {
     nodes: [{ id: 'n1', type: 'send_email', subject: 'Hi', htmlBody: '<p>x</p>' }],
     startNodeId: 'n1',
   });
-  const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+  const listId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
     name: 'Prospects',
     kind: 'static',
   });
@@ -380,7 +380,7 @@ describe('RGPD rights', () => {
       as.mutation(api.features.rgpd.mutations.eraseContact, { leadId: ada, confirm: false }),
     ).rejects.toThrow(/erasure_not_confirmed/);
     // A contact already in the trash can be erased too.
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId: ada });
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId: ada });
     const requestId = await as.mutation(api.features.rgpd.mutations.eraseContact, {
       leadId: ada,
       confirm: true,
@@ -397,7 +397,7 @@ describe('RGPD rights', () => {
     // Business records stay, unlinked.
     expect((await t.run((ctx) => ctx.db.get(dealId)))?.leadId).toBeUndefined();
     expect((await t.run((ctx) => ctx.db.get(activityId)))?.leadId).toBeUndefined();
-    const lists = await as.query(api.features.crm.queries.listLeadLists, {});
+    const lists = await as.query(api.features.leadLists.queries.listLeadLists, {});
     expect(lists.find((l) => l._id === listId)?.memberCount).toBe(1);
     // The audit trail: the note's and the run's rows gone, and about the contact exactly one anonymous row.
     const audits = await t.run((ctx) => ctx.db.query('auditLogs').collect());

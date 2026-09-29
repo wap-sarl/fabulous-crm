@@ -31,12 +31,12 @@ type LeadNote = {
 };
 
 export function LeadNotes({ leadId }: { leadId: Id<'leads'> }) {
-  const notes = useAuthQuery(api.features.crm.queries.listLeadNotes, { leadId });
+  const notes = useAuthQuery(api.features.leads.queries.listLeadNotes, { leadId });
 
-  const createNote = useAuthMutation(api.features.crm.mutations.createNote);
-  const updateNote = useAuthMutation(api.features.crm.mutations.updateNote);
-  const setNotePinned = useAuthMutation(api.features.crm.mutations.setNotePinned);
-  const deleteNote = useAuthMutation(api.features.crm.mutations.deleteNote);
+  const createNote = useAuthMutation(api.features.leads.mutations.createNote);
+  const updateNote = useAuthMutation(api.features.leads.mutations.updateNote);
+  const setNotePinned = useAuthMutation(api.features.leads.mutations.setNotePinned);
+  const deleteNote = useAuthMutation(api.features.leads.mutations.deleteNote);
 
   const [draft, setDraft] = useState('');
   const [submitting, setSubmitting] = useState(false);

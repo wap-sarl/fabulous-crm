@@ -33,7 +33,7 @@ export function CampaignEventsTable({
   onSelectSend: (sendId: Id<'campaignSends'>) => void;
 }) {
   const { results, status, loadMore } = useAuthPaginatedQuery(
-    api.features.crm.queries.listCampaignEvents,
+    api.features.campaigns.queries.listCampaignEvents,
     { campaignId },
     { initialNumItems: PAGE_SIZE },
   );

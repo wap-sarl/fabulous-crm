@@ -32,7 +32,7 @@ export function RecipientPreviewSheet({
   onClose: () => void;
 }) {
   const preview = useAuthQuery(
-    api.features.crm.queries.getCampaignSendPreview,
+    api.features.campaigns.queries.getCampaignSendPreview,
     sendId ? { sendId } : 'skip',
   );
 

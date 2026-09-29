@@ -9,8 +9,11 @@ import { CONSENT_CHANNELS } from '../../lib/constants';
 
 export function ConsentPage() {
   const { token } = useParams<{ token: string }>();
-  const consent = useQuery(api.features.crm.queries.getConsentByToken, token ? { token } : 'skip');
-  const updateConsent = useMutation(api.features.crm.mutations.updateConsentByToken);
+  const consent = useQuery(
+    api.features.consent.queries.getConsentByToken,
+    token ? { token } : 'skip',
+  );
+  const updateConsent = useMutation(api.features.consent.mutations.updateConsentByToken);
 
   const [channels, setChannels] = useState<MarketingConsentChannel[]>([]);
   const [submitting, setSubmitting] = useState(false);

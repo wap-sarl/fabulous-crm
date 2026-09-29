@@ -3,8 +3,8 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import { extensions } from '../../extensions';
 import { isNotDeleted } from '../../lib/shared/db';
-import { evalAdvancedFilter } from '../crm/leadMatching';
-import { loadLeadFilterExtras } from '../crm/leadTableFilters';
+import { evalAdvancedFilter } from '../../lib/leads/matching';
+import { loadLeadFilterExtras } from '../../lib/leads/tableFilters';
 import { matchesTrigger, MAX_ENROLLMENTS_PER_LEAD_PER_DAY, type WorkflowTriggerEvent } from './lib';
 
 /** The dispatch runs inline in the host mutation's transaction but never throws into it: an automation failure must not break a lead edit. */

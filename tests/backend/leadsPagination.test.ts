@@ -33,7 +33,7 @@ async function collectAllPages(
   const pageSizes: number[] = [];
   let cursor: string | null = null;
   for (;;) {
-    const res: Page = await as.query(api.features.crm.queries.listLeadsPaginated, {
+    const res: Page = await as.query(api.features.leads.queries.listLeadsPaginated, {
       ...args,
       paginationOpts: { numItems, cursor },
     });
@@ -132,7 +132,7 @@ describe('listLeadsPaginated', () => {
 
   test('list membership is applied per page', async () => {
     const { t, emp, as } = await setup();
-    const listId = await as.mutation(api.features.crm.mutations.createLeadList, {
+    const listId = await as.mutation(api.features.leadLists.mutations.createLeadList, {
       name: 'Pagination',
     });
     const inList = await seedLead(t, { email: 'member@example.com' });

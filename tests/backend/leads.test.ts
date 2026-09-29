@@ -13,7 +13,7 @@ describe('createLead', () => {
   test('normalizes the email, starts with empty consent and a consent token', async () => {
     const { t, emp } = await setup();
     const leadId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createLead,
+      api.features.leads.mutations.createLead,
       {
         firstName: '  Marie ',
         lastName: ' Curie ',
@@ -32,7 +32,7 @@ describe('createLead', () => {
   test('writes a create audit-log entry', async () => {
     const { t, emp } = await setup();
     const leadId = await asIdentity(t, emp.identity).mutation(
-      api.features.crm.mutations.createLead,
+      api.features.leads.mutations.createLead,
       {
         firstName: 'A',
         lastName: 'B',
@@ -54,12 +54,12 @@ describe('updateLead', () => {
   test('patches fields and audit-logs the diff', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Jean',
       lastName: 'Dupont',
       email: 'jean@example.com',
     });
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId,
       comment: 'Rappelé',
       email: 'JEAN@example.com',
@@ -79,14 +79,14 @@ describe('updateLead', () => {
   test('rejects a soft-deleted lead', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'X',
       lastName: 'Y',
       email: 'x@example.com',
     });
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId });
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId });
     await expect(
-      as.mutation(api.features.crm.mutations.updateLead, { leadId, comment: 'x' }),
+      as.mutation(api.features.leads.mutations.updateLead, { leadId, comment: 'x' }),
     ).rejects.toThrow('lead_not_found');
   });
 });
@@ -95,12 +95,12 @@ describe('deleteLead / deleteLeads', () => {
   test('soft-deletes: the row survives with deletedAt set', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'B',
       email: 'del@example.com',
     });
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId });
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId });
     const lead = await t.run((ctx) => ctx.db.get(leadId));
     expect(lead).not.toBeNull();
     expect(lead?.deletedAt).toBeGreaterThan(0);
@@ -109,18 +109,18 @@ describe('deleteLead / deleteLeads', () => {
   test('bulk delete dedups ids, skips already-deleted, reports the count', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const a = await as.mutation(api.features.crm.mutations.createLead, {
+    const a = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       email: 'a@example.com',
     });
-    const b = await as.mutation(api.features.crm.mutations.createLead, {
+    const b = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'B',
       lastName: 'B',
       email: 'b@example.com',
     });
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId: a });
-    const result = await as.mutation(api.features.crm.mutations.deleteLeads, {
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId: a });
+    const result = await as.mutation(api.features.leads.mutations.deleteLeads, {
       leadIds: [a, b, b],
     });
     expect(result).toEqual({ deleted: 1 });
@@ -131,17 +131,17 @@ describe('importLeads (CSV upsert)', () => {
   test('inserts new emails, updates existing ones without resetting the status', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const existingId = await as.mutation(api.features.crm.mutations.createLead, {
+    const existingId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Old',
       lastName: 'Name',
       email: 'known@example.com',
     });
-    await as.mutation(api.features.crm.mutations.updateLead, {
+    await as.mutation(api.features.leads.mutations.updateLead, {
       leadId: existingId,
       lifecycleStage: 'sql',
     });
 
-    const result = await as.mutation(api.features.crm.mutations.importLeads, {
+    const result = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         { firstName: 'New', lastName: 'Person', email: 'new@example.com' },
         // Same email, different case/whitespace → must match the existing lead.
@@ -159,14 +159,14 @@ describe('importLeads (CSV upsert)', () => {
   test('revives a soft-deleted lead matched by email', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ghost',
       lastName: 'Lead',
       email: 'ghost@example.com',
     });
-    await as.mutation(api.features.crm.mutations.deleteLead, { leadId });
+    await as.mutation(api.features.leads.mutations.deleteLead, { leadId });
 
-    const result = await as.mutation(api.features.crm.mutations.importLeads, {
+    const result = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [{ firstName: 'Ghost', lastName: 'Returns', email: 'ghost@example.com' }],
     });
     expect(result).toMatchObject({ created: 0, updated: 1 });
@@ -178,7 +178,7 @@ describe('importLeads (CSV upsert)', () => {
   test('a row without an email is always inserted', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
-    const result = await as.mutation(api.features.crm.mutations.importLeads, {
+    const result = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         { firstName: 'No', lastName: 'Mail', email: '' },
         { firstName: 'No', lastName: 'Mail', email: '' },

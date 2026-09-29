@@ -11,12 +11,12 @@ async function setup() {
   const as = asIdentity(t, emp.identity);
   const lead = (
     fields: Partial<
-      Parameters<typeof as.mutation<typeof api.features.crm.mutations.createLead>>[1]
+      Parameters<typeof as.mutation<typeof api.features.leads.mutations.createLead>>[1]
     > & {
       firstName: string;
       lastName: string;
     },
-  ) => as.mutation(api.features.crm.mutations.createLead, fields);
+  ) => as.mutation(api.features.leads.mutations.createLead, fields);
   return { t, emp, as, lead };
 }
 
@@ -136,7 +136,10 @@ describe('duplicate scan', () => {
     const b = await lead({ firstName: 'Paul', lastName: 'Langevin' });
     await runScan(t, as);
     expect(await pairs(as)).toHaveLength(0);
-    await as.mutation(api.features.crm.mutations.updateLead, { leadId: b, phone: '+33611111111' });
+    await as.mutation(api.features.leads.mutations.updateLead, {
+      leadId: b,
+      phone: '+33611111111',
+    });
     expect((await t.run((ctx) => ctx.db.get(b)))?.dedupe?.phone).toBe('+33611111111');
     await runScan(t, as);
     const found = await pairs(as);
@@ -168,7 +171,7 @@ describe('merge', () => {
       }),
     );
     // Related rows on the absorbed lead.
-    await as.mutation(api.features.crm.mutations.createNote, {
+    await as.mutation(api.features.leads.mutations.createNote, {
       leadId: absorbedId,
       content: 'Note',
     });
@@ -189,8 +192,12 @@ describe('merge', () => {
       nodes: [{ id: 'n1', type: 'create_task', title: 'T' }],
       startNodeId: 'n1',
     });
-    const listShared = await as.mutation(api.features.crm.mutations.createLeadList, { name: 'L1' });
-    const listOnly = await as.mutation(api.features.crm.mutations.createLeadList, { name: 'L2' });
+    const listShared = await as.mutation(api.features.leadLists.mutations.createLeadList, {
+      name: 'L1',
+    });
+    const listOnly = await as.mutation(api.features.leadLists.mutations.createLeadList, {
+      name: 'L2',
+    });
     const { runId, sendId, tokenId, eventId } = await t.run(async (ctx) => {
       const runId = await ctx.db.insert('workflowRuns', {
         workflowId,
@@ -239,7 +246,7 @@ describe('merge', () => {
     });
     await runScan(t, as);
     expect(await pairs(as)).toHaveLength(1);
-    const totalBefore = (await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {}))
+    const totalBefore = (await as.query(api.features.leads.queries.countLeadsByLifecycleStage, {}))
       .total;
 
     await as.mutation(api.features.duplicates.mutations.mergeLeads, {
@@ -298,14 +305,14 @@ describe('merge', () => {
         [listOnly, survivorId],
       ].sort(),
     );
-    const lists = await as.query(api.features.crm.queries.listLeadLists, {});
+    const lists = await as.query(api.features.leadLists.queries.listLeadLists, {});
     expect(Object.fromEntries(lists.map((l) => [l.name, l.memberCount]))).toEqual({ L1: 1, L2: 1 });
 
     // Counters and search stay exact.
-    const totalAfter = (await as.query(api.features.crm.queries.countLeadsByLifecycleStage, {}))
+    const totalAfter = (await as.query(api.features.leads.queries.countLeadsByLifecycleStage, {}))
       .total;
     expect(totalAfter).toBe(totalBefore - 1);
-    const hits = await as.query(api.features.crm.queries.searchLeads, { search: '0612345678' });
+    const hits = await as.query(api.features.leads.queries.searchLeads, { search: '0612345678' });
     expect(hits.map((h) => h._id)).toEqual([survivorId]);
 
     // Pairs of the absorbed lead are gone; the merge is audited on the survivor.
@@ -363,7 +370,7 @@ describe('import duplicate check', () => {
       { index: 0, leadId: existing, leadName: 'Marie Curie', leadEmail: null, reasons: ['phone'] },
     ]);
 
-    const res = await as.mutation(api.features.crm.mutations.importLeads, {
+    const res = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         {
           firstName: 'Marie',

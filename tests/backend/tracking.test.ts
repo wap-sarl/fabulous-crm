@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, jest, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
-import { evalRule } from '../../convex/features/crm/leadMatching';
+import { evalRule } from '../../convex/lib/leads/matching';
 import {
   asIdentity,
   createTestConvex,
@@ -380,7 +380,7 @@ describe('web tracking', () => {
     expect((await leadOf(t, bob._id)).pageViewCount).toBeUndefined();
 
     // A contact with more views than a batch: the rest follows in scheduled steps.
-    const big = await as.mutation(api.features.crm.mutations.createLead, {
+    const big = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Big',
       lastName: 'Browser',
       email: 'big@example.com',
@@ -401,7 +401,7 @@ describe('web tracking', () => {
 
   test('a tracked link identifies the browser that lands from it: once, for a short while, on a tracked site, in named mode', async () => {
     const { t, as } = await setup({ mode: 'named' });
-    const ada = await as.mutation(api.features.crm.mutations.createLead, {
+    const ada = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ada',
       lastName: 'Lovelace',
       email: 'ada@example.com',
@@ -444,7 +444,7 @@ describe('web tracking', () => {
 
     // Anonymous mode: the link redirects without the parameter.
     const anon = await setup({ mode: 'anonymous' });
-    const bob = await anon.as.mutation(api.features.crm.mutations.createLead, {
+    const bob = await anon.as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Bob',
       lastName: 'M',
       email: 'bob@example.com',
@@ -456,7 +456,7 @@ describe('web tracking', () => {
   test('a merge moves the absorbed contact’s views and browsers to the survivor, marks included; an objection detaches both', async () => {
     const { t, as } = await setup({ mode: 'named' });
     const lead = (firstName: string, email: string) =>
-      as.mutation(api.features.crm.mutations.createLead, { firstName, lastName: 'Curie', email });
+      as.mutation(api.features.leads.mutations.createLead, { firstName, lastName: 'Curie', email });
     const survivorId = await lead('Marie', 'marie@example.com');
     const absorbedId = await lead('M.', 'm.curie@example.com');
     await tracked(t, survivorId, VISITOR, ['/', '/tarifs'], NOW - DAY);
@@ -499,7 +499,7 @@ describe('web tracking', () => {
 
   test('leaving named mode detaches everything; going back to it starts from nothing', async () => {
     const { t, as } = await setup({ mode: 'named' });
-    const ada = await as.mutation(api.features.crm.mutations.createLead, {
+    const ada = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ada',
       lastName: 'Lovelace',
       email: 'ada@example.com',
@@ -511,7 +511,7 @@ describe('web tracking', () => {
       Array.from({ length: 250 }, (_, i) => `/p${i}`),
     );
     // A contact whose views went with a purge, its marks not yet rebuilt.
-    const bob = await as.mutation(api.features.crm.mutations.createLead, {
+    const bob = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Bob',
       lastName: 'M',
       email: 'bob@example.com',
@@ -540,7 +540,7 @@ describe('web tracking', () => {
   test('the purge drops the views and the idle browsers past the retention, each under its own count, and the contact’s marks follow', async () => {
     const { t, as } = await setup();
     const lead = (firstName: string) =>
-      as.mutation(api.features.crm.mutations.createLead, {
+      as.mutation(api.features.leads.mutations.createLead, {
         firstName,
         lastName: 'Lovelace',
         email: `${firstName}@example.com`,

@@ -2,7 +2,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import type { MutationCtx } from '../../_generated/server';
 import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
-import { evalAdvancedFilter } from '../../features/crm/leadMatching';
+import { evalAdvancedFilter } from '../leads/matching';
 import { dispatchWorkflowTrigger } from '../../features/workflows/triggerDispatch';
 import { deleteListMember, insertListMember } from './members';
 
@@ -89,7 +89,7 @@ export async function startDynamicListRecalc(
     if (pending?.state.kind === 'pending') await ctx.scheduler.cancel(list.nextRecalcId);
   }
   await ctx.db.patch(list._id, { recalc: { stamp, processed: 0 }, nextRecalcId: undefined });
-  await ctx.scheduler.runAfter(0, internal.features.crm.internal.recalcDynamicListPage, {
+  await ctx.scheduler.runAfter(0, internal.features.leadLists.internal.recalcDynamicListPage, {
     listId: list._id,
     stamp,
   });

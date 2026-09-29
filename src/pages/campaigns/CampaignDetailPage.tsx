@@ -118,11 +118,11 @@ export function CampaignDetailPage() {
   const [selectedSendId, setSelectedSendId] = useState<Id<'campaignSends'> | null>(null);
   const [retrying, setRetrying] = useState(false);
   const data = useAuthQuery(
-    api.features.crm.queries.getCampaign,
+    api.features.campaigns.queries.getCampaign,
     campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
   );
-  const retrySend = useAuthMutation(api.features.crm.mutations.retryCampaignSend);
-  const resendAll = useAuthMutation(api.features.crm.mutations.resendAllCampaignSends);
+  const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
+  const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
 
   const sends = useMemo(() => data?.sends ?? [], [data]);
   const series = useMemo(

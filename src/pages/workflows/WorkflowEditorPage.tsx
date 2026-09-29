@@ -68,7 +68,7 @@ export function WorkflowEditorPage() {
 
   // Matching-lead count for the save dialog (criteria evaluated live).
   const matching = useAuthQuery(
-    api.features.crm.queries.listMatchingLeadIds,
+    api.features.leads.queries.listMatchingLeadIds,
     saveChoiceOpen ? { advancedFilter: draft.enrollmentCriteria } : 'skip',
   );
 

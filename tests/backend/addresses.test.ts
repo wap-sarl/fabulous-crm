@@ -103,13 +103,13 @@ describe('address validation in mutations', () => {
   test('leads and companies refuse an address that breaks its country format', async () => {
     const { t, as } = await setup();
     await expect(
-      as.mutation(api.features.crm.mutations.createLead, {
+      as.mutation(api.features.leads.mutations.createLead, {
         firstName: 'A',
         lastName: 'A',
         address: { ...FR, postalCode: 'ABC' },
       }),
     ).rejects.toThrow('invalid_address');
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'A',
       lastName: 'A',
       address: US,
@@ -129,7 +129,7 @@ describe('address validation in mutations', () => {
 
   test('CSV rows with an invalid address are row errors', async () => {
     const { as } = await setup();
-    const res = await as.mutation(api.features.crm.mutations.importLeads, {
+    const res = await as.mutation(api.features.leads.mutations.importLeads, {
       rows: [
         { firstName: 'A', lastName: 'A', email: 'a@acme.fr', address: FR },
         { firstName: 'B', lastName: 'B', email: 'b@acme.fr', address: { ...FR, postalCode: '1' } },
@@ -140,7 +140,7 @@ describe('address validation in mutations', () => {
   });
 
   test('{{ params.address }} follows the country order and only names foreign countries', async () => {
-    const { formatAddressParam } = await import('../../convex/features/crm/leadTargets');
+    const { formatAddressParam } = await import('../../convex/lib/leads/targets');
     expect(formatAddressParam(FR)).toBe('8 Boulevard du Port, 80000 AMIENS');
     expect(formatAddressParam(US)).toBe('1600 Amphitheatre Pkwy, MOUNTAIN VIEW, CA 94043, US');
   });

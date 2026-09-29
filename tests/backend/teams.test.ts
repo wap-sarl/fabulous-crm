@@ -36,7 +36,7 @@ async function setup() {
     memberIds: [sam.userId],
   });
   const lead = (fields: { lastName: string; ownerIds: Id<'users'>[]; email?: string }) =>
-    asAdmin.mutation(api.features.crm.mutations.createLead, {
+    asAdmin.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Lead',
       lifecycleStage: 'lead',
       ...fields,
@@ -58,7 +58,7 @@ async function setup() {
 
 const listIds = (as: ReturnType<typeof asIdentity>, args: Record<string, unknown> = {}) =>
   as
-    .query(api.features.crm.queries.listLeadsPaginated, {
+    .query(api.features.leads.queries.listLeadsPaginated, {
       paginationOpts: { numItems: 50, cursor: null },
       ...args,
     })
@@ -143,30 +143,36 @@ describe('visibility', () => {
     expect(await listIds(asMarc)).toEqual([ninas, shared, pool].sort());
 
     // Search and detail follow the same perimeter.
-    const hits = await asMarc.query(api.features.crm.queries.searchLeads, { search: 'Lead' });
+    const hits = await asMarc.query(api.features.leads.queries.searchLeads, { search: 'Lead' });
     expect(hits.map((h) => h._id).sort()).toEqual([ninas, shared, pool].sort());
-    expect(await asMarc.query(api.features.crm.queries.getLeadDetail, { leadId: sams })).toBeNull();
     expect(
-      (await asMarc.query(api.features.crm.queries.getLeadDetail, { leadId: shared }))?.ownerNames,
+      await asMarc.query(api.features.leads.queries.getLeadDetail, { leadId: sams }),
+    ).toBeNull();
+    expect(
+      (await asMarc.query(api.features.leads.queries.getLeadDetail, { leadId: shared }))
+        ?.ownerNames,
     ).toEqual(['Sam User', 'Nina User']);
-    expect(await asMarc.query(api.features.crm.queries.getLead, { leadId: sams })).toBeNull();
+    expect(await asMarc.query(api.features.leads.queries.getLead, { leadId: sams })).toBeNull();
   });
 
   test('counts are scoped: lifecycle counts by primary owner, company total hidden', async () => {
     const { asAdmin, asMarc, asSam } = await setup();
     const adminCounts = await asAdmin.query(
-      api.features.crm.queries.countLeadsByLifecycleStage,
+      api.features.leads.queries.countLeadsByLifecycleStage,
       {},
     );
     expect(adminCounts.total).toBe(4);
     // Marc counts Nina's lead and the pool: the co-owned lead is visible to him but counted under Sam, its primary owner.
-    const marcCounts = await asMarc.query(api.features.crm.queries.countLeadsByLifecycleStage, {});
+    const marcCounts = await asMarc.query(
+      api.features.leads.queries.countLeadsByLifecycleStage,
+      {},
+    );
     expect(marcCounts.total).toBe(2);
     expect(marcCounts.byStage.lead).toBe(2);
     // Sam (own): Sam's lead, the co-owned one (primary Sam) and the pool.
-    expect((await asSam.query(api.features.crm.queries.countLeadsByLifecycleStage, {})).total).toBe(
-      3,
-    );
+    expect(
+      (await asSam.query(api.features.leads.queries.countLeadsByLifecycleStage, {})).total,
+    ).toBe(3);
     expect((await asMarc.query(api.features.companies.queries.countCompanies, {})).total).toBe(0);
     expect((await asAdmin.query(api.features.companies.queries.countCompanies, {})).total).toBe(0);
   });
@@ -174,27 +180,27 @@ describe('visibility', () => {
   test('a manager cannot touch records outside the perimeter, can claim the pool', async () => {
     const { t, asMarc, asAdmin, sams, pool, marc, sam, nina } = await setup();
     await expect(
-      asMarc.mutation(api.features.crm.mutations.updateLead, { leadId: sams, comment: 'x' }),
+      asMarc.mutation(api.features.leads.mutations.updateLead, { leadId: sams, comment: 'x' }),
     ).rejects.toThrow('lead_not_found');
     await expect(
-      asMarc.mutation(api.features.crm.mutations.deleteLead, { leadId: sams }),
+      asMarc.mutation(api.features.leads.mutations.deleteLead, { leadId: sams }),
     ).rejects.toThrow('lead_not_found');
     // Creating a lead owned outside the team is refused; inside is fine.
     await expect(
-      asMarc.mutation(api.features.crm.mutations.createLead, {
+      asMarc.mutation(api.features.leads.mutations.createLead, {
         firstName: 'X',
         lastName: 'Y',
         ownerIds: [sam.userId],
       }),
     ).rejects.toThrow();
-    const mine = await asMarc.mutation(api.features.crm.mutations.createLead, {
+    const mine = await asMarc.mutation(api.features.leads.mutations.createLead, {
       firstName: 'X',
       lastName: 'Y',
       ownerIds: [marc.userId, nina.userId],
     });
     expect((await t.run((ctx) => ctx.db.get(mine)))?.ownerIds).toEqual([marc.userId, nina.userId]);
     // Claiming a pool lead: ownership change is audited.
-    await asMarc.mutation(api.features.crm.mutations.updateLead, {
+    await asMarc.mutation(api.features.leads.mutations.updateLead, {
       leadId: pool,
       ownerIds: [marc.userId],
     });

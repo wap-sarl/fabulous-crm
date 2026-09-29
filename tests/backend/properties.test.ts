@@ -123,7 +123,7 @@ describe('custom properties across entities', () => {
     const { t, as, define } = await setup();
     const specialty = await define({ entityType: 'lead', label: 'Spécialité', type: 'text' });
     const seats = await define({ entityType: 'company', label: 'Sièges', type: 'number' });
-    const leadId = await as.mutation(api.features.crm.mutations.createLead, {
+    const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Marie',
       lastName: 'Curie',
       customProperties: { [specialty]: 'Physique', [seats]: 3 },

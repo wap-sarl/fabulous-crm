@@ -14,7 +14,7 @@ description: How to verify wap-crm changes at runtime against the dev Convex dep
 ## Driving backend surfaces without UI login
 Better Auth OTP blocks headless browser login (no seed/devSession backdoor). Work around it:
 - **HTTP actions** (`convex/http.ts` routes): curl `https://<handle>.convex.site/<path>` directly.
-- **Public mutations/queries**: `bunx convex run features/crm/mutations:updateConsentByToken '{"token":"…","channels":["sms"]}'` — handy to put a lead in a desired consent state (tokens visible in `bunx convex data leads`).
+- **Public mutations/queries**: `bunx convex run features/consent/mutations:updateConsentByToken '{"token":"…","channels":["sms"]}'` — handy to put a lead in a desired consent state (tokens visible in `bunx convex data leads`).
 - **Inspect state**: `bunx convex data <table> --limit N` (leads, campaignSends, leadNotes…). Wide tables: grep the row by `_id`.
 
 ## Test data
