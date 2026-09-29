@@ -29,7 +29,7 @@ export const socialProviderConfigValidator = v.object({
 export type SocialProviderConfig = Infer<typeof socialProviderConfigValidator>;
 
 /** `provider` only routes email: SMS always goes through Brevo once `brevoApiKey` is set; a missing Brevo field falls back to its env var (convex/lib/email/provider.ts). */
-export const emailConfigValidator = v.object({
+const emailConfigValidator = v.object({
   provider: v.union(v.literal('brevo'), v.literal('smtp')),
   brevoApiKey: v.optional(v.string()), // SECRET — also powers SMS + webhooks
   brevoWebhookSecret: v.optional(v.string()), // SECRET

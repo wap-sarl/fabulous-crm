@@ -348,6 +348,9 @@ action) dans `features/<fonctionnalité>/`, ses routes HTTP dans son
 `routes.ts` ; ce que plusieurs fonctionnalités
 partagent dans `lib/<domaine>/`, importé par son module, sans fichier
 d'index ; un validator de table dans `_lib/validators/`.
+Les imports descendent : `lib/` n'importe aucune fonctionnalité, et les
+validators et les constantes de `_lib/` n'importent ni `lib/` ni `features/`
+(`tests/backend/layering.test.ts`).
 
 Côté interface : un composant, un hook ou un helper va dans
 `src/features/<fonctionnalité>/` (un composant par fichier) ; `src/pages/` ne
