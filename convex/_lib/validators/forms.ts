@@ -2,6 +2,7 @@ import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
 import { propertyValueValidator } from './properties';
 import { DAY_MS } from '../time';
+import { slugOf } from '../text';
 
 export const MAX_FORM_FIELDS = 20;
 /** A submission younger than this since the form was served is treated as a bot. */
@@ -56,14 +57,7 @@ const FIELD_KEY_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 
 /** A public key for a field: its label as an ASCII slug (« Prénom » → `prenom`). */
 function slugifyFieldKey(label: string): string {
-  const slug = label
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 40);
-  return slug || 'champ';
+  return slugOf(label).slice(0, 40) || 'champ';
 }
 
 /** A field keeps the key it had for the same target, so stored submissions stay readable; a new one gets its label's slug, suffixed until unique. */

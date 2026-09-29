@@ -26,7 +26,11 @@ const upward = (files: string[], above: RegExp) =>
 
 describe('the layers of the backend', () => {
   test('the validators and the constants are the lowest: they import neither shared code nor a feature', () => {
-    const lowest = [...filesOf(join(ROOT, '_lib/validators')), join(ROOT, '_lib/time.ts')];
+    const lowest = [
+      ...filesOf(join(ROOT, '_lib/validators')),
+      join(ROOT, '_lib/time.ts'),
+      join(ROOT, '_lib/text.ts'),
+    ];
     expect(upward(lowest, /\/convex\/(lib|features)\//)).toEqual([]);
   });
 

@@ -12,6 +12,7 @@ import type * as _lib_auth from "../_lib/auth.js";
 import type * as _lib_functions from "../_lib/functions.js";
 import type * as _lib_socialProviders from "../_lib/socialProviders.js";
 import type * as _lib_softDelete from "../_lib/softDelete.js";
+import type * as _lib_text from "../_lib/text.js";
 import type * as _lib_time from "../_lib/time.js";
 import type * as _lib_validators_access from "../_lib/validators/access.js";
 import type * as _lib_validators_activities from "../_lib/validators/activities.js";
@@ -220,6 +221,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/functions": typeof _lib_functions;
   "_lib/socialProviders": typeof _lib_socialProviders;
   "_lib/softDelete": typeof _lib_softDelete;
+  "_lib/text": typeof _lib_text;
   "_lib/time": typeof _lib_time;
   "_lib/validators/access": typeof _lib_validators_access;
   "_lib/validators/activities": typeof _lib_validators_activities;

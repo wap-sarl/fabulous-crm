@@ -53,6 +53,7 @@ export {
   ACCESS_MODULES,
   accessWarnings,
 } from '../../convex/_lib/validators/access';
+export { slugOf } from '../../convex/_lib/text';
 export {
   ADMIN_ROLE_KEY,
   DEFAULT_ROLES,

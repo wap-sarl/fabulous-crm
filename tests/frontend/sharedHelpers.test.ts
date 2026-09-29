@@ -6,6 +6,8 @@ import {
 } from '../../src/design-system/components/inputs/grouped-digits';
 import { errorCode, errorLabel } from '../../src/lib/errors';
 import { dateFormat } from '../../src/lib/format';
+import { keyFromLabel } from '../../src/lib/keys';
+import { slugOf } from '../../convex/_lib/text';
 
 const LABELS = {
   unknown_stage: 'Stade inconnu.',
@@ -48,5 +50,23 @@ describe('the helpers the screens share', () => {
     for (let day = Date.UTC(2024, 0, 1); day < Date.UTC(2028, 0, 1); day += 5 * 86_400_000) {
       expect(dateFormat.format(day)).toBe(spelled.format(day));
     }
+  });
+
+  test('a label gives its ASCII words, without accents, joined as asked', () => {
+    expect(slugOf('  Équipe — Nord ')).toBe('equipe-nord');
+    expect(slugOf('Prénom', '_')).toBe('prenom');
+    expect(slugOf("L'été d’Élodie n°2", ' ')).toBe('l ete d elodie n 2');
+    expect(slugOf('« … »')).toBe('');
+  });
+
+  test('a new key is at most 24 characters, numbered until free, the fallback when the label gives none', () => {
+    expect(keyFromLabel('Négociation', new Set(), 'stade')).toBe('negociation');
+    expect(keyFromLabel('Négociation', new Set(['negociation', 'negociation_2']), 'stade')).toBe(
+      'negociation_3',
+    );
+    expect(keyFromLabel('Une étape au nom vraiment très long', new Set(), 'etape')).toBe(
+      'une_etape_au_nom_vraimen',
+    );
+    expect(keyFromLabel('…', new Set(['etape']), 'etape')).toBe('etape_2');
   });
 });

@@ -1,12 +1,8 @@
 import type { Doc } from '../../_generated/dataModel';
+import { slugOf } from '../../_lib/text';
 
 export function normalizeSearchText(raw: string): string {
-  return raw
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+  return slugOf(raw, ' ');
 }
 
 /** The searchText value a lead document should carry. */
