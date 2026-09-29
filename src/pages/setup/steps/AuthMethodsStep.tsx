@@ -224,7 +224,8 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                     value={provider.providerId}
                     placeholder="mon-entreprise"
                     className="font-mono text-xs"
-                    onChange={(e) => setSso(index, { providerId: slugOf(e.target.value) })}
+                    onChange={(e) => setSso(index, { providerId: e.target.value })}
+                    onBlur={(e) => setSso(index, { providerId: slugOf(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">

@@ -1,4 +1,5 @@
 import type { Id } from '@crm/lib/backend';
+import { ssoProviderIdSchema } from '@crm/lib/backend';
 
 /** Draft custom SSO provider as edited in the wizard (scopes as a string field). */
 export type SsoDraft = {
@@ -81,4 +82,29 @@ export function ssoDraftToConfig(d: SsoDraft) {
       .filter(Boolean),
     enabled: d.enabled,
   };
+}
+
+/** A draft the wizard sends: an empty one, added and left alone, is dropped. */
+export function isSentSsoDraft(d: SsoDraft): boolean {
+  return d.enabled || Boolean(d.label.trim()) || Boolean(d.clientId.trim());
+}
+
+/** What is wrong with the SSO providers the wizard would send, as a sentence, or null. */
+export function ssoDraftsError(drafts: SsoDraft[]): string | null {
+  const sent = drafts.filter(isSentSsoDraft);
+  for (const p of sent) {
+    if (p.enabled && !p.label.trim()) return 'Chaque fournisseur SSO doit avoir un libellé.';
+    if (!p.providerId.trim()) return `Identifiant (slug) manquant pour "${p.label}".`;
+    if (!ssoProviderIdSchema.safeParse(p.providerId.trim()).success)
+      return `Identifiant (slug) invalide pour "${p.label}" : lettres minuscules et chiffres, séparés par des tirets.`;
+    if (!p.enabled) continue;
+    if (!/^https?:\/\//.test(p.issuerUrl.trim()))
+      return `URL d'émetteur invalide pour "${p.label}".`;
+    if (!p.clientId.trim()) return `Client ID manquant pour "${p.label}".`;
+    if (!p.clientSecret.trim()) return `Client secret manquant pour "${p.label}".`;
+  }
+  const ids = sent.map((p) => p.providerId.trim());
+  if (new Set(ids).size !== ids.length)
+    return 'Les identifiants (slug) des fournisseurs SSO doivent être uniques.';
+  return null;
 }

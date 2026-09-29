@@ -1,6 +1,10 @@
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
-import { ssoProviderValidator, socialProviderConfigValidator } from '../_lib/validators/appConfig';
+import {
+  ssoProviderIdSchema,
+  ssoProviderValidator,
+  socialProviderConfigValidator,
+} from '../_lib/validators/appConfig';
 import { logAudit } from '../lib/audit/log';
 import { encryptSecret } from '../lib/security/crypto';
 import { isSetupComplete } from './helpers';
@@ -81,6 +85,12 @@ export const completeSetup = mutation({
         throw new Error('sso_provider_missing_credentials');
       }
     }
+    // The id is stored with the provider, enabled or not, and never changes after.
+    const ssoIds = args.auth.ssoProviders.map((p) => p.providerId);
+    if (ssoIds.some((id) => !ssoProviderIdSchema.safeParse(id).success)) {
+      throw new Error('sso_provider_invalid_id');
+    }
+    if (new Set(ssoIds).size !== ssoIds.length) throw new Error('sso_provider_duplicate_id');
 
     const now = Date.now();
 

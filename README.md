@@ -530,7 +530,8 @@ Les fournisseurs SSO personnalisés sont gérés par le plugin *generic-oauth* d
 Better Auth, **exactement comme les fournisseurs sociaux** : ils se configurent
 dans l'assistant d'installation (et les réglages), stockés en base dans
 `appConfig.auth.ssoProviders`. Chaque fournisseur est une entrée :
-`providerId` (slug stable, utilisé dans l'URL de rappel), `label`, `issuerUrl`,
+`providerId` (slug stable, utilisé dans l'URL de rappel : des mots en minuscules
+et chiffres séparés par des tirets, 64 caractères au plus, refusé sinon), `label`, `issuerUrl`,
 `clientId`, `clientSecret`, `scopes`, `enabled`. L'émetteur doit exposer un
 document de découverte OIDC (`/.well-known/openid-configuration`) et émettre des
 `id_token` standard. L'URL de rappel à déclarer dans la console du fournisseur est

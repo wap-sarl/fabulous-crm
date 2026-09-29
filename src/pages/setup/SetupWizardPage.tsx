@@ -10,7 +10,13 @@ import { OrganizationStep } from './steps/OrganizationStep';
 import { AuthMethodsStep } from './steps/AuthMethodsStep';
 import { AdminStep } from './steps/AdminStep';
 import { ReviewStep } from './steps/ReviewStep';
-import { ssoDraftToConfig, socialDraftToConfig, type WizardData } from './steps/types';
+import {
+  isSentSsoDraft,
+  ssoDraftsError,
+  ssoDraftToConfig,
+  socialDraftToConfig,
+  type WizardData,
+} from './steps/types';
 
 const STEPS = ['Jeton', 'Organisation', 'Connexion', 'Administrateur', 'Récapitulatif'] as const;
 
@@ -85,22 +91,12 @@ export function SetupWizardPage() {
         return true;
       }
       case 2: {
-        const enabledSso = data.ssoProviders.filter((p) => p.enabled);
+        const hasSso = data.ssoProviders.some((p) => p.enabled);
         const hasSocial = data.socialProviders.some((s) => s.enabled);
-        if (!data.magicLinkEnabled && !hasSocial && enabledSso.length === 0)
+        if (!data.magicLinkEnabled && !hasSocial && !hasSso)
           return fail('Activez au moins une méthode de connexion.');
-        for (const p of enabledSso) {
-          if (!p.label.trim()) return fail('Chaque fournisseur SSO doit avoir un libellé.');
-          if (!p.providerId.trim()) return fail(`Identifiant (slug) manquant pour "${p.label}".`);
-          if (!/^https?:\/\//.test(p.issuerUrl.trim()))
-            return fail(`URL d'émetteur invalide pour "${p.label}".`);
-          if (!p.clientId.trim()) return fail(`Client ID manquant pour "${p.label}".`);
-          if (!p.clientSecret.trim()) return fail(`Client secret manquant pour "${p.label}".`);
-        }
-        const ids = enabledSso.map((p) => p.providerId);
-        if (new Set(ids).size !== ids.length)
-          return fail('Les identifiants (slug) des fournisseurs SSO doivent être uniques.');
-        return true;
+        const ssoError = ssoDraftsError(data.ssoProviders);
+        return ssoError ? fail(ssoError) : true;
       }
       case 3: {
         if (!data.admin.firstName.trim()) return fail('Prénom requis.');
@@ -145,9 +141,7 @@ export function SetupWizardPage() {
         senderName: data.senderName,
         auth: {
           magicLinkEnabled: data.magicLinkEnabled,
-          ssoProviders: data.ssoProviders
-            .filter((d) => d.enabled || d.label.trim() || d.clientId.trim())
-            .map(ssoDraftToConfig),
+          ssoProviders: data.ssoProviders.filter(isSentSsoDraft).map(ssoDraftToConfig),
           socialProviders: data.socialProviders
             .filter((d) => d.enabled || d.clientId.trim() || d.clientSecret.trim())
             .map(socialDraftToConfig),
