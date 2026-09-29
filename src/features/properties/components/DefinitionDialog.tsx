@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@crm/lib/backend';
+import { slugOf } from '@crm/lib/backend';
 import type { PropertyEntityType, PropertyType, PropertyValidation } from '@crm/lib/backend';
 import {
   Button,
@@ -95,17 +96,6 @@ function buildValidation(type: PropertyType, dv: DraftValidation): PropertyValid
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 }
 
-/** Accent-free lowercase slug for a select option value. */
-function slugify(label: string): string {
-  return label
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 /** Assign stable, unique slug values to options that don't have one yet. */
 function finalizeOptions(options: DraftOption[]): DraftOption[] {
   const used = new Set<string>();
@@ -113,7 +103,7 @@ function finalizeOptions(options: DraftOption[]): DraftOption[] {
   for (const opt of options) {
     const label = opt.label.trim();
     if (!label) continue;
-    let value = opt.value.trim() || slugify(label) || 'option';
+    let value = opt.value.trim() || slugOf(label) || 'option';
     if (used.has(value)) {
       let n = 2;
       while (used.has(`${value}-${n}`)) n += 1;
@@ -288,7 +278,7 @@ export function DefinitionDialog({
                       <Input
                         value={opt.value}
                         disabled={opt.locked}
-                        placeholder={slugify(opt.label) || 'valeur'}
+                        placeholder={slugOf(opt.label) || 'valeur'}
                         title={
                           opt.locked
                             ? "La valeur ne peut plus changer une fois l'option enregistrée."

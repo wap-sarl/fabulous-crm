@@ -2,16 +2,9 @@ import { useState } from 'react';
 import { Button, Input, Label, Switch } from '@crm/design-system';
 import { Plus, Trash2, CheckCircle, Copy } from 'lucide-react';
 import { usePublicConfig } from '@crm/widgets/config/ConfigContext';
+import { slugOf } from '@crm/lib/backend';
 import type { SsoDraft, SocialDraft, StepProps } from './types';
 import { emptySsoProvider } from './types';
-
-function slugify(label: string): string {
-  return label
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
 
 export function AuthMethodsStep({ data, update, error }: StepProps) {
   const { config } = usePublicConfig();
@@ -218,9 +211,9 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                         label: e.target.value,
                         // The slug follows the label until the user overrides it: the callback path depends on it.
                         providerId:
-                          provider.providerId && provider.providerId !== slugify(provider.label)
+                          provider.providerId && provider.providerId !== slugOf(provider.label)
                             ? provider.providerId
-                            : slugify(e.target.value),
+                            : slugOf(e.target.value),
                       })
                     }
                   />
@@ -231,7 +224,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                     value={provider.providerId}
                     placeholder="mon-entreprise"
                     className="font-mono text-xs"
-                    onChange={(e) => setSso(index, { providerId: slugify(e.target.value) })}
+                    onChange={(e) => setSso(index, { providerId: slugOf(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">

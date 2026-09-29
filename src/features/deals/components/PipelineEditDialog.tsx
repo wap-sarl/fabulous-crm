@@ -39,20 +39,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { useDealActions } from '../hooks/useDealActions';
 import { PipelineGraphEditor } from './PipelineGraphEditor';
 import { DEAL_ERROR_MESSAGES, dealErrorMessage } from '../lib/errors';
-
-function keyFromLabel(label: string, taken: Set<string>): string {
-  const base =
-    label
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 24) || 'stade';
-  let key = base;
-  for (let i = 2; taken.has(key); i++) key = `${base}_${i}`;
-  return key;
-}
+import { keyFromLabel } from '@crm/lib/keys';
 
 type StageStats = { key: string; count: number }[];
 
@@ -119,7 +106,7 @@ export function PipelineEditDialog({
       toast.error(DEAL_ERROR_MESSAGES.pipeline_too_many_tags);
       return;
     }
-    const key = keyFromLabel(label, new Set(current.map((t) => t.key)));
+    const key = keyFromLabel(label, new Set(current.map((t) => t.key)), 'stade');
     setTags([...current, { key, label }]);
     setNewTagLabel('');
   };
@@ -152,7 +139,7 @@ export function PipelineEditDialog({
       toast.error(DEAL_ERROR_MESSAGES.pipeline_too_many_stages);
       return;
     }
-    const key = keyFromLabel(label, new Set(stages.map((s) => s.key)));
+    const key = keyFromLabel(label, new Set(stages.map((s) => s.key)), 'stade');
     // New stages go before the closed ones so the funnel stays readable.
     const firstClosed = stages.findIndex((s) => s.kind !== 'open');
     const next = [...stages];

@@ -3,6 +3,7 @@ import { useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { LifecycleStage } from '@crm/lib/backend';
 import { LIFECYCLE_STAGE_KEY_RE, MAX_LIFECYCLE_STAGES } from '@crm/lib/backend';
+import { keyFromLabel } from '@crm/lib/keys';
 import {
   Button,
   Card,
@@ -23,21 +24,6 @@ import {
 } from '@crm/design-system';
 import { Plus, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
-
-/** Derive a stage key from its label: accent-free, lowercase, `_`-joined. */
-function keyFromLabel(label: string, taken: Set<string>): string {
-  const base =
-    label
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .slice(0, 24) || 'etape';
-  let key = base;
-  for (let i = 2; taken.has(key); i++) key = `${base}_${i}`;
-  return key;
-}
 
 const ERROR_MESSAGES: Record<string, string> = {
   lifecycle_no_stages: 'Au moins un statut est requis.',
@@ -118,7 +104,7 @@ export function LifecyclePage() {
       toast.error(ERROR_MESSAGES.lifecycle_too_many_stages);
       return;
     }
-    const key = keyFromLabel(label, new Set(stages.map((s) => s.key)));
+    const key = keyFromLabel(label, new Set(stages.map((s) => s.key)), 'etape');
     touch(setStages)([...stages, { key, label }]);
     setNewLabel('');
   };

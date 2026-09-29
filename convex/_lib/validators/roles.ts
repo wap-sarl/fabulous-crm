@@ -1,6 +1,7 @@
 import { type Infer, v } from 'convex/values';
 import { type RoleAccess, roleAccessValidator, uniformAccess } from './access';
 import { logsValidator } from './shared';
+import { slugOf } from '../text';
 
 export const roleValidator = v.object({
   ...logsValidator.fields,
@@ -34,12 +35,5 @@ export function defaultRoleAccess(key: string): RoleAccess {
 
 /** Accent-free lowercase slug for a new role key. */
 export function roleKeyOf(label: string): string {
-  return label
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 32);
+  return slugOf(label, '_').slice(0, 32);
 }
