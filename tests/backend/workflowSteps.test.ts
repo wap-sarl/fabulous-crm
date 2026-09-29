@@ -1,9 +1,12 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { WorkflowNode, WorkflowTrigger } from '../../convex/_lib/validators/workflows';
+import { setExtensionsForTests } from '../../convex/extensions';
 import { insertListMember } from '../../convex/lib/leadLists/members';
 import { asIdentity, createTestConvex, pinClock, seedEmployee, type T } from './helpers';
+
+afterEach(() => setExtensionsForTests(null));
 
 const NOW = Date.UTC(2026, 8, 29, 10, 0, 0);
 const HOUR_MS = 60 * 60 * 1000;
@@ -449,6 +452,63 @@ describe('a step of a workflow: deals and tasks', () => {
     expect(await activities(nobody.leadId)).toEqual([]);
     expect(nobody.run.currentNodeId).toBe('n2');
   });
+
+  test('a task for a team has no owner, and a deleted team gives it back to the owner', async () => {
+    const w = await setup();
+    const team = (deletedAt?: number) =>
+      w.t.run((ctx) =>
+        ctx.db.insert('teams', {
+          name: 'Ventes',
+          memberIds: [w.userId],
+          updatedAt: NOW,
+          deletedAt,
+        }),
+      );
+    const task = (teamId: Id<'teams'>): WorkflowNode => ({
+      id: 'n1',
+      type: 'create_task',
+      title: 'Rappeler',
+      teamId,
+      next: 'n2',
+    });
+    const taskOf = (leadId: Id<'leads'>) =>
+      w.t.run(async (ctx) =>
+        (await ctx.db.query('activities').collect()).filter((a) => a.leadId === leadId),
+      );
+
+    const teamId = await team();
+    const forTeam = await runNode(w, [task(teamId)]);
+    expect(forTeam.steps[0].status).toBe('success');
+    const [teamTask] = await taskOf(forTeam.leadId);
+    expect(teamTask).toMatchObject({ title: 'Rappeler', teamId });
+    expect(teamTask.ownerId).toBeUndefined();
+    expect(forTeam.run.currentNodeId).toBe('n2');
+
+    // No author either: the team alone is enough.
+    const teamOnly = await runNode(
+      w,
+      [task(teamId)],
+      {},
+      { createdBy: undefined, updatedBy: undefined },
+    );
+    expect(teamOnly.steps[0].status).toBe('success');
+    expect((await taskOf(teamOnly.leadId))[0]).toMatchObject({ teamId });
+
+    const deleted = await team(NOW);
+    const fallback = await runNode(w, [task(deleted)]);
+    expect(fallback.steps[0].status).toBe('success');
+    const [ownerTask] = await taskOf(fallback.leadId);
+    expect(ownerTask).toMatchObject({ title: 'Rappeler', ownerId: w.userId });
+    expect(ownerTask.teamId).toBeUndefined();
+
+    const nobody = await runNode(
+      w,
+      [task(deleted)],
+      {},
+      { createdBy: undefined, updatedBy: undefined },
+    );
+    expect(nobody.steps[0]).toMatchObject({ status: 'skipped', detail: 'aucun propriétaire' });
+  });
 });
 
 describe('a step of a workflow: lists', () => {
@@ -597,6 +657,43 @@ describe('a step of a workflow: sends and webhooks', () => {
       expect(run).toMatchObject({ status: 'active', currentNodeId: 'n2' });
       expect(jobs).toEqual([NEXT(runId, 'n2')]);
     }
+  });
+
+  test('a send the deployment refuses is skipped with the reason, and the run goes on', async () => {
+    const w = await setup();
+    const asked: unknown[] = [];
+    setExtensionsForTests({
+      beforeSend: async (_ctx, info) => {
+        asked.push(info);
+        throw new Error('quota_exceeded');
+      },
+    });
+    const cases = [
+      { node: email, channel: 'email' as const },
+      { node: sms, channel: 'sms' as const },
+    ];
+    for (const { node, channel } of cases) {
+      const { steps, run, jobs, runId } = await runNode(w, [node], { marketingConsent: [channel] });
+      expect(steps).toHaveLength(1);
+      expect(steps[0]).toMatchObject({
+        status: 'skipped',
+        detail: 'quota_exceeded',
+        finishedAt: NOW,
+      });
+      expect(run).toMatchObject({ status: 'active', currentNodeId: 'n2' });
+      expect(jobs).toEqual([NEXT(runId, 'n2')]);
+    }
+    expect(asked).toEqual([
+      { channel: 'email', count: 1, source: 'workflow' },
+      { channel: 'sms', count: 1, source: 'workflow' },
+    ]);
+
+    // Without the address or the consent the deployment is not asked, and a webhook is not a send.
+    await runNode(w, [email], { email: undefined, marketingConsent: ['email'] });
+    await runNode(w, [sms], { marketingConsent: [] });
+    const hooked = await runNode(w, [webhook]);
+    expect(hooked.steps[0].status).toBe('pending');
+    expect(asked).toHaveLength(2);
   });
 
   test('a send and a webhook leave a pending step and hand it to the action, the run stays on the node', async () => {
