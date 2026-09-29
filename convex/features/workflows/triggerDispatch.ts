@@ -6,10 +6,9 @@ import { isNotDeleted } from '../../lib/shared/db';
 import { evalAdvancedFilter } from '../../lib/leads/matching';
 import { loadLeadFilterExtras } from '../../lib/leads/tableFilters';
 import { matchesTrigger, MAX_ENROLLMENTS_PER_LEAD_PER_DAY, type WorkflowTriggerEvent } from './lib';
+import { DAY_MS } from '../../lib/shared/time';
 
 /** The dispatch runs inline in the host mutation's transaction but never throws into it: an automation failure must not break a lead edit. */
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** The active, non-deleted workflows. Tiny table — read in full like leadLists. */
 export async function loadActiveWorkflows(ctx: MutationCtx): Promise<Doc<'workflows'>[]> {

@@ -1,21 +1,14 @@
 import { ValidationError, nullable, validate } from 'convex-helpers/validators';
 import { type Infer, v, type Validator } from 'convex/values';
-import { activityTypeValidator } from '../../_lib/validators/activities';
+import { activityStatusValidator, activityTypeValidator } from '../../_lib/validators/activities';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { addressValidator } from '../../_lib/validators/shared';
 import { apiError } from './errors';
+import { companyHintValidator } from '../../_lib/validators/imports';
 
 const idString = v.string();
 const idList = v.array(v.string());
 const customPropertiesPatch = v.record(v.string(), nullable(propertyValueValidator));
-
-const companyHint = v.object({
-  name: v.optional(v.string()),
-  country: v.optional(v.string()),
-  registrationNumber: v.optional(v.string()),
-  vatNumber: v.optional(v.string()),
-  domain: v.optional(v.string()),
-});
 
 export const contactCreateBody = v.object({
   firstName: v.string(),
@@ -29,7 +22,7 @@ export const contactCreateBody = v.object({
   lifecycleStage: v.optional(v.string()),
   companyId: v.optional(idString),
   // Match (domain, registration, VAT) or create the company by name.
-  company: v.optional(companyHint),
+  company: v.optional(companyHintValidator),
   customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
 });
 export type ContactCreateBody = Infer<typeof contactCreateBody>;
@@ -123,7 +116,6 @@ export const dealPatchBody = v.object({
 const DEAL_READ_ONLY = ['status', 'closedAt', 'pipelineId'];
 
 const activityOpenOrDone = v.union(v.literal('open'), v.literal('done'));
-const activityStatus = v.union(v.literal('open'), v.literal('done'), v.literal('cancelled'));
 
 export const activityCreateBody = v.object({
   type: activityTypeValidator,
@@ -145,7 +137,7 @@ export const activityPatchBody = v.object({
   title: v.optional(v.string()),
   description: v.optional(nullable(v.string())),
   dueAt: v.optional(nullable(v.number())),
-  status: v.optional(activityStatus),
+  status: v.optional(activityStatusValidator),
   ownerId: v.optional(nullable(idString)),
   teamId: v.optional(nullable(idString)),
   leadId: v.optional(nullable(idString)),

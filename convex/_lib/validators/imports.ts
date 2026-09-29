@@ -109,7 +109,7 @@ export const importRowOutcomeValidator = v.union(
 );
 export type ImportRowOutcome = Infer<typeof importRowOutcomeValidator>;
 
-const companyHintValidator = v.object({
+export const companyHintValidator = v.object({
   name: v.optional(v.string()),
   country: v.optional(v.string()),
   registrationNumber: v.optional(v.string()),

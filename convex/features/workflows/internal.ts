@@ -31,6 +31,7 @@ import {
 } from './lib';
 import { dispatchWorkflowTrigger, enrollLead } from './triggerDispatch';
 import { deferUnlessAllowed, trySend } from '../../lib/extensions/gates';
+import { DAY_MS } from '../../lib/shared/time';
 
 /** The engine runs one node per transaction, chained through the scheduler: the step log is visible live and a crash never loses more than one step. */
 
@@ -643,7 +644,6 @@ export const completeActionStep = internalMutation({
 
 // Leads per transaction: each one reads its runs and writes a cancellation, a run and counter patches, which stays far below the transaction limits.
 const REENROLL_BATCH = 100;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const reenrollBatch = internalMutation({
   args: { workflowId: v.id('workflows'), cursor: v.optional(v.string()) },
@@ -662,7 +662,7 @@ export const reenrollBatch = internalMutation({
       .query('leads')
       .paginate({ cursor: args.cursor ?? null, numItems: REENROLL_BATCH });
 
-    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+    const dayAgo = Date.now() - DAY_MS;
     let matched = 0;
     let enrolled = 0;
     let cancelled = 0;

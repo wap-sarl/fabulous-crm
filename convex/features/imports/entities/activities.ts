@@ -5,13 +5,14 @@ import type { PropertyValue } from '../../../_lib/validators/properties';
 import { createActivityRecord } from '../../../lib/activities/records';
 import { computeChanges, logAudit, updateAuditFields } from '../../../lib/audit/log';
 import { filterUndefined, isNotDeleted } from '../../../lib/shared/db';
-import { findLeadByEmail, normalizeEmail } from '../../../lib/leads/import';
+import { normalizeEmail } from '../../../lib/leads/import';
 import {
   loadPropertyDefsById,
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
 } from '../../../lib/properties/definitions';
 import type { EntityImporter } from './types';
+import { leadOf } from './contact';
 
 interface Caches {
   propertyDefsById: Map<string, PropertyDefinitionDoc>;
@@ -32,14 +33,6 @@ type State =
   | ({ kind: 'update'; activity: Doc<'activities'> } & Resolved);
 
 const fold = (s: string) => s.trim().toLowerCase();
-
-async function leadOf(ctx: MutationCtx, caches: Caches, email: string): Promise<Doc<'leads'>> {
-  if (!caches.leadByEmail.has(email))
-    caches.leadByEmail.set(email, await findLeadByEmail(ctx, email));
-  const lead = caches.leadByEmail.get(email);
-  if (!lead || !isNotDeleted(lead)) throw new Error('contact_not_found');
-  return lead;
-}
 
 async function companyOf(
   ctx: MutationCtx,

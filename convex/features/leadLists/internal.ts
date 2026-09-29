@@ -6,9 +6,10 @@ import { criteriaUsesRelativeDates } from '../../_lib/validators/leadLists';
 import { startDynamicListRecalc, syncDynamicMembership } from '../../lib/leadLists/dynamic';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { internal } from '../../_generated/api';
+import { DAY_MS } from '../../lib/shared/time';
 
 const RECALC_BATCH = 100;
-const DRIFT_RECALC_MS = 24 * 60 * 60 * 1000;
+const DRIFT_RECALC_MS = DAY_MS;
 
 export const recalcDynamicListPage = internalMutation({
   args: { listId: v.id('leadLists'), stamp: v.number(), cursor: v.optional(v.string()) },

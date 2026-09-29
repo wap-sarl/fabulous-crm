@@ -33,6 +33,7 @@ import type {
   SocialProviderConfig,
   EmailConfig,
 } from '../../_lib/validators/appConfig';
+import { emailConfigValidator } from '../../_lib/validators/appConfig';
 
 /** `#rrggbb` — the only accepted form for the brand accent color. */
 const hexColorRe = /^#[0-9a-fA-F]{6}$/;
@@ -73,17 +74,7 @@ const socialProviderInput = v.object({
 });
 
 /** The three secrets (`brevoApiKey`, `brevoWebhookSecret`, `smtpPass`) keep their stored value when omitted or empty, so the form never round-trips them. */
-const emailConfigInput = v.object({
-  provider: v.union(v.literal('brevo'), v.literal('smtp')),
-  brevoApiKey: v.optional(v.string()),
-  brevoWebhookSecret: v.optional(v.string()),
-  brevoSmsSender: v.optional(v.string()),
-  smtpHost: v.optional(v.string()),
-  smtpPort: v.optional(v.number()),
-  smtpSecure: v.optional(v.boolean()),
-  smtpUser: v.optional(v.string()),
-  smtpPass: v.optional(v.string()),
-});
+const emailConfigInput = emailConfigValidator;
 
 /** Secrets the input omits are preserved, and the audit log records that a change happened, never the secret values. */
 export const updateConfig = settingsMutation({

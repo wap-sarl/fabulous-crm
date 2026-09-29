@@ -8,6 +8,7 @@ import {
   isActiveRule,
 } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
+import { DAY_MS } from '../shared/time';
 
 /** Resolves a rule's field to the record's stored value (standard column or custom prop); the operator says how it will be read. */
 export type FieldValueGetter<F extends string> = (
@@ -35,7 +36,6 @@ function toComparable(value: unknown): string | number | null {
   return typeof value === 'number' || typeof value === 'string' ? value : null;
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}([T ].+)?$/;
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 

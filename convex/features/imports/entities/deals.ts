@@ -12,7 +12,7 @@ import {
   moveDealToStage,
   validateDealFields,
 } from '../../../lib/deals/records';
-import { findLeadByEmail, normalizeEmail } from '../../../lib/leads/import';
+import { normalizeEmail } from '../../../lib/leads/import';
 import { cleanOwnerIds } from '../../../lib/users/owners';
 import {
   loadPropertyDefsById,
@@ -20,6 +20,7 @@ import {
   sanitizeCustomProperties,
 } from '../../../lib/properties/definitions';
 import type { EntityImporter } from './types';
+import { leadOf } from './contact';
 
 interface Caches {
   propertyDefsById: Map<string, PropertyDefinitionDoc>;
@@ -59,14 +60,6 @@ function resolvePipeline(
   );
   if (!stage) throw new Error('unknown_stage');
   return { pipeline, stage };
-}
-
-async function leadOf(ctx: MutationCtx, caches: Caches, email: string): Promise<Doc<'leads'>> {
-  if (!caches.leadByEmail.has(email))
-    caches.leadByEmail.set(email, await findLeadByEmail(ctx, email));
-  const lead = caches.leadByEmail.get(email);
-  if (!lead || !isNotDeleted(lead)) throw new Error('contact_not_found');
-  return lead;
 }
 
 /** The live deal of that contact with the same title: a file imported twice updates rather than doubles. */
