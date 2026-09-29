@@ -16,8 +16,8 @@ import {
   stageRequiresTag,
   validateStageTags,
 } from '../../_lib/validators/deals';
-import { validateLeadTargetValue } from '../../lib/leads/targets';
-import { DAY_MS } from '../../lib/shared/time';
+import { validateLeadTargetValue } from '../leads/targets';
+import { DAY_MS } from '../../_lib/time';
 
 /** Pure helpers, without ctx or db: the public mutations and the trigger dispatcher share them. */
 

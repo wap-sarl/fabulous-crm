@@ -12,8 +12,8 @@ import type {
   WorkflowSmsEvent,
 } from '../../schema';
 import { buildLeadTargetPatch } from '../../lib/leads/targets';
-import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
-import { diffLeadFilterFields } from '../workflows/lib';
+import { dispatchWorkflowTrigger } from '../../lib/workflows/dispatch';
+import { diffLeadFilterFields } from '../../lib/workflows/rules';
 import { internal } from '../../_generated/api';
 import { appOrigin } from '../../lib/config/appUrl';
 import { buildSendParams } from './mutations';

@@ -1,6 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator } from './shared';
-import { DAY_MS } from '../../lib/shared/time';
+import { DAY_MS } from '../time';
 
 /** Key format: wap_<keyId>_<secret> — keyId is public, the secret is shown once. */
 export const API_KEY_PREFIX = 'wap';

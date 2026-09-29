@@ -8,7 +8,7 @@ import {
   isActiveRule,
 } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
-import { DAY_MS } from '../shared/time';
+import { DAY_MS } from '../../_lib/time';
 
 /** Resolves a rule's field to the record's stored value (standard column or custom prop); the operator says how it will be read. */
 export type FieldValueGetter<F extends string> = (

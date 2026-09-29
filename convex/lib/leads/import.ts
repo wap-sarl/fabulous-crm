@@ -4,11 +4,8 @@ import type { LeadImportRow } from '../../_lib/validators/imports';
 import { type LifecycleConfig, lifecycleStageIndex } from '../../_lib/validators/lifecycle';
 import type { PropertyValue } from '../../_lib/validators/properties';
 import type { DuplicateReason } from '../../_lib/validators/duplicates';
-import {
-  dispatchWorkflowTrigger,
-  loadActiveWorkflows,
-} from '../../features/workflows/triggerDispatch';
-import { diffLeadFilterFields } from '../../features/workflows/lib';
+import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/dispatch';
+import { diffLeadFilterFields } from '../workflows/rules';
 import { computeChanges, createAuditFields, logAudit, updateAuditFields } from '../audit/log';
 import { filterUndefined, isNotDeleted } from '../shared/db';
 import { requireValidAddress } from '../addresses/validation';

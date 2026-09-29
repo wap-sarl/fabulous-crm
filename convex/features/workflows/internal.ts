@@ -28,10 +28,10 @@ import {
   diffLeadFilterFields,
   MAX_ENROLLMENTS_PER_LEAD_PER_DAY,
   MAX_STEPS_PER_RUN,
-} from './lib';
-import { dispatchWorkflowTrigger, enrollLead } from './triggerDispatch';
+} from '../../lib/workflows/rules';
+import { dispatchWorkflowTrigger, enrollLead } from '../../lib/workflows/dispatch';
 import { deferUnlessAllowed, trySend } from '../../lib/extensions/gates';
-import { DAY_MS } from '../../lib/shared/time';
+import { DAY_MS } from '../../_lib/time';
 
 /** The engine runs one node per transaction, chained through the scheduler: the step log is visible live and a crash never loses more than one step. */
 

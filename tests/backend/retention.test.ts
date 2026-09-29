@@ -11,7 +11,7 @@ import {
   PURGE_WRITE_BUDGET,
   purgePage,
 } from '../../convex/lib/retention/purge';
-import { DAY_MS } from '../../convex/lib/shared/time';
+import { DAY_MS } from '../../convex/_lib/time';
 import { insertListMember } from '../../convex/lib/leadLists/members';
 import {
   asIdentity,

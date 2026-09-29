@@ -3,7 +3,7 @@ import { mutation } from '../../_lib/functions';
 import { computeChanges, logAudit } from '../../lib/audit/log';
 import { marketingConsentChannelValidator } from '../../schema';
 import { enforceRateLimit } from '../../lib/security/rateLimits';
-import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
+import { dispatchWorkflowTrigger } from '../../lib/workflows/dispatch';
 
 /** PUBLIC (no auth): the consent token is the only credential, for the unauthenticated RGPD consent page. */
 export const updateConsentByToken = mutation({

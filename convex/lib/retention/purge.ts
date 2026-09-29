@@ -6,7 +6,7 @@ import type { RetentionPolicy } from '../../_lib/validators/retention';
 import { fileStore } from '../attachments/storage';
 import { deleteListMember } from '../leadLists/members';
 import { scheduleViewRefresh } from '../tracking/views';
-import { DAY_MS } from '../shared/time';
+import { DAY_MS } from '../../_lib/time';
 
 // The nightly purge, one bounded page at a time; features/retention/internal.ts chains the pages.
 

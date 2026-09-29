@@ -13,7 +13,7 @@ import { renderPlaceholders, wrapEmailHtml } from '../../lib/email/brevo';
 import { sendBrevoSms, toBrevoRecipient } from '../../lib/sms/brevo';
 import { sendEmail } from '../email/send';
 import type { WorkflowStepOutcome } from '../../_lib/validators/workflows';
-import { WEBHOOK_TIMEOUT_MS } from './lib';
+import { WEBHOOK_TIMEOUT_MS } from '../../lib/workflows/rules';
 import { deferUnlessAllowed } from '../../lib/extensions/gates';
 
 /** Dumb by design: `executeStep` decides (consent, presence, ordering), this only makes the external call and ends with exactly one `completeActionStep`. */

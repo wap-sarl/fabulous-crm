@@ -21,8 +21,8 @@ import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators
 import { requireCompany, resolveCompanyForLead } from '../../lib/companies/lookup';
 import { requireValidAddress } from '../../lib/addresses/validation';
 import { cleanOwnerIds } from '../../lib/users/owners';
-import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
-import { diffLeadFilterFields } from '../workflows/lib';
+import { dispatchWorkflowTrigger } from '../../lib/workflows/dispatch';
+import { diffLeadFilterFields } from '../../lib/workflows/rules';
 import { gateLeadCreate } from '../../lib/extensions/gates';
 import {
   applyLeadImport,

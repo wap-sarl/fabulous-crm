@@ -1,6 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
-import { DAY_MS } from '../../lib/shared/time';
+import { DAY_MS } from '../time';
 
 /** Records a file can be attached to. */
 export const attachmentEntityTypeValidator = v.union(

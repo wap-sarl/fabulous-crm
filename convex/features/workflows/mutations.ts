@@ -12,10 +12,10 @@ import {
 import { isNotDeleted } from '../../lib/shared/db';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { workflowNodeValidator, workflowTriggerValidator } from '../../_lib/validators/workflows';
-import { lightValidateGraph, validateWorkflowGraph } from './lib';
+import { lightValidateGraph, validateWorkflowGraph } from '../../lib/workflows/rules';
 import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import { loadPropertyDefinitions } from '../../lib/properties/definitions';
-import { enrollLead } from './triggerDispatch';
+import { enrollLead } from '../../lib/workflows/dispatch';
 
 /** Every employee manages workflows, as for campaigns; a structural edit requires a pause, so the engine never reads a graph that changes under a run. */
 

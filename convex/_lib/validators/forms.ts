@@ -1,7 +1,7 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
 import { propertyValueValidator } from './properties';
-import { DAY_MS } from '../../lib/shared/time';
+import { DAY_MS } from '../time';
 
 export const MAX_FORM_FIELDS = 20;
 /** A submission younger than this since the form was served is treated as a bot. */

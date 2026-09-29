@@ -3,7 +3,7 @@ import { internal } from '../../_generated/api';
 import type { MutationCtx } from '../../_generated/server';
 import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
 import { evalAdvancedFilter } from '../leads/matching';
-import { dispatchWorkflowTrigger } from '../../features/workflows/triggerDispatch';
+import { dispatchWorkflowTrigger } from '../workflows/dispatch';
 import { deleteListMember, insertListMember } from './members';
 import type { LeadChange } from '../leads/change';
 

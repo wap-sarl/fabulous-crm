@@ -23,8 +23,8 @@ import {
   NO_VIEW_MARKS,
   stopLeadTracking,
 } from '../../lib/tracking/views';
-import { diffLeadFilterFields } from '../workflows/lib';
-import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
+import { diffLeadFilterFields } from '../../lib/workflows/rules';
+import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../../lib/workflows/dispatch';
 
 /** A scan left `running` past this is assumed dead (deployment restart) and can be replaced. */
 const STALE_SCAN_MS = 15 * 60 * 1000;

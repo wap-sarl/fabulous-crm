@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { MAX_STEPS_PER_RUN } from '../../convex/features/workflows/lib';
+import { MAX_STEPS_PER_RUN } from '../../convex/lib/workflows/rules';
 import {
   asIdentity,
   createTestConvex,
