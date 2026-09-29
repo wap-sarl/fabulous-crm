@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useConvex, useMutation, useQuery } from 'convex/react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
+import { errorLabel } from '@crm/lib/errors';
 import { zEmailSchema } from '@crm/lib/types';
 import { Button, Logo, Progress, Spinner } from '@crm/design-system';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -12,6 +13,7 @@ import { AdminStep } from './steps/AdminStep';
 import { ReviewStep } from './steps/ReviewStep';
 import {
   isSentSsoDraft,
+  SETUP_ERRORS,
   ssoDraftsError,
   ssoDraftToConfig,
   socialDraftToConfig,
@@ -154,11 +156,7 @@ export function SetupWizardPage() {
       // Better Auth owns sessions: the owner signs in on /login, where the first login links their authId.
       navigate('/login', { replace: true });
     } catch (e) {
-      setError(
-        e instanceof Error && e.message.includes('invalid_setup_token')
-          ? 'Jeton invalide.'
-          : "L'installation a échoué. Veuillez réessayer.",
-      );
+      setError(errorLabel(e, SETUP_ERRORS, "L'installation a échoué. Veuillez réessayer."));
     } finally {
       setBusy(false);
     }

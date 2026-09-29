@@ -85,7 +85,7 @@ export const completeSetup = mutation({
         throw new Error('sso_provider_missing_credentials');
       }
     }
-    // The id is stored with the provider, enabled or not, and never changes after.
+    // The id is stored with the provider, enabled or not: the callback path declared at the issuer carries it.
     const ssoIds = args.auth.ssoProviders.map((p) => p.providerId);
     if (ssoIds.some((id) => !ssoProviderIdSchema.safeParse(id).success)) {
       throw new Error('sso_provider_invalid_id');

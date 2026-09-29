@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { Button, Input, Label, Switch } from '@crm/design-system';
 import { Plus, Trash2, CheckCircle, Copy } from 'lucide-react';
 import { usePublicConfig } from '@crm/widgets/config/ConfigContext';
-import { slugOf } from '@crm/lib/backend';
+import { ssoProviderIdOf } from '@crm/lib/backend';
 import type { SsoDraft, SocialDraft, StepProps } from './types';
-import { emptySsoProvider } from './types';
+import { emptySsoProvider, withSsoLabel } from './types';
 
 export function AuthMethodsStep({ data, update, error }: StepProps) {
   const { config } = usePublicConfig();
@@ -206,16 +206,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                   <Input
                     value={provider.label}
                     placeholder="Mon organisation"
-                    onChange={(e) =>
-                      setSso(index, {
-                        label: e.target.value,
-                        // The slug follows the label until the user overrides it: the callback path depends on it.
-                        providerId:
-                          provider.providerId && provider.providerId !== slugOf(provider.label)
-                            ? provider.providerId
-                            : slugOf(e.target.value),
-                      })
-                    }
+                    onChange={(e) => setSso(index, withSsoLabel(provider, e.target.value))}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -225,7 +216,7 @@ export function AuthMethodsStep({ data, update, error }: StepProps) {
                     placeholder="mon-entreprise"
                     className="font-mono text-xs"
                     onChange={(e) => setSso(index, { providerId: e.target.value })}
-                    onBlur={(e) => setSso(index, { providerId: slugOf(e.target.value) })}
+                    onBlur={(e) => setSso(index, { providerId: ssoProviderIdOf(e.target.value) })}
                   />
                 </div>
                 <div className="space-y-1.5 sm:col-span-2">

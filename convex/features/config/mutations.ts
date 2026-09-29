@@ -122,7 +122,7 @@ export const updateConfig = settingsMutation({
       throw new Error('invalid_primary_color');
     }
     if (args.ssoProviders) {
-      // An id already stored stays as it is: its callback path must not change.
+      // An id already stored is not checked again: its callback path is declared at the issuer.
       const stored = new Set((cfg.auth.ssoProviders ?? []).map((p) => p.providerId));
       const ids = args.ssoProviders.map((p) => p.providerId);
       if (ids.some((id) => !stored.has(id) && !ssoProviderIdSchema.safeParse(id).success)) {
