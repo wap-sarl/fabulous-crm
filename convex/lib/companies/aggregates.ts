@@ -2,6 +2,7 @@ import { TableAggregate } from '@convex-dev/aggregate';
 import { components } from '../../_generated/api';
 import type { DataModel, Doc, Id } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
+import { LIVE_BOUNDS } from '../shared/aggregates';
 
 const aliveness = (doc: { deletedAt?: number }): 0 | 1 => (doc.deletedAt != null ? 1 : 0);
 
@@ -32,11 +33,6 @@ export const leadsByCompany = new TableAggregate<{
   namespace: (doc: Doc<'leads'>) => doc.companyId ?? null,
   sortKey: aliveness,
 });
-
-const LIVE_BOUNDS = {
-  lower: { key: 0 as const, inclusive: true },
-  upper: { key: 0 as const, inclusive: true },
-};
 
 export async function countLiveCompanies(ctx: QueryCtx): Promise<number> {
   return await companiesTotal.count(ctx, { bounds: LIVE_BOUNDS });

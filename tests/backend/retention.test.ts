@@ -5,13 +5,13 @@ import { RETENTION_BOUNDS } from '../../convex/_lib/validators/retention';
 import crons from '../../convex/crons';
 import { setExtensionsForTests } from '../../convex/extensions';
 import {
-  DAY_MS,
   emptyCounts,
   PURGE_CASCADE_BATCH,
   PURGE_ENTITY_PAGE,
   PURGE_WRITE_BUDGET,
   purgePage,
 } from '../../convex/lib/retention/purge';
+import { DAY_MS } from '../../convex/_lib/time';
 import { insertListMember } from '../../convex/lib/leadLists/members';
 import {
   asIdentity,

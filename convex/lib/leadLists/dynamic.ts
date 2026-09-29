@@ -3,19 +3,12 @@ import { internal } from '../../_generated/api';
 import type { MutationCtx } from '../../_generated/server';
 import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
 import { evalAdvancedFilter } from '../leads/matching';
-import { dispatchWorkflowTrigger } from '../../features/workflows/triggerDispatch';
+import { dispatchWorkflowTrigger } from '../workflows/dispatch';
 import { deleteListMember, insertListMember } from './members';
+import type { LeadChange } from '../leads/change';
 
 /** A dynamic list always carries criteria (enforced at creation/update). */
 export type DynamicList = Doc<'leadLists'> & { criteria: LeadAdvancedFilter };
-
-/** The change shape the Triggers wrapper hands to a `leads` trigger. */
-interface LeadChange {
-  operation: 'insert' | 'update' | 'delete';
-  id: Id<'leads'>;
-  oldDoc: Doc<'leads'> | null;
-  newDoc: Doc<'leads'> | null;
-}
 
 /** All dynamic lists. Tiny table (capped by maxDynamicLists) — read in full. */
 export async function loadDynamicLists(ctx: MutationCtx): Promise<DynamicList[]> {

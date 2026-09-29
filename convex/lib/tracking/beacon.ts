@@ -8,8 +8,7 @@ import {
   MAX_URL_LENGTH,
   VISITOR_ID_RE,
 } from '../../_lib/validators/tracking';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
+import { DAY_MS } from '../../_lib/time';
 
 const beaconSchema = z.object({
   v: z.string().regex(VISITOR_ID_RE),

@@ -1,24 +1,17 @@
 import { internal } from '../../_generated/api';
-import type { Doc, Id } from '../../_generated/dataModel';
+import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { MAX_LEAD_SCORE, MIN_LEAD_SCORE, type ScoringRule } from '../../_lib/validators/scoring';
 import { evalAdvancedFilter } from '../leads/matching';
-import { dispatchWorkflowTrigger } from '../../features/workflows/triggerDispatch';
+import { dispatchWorkflowTrigger } from '../workflows/dispatch';
 import {
   applyLifecycleTransition,
   loadLifecycleConfig,
   planLifecycleTransition,
 } from '../leads/lifecycle';
 import { lifecycleStageIndex, type LifecycleConfig } from '../../_lib/validators/lifecycle';
-import { DAY_MS } from '../shared/time';
-
-/** The change shape the Triggers wrapper hands to a `leads` trigger. */
-interface LeadChange {
-  operation: 'insert' | 'update' | 'delete';
-  id: Id<'leads'>;
-  oldDoc: Doc<'leads'> | null;
-  newDoc: Doc<'leads'> | null;
-}
+import { DAY_MS } from '../../_lib/time';
+import type { LeadChange } from '../leads/change';
 
 /** All scoring rules in display order. Tiny table — read in full. */
 export async function loadScoringRules(ctx: MutationCtx): Promise<Doc<'scoringRules'>[]> {

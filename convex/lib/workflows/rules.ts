@@ -16,7 +16,8 @@ import {
   stageRequiresTag,
   validateStageTags,
 } from '../../_lib/validators/deals';
-import { validateLeadTargetValue } from '../../lib/leads/targets';
+import { validateLeadTargetValue } from '../leads/targets';
+import { DAY_MS } from '../../_lib/time';
 
 /** Pure helpers, without ctx or db: the public mutations and the trigger dispatcher share them. */
 
@@ -25,10 +26,10 @@ export const MAX_STEPS_PER_RUN = 100;
 /** Per-workflow-per-lead enrollment cap bounding cross-workflow ping-pong. */
 export const MAX_ENROLLMENTS_PER_LEAD_PER_DAY = 5;
 const MIN_WAIT_MS = 60_000;
-const MAX_WAIT_MS = 90 * 24 * 60 * 60 * 1000;
+const MAX_WAIT_MS = 90 * DAY_MS;
 export const WEBHOOK_TIMEOUT_MS = 10_000;
 
-const WAIT_UNIT_MS = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 } as const;
+const WAIT_UNIT_MS = { minutes: 60_000, hours: 3_600_000, days: DAY_MS } as const;
 
 /** Sleep duration of a wait node. Bounds are enforced by validateWorkflowGraph. */
 export function delayMs(node: { amount: number; unit: keyof typeof WAIT_UNIT_MS }): number {

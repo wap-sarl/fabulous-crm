@@ -49,8 +49,8 @@ import {
   type PropertyDefinitionDoc,
   sanitizeCustomProperties,
 } from '../../lib/properties/definitions';
-import { diffLeadFilterFields } from '../workflows/lib';
-import { dispatchWorkflowTrigger } from '../workflows/triggerDispatch';
+import { diffLeadFilterFields } from '../../lib/workflows/rules';
+import { dispatchWorkflowTrigger } from '../../lib/workflows/dispatch';
 import { gateLeadCreate } from '../../lib/extensions/gates';
 
 const CONSENT_TOKEN_BYTES = 24;

@@ -28,7 +28,7 @@ import { normalizeEmail } from '../../lib/leads/import';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { insertLifecycleHistory, loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
-import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/triggerDispatch';
+import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../../lib/workflows/dispatch';
 
 const CONSENT_TOKEN_BYTES = 24;
 

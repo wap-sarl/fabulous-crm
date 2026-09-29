@@ -1,5 +1,5 @@
-import type { Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
+import type { LeadImportActor } from '../../../lib/leads/import';
 
 /** The dry run's verdict on a row, and the run's, one importer per entity. */
 type ImportVerdict =
@@ -14,10 +14,7 @@ type ImportApplied =
   | { kind: 'updated'; id: string }
   | { kind: 'error'; error: string };
 
-interface ImportActor {
-  userId: Id<'users'>;
-  listId?: Id<'leadLists'>;
-}
+type ImportActor = LeadImportActor;
 
 /** `plan` decides without writing and `apply` writes what was decided, so a dry run and the run it precedes read the same rules. */
 export interface EntityImporter<Row, Caches, State> {

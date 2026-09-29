@@ -3,6 +3,7 @@ import { components } from '../../_generated/api';
 import type { DataModel, Doc, Id } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
 import type { DealStatus } from '../../_lib/validators/deals';
+import { LIVE_BOUNDS } from '../shared/aggregates';
 
 const aliveness = (doc: Doc<'deals'>): 0 | 1 => (doc.deletedAt != null ? 1 : 0);
 const amount = (doc: Doc<'deals'>): number => doc.amount ?? 0;
@@ -57,11 +58,6 @@ export const dealsByOwnerStatus = new TableAggregate<{
   sumValue: amount,
 });
 
-const LIVE = {
-  lower: { key: 0 as const, inclusive: true },
-  upper: { key: 0 as const, inclusive: true },
-};
-
 export type DealTotals = { count: number; amount: number };
 
 export async function stageTotals(
@@ -71,8 +67,8 @@ export async function stageTotals(
 ): Promise<DealTotals> {
   const namespace = stageNamespace(pipelineId, stageKey);
   return {
-    count: await dealsByStage.count(ctx, { namespace, bounds: LIVE }),
-    amount: await dealsByStage.sum(ctx, { namespace, bounds: LIVE }),
+    count: await dealsByStage.count(ctx, { namespace, bounds: LIVE_BOUNDS }),
+    amount: await dealsByStage.sum(ctx, { namespace, bounds: LIVE_BOUNDS }),
   };
 }
 
@@ -83,8 +79,8 @@ export async function statusTotals(
 ): Promise<DealTotals> {
   const namespace = statusNamespace(pipelineId, status);
   return {
-    count: await dealsByPipelineStatus.count(ctx, { namespace, bounds: LIVE }),
-    amount: await dealsByPipelineStatus.sum(ctx, { namespace, bounds: LIVE }),
+    count: await dealsByPipelineStatus.count(ctx, { namespace, bounds: LIVE_BOUNDS }),
+    amount: await dealsByPipelineStatus.sum(ctx, { namespace, bounds: LIVE_BOUNDS }),
   };
 }
 

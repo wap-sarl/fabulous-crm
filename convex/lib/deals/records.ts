@@ -12,7 +12,7 @@ import {
   validateStageTags,
   type PipelineStage,
 } from '../../_lib/validators/deals';
-import { dispatchWorkflowTrigger } from '../../features/workflows/triggerDispatch';
+import { dispatchWorkflowTrigger } from '../workflows/dispatch';
 import { createAuditFields, logAudit } from '../audit/log';
 import { isNotDeleted } from '../shared/db';
 import { cleanOwnerIds } from '../users/owners';

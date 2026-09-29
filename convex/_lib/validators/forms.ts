@@ -1,12 +1,13 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
 import { propertyValueValidator } from './properties';
+import { DAY_MS } from '../time';
 
 export const MAX_FORM_FIELDS = 20;
 /** A submission younger than this since the form was served is treated as a bot. */
 export const MIN_FILL_MS = 3_000;
 /** And one older than this re-fetches the form (stale `ts` guard). */
-export const MAX_FILL_MS = 24 * 60 * 60 * 1000;
+export const MAX_FILL_MS = DAY_MS;
 export const FORM_VISITOR_TOKEN_BYTES = 24;
 
 /** Built-in lead columns a capture form can ask for. */

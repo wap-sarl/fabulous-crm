@@ -6,6 +6,7 @@ import type { RetentionPolicy } from '../../_lib/validators/retention';
 import { fileStore } from '../attachments/storage';
 import { deleteListMember } from '../leadLists/members';
 import { scheduleViewRefresh } from '../tracking/views';
+import { DAY_MS } from '../../_lib/time';
 
 // The nightly purge, one bounded page at a time; features/retention/internal.ts chains the pages.
 
@@ -19,7 +20,6 @@ export const PURGE_ROW_PAGE = 500;
 export const PURGE_CASCADE_BATCH = 200;
 /** Pages a run may chain before it stops and reports itself truncated. */
 export const PURGE_MAX_PAGES = 200;
-export const DAY_MS = 24 * 60 * 60 * 1000;
 
 const FINISHED_STEPS = [
   'success',

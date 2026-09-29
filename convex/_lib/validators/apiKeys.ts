@@ -1,5 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator } from './shared';
+import { DAY_MS } from '../time';
 
 /** Key format: wap_<keyId>_<secret> — keyId is public, the secret is shown once. */
 export const API_KEY_PREFIX = 'wap';
@@ -53,7 +54,7 @@ export function validateApiKeyShape(fields: { name: string; scopes: string[] }):
 }
 
 /** Idempotency-Key replays are honoured for this long after the first request. */
-export const API_IDEMPOTENCY_TTL_MS = 24 * 60 * 60 * 1000;
+export const API_IDEMPOTENCY_TTL_MS = DAY_MS;
 export const MAX_IDEMPOTENCY_KEY_LENGTH = 255;
 
 /** One row per (API key, Idempotency-Key): reserved before the write, completed with the response, swept after the TTL. */

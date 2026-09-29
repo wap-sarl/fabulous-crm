@@ -5,7 +5,7 @@ import { internal } from '../../_generated/api';
 import { scoringNeedsNightlyRecompute } from '../../_lib/validators/scoring';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
-import { DAY_MS } from '../../lib/shared/time';
+import { DAY_MS } from '../../_lib/time';
 import {
   applyLeadScore,
   computeLeadScore,
@@ -13,7 +13,7 @@ import {
   loadScoringRules,
   startScoreRecompute,
 } from '../../lib/scoring/score';
-import { loadActiveWorkflows } from '../workflows/triggerDispatch';
+import { loadActiveWorkflows } from '../../lib/workflows/dispatch';
 
 const RECOMPUTE_BATCH = 100;
 

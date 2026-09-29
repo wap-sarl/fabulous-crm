@@ -1,5 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
+import { DAY_MS } from '../time';
 
 /** Records a file can be attached to. */
 export const attachmentEntityTypeValidator = v.union(
@@ -49,7 +50,6 @@ export const ATTACHMENT_MAX_BYTES_CEILING = 200 * 1024 * 1024;
 export const DEFAULT_ATTACHMENT_RETENTION_DAYS = 30;
 export const ATTACHMENT_RETENTION_MIN_DAYS = 1;
 export const ATTACHMENT_RETENTION_MAX_DAYS = 365;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** When a deleted file gets purged for good. */
 export function attachmentPurgeAt(deletedAt: number, retentionDays: number): number {
