@@ -72,15 +72,16 @@ export async function advanceRun(
   }
 }
 
-/** Fail a run on a structural problem (removed node, deleted workflow…). */
-export async function failRun(
+/** End a run before its path does: `failed` on a structural problem (removed node, deleted workflow…), `cancelled` when its contact is gone. */
+export async function endRun(
   ctx: MutationCtx,
   run: Doc<'workflowRuns'>,
   workflow: Doc<'workflows'> | null,
+  status: 'failed' | 'cancelled',
   error: string,
 ): Promise<void> {
   await ctx.db.patch(run._id, {
-    status: 'failed',
+    status,
     finishedAt: Date.now(),
     currentNodeId: undefined,
     wakeAt: undefined,

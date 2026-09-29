@@ -10,7 +10,7 @@ import { loadLeadFilterExtras } from '../../lib/leads/tableFilters';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import { MAX_ENROLLMENTS_PER_LEAD_PER_DAY, MAX_STEPS_PER_RUN } from '../../lib/workflows/rules';
 import { enrollLead } from '../../lib/workflows/dispatch';
-import { advanceRun, failRun, type StepContext } from '../../lib/workflows/runs';
+import { advanceRun, endRun, type StepContext } from '../../lib/workflows/runs';
 import { createDealStep, updateDealStageStep } from '../../lib/workflows/steps/deals';
 import { branchStep, waitStep } from '../../lib/workflows/steps/flow';
 import { setLifecycleStageStep, updatePropertyStep } from '../../lib/workflows/steps/lead';
@@ -39,10 +39,11 @@ export const executeStep = internalMutation({
 
     const workflow = await ctx.db.get(run.workflowId);
     if (!workflow || workflow.deletedAt !== undefined) {
-      await failRun(
+      await endRun(
         ctx,
         run,
         workflow?.deletedAt !== undefined ? workflow : null,
+        'failed',
         'workflow_deleted',
       );
       return;
@@ -70,25 +71,17 @@ export const executeStep = internalMutation({
 
     const node = workflow.nodes.find((n) => n.id === args.nodeId);
     if (!node) {
-      await failRun(ctx, run, workflow, 'step_removed');
+      await endRun(ctx, run, workflow, 'failed', 'step_removed');
       return;
     }
     if (run.stepCount >= MAX_STEPS_PER_RUN) {
-      await failRun(ctx, run, workflow, 'step_limit');
+      await endRun(ctx, run, workflow, 'failed', 'step_limit');
       return;
     }
 
     const lead = await ctx.db.get(run.leadId);
     if (!lead || lead.deletedAt !== undefined) {
-      await ctx.db.patch(run._id, {
-        status: 'cancelled',
-        finishedAt: Date.now(),
-        currentNodeId: undefined,
-        wakeAt: undefined,
-        scheduledFnId: undefined,
-        error: 'lead_supprime',
-      });
-      await ctx.db.patch(workflow._id, { activeCount: Math.max(0, workflow.activeCount - 1) });
+      await endRun(ctx, run, workflow, 'cancelled', 'lead_supprime');
       return;
     }
 
@@ -170,12 +163,12 @@ export const completeActionStep = internalMutation({
     if (run?.status !== 'active' || run.currentNodeId !== args.nodeId) return;
     const workflow = await ctx.db.get(run.workflowId);
     if (!workflow || workflow.deletedAt !== undefined) {
-      await failRun(ctx, run, workflow ?? null, 'workflow_deleted');
+      await endRun(ctx, run, workflow ?? null, 'failed', 'workflow_deleted');
       return;
     }
     const node = workflow.nodes.find((n) => n.id === args.nodeId);
     if (!node) {
-      await failRun(ctx, run, workflow, 'step_removed');
+      await endRun(ctx, run, workflow, 'failed', 'step_removed');
       return;
     }
     const next = node.type === 'branch' ? undefined : node.next;
