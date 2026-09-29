@@ -1,17 +1,13 @@
 import { useState } from 'react';
-import { useAuthMutation, useAuthQuery } from '@crm/widgets';
+import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
-import type { Id, LeadAdvancedFilter } from '@crm/lib/backend';
 import {
   Button,
-  Card,
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  Input,
-  Label,
   PageHeader,
   SortableList,
   Spinner,
@@ -21,238 +17,13 @@ import {
 } from '@crm/design-system';
 import { Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
-import { AdvancedFilterGroupsEditor } from '../../features/filters/components/AdvancedFilterBuilder';
-import { countActiveRules, emptyAdvancedFilter } from '../../features/filters/lib/advancedFilter';
-import { useLeadFieldCatalog } from '../../features/leads/hooks/useLeadFieldCatalog';
-import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
-
-type ScoringRuleRow = {
-  _id: Id<'scoringRules'>;
-  name: string;
-  description: string | undefined;
-  criteria: LeadAdvancedFilter;
-  points: number;
-  active: boolean;
-  decayHalfLifeDays: number | undefined;
-};
+import { countActiveRules } from '../../features/filters/lib/advancedFilter';
+import { useScoringActions } from '../../features/scoring/hooks/useScoringActions';
+import type { ScoringRuleRow } from '../../features/scoring/types';
+import { RuleDialog } from '../../features/scoring/components/RuleDialog';
+import { SimulationCard } from '../../features/scoring/components/SimulationCard';
 
 const DATETIME_FMT = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
-
-function useScoringActions() {
-  const createScoringRule = useAuthMutation(api.features.scoring.mutations.createScoringRule);
-  const updateScoringRule = useAuthMutation(api.features.scoring.mutations.updateScoringRule);
-  const deleteScoringRule = useAuthMutation(api.features.scoring.mutations.deleteScoringRule);
-  const reorderScoringRules = useAuthMutation(api.features.scoring.mutations.reorderScoringRules);
-  const recomputeScores = useAuthMutation(api.features.scoring.mutations.recomputeScores);
-  const startScoreSimulation = useAuthMutation(api.features.scoring.mutations.startScoreSimulation);
-  return {
-    createScoringRule,
-    updateScoringRule,
-    deleteScoringRule,
-    reorderScoringRules,
-    recomputeScores,
-    startScoreSimulation,
-  };
-}
-
-const SAVE_ERRORS: Record<string, string> = {
-  scoring_name_required: 'Le nom de la règle est requis.',
-  invalid_scoring_points: 'Les points doivent être un entier non nul entre −100 et 100.',
-  invalid_scoring_decay: 'La demi-vie doit être un nombre de jours entre 1 et 365.',
-  scoring_criteria_required: 'Au moins un critère complet est requis.',
-  scoring_criteria_forbidden_field:
-    'Les critères ne peuvent pas porter sur les listes ni sur le score.',
-};
-
-function saveErrorMessage(error: unknown): string {
-  const message = error instanceof Error ? error.message : '';
-  const known = Object.keys(SAVE_ERRORS).find((code) => message.includes(code));
-  return known ? SAVE_ERRORS[known] : 'Échec de l’enregistrement de la règle.';
-}
-
-/** Create/edit modal: name, points, decay and the lead criteria builder. */
-function RuleDialog({ rule, onClose }: { rule: ScoringRuleRow | null; onClose: () => void }) {
-  const { createScoringRule, updateScoringRule } = useScoringActions();
-  const definitions = usePropertyDefinitions('lead');
-  const fullCatalog = useLeadFieldCatalog(definitions);
-  // Server rule: no list-membership and no score-on-score criteria.
-  const catalog = {
-    ...fullCatalog,
-    standard: fullCatalog.standard.filter((f) => f.field !== 'listIds' && f.field !== 'leadScore'),
-  };
-  const [name, setName] = useState(rule?.name ?? '');
-  const [description, setDescription] = useState(rule?.description ?? '');
-  const [points, setPoints] = useState(String(rule?.points ?? 10));
-  const [decay, setDecay] = useState(rule?.decayHalfLifeDays ? String(rule.decayHalfLifeDays) : '');
-  const [criteria, setCriteria] = useState<LeadAdvancedFilter>(
-    () => rule?.criteria ?? emptyAdvancedFilter(catalog.standard),
-  );
-  const [busy, setBusy] = useState(false);
-  const canSave =
-    name.trim().length > 0 && points.trim().length > 0 && countActiveRules(criteria) > 0;
-
-  const save = async () => {
-    setBusy(true);
-    try {
-      const parsedPoints = Number(points);
-      const parsedDecay = decay.trim() === '' ? undefined : Number(decay);
-      if (rule) {
-        await updateScoringRule({
-          ruleId: rule._id,
-          name: name.trim(),
-          description: description.trim(),
-          criteria,
-          points: parsedPoints,
-          decayHalfLifeDays: parsedDecay ?? null,
-        });
-        toast.success('Règle mise à jour — recalcul des scores lancé.');
-      } else {
-        await createScoringRule({
-          name: name.trim(),
-          description: description.trim() || undefined,
-          criteria,
-          points: parsedPoints,
-          active: true,
-          decayHalfLifeDays: parsedDecay,
-        });
-        toast.success('Règle créée — recalcul des scores lancé.');
-      }
-      onClose();
-    } catch (error) {
-      toast.error(saveErrorMessage(error));
-      setBusy(false);
-    }
-  };
-
-  return (
-    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>
-            {rule ? `Modifier « ${rule.name} »` : 'Nouvelle règle de score'}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-[1fr_120px_140px]">
-            <div className="space-y-1.5">
-              <Label>Nom</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex. A ouvert un e-mail (7 j)"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Points</Label>
-              <Input
-                type="number"
-                min={-100}
-                max={100}
-                step={1}
-                value={points}
-                onChange={(e) => setPoints(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Demi-vie (jours)</Label>
-              <Input
-                type="number"
-                min={1}
-                max={365}
-                step={1}
-                value={decay}
-                onChange={(e) => setDecay(e.target.value)}
-                placeholder="Aucune"
-              />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Description (optionnelle)</Label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Visible dans le détail du score"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Critères</Label>
-            <p className="text-xs text-soft">
-              Les leads correspondant aux critères gagnent (ou perdent) les points. La demi-vie
-              divise les points par deux tous les N jours après la dernière interaction.
-            </p>
-            <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
-              <AdvancedFilterGroupsEditor
-                value={criteria}
-                onChange={setCriteria}
-                catalog={catalog}
-              />
-            </div>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" disabled={busy} onClick={onClose}>
-            Annuler
-          </Button>
-          <Button loading={busy} disabled={!canSave} onClick={save}>
-            {rule ? 'Enregistrer' : 'Créer la règle'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** What-if card: « combien de leads seraient à N points ou plus ? » */
-function SimulationCard() {
-  const state = useAuthQuery(api.features.scoring.queries.getScoringState, {});
-  const { startScoreSimulation } = useScoringActions();
-  const [threshold, setThreshold] = useState('50');
-
-  const sim = state?.simulation ?? null;
-  const running = sim !== null && sim.finishedAt === undefined;
-
-  const run = async () => {
-    try {
-      await startScoreSimulation({ threshold: Number(threshold) });
-    } catch {
-      toast.error('Seuil invalide (entier entre 0 et 100).');
-    }
-  };
-
-  return (
-    <Card className="mt-6 p-5">
-      <h2 className="text-[15px] font-bold text-ink">Simulation</h2>
-      <p className="mt-1 text-xs text-soft">
-        Compte les leads dont le score atteindrait le seuil avec les règles actuelles (calcul en
-        arrière-plan sur toute la base).
-      </p>
-      <div className="mt-3 flex flex-wrap items-end gap-3">
-        <div className="space-y-1.5">
-          <Label>Seuil</Label>
-          <Input
-            type="number"
-            min={0}
-            max={100}
-            step={1}
-            value={threshold}
-            onChange={(e) => setThreshold(e.target.value)}
-            className="w-24"
-          />
-        </div>
-        <Button variant="outline" onClick={run} loading={running}>
-          Simuler
-        </Button>
-        {sim && (
-          <p className="pb-2 text-sm text-body" role="status">
-            {running
-              ? `Calcul en cours… ${sim.processed} lead(s) analysés`
-              : `${sim.matched} lead(s) à ${sim.threshold} points ou plus (${sim.processed} analysés).`}
-          </p>
-        )}
-      </div>
-    </Card>
-  );
-}
 
 /** Scoring settings: ordered rule list, activation, simulation. */
 export function ScoringPage() {

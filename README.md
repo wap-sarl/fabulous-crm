@@ -331,7 +331,8 @@ convex/              Backend Convex
 src/
   design-system/     Composants d'interface
   widgets/           Auth, layouts, providers
-  features/ pages/   Code applicatif, par fonctionnalité puis par page
+  features/<nom>/    Une fonctionnalité : components/, hooks/, lib/, types.ts
+  pages/             Une page par route : elle compose les composants de sa fonctionnalité, elle n'en définit pas
   lib/               backend.ts (ré-exports Convex), erreurs, navigation, pays
 tests/               backend/ (convex-test), frontend/, setup.ts (voir Tests)
 scripts/             Générateurs (OpenAPI, formats d'adresse)
@@ -347,6 +348,11 @@ action) dans `features/<fonctionnalité>/`, ses routes HTTP dans son
 `routes.ts` ; ce que plusieurs fonctionnalités
 partagent dans `lib/<domaine>/`, importé par son module, sans fichier
 d'index ; un validator de table dans `_lib/validators/`.
+
+Côté interface : un composant, un hook ou un helper va dans
+`src/features/<fonctionnalité>/` (un composant par fichier) ; `src/pages/` ne
+garde que le composant de la page. Le backend n'est importé que par
+`src/lib/backend.ts`.
 
 ## Développement
 

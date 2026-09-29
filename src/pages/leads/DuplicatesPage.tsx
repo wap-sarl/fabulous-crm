@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
-import type { DuplicateLeadSummary, Id } from '@crm/lib/backend';
+import type { Id } from '@crm/lib/backend';
 import {
   Button,
   Card,
@@ -20,6 +20,7 @@ import {
   useDuplicateActions,
 } from '../../features/leads/hooks/useDuplicateActions';
 import { DUPLICATE_REASON_LABEL, DUPLICATE_REASON_TONE } from '../../features/leads/lib/duplicates';
+import { LeadSide } from '../../features/leads/components/LeadSide';
 
 const PAGE_SIZE = 20;
 const SKELETON_ROWS = ['s1', 's2', 's3'];
@@ -27,25 +28,6 @@ const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
-const dateFormat = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium' });
-
-function LeadSide({ lead }: { lead: DuplicateLeadSummary }) {
-  return (
-    <div className="min-w-0 flex-1">
-      <Link
-        to={`/leads/${lead._id}`}
-        className="block truncate text-sm font-semibold text-ink hover:underline"
-      >
-        {lead.name}
-      </Link>
-      <p className="truncate text-xs text-soft">{lead.email ?? '—'}</p>
-      <p className="truncate font-mono text-xs text-soft">{lead.phone ?? '—'}</p>
-      <p className="truncate text-xs text-faint">
-        {lead.city ? `${lead.city} · ` : ''}créé le {dateFormat.format(lead.createdAt)}
-      </p>
-    </div>
-  );
-}
 
 /** « Doublons potentiels »: scan control, open pairs, compare & merge. */
 export function DuplicatesPage() {
