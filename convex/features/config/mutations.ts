@@ -33,6 +33,7 @@ import type {
   SocialProviderConfig,
   EmailConfig,
 } from '../../_lib/validators/appConfig';
+import { ssoProviderIdSchema } from '../../_lib/validators/appConfig';
 
 /** `#rrggbb` — the only accepted form for the brand accent color. */
 const hexColorRe = /^#[0-9a-fA-F]{6}$/;
@@ -119,6 +120,15 @@ export const updateConfig = settingsMutation({
 
     if (args.primaryColor !== undefined && !hexColorRe.test(args.primaryColor)) {
       throw new Error('invalid_primary_color');
+    }
+    if (args.ssoProviders) {
+      // An id already stored is not checked again: its callback path is declared at the issuer.
+      const stored = new Set((cfg.auth.ssoProviders ?? []).map((p) => p.providerId));
+      const ids = args.ssoProviders.map((p) => p.providerId);
+      if (ids.some((id) => !stored.has(id) && !ssoProviderIdSchema.safeParse(id).success)) {
+        throw new Error('sso_provider_invalid_id');
+      }
+      if (new Set(ids).size !== ids.length) throw new Error('sso_provider_duplicate_id');
     }
     if (
       args.attachmentsMaxSizeBytes !== undefined &&

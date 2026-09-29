@@ -1,6 +1,8 @@
 import { retentionConfigValidator } from './retention';
 import { trackingConfigValidator } from './tracking';
 import { type Infer, v } from 'convex/values';
+import { z } from 'zod';
+import { slugOf } from '../text';
 import { connectorConfigValidator } from './connectors';
 import { attachmentsConfigValidator } from './attachments';
 import { lifecycleConfigValidator } from './lifecycle';
@@ -17,6 +19,19 @@ export const ssoProviderValidator = v.object({
 });
 
 export type SsoProvider = Infer<typeof ssoProviderValidator>;
+
+export const MAX_SSO_PROVIDER_ID_LENGTH = 64;
+
+/** The id of a sign-in provider as the callback path carries it: lowercase ASCII words joined by hyphens, as `slugOf` writes them. */
+export const ssoProviderIdSchema = z
+  .string()
+  .max(MAX_SSO_PROVIDER_ID_LENGTH)
+  .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+
+/** The id a label or a typed text gives: its slug, cut at the longest an id can be. */
+export function ssoProviderIdOf(text: string): string {
+  return slugOf(text).slice(0, MAX_SSO_PROVIDER_ID_LENGTH).replace(/-+$/, '');
+}
 
 /** `id` is the Better Auth provider key and the OAuth callback slug; `clientSecret` never reaches the browser, the public config query only says `configured`. */
 export const socialProviderConfigValidator = v.object({

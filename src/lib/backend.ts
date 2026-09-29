@@ -55,6 +55,11 @@ export {
 } from '../../convex/_lib/validators/access';
 export { slugOf } from '../../convex/_lib/text';
 export {
+  MAX_SSO_PROVIDER_ID_LENGTH,
+  ssoProviderIdOf,
+  ssoProviderIdSchema,
+} from '../../convex/_lib/validators/appConfig';
+export {
   ADMIN_ROLE_KEY,
   DEFAULT_ROLES,
   MAX_ROLE_LABEL_LENGTH,
