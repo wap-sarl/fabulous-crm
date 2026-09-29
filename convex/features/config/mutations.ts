@@ -6,7 +6,7 @@ import {
   trackingPrivacyUrlSchema,
   trackingRetentionSchema,
 } from '../../_lib/validators/tracking';
-import { trackingConfigOf } from '../../lib/tracking/views';
+import { trackingConfigOf } from '../../lib/tracking/config';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { settingsMutation } from '../../_lib/auth';

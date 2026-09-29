@@ -11,8 +11,8 @@ import {
   discardPendingAccount,
   FINISH_TTL_MS,
   resolveCredentials,
-  sha256Base64Url,
 } from '../../lib/connectors/oauth';
+import { sha256Base64Url } from '../../lib/security/crypto';
 
 /** A state is good for one callback: consuming it deletes it, so a replayed callback finds nothing. */
 export const consumeState = internalMutation({

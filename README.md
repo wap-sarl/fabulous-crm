@@ -320,7 +320,7 @@ workspaces.
 ```
 convex/              Backend Convex
   schema.ts          Tables et index
-  http.ts            Routes HTTP publiques (webhooks, liens suivis, formulaires, suivi web, API)
+  http.ts            Le routeur HTTP : il assemble les routes que chaque fonctionnalité enregistre (`features/<nom>/routes.ts`)
   auth.ts, auth/     Better Auth et ses e-mails
   extensions.ts      Points d'accroche (voir Extensions)
   _lib/              Le socle : constructeurs de fonctions (auth, triggers) et validators du schéma
@@ -343,7 +343,8 @@ Alias d'import : `@crm/*` → `./src/*` (déclaré dans `tsconfig.json` et
 `vite.config.mts`).
 
 Où va un nouveau fichier du backend : une fonction Convex (query, mutation,
-action) dans `features/<fonctionnalité>/` ; ce que plusieurs fonctionnalités
+action) dans `features/<fonctionnalité>/`, ses routes HTTP dans son
+`routes.ts` ; ce que plusieurs fonctionnalités
 partagent dans `lib/<domaine>/`, importé par son module, sans fichier
 d'index ; un validator de table dans `_lib/validators/`.
 
