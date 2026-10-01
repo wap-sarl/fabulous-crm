@@ -24,13 +24,11 @@ import {
   verifyRender,
 } from '../../lib/forms/submission';
 import { gateLeadCreate } from '../../lib/extensions/gates';
-import { normalizeEmail } from '../../lib/leads/import';
+import { CONSENT_TOKEN_BYTES, normalizeEmail } from '../../lib/leads/import';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { insertLifecycleHistory, loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../../lib/workflows/dispatch';
-
-const CONSENT_TOKEN_BYTES = 24;
 
 /** The public render payload of one active form (null hides which ids exist), with its signed render stamp. */
 export const getPublicForm = internalQuery({

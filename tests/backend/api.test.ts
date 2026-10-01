@@ -1,17 +1,16 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { API_SCOPES, type ApiScope } from '../../convex/_lib/validators/apiKeys';
+import { API_SCOPES } from '../../convex/_lib/validators/apiKeys';
+import {
+  ALL_READ_SCOPES,
+  apiCall,
+  apiGet,
+  createKey,
+  type ErrorBody,
+  errorCode,
+} from './apiClient';
 import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
-
-const ALL_READ_SCOPES: ApiScope[] = [
-  'contacts:read',
-  'companies:read',
-  'deals:read',
-  'activities:read',
-  'lists:read',
-  'properties:read',
-];
 
 async function setup() {
   const t = createTestConvex();
@@ -19,36 +18,6 @@ async function setup() {
   const as = asIdentity(t, emp.identity);
   return { t, emp, as };
 }
-
-type As = ReturnType<typeof asIdentity>;
-
-function createKey(as: As, scopes: ApiScope[] = ALL_READ_SCOPES, expiresAt?: number) {
-  return as.mutation(api.features.api.mutations.createApiKey, {
-    name: 'Test key',
-    scopes,
-    expiresAt,
-  });
-}
-
-const apiGet = (t: T, path: string, key?: string) =>
-  t.fetch(`/api/v1/${path}`, {
-    method: 'GET',
-    headers: key ? { Authorization: `Bearer ${key}` } : {},
-  });
-
-const apiCall = (
-  t: T,
-  method: 'POST' | 'PATCH' | 'DELETE',
-  path: string,
-  key: string,
-  body?: unknown,
-  headers: Record<string, string> = {},
-) =>
-  t.fetch(`/api/v1/${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...headers },
-    body: body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body),
-  });
 
 /** Run with Date.now pinned, so rate-limit buckets cannot refill mid-test. */
 async function frozenNow<R>(fn: () => Promise<R>): Promise<R> {
@@ -61,9 +30,6 @@ async function frozenNow<R>(fn: () => Promise<R>): Promise<R> {
     Date.now = real;
   }
 }
-
-type ErrorBody = { error: { code: string; message: string; details?: Record<string, unknown> } };
-const errorCode = async (res: Response) => ((await res.json()) as ErrorBody).error.code;
 
 describe('public REST API', () => {
   test('every auth failure mode yields the same generic 401', async () => {
