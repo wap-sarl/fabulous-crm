@@ -57,16 +57,16 @@ export function CampaignStatCards({
         value={numberFormat.format(campaign.sentCount)}
         sub={`${sendRate.toFixed(1)}% du total`}
         icon={<Send />}
-        iconBg="#E3F6EC"
-        iconColor="#0C8A43"
+        iconBg="var(--success-soft)"
+        iconColor="var(--success)"
       />
       <StatCard
         label="Échecs"
         value={numberFormat.format(campaign.failedCount)}
         sub={`${failRate.toFixed(1)}% du total`}
         icon={<AlertTriangle />}
-        iconBg="#FBE9E9"
-        iconColor="#D23B3F"
+        iconBg="var(--destructive-soft)"
+        iconColor="var(--destructive)"
       />
       <StatCard
         label={isSms ? 'Ignorés — sans téléphone' : 'Ignorés — sans e-mail'}
@@ -79,15 +79,15 @@ export function CampaignStatCards({
         label="En attente"
         value={numberFormat.format(pendingCount)}
         icon={<Timer />}
-        iconBg="#FCF1DD"
-        iconColor="#B4740A"
+        iconBg="var(--warning-soft)"
+        iconColor="var(--warning)"
       />
       <StatCard
         label="Taux d'envoi"
         value={`${sendRate.toFixed(1)}%`}
         icon={<CheckCircle2 />}
-        iconBg="#E7F0FF"
-        iconColor="#1D6BE0"
+        iconBg="var(--info-soft)"
+        iconColor="var(--info)"
       />
       {isSms && (
         <>
@@ -96,31 +96,31 @@ export function CampaignStatCards({
             value={numberFormat.format(deliveredCount)}
             sub={`${pctOfSent(deliveredCount).toFixed(1)}% des envoyés`}
             icon={<CheckCheck />}
-            iconBg="#E3F6EC"
-            iconColor="#0C8A43"
+            iconBg="var(--success-soft)"
+            iconColor="var(--success)"
           />
           <StatCard
             label="Réponses"
             value={numberFormat.format(repliedCount)}
             icon={<MessageSquare />}
-            iconBg="#E7F0FF"
-            iconColor="#1D6BE0"
+            iconBg="var(--info-soft)"
+            iconColor="var(--info)"
           />
           <StatCard
             label="Désinscriptions"
             value={numberFormat.format(unsubscribedCount)}
             sub="STOP"
             icon={<BellOff />}
-            iconBg="#FBE9E9"
-            iconColor="#D23B3F"
+            iconBg="var(--destructive-soft)"
+            iconColor="var(--destructive)"
           />
           <StatCard
             label="Rebonds"
             value={numberFormat.format(bouncedCount)}
             sub={`${pctOfSent(bouncedCount).toFixed(1)}% des envoyés`}
             icon={<AlertTriangle />}
-            iconBg="#FBE9E9"
-            iconColor="#D23B3F"
+            iconBg="var(--destructive-soft)"
+            iconColor="var(--destructive)"
           />
         </>
       )}
@@ -143,8 +143,8 @@ export function CampaignStatCards({
         value={numberFormat.format(clickedCount)}
         sub={`${pctOfSent(clickedCount).toFixed(1)}% des envoyés`}
         icon={<MousePointerClick />}
-        iconBg="#E3F6EC"
-        iconColor="#0C8A43"
+        iconBg="var(--success-soft)"
+        iconColor="var(--success)"
       />
       <StatCard
         label={
@@ -165,7 +165,7 @@ export function CampaignStatCards({
         }
         icon={<FileCode2 />}
         iconBg="#E6F6F6"
-        iconColor="#0E8A8A"
+        iconColor="var(--chart-4)"
       />
       <StatCard
         label="Créée le"

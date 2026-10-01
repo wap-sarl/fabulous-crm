@@ -24,26 +24,26 @@ export function CampaignSendFunnel({
           label="Destinataires"
           count={campaign.totalCount}
           percent={100}
-          color="#6A4BF0"
+          color="var(--chart-1)"
         />
         <FunnelBar
           label={isSms ? 'Avec téléphone' : 'Avec e-mail'}
           count={reachable}
           percent={pct(reachable)}
-          color="#4B41E0"
+          color="var(--primary-strong)"
         />
         <FunnelBar
           label="Envoyés"
           count={campaign.sentCount}
           percent={pct(campaign.sentCount)}
-          color="#12A150"
+          color="var(--chart-2)"
         />
         {isSms && (
           <FunnelBar
             label="Délivrés"
             count={deliveredCount}
             percent={pct(deliveredCount)}
-            color="#0C8A43"
+            color="var(--success)"
           />
         )}
       </div>

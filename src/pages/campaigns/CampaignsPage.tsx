@@ -129,7 +129,7 @@ export function CampaignsPage() {
                     </span>
                   </div>
 
-                  <div className="h-px bg-[#F1F2F5]" />
+                  <div className="h-px bg-secondary" />
 
                   <div className="flex items-end justify-between gap-3">
                     <div className="flex gap-5">

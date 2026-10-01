@@ -131,7 +131,7 @@ export function WorkflowsPage() {
                   </span>
                 </div>
 
-                <div className="h-px bg-[#F1F2F5]" />
+                <div className="h-px bg-secondary" />
 
                 <div className="flex gap-5">
                   <div>

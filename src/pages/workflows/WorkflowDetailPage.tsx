@@ -189,8 +189,8 @@ export function WorkflowDetailPage() {
             label="Terminés"
             value={numberFormat.format(workflow.completedCount)}
             icon={<CheckCircle2 />}
-            iconBg="#E3F6EC"
-            iconColor="#0C8A43"
+            iconBg="var(--success-soft)"
+            iconColor="var(--success)"
           />
           <StatCard
             label="Échecs / annulés"

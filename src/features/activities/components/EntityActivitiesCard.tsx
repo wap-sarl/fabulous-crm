@@ -63,7 +63,7 @@ export function ActivityListItem({
         )}
       </button>
       <span
-        className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F2F3F5] text-soft"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-soft"
         title={ACTIVITY_TYPE_LABEL[activity.type]}
       >
         <Icon className="size-3.5" />

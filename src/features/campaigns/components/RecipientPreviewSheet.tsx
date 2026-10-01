@@ -64,7 +64,7 @@ export function RecipientPreviewSheet({
                 )}
               </div>
               {preview.error && (
-                <p className="text-xs text-[#D23B3F]" title={preview.error}>
+                <p className="text-xs text-destructive" title={preview.error}>
                   {formatSendError(preview.error)}
                 </p>
               )}

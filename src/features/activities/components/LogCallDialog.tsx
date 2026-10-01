@@ -91,7 +91,7 @@ function LogCallBody({ links, onOpenChange }: Omit<LogCallDialogProps, 'open'>) 
                 className={
                   outcome === o
                     ? 'rounded-md bg-primary px-2.5 py-1.5 text-xs font-semibold text-white'
-                    : 'rounded-md bg-[#F2F3F5] px-2.5 py-1.5 text-xs font-medium text-soft hover:bg-[#E6E8EC]'
+                    : 'rounded-md bg-muted px-2.5 py-1.5 text-xs font-medium text-soft hover:bg-[#E6E8EC]'
                 }
               >
                 {o}

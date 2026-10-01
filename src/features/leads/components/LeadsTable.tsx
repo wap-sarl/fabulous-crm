@@ -233,7 +233,7 @@ export function LeadsTable({
                           <span
                             key={c}
                             title={CONSENT_CHANNEL_LABEL[c]}
-                            className="rounded-md bg-[#F2F3F5] px-2 py-0.5 text-[11.5px] font-medium text-soft"
+                            className="rounded-md bg-muted px-2 py-0.5 text-[11.5px] font-medium text-soft"
                           >
                             {CONSENT_CHIP_LABEL[c] ?? c}
                           </span>

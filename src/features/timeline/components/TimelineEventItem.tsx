@@ -47,7 +47,7 @@ const TONE_ICON_STYLE: Record<StatusTone, string> = {
   violet: 'bg-[#EFEBFE] text-[#6A4BF0]',
   green: 'bg-[#E6F6EC] text-[#1B7F3B]',
   red: 'bg-[#FDE8E8] text-[#B42318]',
-  gray: 'bg-[#F2F3F5] text-[#5C6370]',
+  gray: 'bg-muted text-[#5C6370]',
 };
 
 interface Presentation {

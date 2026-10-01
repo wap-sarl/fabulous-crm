@@ -357,6 +357,25 @@ Côté interface : un composant, un hook ou un helper va dans
 garde que le composant de la page. Le backend n'est importé que par
 `src/lib/backend.ts`.
 
+Les règles que le code suit, chacune gardée par un test :
+
+- **Un fichier écrit à la main tient en 400 lignes**, ou dit pourquoi il en
+  fait plus (`tests/backend/fileSize.test.ts`).
+- **Une fonction Convex déclare `args` et `returns`**
+  (`tests/backend/returnValidators.test.ts`). Une ligne stockée se déclare
+  avec `docOf('<table>')` (`convex/lib/shared/docs.ts`), une forme déjà nommée
+  par son validator.
+- **Un refus que la personne peut corriger est levé avec `refusal(code)`**
+  (`convex/_lib/refusal.ts`), jamais avec `new Error('code')` : en production,
+  Convex ne transmet au client que le contenu d'un refus, un `Error` y arrive
+  sous la forme « Server Error ». Le détail va dans `reason`, une phrase
+  destinée à la personne dans `message`. L'interface lit le tout avec
+  `errorLabel` et `describeError` (`src/lib/errors.ts`). Un `Error` reste ce
+  qu'il est : une anomalie.
+- **Une règle que l'interface et le backend vérifient tous deux s'écrit une
+  fois**, en zod, dans `convex/_lib/validators/fields.ts` (adresse e-mail, URL,
+  couleur, pays, devise, entier borné).
+
 ## Développement
 
 ### Dans le conteneur dev (recommandé)

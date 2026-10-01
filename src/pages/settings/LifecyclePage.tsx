@@ -175,7 +175,7 @@ export function LifecyclePage() {
               return (
                 <li key={stage.key} className="flex items-center gap-3 text-sm">
                   <span className="w-36 shrink-0 truncate font-medium text-ink">{stage.label}</span>
-                  <span className="h-5 flex-1 overflow-hidden rounded bg-[#F2F3F5]">
+                  <span className="h-5 flex-1 overflow-hidden rounded bg-muted">
                     <span
                       className="block h-full rounded bg-primary/70"
                       style={{ width: `${Math.round((n / maxCount) * 100)}%` }}
