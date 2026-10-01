@@ -16,6 +16,7 @@ import { lightValidateGraph, validateWorkflowGraph } from '../../lib/workflows/r
 import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import { loadPropertyDefinitions } from '../../lib/properties/definitions';
 import { enrollLead } from '../../lib/workflows/dispatch';
+import { stopRun } from '../../lib/workflows/runs';
 
 /** Every employee manages workflows, as for campaigns; a structural edit requires a pause, so the engine never reads a graph that changes under a run. */
 
@@ -208,16 +209,8 @@ export const deleteWorkflow = employeeMutation({
         q.eq('workflowId', args.workflowId).eq('status', 'active'),
       )
       .collect();
-    for (const run of activeRuns) {
-      if (run.scheduledFnId) await ctx.scheduler.cancel(run.scheduledFnId);
-      await ctx.db.patch(run._id, {
-        status: 'cancelled',
-        finishedAt: Date.now(),
-        currentNodeId: undefined,
-        wakeAt: undefined,
-        scheduledFnId: undefined,
-      });
-    }
+    // The counter is settled once below, for all of them.
+    for (const run of activeRuns) await stopRun(ctx, run, null);
 
     await ctx.db.patch(args.workflowId, {
       deletedAt: Date.now(),
@@ -242,18 +235,7 @@ export const cancelRun = employeeMutation({
     if (!run) throw new Error('run_not_found');
     if (run.status !== 'active') throw new Error('Ce parcours est déjà terminé.');
 
-    if (run.scheduledFnId) await ctx.scheduler.cancel(run.scheduledFnId);
-    await ctx.db.patch(args.runId, {
-      status: 'cancelled',
-      finishedAt: Date.now(),
-      currentNodeId: undefined,
-      wakeAt: undefined,
-      scheduledFnId: undefined,
-    });
-    const workflow = await ctx.db.get(run.workflowId);
-    if (workflow) {
-      await ctx.db.patch(workflow._id, { activeCount: Math.max(0, workflow.activeCount - 1) });
-    }
+    await stopRun(ctx, run, await ctx.db.get(run.workflowId));
 
     await logAudit({
       ctx,

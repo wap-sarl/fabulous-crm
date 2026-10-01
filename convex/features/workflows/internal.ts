@@ -10,7 +10,7 @@ import { loadLeadFilterExtras } from '../../lib/leads/tableFilters';
 import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
 import { MAX_ENROLLMENTS_PER_LEAD_PER_DAY, MAX_STEPS_PER_RUN } from '../../lib/workflows/rules';
 import { enrollLead } from '../../lib/workflows/dispatch';
-import { advanceRun, endRun, type StepContext } from '../../lib/workflows/runs';
+import { advanceRun, endRun, type StepContext, stopRun } from '../../lib/workflows/runs';
 import { createDealStep, updateDealStageStep } from '../../lib/workflows/steps/deals';
 import { branchStep, waitStep } from '../../lib/workflows/steps/flow';
 import { setLifecycleStageStep, updatePropertyStep } from '../../lib/workflows/steps/lead';
@@ -224,14 +224,7 @@ export const reenrollBatch = internalMutation({
 
       for (const run of runs) {
         if (run.status !== 'active') continue;
-        if (run.scheduledFnId) await ctx.scheduler.cancel(run.scheduledFnId);
-        await ctx.db.patch(run._id, {
-          status: 'cancelled',
-          finishedAt: Date.now(),
-          currentNodeId: undefined,
-          wakeAt: undefined,
-          scheduledFnId: undefined,
-        });
+        await stopRun(ctx, run, null);
         cancelled++;
       }
 
