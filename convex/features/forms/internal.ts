@@ -1,3 +1,5 @@
+import { propertyOptionValidator } from '../../_lib/validators/properties';
+import { formAfterSubmitValidator } from '../../_lib/validators/forms';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
@@ -33,6 +35,37 @@ import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../../lib/workflow
 /** The public render payload of one active form (null hides which ids exist), with its signed render stamp. */
 export const getPublicForm = internalQuery({
   args: { formId: v.string(), visitorToken: v.optional(v.string()) },
+  returns: v.union(
+    v.object({
+      ts: v.number(),
+      sig: v.string(),
+      fields: v.array(
+        v.object({
+          key: v.string(),
+          label: v.string(),
+          required: v.boolean(),
+          input: v.union(
+            v.literal('number'),
+            v.literal('boolean'),
+            v.literal('email'),
+            v.literal('text'),
+            v.literal('select'),
+            v.literal('radio'),
+            v.literal('checkbox'),
+            v.literal('date'),
+            v.literal('tel'),
+            v.literal('textarea'),
+          ),
+          options: v.optional(v.array(propertyOptionValidator)),
+        }),
+      ),
+      knownFields: v.array(v.string()),
+      buttonText: v.string(),
+      consentText: v.string(),
+      afterSubmit: formAfterSubmitValidator,
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const formId = ctx.db.normalizeId('forms', args.formId);
     const form = formId ? await loadLiveForm(ctx, formId) : null;
@@ -64,6 +97,23 @@ export const submitForm = internalMutation({
     ipHash: v.string(),
     userAgent: v.optional(v.string()),
   },
+  returns: v.union(
+    v.object({ ok: v.literal(false), code: v.literal('not_found') }),
+    v.object({
+      ok: v.literal(true),
+      afterSubmit: formAfterSubmitValidator,
+      visitorToken: v.string(),
+    }),
+    v.object({ ok: v.literal(false), code: v.literal('too_fast') }),
+    v.object({ ok: v.literal(false), code: v.literal('stale') }),
+    v.object({ ok: v.literal(false), code: v.literal('consent_required') }),
+    v.object({
+      ok: v.literal(false),
+      code: v.literal('invalid_fields'),
+      errors: v.record(v.string(), v.string()),
+    }),
+    v.object({ ok: v.literal(false), code: v.literal('unavailable') }),
+  ),
   handler: async (ctx, args) => {
     const formId = ctx.db.normalizeId('forms', args.formId);
     const form = formId ? await loadLiveForm(ctx, formId) : null;

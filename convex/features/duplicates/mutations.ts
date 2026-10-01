@@ -33,6 +33,7 @@ const STALE_SCAN_MS = 15 * 60 * 1000;
 /** Start a batched scan of the whole leads table. One at a time. */
 export const startDuplicateScan = settingsMutation({
   args: {},
+  returns: v.id('duplicateScans'),
   handler: async (ctx) => {
     const running = await ctx.db
       .query('duplicateScans')
@@ -59,10 +60,12 @@ export const startDuplicateScan = settingsMutation({
 /** Mark a pair as not duplicates; later scans leave it alone. */
 export const ignoreDuplicatePair = employeeMutation({
   args: { pairId: v.id('leadDuplicates') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const pair = await ctx.db.get(args.pairId);
     if (!pair) throw refusal('pair_not_found');
     await ctx.db.patch(args.pairId, { status: 'ignored', updatedAt: Date.now() });
+    return null;
   },
 });
 
@@ -99,6 +102,7 @@ export const mergeLeads = employeeMutation({
     absorbedId: v.id('leads'),
     fields: v.object(mergeFieldArgs),
   },
+  returns: v.object({ survivorId: v.id('leads'), repointingScheduled: v.boolean() }),
   handler: async (ctx, args) => {
     if (args.survivorId === args.absorbedId) throw refusal('merge_same_lead');
     const survivor = await ctx.db.get(args.survivorId);

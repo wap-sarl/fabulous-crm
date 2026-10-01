@@ -20,7 +20,8 @@ import { deferUnlessAllowed } from '../../lib/extensions/gates';
 /** Dumb by design: `executeStep` decides (consent, presence, ordering), this only makes the external call and ends with exactly one `completeActionStep`. */
 export const runWorkflowActionStep = internalAction({
   args: { runId: v.id('workflowRuns'), stepId: v.id('workflowRunSteps'), nodeId: v.string() },
-  handler: async (ctx, args): Promise<void> => {
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
     const complete = (status: WorkflowStepOutcome, detail?: string) =>
       ctx.runMutation(internal.features.workflows.internal.completeActionStep, {
         ...args,
@@ -37,7 +38,7 @@ export const runWorkflowActionStep = internalAction({
         args,
       )
     ) {
-      return;
+      return null;
     }
     try {
       const step = await ctx.runQuery(
@@ -46,7 +47,7 @@ export const runWorkflowActionStep = internalAction({
       );
       if (!step) {
         await complete('skipped', 'contexte indisponible');
-        return;
+        return null;
       }
       const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
 
@@ -54,12 +55,12 @@ export const runWorkflowActionStep = internalAction({
         const provider = await resolveEmailProvider(cfg);
         if (!isEmailProviderConfigured(provider)) {
           await complete('failed', "Fournisseur d'e-mail non configuré — envoi impossible.");
-          return;
+          return null;
         }
         // In dev, only whitelisted addresses are actually contacted.
         if (!isEmailWhitelisted(step.to, process.env.DEV_WHITELIST_EMAILS)) {
           await complete('success', 'dev_whitelist_skip');
-          return;
+          return null;
         }
         const result = await sendEmail(provider, {
           to: [{ email: step.to }],
@@ -67,23 +68,23 @@ export const runWorkflowActionStep = internalAction({
           htmlContent: wrapEmailHtml(renderPlaceholders(step.htmlBody, step.params)),
         });
         await complete(result.ok ? 'success' : 'failed', result.ok ? undefined : result.error);
-        return;
+        return null;
       }
 
       if (step.kind === 'sms') {
         const brevo = await resolveBrevo(cfg);
         if (!brevo.smsAvailable) {
           await complete('failed', 'Compte Brevo non configuré — envoi SMS impossible.');
-          return;
+          return null;
         }
         const recipient = toBrevoRecipient(step.phone);
         if (!recipient) {
           await complete('failed', `Numéro de téléphone invalide : ${step.phone}`);
-          return;
+          return null;
         }
         if (!isPhoneWhitelisted(step.phone, process.env.DEV_WHITELIST_PHONES)) {
           await complete('success', 'dev_whitelist_skip');
-          return;
+          return null;
         }
         const result = await sendBrevoSms(brevo.apiKey, {
           recipient,
@@ -92,7 +93,7 @@ export const runWorkflowActionStep = internalAction({
           sender: brevo.smsSender,
         });
         await complete(result.ok ? 'success' : 'failed', result.ok ? undefined : result.error);
-        return;
+        return null;
       }
 
       // webhook
@@ -107,5 +108,6 @@ export const runWorkflowActionStep = internalAction({
       console.error('workflow action step crashed', error);
       await complete('failed', refusalText(error, 'erreur inconnue'));
     }
+    return null;
   },
 });

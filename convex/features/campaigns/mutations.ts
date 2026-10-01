@@ -60,6 +60,7 @@ export const createCampaign = employeeMutation({
     // Tracked links authored in the composer (unique per-recipient URLs).
     trackedLinks: v.optional(v.array(campaignTrackedLinkValidator)),
   },
+  returns: v.id('campaigns'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) {
@@ -282,6 +283,7 @@ async function requeueSend(
 /** Resends one recipient whatever its status, except `pending`: that row is already queued. */
 export const retryCampaignSend = employeeMutation({
   args: { campaignId: v.id('campaigns'), sendId: v.id('campaignSends') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const send = await ctx.db.get(args.sendId);
     if (!send || send.campaignId !== args.campaignId) throw refusal('send_not_found');
@@ -323,12 +325,14 @@ export const retryCampaignSend = employeeMutation({
       action: 'update',
       metadata: { event: 'resend_send', sendId: args.sendId },
     });
+    return null;
   },
 });
 
 /** Resends to every deliverable recipient, those who already received it included; counters are reset because the drain tallies them again. */
 export const resendAllCampaignSends = employeeMutation({
   args: { campaignId: v.id('campaigns') },
+  returns: v.object({ resent: v.number() }),
   handler: async (ctx, args) => {
     const campaign = await ctx.db.get(args.campaignId);
     if (!campaign) throw refusal('campaign_not_found');

@@ -1,3 +1,6 @@
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
+import { duplicateReasonValidator } from '../../_lib/validators/duplicates';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import type { Doc, Id } from '../../_generated/dataModel';
@@ -42,6 +45,10 @@ async function liveLead(ctx: QueryCtx, id: Id<'leads'>): Promise<Doc<'leads'> | 
 /** The latest scan (running or finished), for the page header. */
 export const getLatestDuplicateScan = employeeQuery({
   args: {},
+  returns: v.union(
+    v.object({ ...docOf('duplicateScans').fields, startedByName: v.union(v.string(), v.null()) }),
+    v.null(),
+  ),
   handler: async (ctx) => {
     const scan = await ctx.db.query('duplicateScans').order('desc').first();
     if (!scan) return null;
@@ -56,6 +63,27 @@ export const listDuplicatePairs = employeeQuery({
     paginationOpts: paginationOptsValidator,
     status: v.optional(v.union(v.literal('open'), v.literal('ignored'))),
   },
+  returns: paginationResultValidator(
+    v.object({
+      ...docOf('leadDuplicates').fields,
+      leadA: v.object({
+        _id: v.id('leads'),
+        name: v.string(),
+        email: v.union(v.string(), v.null()),
+        phone: v.union(v.string(), v.null()),
+        city: v.union(v.string(), v.null()),
+        createdAt: v.number(),
+      }),
+      leadB: v.object({
+        _id: v.id('leads'),
+        name: v.string(),
+        email: v.union(v.string(), v.null()),
+        phone: v.union(v.string(), v.null()),
+        city: v.union(v.string(), v.null()),
+        createdAt: v.number(),
+      }),
+    }),
+  ),
   handler: async (ctx, args) => {
     const result = await ctx.db
       .query('leadDuplicates')
@@ -76,6 +104,7 @@ export const listDuplicatePairs = employeeQuery({
 /** Open pairs count for the badge (capped: the page reads at most 101 rows). */
 export const countOpenDuplicates = employeeQuery({
   args: {},
+  returns: v.object({ count: v.number(), capped: v.boolean() }),
   handler: async (ctx) => {
     const rows = await ctx.db
       .query('leadDuplicates')
@@ -88,6 +117,22 @@ export const countOpenDuplicates = employeeQuery({
 /** Both full leads of a pair, with the names the comparison table displays. */
 export const getDuplicatePair = employeeQuery({
   args: { pairId: v.id('leadDuplicates') },
+  returns: v.union(
+    v.object({
+      pair: docOf('leadDuplicates'),
+      a: v.object({
+        lead: docOf('leads'),
+        ownerNames: v.array(v.string()),
+        companyName: v.union(v.string(), v.null()),
+      }),
+      b: v.object({
+        lead: docOf('leads'),
+        ownerNames: v.array(v.string()),
+        companyName: v.union(v.string(), v.null()),
+      }),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const pair = await ctx.db.get(args.pairId);
     if (!pair) return null;
@@ -123,6 +168,15 @@ export const findImportMatches = employeeQuery({
       }),
     ),
   },
+  returns: v.array(
+    v.object({
+      index: v.number(),
+      leadId: v.id('leads'),
+      leadName: v.string(),
+      leadEmail: v.union(v.string(), v.null()),
+      reasons: v.array(duplicateReasonValidator),
+    }),
+  ),
   handler: async (ctx, args) => {
     const matches: {
       index: number;

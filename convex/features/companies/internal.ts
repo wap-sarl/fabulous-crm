@@ -9,6 +9,7 @@ const LEADS_BATCH = 200;
 /** After a rename: the leads trigger recomputes searchText on each patch anyway, writing the value here only avoids a second corrective write. */
 export const restampCompanyLeadsSearchText = internalMutation({
   args: { companyId: v.id('companies'), cursor: v.optional(v.string()) },
+  returns: v.object({ isDone: v.boolean(), continueCursor: v.union(v.string(), v.null()) }),
   handler: async (ctx, args): Promise<{ isDone: boolean; continueCursor: string | null }> => {
     const company = await ctx.db.get(args.companyId);
     if (!company) return { isDone: true, continueCursor: null };
@@ -34,6 +35,7 @@ export const restampCompanyLeadsSearchText = internalMutation({
 /** Clear `companyId` on the leads of a deleted company, in batches. */
 export const detachCompanyLeads = internalMutation({
   args: { companyId: v.id('companies') },
+  returns: v.object({ isDone: v.boolean(), detached: v.number() }),
   handler: async (ctx, args): Promise<{ isDone: boolean; detached: number }> => {
     // No cursor: each batch removes its rows from the index range.
     const page = await ctx.db

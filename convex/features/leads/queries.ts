@@ -1,3 +1,6 @@
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
+import { lifecycleChangeSourceValidator } from '../../_lib/validators/lifecycle';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
@@ -48,6 +51,9 @@ export const listLeadsPaginated = employeeQuery({
     sortDirection: v.optional(sortDirectionValidator),
     ...leadFilterArgs,
   },
+  returns: paginationResultValidator(
+    v.object({ ...docOf('leads').fields, companyName: v.union(v.string(), v.null()) }),
+  ),
   handler: async (ctx, args) => {
     const direction = args.sortDirection ?? 'desc';
     const sortField = args.sortField ?? 'recent';
@@ -120,6 +126,15 @@ export const listLeadsPaginated = employeeQuery({
 
 export const searchLeads = employeeQuery({
   args: { search: v.optional(v.string()) },
+  returns: v.array(
+    v.object({
+      _id: v.id('leads'),
+      name: v.string(),
+      email: v.union(v.string(), v.null()),
+      companyId: v.union(v.id('companies'), v.null()),
+      companyName: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const term = args.search ? normalizeSearchText(args.search) : '';
     const rows = term
@@ -154,6 +169,7 @@ export const searchLeads = employeeQuery({
 
 export const getLead = employeeQuery({
   args: { leadId: v.id('leads') },
+  returns: v.union(docOf('leads'), v.null()),
   handler: async (ctx, args) => {
     const lead = await ctx.db.get(args.leadId);
     if (!lead || !isNotDeleted(lead)) return null;
@@ -164,6 +180,21 @@ export const getLead = employeeQuery({
 /** The lead detail page payload; its history lives in `features/timeline/queries.listLeadTimeline`. */
 export const getLeadDetail = employeeQuery({
   args: { leadId: v.id('leads') },
+  returns: v.union(
+    v.object({
+      lead: docOf('leads'),
+      ownerNames: v.array(v.string()),
+      company: v.union(
+        v.object({
+          _id: v.id('companies'),
+          name: v.string(),
+          domain: v.union(v.string(), v.null()),
+        }),
+        v.null(),
+      ),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const lead = await ctx.db.get(args.leadId);
     if (!lead || !isNotDeleted(lead)) return null;
@@ -190,6 +221,16 @@ export const getLeadDetail = employeeQuery({
 /** Pinned notes first, then the most recent. */
 export const listLeadNotes = employeeQuery({
   args: { leadId: v.id('leads') },
+  returns: v.array(
+    v.object({
+      _id: v.id('leadNotes'),
+      content: v.string(),
+      isPinned: v.boolean(),
+      authorName: v.union(v.string(), v.null()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }),
+  ),
   handler: async (ctx, args) => {
     const notes = (
       await ctx.db
@@ -225,6 +266,11 @@ export const listLeadNotes = employeeQuery({
 
 export const countLeadsByLifecycleStage = employeeQuery({
   args: {},
+  returns: v.object({
+    byStage: v.record(v.string(), v.number()),
+    unset: v.number(),
+    total: v.number(),
+  }),
   handler: async (ctx) => {
     const config = await loadLifecycleConfig(ctx);
     const byStage: Record<string, number> = {};
@@ -252,6 +298,18 @@ export const countLeadsByLifecycleStage = employeeQuery({
 
 export const listLifecycleHistory = employeeQuery({
   args: { leadId: v.id('leads') },
+  returns: v.array(
+    v.object({
+      _id: v.id('lifecycleStageHistory'),
+      from: v.union(v.string(), v.null()),
+      to: v.string(),
+      source: lifecycleChangeSourceValidator,
+      changedAt: v.number(),
+      changedByName: v.union(v.string(), v.null()),
+      workflowId: v.union(v.id('workflows'), v.null()),
+      workflowName: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const rows = await ctx.db
       .query('lifecycleStageHistory')
@@ -287,6 +345,12 @@ export const listLifecycleHistory = employeeQuery({
 /** Every lead matching a filter, read in one collect without pagination: fine for a few thousand leads only. */
 export const listMatchingLeadIds = employeeQuery({
   args: { ...leadFilterArgs },
+  returns: v.object({
+    leadIds: v.array(v.id('leads')),
+    total: v.number(),
+    withEmail: v.number(),
+    withPhone: v.number(),
+  }),
   handler: async (ctx, args) => {
     const listMemberIds = await loadListMemberIds(ctx, args.listIds);
     const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter);

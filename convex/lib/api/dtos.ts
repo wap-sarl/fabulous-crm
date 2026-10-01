@@ -1,3 +1,14 @@
+import { v } from 'convex/values';
+import { addressValidator } from '../../_lib/validators/shared';
+import { marketingConsentChannelValidator } from '../../_lib/validators/crm';
+import { consentSourceValidator } from '../../_lib/validators/crm';
+import { propertyValueValidator } from '../../_lib/validators/properties';
+import { dealStatusValidator } from '../../_lib/validators/deals';
+import { activityTypeValidator } from '../../_lib/validators/activities';
+import { activityStatusValidator } from '../../_lib/validators/activities';
+import { propertyTypeValidator } from '../../_lib/validators/properties';
+import { propertyOptionValidator } from '../../_lib/validators/properties';
+import { propertyValidationValidator } from '../../_lib/validators/properties';
 import type { Doc } from '../../_generated/dataModel';
 
 const base = (doc: { _id: string; _creationTime: number; updatedAt: number }) => ({
@@ -104,3 +115,111 @@ export function toPublicPropertyDefinition(def: Doc<'propertyDefinitions'>) {
     computed: def.computed === true,
   };
 }
+
+/** What `toPublicContact` gives, as a validator. */
+export const publicContactValidator = v.object({
+  firstName: v.string(),
+  lastName: v.string(),
+  email: v.union(v.string(), v.null()),
+  phone: v.union(v.string(), v.null()),
+  address: v.union(addressValidator, v.null()),
+  comment: v.union(v.string(), v.null()),
+  companyId: v.union(v.id('companies'), v.null()),
+  ownerIds: v.array(v.id('users')),
+  isRedFlagged: v.boolean(),
+  lifecycleStage: v.union(v.string(), v.null()),
+  leadScore: v.union(v.number(), v.null()),
+  marketingConsent: v.array(marketingConsentChannelValidator),
+  consentSource: v.union(consentSourceValidator, v.null()),
+  consentUpdatedAt: v.union(v.number(), v.null()),
+  lastActivityAt: v.union(v.number(), v.null()),
+  emailOpenCount: v.number(),
+  emailClickCount: v.number(),
+  formSubmissionCount: v.number(),
+  customProperties: v.record(v.string(), propertyValueValidator),
+  id: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+/** What `toPublicCompany` gives, as a validator. */
+export const publicCompanyValidator = v.object({
+  name: v.string(),
+  country: v.string(),
+  registrationNumber: v.union(v.string(), v.null()),
+  vatNumber: v.union(v.string(), v.null()),
+  domain: v.union(v.string(), v.null()),
+  website: v.union(v.string(), v.null()),
+  sector: v.union(v.string(), v.null()),
+  headcount: v.union(v.number(), v.null()),
+  address: v.union(addressValidator, v.null()),
+  ownerIds: v.array(v.id('users')),
+  customProperties: v.record(v.string(), propertyValueValidator),
+  id: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+/** What `toPublicDeal` gives, as a validator. */
+export const publicDealValidator = v.object({
+  title: v.string(),
+  amount: v.union(v.number(), v.null()),
+  currency: v.string(),
+  pipelineId: v.id('pipelines'),
+  stageKey: v.string(),
+  status: dealStatusValidator,
+  expectedCloseDate: v.union(v.string(), v.null()),
+  closedAt: v.union(v.number(), v.null()),
+  leadId: v.union(v.id('leads'), v.null()),
+  ownerIds: v.array(v.id('users')),
+  sourceCampaignId: v.union(v.id('campaigns'), v.null()),
+  customProperties: v.record(v.string(), propertyValueValidator),
+  id: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+/** What `toPublicActivity` gives, as a validator. */
+export const publicActivityValidator = v.object({
+  type: activityTypeValidator,
+  title: v.string(),
+  description: v.union(v.string(), v.null()),
+  status: activityStatusValidator,
+  dueAt: v.union(v.number(), v.null()),
+  completedAt: v.union(v.number(), v.null()),
+  outcome: v.union(v.string(), v.null()),
+  ownerId: v.union(v.id('users'), v.null()),
+  teamId: v.union(v.id('teams'), v.null()),
+  leadId: v.union(v.id('leads'), v.null()),
+  companyId: v.union(v.id('companies'), v.null()),
+  dealId: v.union(v.id('deals'), v.null()),
+  customProperties: v.record(v.string(), propertyValueValidator),
+  id: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+/** What `toPublicList` gives, as a validator. */
+export const publicListValidator = v.object({
+  name: v.string(),
+  kind: v.union(v.literal('static'), v.literal('dynamic')),
+  id: v.string(),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+});
+
+/** What `toPublicPropertyDefinition` gives, as a validator. */
+export const publicPropertyDefinitionValidator = v.object({
+  id: v.id('propertyDefinitions'),
+  entityType: v.union(
+    v.literal('lead'),
+    v.literal('company'),
+    v.literal('deal'),
+    v.literal('activity'),
+  ),
+  label: v.string(),
+  type: propertyTypeValidator,
+  options: v.union(v.array(propertyOptionValidator), v.null()),
+  validation: v.union(propertyValidationValidator, v.null()),
+  computed: v.boolean(),
+});

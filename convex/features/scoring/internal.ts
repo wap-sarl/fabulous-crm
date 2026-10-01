@@ -19,9 +19,10 @@ const RECOMPUTE_BATCH = 100;
 
 export const recomputeScoresPage = internalMutation({
   args: { stamp: v.number(), cursor: v.optional(v.string()) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const state = await ctx.db.query('scoringState').first();
-    if (state?.recalc?.stamp !== args.stamp) return;
+    if (state?.recalc?.stamp !== args.stamp) return null;
 
     const rules = await loadScoringRules(ctx);
     const lifecycle = await loadLifecycleConfig(ctx);
@@ -42,7 +43,7 @@ export const recomputeScoresPage = internalMutation({
         stamp: args.stamp,
         cursor: page.continueCursor,
       });
-      return;
+      return null;
     }
 
     // Decayed points and relative-date criteria drift with time: recompute nightly.
@@ -58,23 +59,27 @@ export const recomputeScoresPage = internalMutation({
       lastRecalcAt: Date.now(),
       nextRecalcId,
     });
+    return null;
   },
 });
 
 /** Nightly time-drift entry point (booked by recomputeScoresPage). */
 export const startScheduledScoreRecompute = internalMutation({
   args: {},
+  returns: v.null(),
   handler: async (ctx) => {
     await startScoreRecompute(ctx);
+    return null;
   },
 });
 
 export const simulateScoresPage = internalMutation({
   args: { stamp: v.number(), cursor: v.optional(v.string()) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const state = await ensureScoringState(ctx);
     const sim = state.simulation;
-    if (sim?.stamp !== args.stamp || sim.finishedAt !== undefined) return;
+    if (sim?.stamp !== args.stamp || sim.finishedAt !== undefined) return null;
 
     const rules = await loadScoringRules(ctx);
     const now = Date.now();
@@ -104,5 +109,6 @@ export const simulateScoresPage = internalMutation({
         cursor: page.continueCursor,
       });
     }
+    return null;
   },
 });

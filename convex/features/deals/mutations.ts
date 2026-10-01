@@ -58,6 +58,7 @@ function checkTransitions(
 /** Idempotent: creates the stock pipeline when the instance has none. */
 export const ensureDefaultPipeline = employeeMutation({
   args: {},
+  returns: v.id('pipelines'),
   handler: async (ctx) => await ensureDefault(ctx, ctx.userId),
 });
 
@@ -68,6 +69,7 @@ export const createPipeline = settingsMutation({
     transitions: v.optional(v.array(pipelineTransitionValidator)),
     isDefault: v.optional(v.boolean()),
   },
+  returns: v.id('pipelines'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw refusal('pipeline_name_required');
@@ -108,6 +110,7 @@ export const updatePipeline = settingsMutation({
     layout: v.optional(v.union(pipelineLayoutValidator, v.null())),
     isDefault: v.optional(v.boolean()),
   },
+  returns: v.id('pipelines'),
   handler: async (ctx, args) => {
     const pipeline = await loadPipeline(ctx, args.pipelineId);
     const updates: Partial<Doc<'pipelines'>> = {};
@@ -177,6 +180,7 @@ export const updatePipeline = settingsMutation({
 /** Soft-delete an empty pipeline (no live deal in any status). */
 export const deletePipeline = settingsMutation({
   args: { pipelineId: v.id('pipelines') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const pipeline = await loadPipeline(ctx, args.pipelineId);
     for (const status of ['open', 'won', 'lost'] as const) {
@@ -196,6 +200,7 @@ export const deletePipeline = settingsMutation({
       entityId: pipeline._id,
       action: 'delete',
     });
+    return null;
   },
 });
 
@@ -218,6 +223,7 @@ export const createDeal = employeeMutation({
     stageTags: v.optional(v.array(v.string())),
     stageComment: v.optional(v.string()),
   },
+  returns: v.id('deals'),
   handler: async (ctx, args) => {
     await validateDealFields(ctx, args);
     return await createDealRecord(
@@ -247,6 +253,7 @@ export const updateDeal = employeeMutation({
     expectedCloseDate: v.optional(v.union(v.string(), v.null())),
     amount: v.optional(v.union(v.number(), v.null())),
   },
+  returns: v.id('deals'),
   handler: async (ctx, args) => {
     const { dealId, customProperties, ...rest } = args;
     const deal = await ctx.db.get(dealId);
@@ -295,6 +302,7 @@ export const moveDealStage = employeeMutation({
     tags: v.optional(v.array(v.string())),
     comment: v.optional(v.string()),
   },
+  returns: v.union(v.literal('unchanged'), v.literal('moved')),
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
     if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
@@ -315,6 +323,7 @@ export const moveDealStage = employeeMutation({
 
 export const deleteDeal = employeeMutation({
   args: { dealId: v.id('deals') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
     if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
@@ -326,5 +335,6 @@ export const deleteDeal = employeeMutation({
       entityId: args.dealId,
       action: 'delete',
     });
+    return null;
   },
 });

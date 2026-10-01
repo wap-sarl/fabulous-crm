@@ -27,6 +27,7 @@ import { MAX_LEAD_SCORE, MIN_LEAD_SCORE } from '../../_lib/validators/scoring';
 /** For the branding assets (logo, favicon): the `storageId` the upload returns is then passed to `updateConfig`. */
 export const generateUploadUrl = settingsMutation({
   args: {},
+  returns: v.string(),
   handler: async (ctx) => {
     return await ctx.storage.generateUploadUrl();
   },
@@ -35,6 +36,7 @@ export const generateUploadUrl = settingsMutation({
 /** Secrets the input omits are preserved, and the audit log records that a change happened, never the secret values. */
 export const updateConfig = settingsMutation({
   args: settingsArgs,
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
     if (!cfg) throw new Error('Config not initialized');
@@ -116,6 +118,7 @@ export const updateLifecycleConfig = settingsMutation({
     allowRegression: v.boolean(),
     scorePromotion: v.optional(v.object({ stage: v.string(), minScore: v.number() })),
   },
+  returns: v.object({ success: v.boolean() }),
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
     if (!cfg) throw new Error('Config not initialized');

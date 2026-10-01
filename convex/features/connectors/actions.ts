@@ -64,6 +64,15 @@ export type ConnectionOutcome =
 /** The callback's work: the state is checked and consumed, the code exchanged here with the PKCE verifier, the grant parked. */
 export const completeConnection = internalAction({
   args: { code: v.string(), state: v.string() },
+  returns: v.union(
+    v.object({ ok: v.literal(true), provider: v.string(), finish: v.string() }),
+    v.object({
+      ok: v.literal(false),
+      error: v.string(),
+      provider: v.optional(v.string()),
+      failed: v.optional(v.string()),
+    }),
+  ),
   handler: async (ctx, { code, state }): Promise<ConnectionOutcome> => {
     const payload = await verifyState(state);
     if (!payload) return { ok: false, error: 'invalid_state' };
@@ -123,6 +132,7 @@ export const completeConnection = internalAction({
 /** A usable access token for an account, refreshed when it is about to expire; null when the account needs reconnecting. */
 export const accessToken = internalAction({
   args: { accountId: v.id('connectorAccounts') },
+  returns: v.union(v.string(), v.null()),
   handler: async (ctx, { accountId }): Promise<string | null> => {
     const account = await ctx.runQuery(internal.features.connectors.internal.accountSecrets, {
       accountId,
@@ -168,6 +178,7 @@ export const accessToken = internalAction({
 /** Tells the provider the grant is over, when it has an endpoint for that, then the row goes whatever it answered. */
 export const revokeAndRemove = internalAction({
   args: { accountId: v.id('connectorAccounts') },
+  returns: v.null(),
   handler: async (ctx, { accountId }): Promise<null> => {
     const account = await ctx.runQuery(internal.features.connectors.internal.accountSecrets, {
       accountId,

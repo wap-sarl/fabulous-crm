@@ -1,3 +1,6 @@
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
+import { campaignSendStatusValidator } from '../../_lib/validators/crm';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
@@ -7,6 +10,7 @@ import { renderPlaceholders, wrapEmailHtml } from '../../lib/email/brevo';
 
 export const listCampaigns = employeeQuery({
   args: {},
+  returns: v.array(docOf('campaigns')),
   handler: async (ctx) => {
     const campaigns = await ctx.db.query('campaigns').order('desc').collect();
     return campaigns.filter(isNotDeleted);
@@ -36,6 +40,22 @@ function buildMessagePreview(campaign: Doc<'campaigns'>, params: Record<string, 
 
 export const getCampaign = employeeQuery({
   args: { campaignId: v.id('campaigns') },
+  returns: v.union(
+    v.object({
+      campaign: docOf('campaigns'),
+      sends: v.array(docOf('campaignSends')),
+      messagePreview: v.union(
+        v.object({ channel: v.literal('sms'), sms: v.optional(v.string()) }),
+        v.object({ channel: v.literal('email'), templateId: v.number() }),
+        v.object({
+          channel: v.literal('email'),
+          subject: v.optional(v.string()),
+          html: v.optional(v.string()),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const campaign = await ctx.db.get(args.campaignId);
     if (!campaign || !isNotDeleted(campaign)) return null;
@@ -52,6 +72,7 @@ export const getCampaign = employeeQuery({
 /** Paginated natively, unlike the leads table: the index serves the whole query with no in-memory filtering, so a page never hides matches. */
 export const listCampaignEvents = employeeQuery({
   args: { campaignId: v.id('campaigns'), paginationOpts: paginationOptsValidator },
+  returns: paginationResultValidator(docOf('campaignEvents')),
   handler: async (ctx, args) =>
     ctx.db
       .query('campaignEvents')
@@ -63,6 +84,49 @@ export const listCampaignEvents = employeeQuery({
 /** What one recipient received, fetched when its preview drawer opens so that nothing is rendered for every send up front. */
 export const getCampaignSendPreview = employeeQuery({
   args: { sendId: v.id('campaignSends') },
+  returns: v.union(
+    v.object({
+      channel: v.literal('sms'),
+      sms: v.optional(v.string()),
+      leadName: v.union(v.string(), v.null()),
+      contact: v.union(v.string(), v.null()),
+      status: campaignSendStatusValidator,
+      sentAt: v.optional(v.number()),
+      openedAt: v.optional(v.number()),
+      clickedAt: v.optional(v.number()),
+      error: v.optional(v.string()),
+      params: v.record(v.string(), v.string()),
+      events: v.array(docOf('campaignEvents')),
+    }),
+    v.object({
+      channel: v.literal('email'),
+      templateId: v.number(),
+      leadName: v.union(v.string(), v.null()),
+      contact: v.union(v.string(), v.null()),
+      status: campaignSendStatusValidator,
+      sentAt: v.optional(v.number()),
+      openedAt: v.optional(v.number()),
+      clickedAt: v.optional(v.number()),
+      error: v.optional(v.string()),
+      params: v.record(v.string(), v.string()),
+      events: v.array(docOf('campaignEvents')),
+    }),
+    v.object({
+      channel: v.literal('email'),
+      subject: v.optional(v.string()),
+      html: v.optional(v.string()),
+      leadName: v.union(v.string(), v.null()),
+      contact: v.union(v.string(), v.null()),
+      status: campaignSendStatusValidator,
+      sentAt: v.optional(v.number()),
+      openedAt: v.optional(v.number()),
+      clickedAt: v.optional(v.number()),
+      error: v.optional(v.string()),
+      params: v.record(v.string(), v.string()),
+      events: v.array(docOf('campaignEvents')),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const send = await ctx.db.get(args.sendId);
     if (!send) return null;

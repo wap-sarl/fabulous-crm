@@ -1,3 +1,4 @@
+import { docOf } from '../../lib/shared/docs';
 import { v } from 'convex/values';
 import { employeeQuery, settingsQuery } from '../../_lib/auth';
 import { isNotDeleted } from '../../lib/shared/db';
@@ -5,6 +6,15 @@ import { isNotDeleted } from '../../lib/shared/db';
 /** Live forms for the settings list. Tiny table — read in full. */
 export const listForms = settingsQuery({
   args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id('forms'),
+      name: v.string(),
+      active: v.boolean(),
+      fieldCount: v.number(),
+      createdAt: v.number(),
+    }),
+  ),
   handler: async (ctx) => {
     const forms = (await ctx.db.query('forms').collect()).filter(isNotDeleted);
     return forms
@@ -21,6 +31,7 @@ export const listForms = settingsQuery({
 
 export const getForm = settingsQuery({
   args: { formId: v.id('forms') },
+  returns: v.union(docOf('forms'), v.null()),
   handler: async (ctx, args) => {
     const form = await ctx.db.get(args.formId);
     return form && isNotDeleted(form) ? form : null;
@@ -30,6 +41,7 @@ export const getForm = settingsQuery({
 /** Name lookup for pickers (workflow trigger config) — every employee. */
 export const listFormOptions = employeeQuery({
   args: {},
+  returns: v.array(v.object({ _id: v.id('forms'), name: v.string() })),
   handler: async (ctx) => {
     const forms = (await ctx.db.query('forms').collect()).filter(isNotDeleted);
     return forms

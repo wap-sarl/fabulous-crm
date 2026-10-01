@@ -1,3 +1,7 @@
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
+import { workflowStatusValidator } from '../../_lib/validators/workflows';
+import { workflowNodeValidator } from '../../_lib/validators/workflows';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
@@ -9,6 +13,36 @@ import { workflowRunStatusValidator } from '../../_lib/validators/workflows';
 /** Summaries for the list page — counters are denormalized on the doc. */
 export const listWorkflows = employeeQuery({
   args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id('workflows'),
+      _creationTime: v.number(),
+      name: v.string(),
+      description: v.optional(v.string()),
+      status: workflowStatusValidator,
+      triggerType: v.union(
+        v.literal('lead_created'),
+        v.literal('lead_property_changed'),
+        v.literal('list_membership_changed'),
+        v.literal('consent_updated'),
+        v.literal('campaign_email_event'),
+        v.literal('campaign_sms_event'),
+        v.literal('tracked_link_click'),
+        v.literal('score_threshold_crossed'),
+        v.literal('form_submitted'),
+        v.literal('deal_created'),
+        v.literal('deal_stage_changed'),
+        v.literal('deal_won'),
+        v.literal('deal_lost'),
+      ),
+      allowReEnrollment: v.boolean(),
+      nodeCount: v.number(),
+      enrolledCount: v.number(),
+      activeCount: v.number(),
+      completedCount: v.number(),
+      updatedAt: v.number(),
+    }),
+  ),
   handler: async (ctx) => {
     const workflows = (await ctx.db.query('workflows').collect()).filter(isNotDeleted);
     return workflows
@@ -33,6 +67,7 @@ export const listWorkflows = employeeQuery({
 /** The full workflow doc — the editor edits exactly this shape. */
 export const getWorkflow = employeeQuery({
   args: { workflowId: v.id('workflows') },
+  returns: v.union(docOf('workflows'), v.null()),
   handler: async (ctx, args) => {
     const workflow = await ctx.db.get(args.workflowId);
     if (!workflow || !isNotDeleted(workflow)) return null;
@@ -47,6 +82,20 @@ export const listRuns = employeeQuery({
     status: v.optional(workflowRunStatusValidator),
     paginationOpts: paginationOptsValidator,
   },
+  returns: paginationResultValidator(
+    v.object({
+      ...docOf('workflowRuns').fields,
+      lead: v.union(
+        v.object({
+          _id: v.id('leads'),
+          firstName: v.string(),
+          lastName: v.string(),
+          email: v.optional(v.string()),
+        }),
+        v.null(),
+      ),
+    }),
+  ),
   handler: async (ctx, args) => {
     const page = await (args.status !== undefined
       ? ctx.db
@@ -84,6 +133,30 @@ export const listRuns = employeeQuery({
 /** One run with its full step log and enough workflow context to label nodes. */
 export const getRun = employeeQuery({
   args: { runId: v.id('workflowRuns') },
+  returns: v.union(
+    v.object({
+      ...docOf('workflowRuns').fields,
+      lead: v.union(
+        v.object({
+          _id: v.id('leads'),
+          firstName: v.string(),
+          lastName: v.string(),
+          email: v.optional(v.string()),
+        }),
+        v.null(),
+      ),
+      workflow: v.union(
+        v.object({
+          _id: v.id('workflows'),
+          name: v.string(),
+          nodes: v.array(workflowNodeValidator),
+        }),
+        v.null(),
+      ),
+      steps: v.array(docOf('workflowRunSteps')),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) return null;
@@ -109,6 +182,7 @@ export const getRun = employeeQuery({
 /** A lead's enrollment history across workflows (lead-page panel). */
 export const listRunsForLead = employeeQuery({
   args: { leadId: v.id('leads') },
+  returns: v.array(v.object({ ...docOf('workflowRuns').fields, workflowName: v.string() })),
   handler: async (ctx, args) => {
     const runs = await ctx.db
       .query('workflowRuns')

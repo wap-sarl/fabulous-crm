@@ -4,6 +4,7 @@ import { internalQuery } from '../../_generated/server';
 /** The membership gate of the Better Auth user-creation hook: only an active employee or a pending invitation may create an account. */
 export const isAllowed = internalQuery({
   args: { email: v.string() },
+  returns: v.boolean(),
   handler: async (ctx, { email }) => {
     const normalized = email.trim().toLowerCase();
 

@@ -17,6 +17,7 @@ import { setLifecycleStageStep, updatePropertyStep } from '../../lib/workflows/s
 import { addToListStep, removeFromListStep } from '../../lib/workflows/steps/lists';
 import {
   type ActionStepContext,
+  actionStepContextValidator,
   actionStepContextOf,
   sendEmailStep,
   sendSmsStep,
@@ -31,11 +32,12 @@ import { DAY_MS } from '../../_lib/time';
 /** A run only ever executes its `currentNodeId`, exactly once: duplicate or stale schedules are no-ops, so pause, resume and replays are safe. */
 export const executeStep = internalMutation({
   args: { runId: v.id('workflowRuns'), nodeId: v.string() },
-  handler: async (ctx, args): Promise<void> => {
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
     const run = await ctx.db.get(args.runId);
-    if (run?.status !== 'active') return;
+    if (run?.status !== 'active') return null;
     // Stale schedule (the run already advanced past this node) — no-op.
-    if (run.currentNodeId !== args.nodeId) return;
+    if (run.currentNodeId !== args.nodeId) return null;
 
     const workflow = await ctx.db.get(run.workflowId);
     if (!workflow || workflow.deletedAt !== undefined) {
@@ -46,10 +48,10 @@ export const executeStep = internalMutation({
         'failed',
         'workflow_deleted',
       );
-      return;
+      return null;
     }
     // Paused: leave the run parked; setWorkflowStatus re-kicks it on resume.
-    if (workflow.status !== 'active') return;
+    if (workflow.status !== 'active') return null;
     // Deferred (e.g. a suspended deployment): the step runs again later, the run stays parked here.
     if (
       await deferUnlessAllowed(
@@ -59,7 +61,7 @@ export const executeStep = internalMutation({
         args,
       )
     ) {
-      return;
+      return null;
     }
 
     // An async action is still in flight (e.g. resume clicked during a send): completeActionStep will advance the run.
@@ -67,22 +69,22 @@ export const executeStep = internalMutation({
       .query('workflowRunSteps')
       .withIndex('by_run', (q) => q.eq('runId', run._id))
       .collect();
-    if (steps.some((s) => s.status === 'pending')) return;
+    if (steps.some((s) => s.status === 'pending')) return null;
 
     const node = workflow.nodes.find((n) => n.id === args.nodeId);
     if (!node) {
       await endRun(ctx, run, workflow, 'failed', 'step_removed');
-      return;
+      return null;
     }
     if (run.stepCount >= MAX_STEPS_PER_RUN) {
       await endRun(ctx, run, workflow, 'failed', 'step_limit');
-      return;
+      return null;
     }
 
     const lead = await ctx.db.get(run.leadId);
     if (!lead || lead.deletedAt !== undefined) {
       await endRun(ctx, run, workflow, 'cancelled', 'lead_supprime');
-      return;
+      return null;
     }
 
     await ctx.db.patch(run._id, { stepCount: run.stepCount + 1 });
@@ -96,36 +98,50 @@ export const executeStep = internalMutation({
 
     switch (node.type) {
       case 'branch':
-        return await branchStep(step, node);
+        await branchStep(step, node);
+        break;
       case 'wait':
-        return await waitStep(step, node);
+        await waitStep(step, node);
+        break;
       case 'update_property':
-        return await updatePropertyStep(step, node);
+        await updatePropertyStep(step, node);
+        break;
       case 'set_lifecycle_stage':
-        return await setLifecycleStageStep(step, node);
+        await setLifecycleStageStep(step, node);
+        break;
       case 'create_deal':
-        return await createDealStep(step, node);
+        await createDealStep(step, node);
+        break;
       case 'create_task':
-        return await createTaskStep(step, node);
+        await createTaskStep(step, node);
+        break;
       case 'update_deal_stage':
-        return await updateDealStageStep(step, node);
+        await updateDealStageStep(step, node);
+        break;
       case 'add_to_list':
-        return await addToListStep(step, node);
+        await addToListStep(step, node);
+        break;
       case 'remove_from_list':
-        return await removeFromListStep(step, node);
+        await removeFromListStep(step, node);
+        break;
       case 'send_email':
-        return await sendEmailStep(step, node);
+        await sendEmailStep(step, node);
+        break;
       case 'send_sms':
-        return await sendSmsStep(step, node);
+        await sendSmsStep(step, node);
+        break;
       case 'webhook':
-        return await webhookStep(step, node);
+        await webhookStep(step, node);
+        break;
     }
+    return null;
   },
 });
 
 /** Null when the run or the node is no longer actionable (cancelled meanwhile, node edited away): the action then completes the step as skipped. */
 export const getActionStepContext = internalQuery({
   args: { runId: v.id('workflowRuns'), stepId: v.id('workflowRunSteps'), nodeId: v.string() },
+  returns: actionStepContextValidator,
   handler: async (ctx, args): Promise<ActionStepContext> => {
     const run = await ctx.db.get(args.runId);
     if (run?.status !== 'active' || run.currentNodeId !== args.nodeId) return null;
@@ -149,7 +165,8 @@ export const completeActionStep = internalMutation({
     status: workflowStepOutcomeValidator,
     detail: v.optional(v.string()),
   },
-  handler: async (ctx, args): Promise<void> => {
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
     const step = await ctx.db.get(args.stepId);
     if (step && step.status === 'pending') {
       await ctx.db.patch(args.stepId, {
@@ -160,19 +177,20 @@ export const completeActionStep = internalMutation({
     }
 
     const run = await ctx.db.get(args.runId);
-    if (run?.status !== 'active' || run.currentNodeId !== args.nodeId) return;
+    if (run?.status !== 'active' || run.currentNodeId !== args.nodeId) return null;
     const workflow = await ctx.db.get(run.workflowId);
     if (!workflow || workflow.deletedAt !== undefined) {
       await endRun(ctx, run, workflow ?? null, 'failed', 'workflow_deleted');
-      return;
+      return null;
     }
     const node = workflow.nodes.find((n) => n.id === args.nodeId);
     if (!node) {
       await endRun(ctx, run, workflow, 'failed', 'step_removed');
-      return;
+      return null;
     }
     const next = node.type === 'branch' ? undefined : node.next;
     await advanceRun(ctx, run, workflow, next, workflow.status === 'active');
+    return null;
   },
 });
 
@@ -181,6 +199,7 @@ const REENROLL_BATCH = 100;
 
 export const reenrollBatch = internalMutation({
   args: { workflowId: v.id('workflows'), cursor: v.optional(v.string()) },
+  returns: v.object({ isDone: v.boolean(), continueCursor: v.union(v.string(), v.null()) }),
   handler: async (ctx, args): Promise<{ isDone: boolean; continueCursor: string | null }> => {
     const workflow = await ctx.db.get(args.workflowId);
     if (

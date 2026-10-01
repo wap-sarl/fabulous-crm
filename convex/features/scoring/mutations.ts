@@ -43,6 +43,7 @@ export const createScoringRule = settingsMutation({
     active: v.boolean(),
     decayHalfLifeDays: v.optional(v.number()),
   },
+  returns: v.id('scoringRules'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw refusal('scoring_name_required');
@@ -85,6 +86,7 @@ export const updateScoringRule = settingsMutation({
     // null clears the decay (undefined = untouched).
     decayHalfLifeDays: v.optional(v.union(v.number(), v.null())),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const rule = await ctx.db.get(args.ruleId);
     if (!rule) throw refusal('scoring_rule_not_found');
@@ -126,14 +128,16 @@ export const updateScoringRule = settingsMutation({
       (f) => f in patch,
     );
     if (affectsScores) await startScoreRecompute(ctx);
+    return null;
   },
 });
 
 export const deleteScoringRule = settingsMutation({
   args: { ruleId: v.id('scoringRules') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const rule = await ctx.db.get(args.ruleId);
-    if (!rule) return;
+    if (!rule) return null;
     await ctx.db.delete(args.ruleId);
     await logAudit({
       ctx,
@@ -144,11 +148,13 @@ export const deleteScoringRule = settingsMutation({
     });
     // The recomputation also scrubs the rule from every stored breakdown.
     await startScoreRecompute(ctx);
+    return null;
   },
 });
 
 export const reorderScoringRules = settingsMutation({
   args: { ruleIds: v.array(v.id('scoringRules')) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const rules = await loadScoringRules(ctx);
     const known = new Set(rules.map((r) => r._id));
@@ -161,20 +167,24 @@ export const reorderScoringRules = settingsMutation({
     for (const [index, id] of args.ruleIds.entries()) {
       await ctx.db.patch(id, { order: index });
     }
+    return null;
   },
 });
 
 /** Manual full recomputation (settings page button). */
 export const recomputeScores = settingsMutation({
   args: {},
+  returns: v.null(),
   handler: async (ctx) => {
     await startScoreRecompute(ctx);
+    return null;
   },
 });
 
 /** Counts the leads at or above the threshold in batched jobs, never a full scan in a query; progress and result land on the scoringState singleton. */
 export const startScoreSimulation = settingsMutation({
   args: { threshold: v.number() },
+  returns: v.null(),
   handler: async (ctx, args) => {
     if (
       !Number.isInteger(args.threshold) ||
@@ -191,5 +201,6 @@ export const startScoreSimulation = settingsMutation({
     await ctx.scheduler.runAfter(0, internal.features.scoring.internal.simulateScoresPage, {
       stamp,
     });
+    return null;
   },
 });

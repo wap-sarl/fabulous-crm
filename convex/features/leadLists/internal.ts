@@ -13,10 +13,11 @@ const DRIFT_RECALC_MS = DAY_MS;
 
 export const recalcDynamicListPage = internalMutation({
   args: { listId: v.id('leadLists'), stamp: v.number(), cursor: v.optional(v.string()) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
-    if (list?.kind !== 'dynamic' || !list.criteria) return;
-    if (list.recalc?.stamp !== args.stamp) return;
+    if (list?.kind !== 'dynamic' || !list.criteria) return null;
+    if (list.recalc?.stamp !== args.stamp) return null;
 
     const page = await ctx.db
       .query('leads')
@@ -36,7 +37,7 @@ export const recalcDynamicListPage = internalMutation({
         stamp: args.stamp,
         cursor: page.continueCursor,
       });
-      return;
+      return null;
     }
 
     const nextRecalcId = criteriaUsesRelativeDates(list.criteria)
@@ -51,14 +52,17 @@ export const recalcDynamicListPage = internalMutation({
       lastRecalcAt: Date.now(),
       nextRecalcId,
     });
+    return null;
   },
 });
 
 /** Time-drift reconciliation entry point (booked by recalcDynamicListPage). */
 export const startScheduledListRecalc = internalMutation({
   args: { listId: v.id('leadLists') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
     if (list && list.kind === 'dynamic') await startDynamicListRecalc(ctx, list);
+    return null;
   },
 });

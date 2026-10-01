@@ -1,3 +1,5 @@
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
 import { v } from 'convex/values';
 import { type IndexRange, paginationOptsValidator } from 'convex/server';
 import type { Doc, Id } from '../../_generated/dataModel';
@@ -63,6 +65,16 @@ export const listTasks = employeeQuery({
     dueBefore: v.optional(v.number()),
     undated: v.optional(v.boolean()),
   },
+  returns: paginationResultValidator(
+    v.object({
+      ...docOf('activities').fields,
+      ownerName: v.union(v.string(), v.null()),
+      teamName: v.union(v.string(), v.null()),
+      leadName: v.union(v.string(), v.null()),
+      companyName: v.union(v.string(), v.null()),
+      dealTitle: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const ownerId = args.ownerId ?? ctx.userId;
     const status = args.status ?? 'open';
@@ -103,6 +115,13 @@ export const countTaskBuckets = employeeQuery({
     endOfToday: v.number(),
     endOfWeek: v.number(),
   },
+  returns: v.object({
+    overdue: v.number(),
+    today: v.number(),
+    week: v.number(),
+    later: v.number(),
+    undated: v.number(),
+  }),
   handler: async (ctx, args) => {
     const ownerId = args.ownerId ?? ctx.userId;
     const teamId = args.teamId;
@@ -127,6 +146,16 @@ export const listActivitiesForEntity = employeeQuery({
     companyId: v.optional(v.id('companies')),
     dealId: v.optional(v.id('deals')),
   },
+  returns: v.array(
+    v.object({
+      ...docOf('activities').fields,
+      ownerName: v.union(v.string(), v.null()),
+      teamName: v.union(v.string(), v.null()),
+      leadName: v.union(v.string(), v.null()),
+      companyName: v.union(v.string(), v.null()),
+      dealTitle: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const rows = args.leadId
       ? await ctx.db
@@ -160,6 +189,17 @@ export const listActivitiesForEntity = employeeQuery({
 /** One activity with its names, or null when absent or outside the caller's perimeter. */
 export const getActivity = employeeQuery({
   args: { activityId: v.id('activities') },
+  returns: v.union(
+    v.object({
+      ...docOf('activities').fields,
+      ownerName: v.union(v.string(), v.null()),
+      teamName: v.union(v.string(), v.null()),
+      leadName: v.union(v.string(), v.null()),
+      companyName: v.union(v.string(), v.null()),
+      dealTitle: v.union(v.string(), v.null()),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const activity = await ctx.db.get(args.activityId);
     if (!activity || !isNotDeleted(activity)) return null;

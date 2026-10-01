@@ -212,6 +212,7 @@ import type * as lib_security_rateLimits from "../lib/security/rateLimits.js";
 import type * as lib_shared_aggregates from "../lib/shared/aggregates.js";
 import type * as lib_shared_db from "../lib/shared/db.js";
 import type * as lib_shared_devWhitelist from "../lib/shared/devWhitelist.js";
+import type * as lib_shared_docs from "../lib/shared/docs.js";
 import type * as lib_sms_brevo from "../lib/sms/brevo.js";
 import type * as lib_timeline_events from "../lib/timeline/events.js";
 import type * as lib_timeline_pagination from "../lib/timeline/pagination.js";
@@ -449,6 +450,7 @@ declare const fullApi: ApiFromModules<{
   "lib/shared/aggregates": typeof lib_shared_aggregates;
   "lib/shared/db": typeof lib_shared_db;
   "lib/shared/devWhitelist": typeof lib_shared_devWhitelist;
+  "lib/shared/docs": typeof lib_shared_docs;
   "lib/sms/brevo": typeof lib_sms_brevo;
   "lib/timeline/events": typeof lib_timeline_events;
   "lib/timeline/pagination": typeof lib_timeline_pagination;

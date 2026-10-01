@@ -32,6 +32,7 @@ const companyFieldArgs = {
 
 export const createCompany = employeeMutation({
   args: companyFieldArgs,
+  returns: v.id('companies'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw refusal('company_name_required');
@@ -68,6 +69,7 @@ export const updateCompany = employeeMutation({
     ...companyFieldArgs,
     name: v.optional(v.string()),
   },
+  returns: v.id('companies'),
   handler: async (ctx, args) => {
     const { companyId, ...rest } = args;
     const company = await ctx.db.get(companyId);
@@ -143,6 +145,7 @@ export const updateCompany = employeeMutation({
 /** Soft delete: the contacts stay (they are people, not the company's property) and are detached in scheduled batches. */
 export const deleteCompany = employeeMutation({
   args: { companyId: v.id('companies') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const company = await ctx.db.get(args.companyId);
     if (!company || company.deletedAt != null) throw refusal('company_not_found');
@@ -160,5 +163,6 @@ export const deleteCompany = employeeMutation({
     await ctx.scheduler.runAfter(0, internal.features.companies.internal.detachCompanyLeads, {
       companyId: args.companyId,
     });
+    return null;
   },
 });

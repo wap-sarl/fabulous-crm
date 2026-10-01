@@ -15,6 +15,7 @@ import { ensureDefaultRoles } from '../lib/roles/access';
 /** Upload URL for the wizard's logo and favicon: guarded by SETUP_TOKEN so it may run before any user exists, and refused once setup is complete. */
 export const generateSetupUploadUrl = mutation({
   args: { setupToken: v.string() },
+  returns: v.string(),
   handler: async (ctx, args) => {
     const expected = process.env.SETUP_TOKEN;
     if (!expected) throw refusal('setup_token_not_configured');
@@ -47,6 +48,7 @@ export const completeSetup = mutation({
     faviconStorageId: v.optional(v.id('_storage')),
     primaryColor: v.optional(v.string()),
   },
+  returns: v.object({ success: v.boolean(), adminEmail: v.string() }),
   handler: async (ctx, args) => {
     const expected = process.env.SETUP_TOKEN;
     if (!expected) throw refusal('setup_token_not_configured');

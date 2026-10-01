@@ -34,6 +34,7 @@ export const createForm = settingsMutation({
     consentText: v.string(),
     active: v.boolean(),
   },
+  returns: v.id('forms'),
   handler: async (ctx, args) => {
     const error = validateFormShape(args);
     if (error) throw refusalFrom(error, 'invalid_form');
@@ -68,6 +69,7 @@ export const updateForm = settingsMutation({
     consentText: v.optional(v.string()),
     active: v.optional(v.boolean()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const form = await ctx.db.get(args.formId);
     if (!form || !isNotDeleted(form)) throw refusal('form_not_found');
@@ -103,12 +105,14 @@ export const updateForm = settingsMutation({
         ),
       },
     });
+    return null;
   },
 });
 
 /** Soft delete: submissions and their timeline entries stay. */
 export const deleteForm = settingsMutation({
   args: { formId: v.id('forms') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const form = await ctx.db.get(args.formId);
     if (!form || !isNotDeleted(form)) throw refusal('form_not_found');
@@ -124,5 +128,6 @@ export const deleteForm = settingsMutation({
       entityId: args.formId,
       action: 'delete',
     });
+    return null;
   },
 });

@@ -75,6 +75,7 @@ export const createDefinition = settingsMutation({
     validation: v.optional(propertyValidationValidator),
     showInTable: v.boolean(),
   },
+  returns: v.id('propertyDefinitions'),
   handler: async (ctx, args) => {
     const label = args.label.trim();
     if (!label) throw refusal('label_required');
@@ -118,6 +119,7 @@ export const updateDefinition = settingsMutation({
     showInTable: v.optional(v.boolean()),
     order: v.optional(v.number()),
   },
+  returns: v.id('propertyDefinitions'),
   handler: async (ctx, args) => {
     const { definitionId, validation, ...rest } = args;
     const def = await ctx.db.get(definitionId);
@@ -160,6 +162,7 @@ export const updateDefinition = settingsMutation({
 
 export const deleteDefinition = settingsMutation({
   args: { definitionId: v.id('propertyDefinitions') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const def = await ctx.db.get(args.definitionId);
     if (!def || !isNotDeleted(def)) throw refusal('definition_not_found');
@@ -177,12 +180,14 @@ export const deleteDefinition = settingsMutation({
       entityId: args.definitionId,
       action: 'delete',
     });
+    return null;
   },
 });
 
 /** Reorder the definitions of one entity type (ids in their new display order). */
 export const reorderDefinitions = settingsMutation({
   args: { definitionIds: v.array(v.id('propertyDefinitions')) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     let position = 0;
     for (const definitionId of args.definitionIds) {
@@ -201,5 +206,6 @@ export const reorderDefinitions = settingsMutation({
       action: 'update',
       metadata: { order: args.definitionIds },
     });
+    return null;
   },
 });

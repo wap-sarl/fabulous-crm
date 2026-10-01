@@ -64,6 +64,7 @@ export const createLead = employeeMutation({
     ...leadRowArgs,
     customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
+  returns: v.id('leads'),
   handler: async (ctx, args) => {
     const customProperties = sanitizeCustomProperties(
       await loadPropertyDefsById(ctx, 'lead'),
@@ -135,6 +136,7 @@ export const updateLead = employeeMutation({
     companyId: v.optional(v.union(v.id('companies'), v.null())),
     customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
+  returns: v.id('leads'),
   handler: async (ctx, args) => {
     // Marketing consent is not an accepted field: it is RGPD data the lead controls, changed only through the public consent link.
     const { leadId, email, customProperties, lifecycleStage, companyId, ...rest } = args;
@@ -233,14 +235,17 @@ async function softDeleteLead(
 
 export const deleteLead = employeeMutation({
   args: { leadId: v.id('leads') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     if (!(await softDeleteLead(ctx, ctx.userId, args.leadId))) throw refusal('lead_not_found');
+    return null;
   },
 });
 
 /** Missing or already deleted ids are skipped silently rather than aborting the batch. */
 export const deleteLeads = employeeMutation({
   args: { leadIds: v.array(v.id('leads')) },
+  returns: v.object({ deleted: v.number() }),
   handler: async (ctx, args) => {
     const uniqueIds = [...new Set(args.leadIds)];
     let deleted = 0;
@@ -264,6 +269,11 @@ export const importLeads = employeeMutation({
     // Optional list every imported (created OR updated) lead is added to.
     listId: v.optional(v.id('leadLists')),
   },
+  returns: v.object({
+    created: v.number(),
+    updated: v.number(),
+    errors: v.array(v.object({ index: v.number(), error: v.string() })),
+  }),
   handler: async (ctx, args) => {
     if (args.listId) {
       const list = await ctx.db.get(args.listId);
@@ -302,6 +312,7 @@ export const createNote = employeeMutation({
     leadId: v.id('leads'),
     content: v.string(),
   },
+  returns: v.id('leadNotes'),
   handler: async (ctx, args) => {
     const lead = await ctx.db.get(args.leadId);
     if (!lead || !isNotDeleted(lead)) {
@@ -338,6 +349,7 @@ export const updateNote = employeeMutation({
     noteId: v.id('leadNotes'),
     content: v.string(),
   },
+  returns: v.id('leadNotes'),
   handler: async (ctx, args) => {
     const note = await liveNote(ctx, args.noteId);
     const content = args.content.trim();
@@ -354,6 +366,7 @@ export const setNotePinned = employeeMutation({
     noteId: v.id('leadNotes'),
     isPinned: v.boolean(),
   },
+  returns: v.id('leadNotes'),
   handler: async (ctx, args) => {
     const note = await liveNote(ctx, args.noteId);
     return await editNote(ctx, ctx.userId, note, { isPinned: args.isPinned });
@@ -363,6 +376,7 @@ export const setNotePinned = employeeMutation({
 /** Soft-delete a note. */
 export const deleteNote = employeeMutation({
   args: { noteId: v.id('leadNotes') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await liveNote(ctx, args.noteId);
     await ctx.db.patch(args.noteId, {
@@ -376,5 +390,6 @@ export const deleteNote = employeeMutation({
       entityId: args.noteId,
       action: 'delete',
     });
+    return null;
   },
 });

@@ -1,3 +1,10 @@
+import { docOf } from '../../lib/shared/docs';
+import { publicContactValidator } from '../../lib/api/dtos';
+import { publicCompanyValidator } from '../../lib/api/dtos';
+import { publicDealValidator } from '../../lib/api/dtos';
+import { publicActivityValidator } from '../../lib/api/dtos';
+import { publicListValidator } from '../../lib/api/dtos';
+import { publicPropertyDefinitionValidator } from '../../lib/api/dtos';
 import { paginationOptsValidator } from 'convex/server';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
@@ -17,6 +24,7 @@ import { isNotDeleted } from '../../lib/shared/db';
 
 export const getApiKeyByKeyId = internalQuery({
   args: { keyId: v.string() },
+  returns: v.union(docOf('apiKeys'), v.null()),
   handler: async (ctx, args) => {
     return await ctx.db
       .query('apiKeys')
@@ -28,13 +36,15 @@ export const getApiKeyByKeyId = internalQuery({
 // apiKeys is not a triggered table: the raw internalMutation is enough.
 export const touchApiKey = internalMutation({
   args: { id: v.id('apiKeys') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const key = await ctx.db.get(args.id);
-    if (!key) return;
+    if (!key) return null;
     const now = Date.now();
     if (key.lastUsedAt === undefined || now - key.lastUsedAt >= API_KEY_TOUCH_INTERVAL_MS) {
       await ctx.db.patch(args.id, { lastUsedAt: now });
     }
+    return null;
   },
 });
 
@@ -44,6 +54,12 @@ const IDEMPOTENCY_SWEEP_BATCH = 20;
 /** Reserve an Idempotency-Key: replay a done row, refuse a different fingerprint, flag a pending one. */
 export const beginIdempotentRequest = internalMutation({
   args: { apiKeyId: v.id('apiKeys'), key: v.string(), fingerprint: v.string() },
+  returns: v.union(
+    v.object({ kind: v.literal('mismatch') }),
+    v.object({ kind: v.literal('pending') }),
+    v.object({ kind: v.literal('replay'), status: v.number(), body: v.string() }),
+    v.object({ kind: v.literal('new'), id: v.id('apiIdempotencyKeys') }),
+  ),
   handler: async (ctx, args) => {
     const now = Date.now();
     const stale = await ctx.db
@@ -79,21 +95,25 @@ export const beginIdempotentRequest = internalMutation({
 
 export const finishIdempotentRequest = internalMutation({
   args: { id: v.id('apiIdempotencyKeys'), status: v.number(), body: v.string() },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    if (!(await ctx.db.get(args.id))) return;
+    if (!(await ctx.db.get(args.id))) return null;
     await ctx.db.patch(args.id, {
       status: 'done',
       responseStatus: args.status,
       responseBody: args.body,
     });
+    return null;
   },
 });
 
 /** Drop a reservation whose request failed server-side, so the retry runs again. */
 export const abandonIdempotentRequest = internalMutation({
   args: { id: v.id('apiIdempotencyKeys') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     if (await ctx.db.get(args.id)) await ctx.db.delete(args.id);
+    return null;
   },
 });
 
@@ -108,6 +128,10 @@ const page = <T, U>(
 
 export const listContacts = internalQuery({
   args: { paginationOpts: paginationOptsValidator, email: v.optional(v.string()) },
+  returns: v.object({
+    data: v.array(publicContactValidator),
+    nextCursor: v.union(v.string(), v.null()),
+  }),
   handler: async (ctx, args) => {
     // Emails are stored lowercased (see crm/mutations normalizeEmail).
     const email = args.email?.trim().toLowerCase();
@@ -122,6 +146,7 @@ export const listContacts = internalQuery({
 
 export const getContact = internalQuery({
   args: { id: v.string() },
+  returns: v.union(publicContactValidator, v.null()),
   handler: async (ctx, args) => {
     const id = ctx.db.normalizeId('leads', args.id);
     const lead = id ? await ctx.db.get(id) : null;
@@ -131,6 +156,10 @@ export const getContact = internalQuery({
 
 export const listCompanies = internalQuery({
   args: { paginationOpts: paginationOptsValidator, domain: v.optional(v.string()) },
+  returns: v.object({
+    data: v.array(publicCompanyValidator),
+    nextCursor: v.union(v.string(), v.null()),
+  }),
   handler: async (ctx, args) => {
     // Domains are stored lowercase without protocol/www (companies validator).
     const domain = args.domain?.trim().toLowerCase();
@@ -145,6 +174,7 @@ export const listCompanies = internalQuery({
 
 export const getCompany = internalQuery({
   args: { id: v.string() },
+  returns: v.union(publicCompanyValidator, v.null()),
   handler: async (ctx, args) => {
     const id = ctx.db.normalizeId('companies', args.id);
     const company = id ? await ctx.db.get(id) : null;
@@ -154,6 +184,10 @@ export const getCompany = internalQuery({
 
 export const listDeals = internalQuery({
   args: { paginationOpts: paginationOptsValidator, leadId: v.optional(v.string()) },
+  returns: v.object({
+    data: v.array(publicDealValidator),
+    nextCursor: v.union(v.string(), v.null()),
+  }),
   handler: async (ctx, args) => {
     const leadId = args.leadId === undefined ? undefined : ctx.db.normalizeId('leads', args.leadId);
     if (leadId === null) return { data: [], nextCursor: null };
@@ -168,6 +202,7 @@ export const listDeals = internalQuery({
 
 export const getDeal = internalQuery({
   args: { id: v.string() },
+  returns: v.union(publicDealValidator, v.null()),
   handler: async (ctx, args) => {
     const id = ctx.db.normalizeId('deals', args.id);
     const deal = id ? await ctx.db.get(id) : null;
@@ -177,6 +212,10 @@ export const getDeal = internalQuery({
 
 export const listActivities = internalQuery({
   args: { paginationOpts: paginationOptsValidator, leadId: v.optional(v.string()) },
+  returns: v.object({
+    data: v.array(publicActivityValidator),
+    nextCursor: v.union(v.string(), v.null()),
+  }),
   handler: async (ctx, args) => {
     const leadId = args.leadId === undefined ? undefined : ctx.db.normalizeId('leads', args.leadId);
     if (leadId === null) return { data: [], nextCursor: null };
@@ -191,6 +230,7 @@ export const listActivities = internalQuery({
 
 export const getActivity = internalQuery({
   args: { id: v.string() },
+  returns: v.union(publicActivityValidator, v.null()),
   handler: async (ctx, args) => {
     const id = ctx.db.normalizeId('activities', args.id);
     const activity = id ? await ctx.db.get(id) : null;
@@ -200,6 +240,10 @@ export const getActivity = internalQuery({
 
 export const listLists = internalQuery({
   args: { paginationOpts: paginationOptsValidator },
+  returns: v.object({
+    data: v.array(publicListValidator),
+    nextCursor: v.union(v.string(), v.null()),
+  }),
   handler: async (ctx, args) => {
     const result = await ctx.db.query('leadLists').paginate(args.paginationOpts);
     return page(result, toPublicList);
@@ -208,6 +252,10 @@ export const listLists = internalQuery({
 
 export const listListMembers = internalQuery({
   args: { listId: v.string(), paginationOpts: paginationOptsValidator },
+  returns: v.union(
+    v.object({ data: v.array(publicContactValidator), nextCursor: v.union(v.string(), v.null()) }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const listId = ctx.db.normalizeId('leadLists', args.listId);
     const list = listId ? await ctx.db.get(listId) : null;
@@ -226,6 +274,13 @@ export const listListMembers = internalQuery({
 
 export const listProperties = internalQuery({
   args: { entityType: v.string(), paginationOpts: paginationOptsValidator },
+  returns: v.union(
+    v.object({
+      data: v.array(publicPropertyDefinitionValidator),
+      nextCursor: v.union(v.string(), v.null()),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     if (!(PROPERTY_ENTITY_TYPES as readonly string[]).includes(args.entityType)) return null;
     const result = await ctx.db

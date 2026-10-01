@@ -66,6 +66,7 @@ export const generateAttachmentUploadUrl = employeeMutation({
     entityId: v.string(),
     size: v.number(),
   },
+  returns: v.object({ uploadUrl: v.string(), maxSizeBytes: v.number() }),
   handler: async (ctx, args) => {
     await requireEntity(ctx, args.entityType, args.entityId);
     const maxSizeBytes = await attachmentMaxBytes(ctx);
@@ -84,6 +85,10 @@ export const createAttachment = employeeMutation({
     name: v.string(),
     mimeType: v.optional(v.string()),
   },
+  returns: v.union(
+    v.object({ status: v.literal('too_large'), maxSizeBytes: v.number() }),
+    v.object({ status: v.literal('ok'), attachmentId: v.id('attachments') }),
+  ),
   handler: async (ctx, args) => {
     await requireEntity(ctx, args.entityType, args.entityId);
     const blob = await ctx.db.system.get(args.storageId);
@@ -126,6 +131,7 @@ export const updateAttachment = employeeMutation({
     name: v.optional(v.string()),
     folder: v.optional(v.string()),
   },
+  returns: v.id('attachments'),
   handler: async (ctx, args) => {
     const attachment = await requireAttachment(ctx, args.attachmentId);
     const name = args.name !== undefined ? normalizeFileName(args.name) : attachment.name;
@@ -155,6 +161,7 @@ export const updateAttachment = employeeMutation({
 /** Soft delete: the row goes to the trash (blob kept) and its purge is scheduled for `purgeAt`. */
 export const deleteAttachment = employeeMutation({
   args: { attachmentId: v.id('attachments') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const attachment = await requireAttachment(ctx, args.attachmentId);
     const deletedAt = Date.now();
@@ -177,12 +184,14 @@ export const deleteAttachment = employeeMutation({
       action: 'delete',
       metadata: auditMeta(attachment),
     });
+    return null;
   },
 });
 
 /** Put a trashed file back where it was (same key, same blob); refused once purged. */
 export const restoreAttachment = employeeMutation({
   args: { attachmentId: v.id('attachments') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const attachment = await requireTrashed(ctx, args.attachmentId);
     // The scheduled purge finds another purgeAt (or a live row) and does nothing.
@@ -200,12 +209,14 @@ export const restoreAttachment = employeeMutation({
       action: 'update',
       metadata: { ...auditMeta(attachment), restored: true },
     });
+    return null;
   },
 });
 
 /** « Supprimer définitivement » from the trash: the row and its blob go together. */
 export const purgeAttachment = employeeMutation({
   args: { attachmentId: v.id('attachments') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const attachment = await requireTrashed(ctx, args.attachmentId);
     await fileStore(attachment.provider).delete(ctx, attachment);
@@ -218,5 +229,6 @@ export const purgeAttachment = employeeMutation({
       action: 'delete',
       metadata: { ...auditMeta(attachment), purged: true },
     });
+    return null;
   },
 });

@@ -47,6 +47,7 @@ export const createWorkflow = employeeMutation({
     description: v.optional(v.string()),
     ...structuralArgs,
   },
+  returns: v.id('workflows'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw refusal('workflow_name_required', { message: NAME_REQUIRED });
@@ -87,6 +88,7 @@ export const updateWorkflow = employeeMutation({
     description: v.optional(v.string()),
     ...structuralArgs,
   },
+  returns: v.id('workflows'),
   handler: async (ctx, args) => {
     const workflow = await getExistingWorkflow(ctx, args.workflowId);
     const name = args.name.trim();
@@ -136,9 +138,10 @@ export const setWorkflowStatus = employeeMutation({
     workflowId: v.id('workflows'),
     status: v.union(v.literal('active'), v.literal('paused')),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const workflow = await getExistingWorkflow(ctx, args.workflowId);
-    if (workflow.status === args.status) return;
+    if (workflow.status === args.status) return null;
 
     if (args.status === 'active') {
       const defs = await loadPropertyDefinitions(ctx, 'lead');
@@ -193,12 +196,14 @@ export const setWorkflowStatus = employeeMutation({
       action: 'update',
       metadata: { event: args.status === 'active' ? 'activate' : 'pause' },
     });
+    return null;
   },
 });
 
 /** Soft-delete a paused/draft workflow and cancel its in-flight runs. */
 export const deleteWorkflow = employeeMutation({
   args: { workflowId: v.id('workflows') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const workflow = await getExistingWorkflow(ctx, args.workflowId);
     if (workflow.status === 'active') {
@@ -228,12 +233,14 @@ export const deleteWorkflow = employeeMutation({
       entityId: args.workflowId,
       action: 'delete',
     });
+    return null;
   },
 });
 
 /** Cancel one in-flight run (also the way out of a run stuck on a dead action). */
 export const cancelRun = employeeMutation({
   args: { runId: v.id('workflowRuns') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const run = await ctx.db.get(args.runId);
     if (!run) throw refusal('run_not_found');
@@ -251,12 +258,14 @@ export const cancelRun = employeeMutation({
       action: 'update',
       metadata: { event: 'cancel' },
     });
+    return null;
   },
 });
 
 /** An explicit user action, so it bypasses allowReEnrollment on purpose and cancels the in-flight runs, which follow the previous graph. */
 export const reenrollMatchingLeads = employeeMutation({
   args: { workflowId: v.id('workflows') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const workflow = await getExistingWorkflow(ctx, args.workflowId);
     if (workflow.status !== 'active' || !workflow.startNodeId) {
@@ -294,12 +303,14 @@ export const reenrollMatchingLeads = employeeMutation({
       action: 'update',
       metadata: { event: 'bulk_reenroll_started' },
     });
+    return null;
   },
 });
 
 /** Same rules as a trigger firing, minus the daily cap: this is also how a workflow is tested while it is built. */
 export const enrollLeadManually = employeeMutation({
   args: { workflowId: v.id('workflows'), leadId: v.id('leads') },
+  returns: v.id('workflowRuns'),
   handler: async (ctx, args) => {
     const workflow = await getExistingWorkflow(ctx, args.workflowId);
     if (workflow.status !== 'active') {

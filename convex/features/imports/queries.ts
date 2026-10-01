@@ -1,3 +1,5 @@
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
 import { paginationOptsValidator } from 'convex/server';
 import { v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
@@ -11,6 +13,15 @@ import { loadOwnJob, requireImportAccess } from './lib';
 /** The saved mappings of an entity, for the picker; the newest first. */
 export const listMappings = employeeQuery({
   args: { entity: importEntityValidator },
+  returns: v.array(
+    v.object({
+      _id: v.id('importMappings'),
+      name: v.string(),
+      headers: v.array(v.string()),
+      targets: v.array(v.union(v.string(), v.null())),
+      updatedAt: v.number(),
+    }),
+  ),
   handler: async (ctx, { entity }) => {
     requireImportAccess(ctx.visibility, entity);
     const rows = await ctx.db
@@ -32,6 +43,32 @@ export const listMappings = employeeQuery({
 /** The caller's jobs, the most recent first; every job for a settings holder. */
 export const listJobs = employeeQuery({
   args: {},
+  returns: v.array(
+    v.object({
+      _id: v.id('importJobs'),
+      _creationTime: v.number(),
+      entity: importEntityValidator,
+      fileName: v.string(),
+      status: v.union(
+        v.literal('running'),
+        v.literal('done'),
+        v.literal('cancelled'),
+        v.literal('uploading'),
+        v.literal('simulating'),
+        v.literal('simulated'),
+        v.literal('interrupted'),
+      ),
+      totalRows: v.number(),
+      counts: v.object({
+        created: v.number(),
+        updated: v.number(),
+        duplicates: v.number(),
+        errors: v.number(),
+      }),
+      finishedAt: v.union(v.number(), v.null()),
+      createdByName: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx) => {
     const rows = ctx.visibility.access.settings
       ? await ctx.db.query('importJobs').order('desc').take(50)
@@ -62,6 +99,12 @@ export const listJobs = employeeQuery({
 /** One job with its progress; the page subscribes to it while batches run. */
 export const getJob = employeeQuery({
   args: { jobId: v.id('importJobs') },
+  returns: v.object({
+    ...docOf('importJobs').fields,
+    listName: v.union(v.string(), v.null()),
+    mappingName: v.union(v.string(), v.null()),
+    progress: v.number(),
+  }),
   handler: async (ctx, { jobId }) => {
     const job = await loadOwnJob(ctx, jobId);
     const list = job.listId ? await ctx.db.get(job.listId) : null;
@@ -83,6 +126,18 @@ export const listJobRows = employeeQuery({
     outcome: importRowOutcomeValidator,
     paginationOpts: paginationOptsValidator,
   },
+  returns: paginationResultValidator(
+    v.object({
+      _id: v.id('importRows'),
+      index: v.number(),
+      line: v.number(),
+      raw: v.array(v.string()),
+      error: v.union(v.string(), v.null()),
+      matchId: v.union(v.string(), v.null()),
+      matchLabel: v.union(v.string(), v.null()),
+      reasons: v.array(v.string()),
+    }),
+  ),
   handler: async (ctx, { jobId, outcome, paginationOpts }) => {
     await loadOwnJob(ctx, jobId);
     const page = await ctx.db
@@ -108,6 +163,11 @@ export const listJobRows = employeeQuery({
 /** The rows in error with their source cells, for the error file the report offers. */
 export const errorRows = employeeQuery({
   args: { jobId: v.id('importJobs') },
+  returns: v.object({
+    headers: v.array(v.string()),
+    rows: v.array(v.object({ line: v.number(), raw: v.array(v.string()), error: v.string() })),
+    capped: v.boolean(),
+  }),
   handler: async (ctx, { jobId }) => {
     const job = await loadOwnJob(ctx, jobId);
     const rows = await ctx.db

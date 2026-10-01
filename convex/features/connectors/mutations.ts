@@ -17,6 +17,7 @@ import { randomToken, sha256Base64Url } from '../../lib/security/crypto';
 /** Starts a connection: a one-time signed state and a PKCE challenge, and the provider's consent URL to go to. */
 export const startConnection = employeeMutation({
   args: { provider: connectorProviderValidator },
+  returns: v.object({ url: v.string() }),
   handler: async (ctx, { provider }) => {
     const clientId = resolveClientId(await ctx.db.query('appConfig').first(), provider);
     if (!clientId) throw refusal('connector_not_configured');

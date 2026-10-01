@@ -11,6 +11,10 @@ export const updateConsentByToken = mutation({
     token: v.string(),
     channels: v.array(marketingConsentChannelValidator),
   },
+  returns: v.union(
+    v.object({ success: v.literal(false), error: v.string() }),
+    v.object({ success: v.literal(true) }),
+  ),
   handler: async (ctx, args) => {
     const lead = await ctx.db
       .query('leads')

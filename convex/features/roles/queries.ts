@@ -1,9 +1,21 @@
+import { v } from 'convex/values';
+import { roleAccessValidator } from '../../_lib/validators/access';
 import { employeeQuery } from '../../_lib/auth';
 import { ADMIN_ACCESS, ADMIN_ROLE_KEY, DEFAULT_ROLES } from '../../_lib/validators/roles';
 import { isNotDeleted } from '../../lib/shared/db';
 
 export const listRoles = employeeQuery({
   args: {},
+  returns: v.array(
+    v.object({
+      userCount: v.number(),
+      usersWithoutTeam: v.number(),
+      key: v.string(),
+      label: v.string(),
+      access: roleAccessValidator,
+      builtIn: v.boolean(),
+    }),
+  ),
   handler: async (ctx) => {
     const rows = await ctx.db.query('roles').collect();
     const users = (

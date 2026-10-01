@@ -30,6 +30,7 @@ async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
 /** The invited email may sign in by any Better Auth method: the employee row is provisioned with this role on first login. */
 export const createInvitation = settingsMutation({
   args: { email: v.string(), role: invitationRoleValidator },
+  returns: v.id('invitations'),
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
     if (!follows(emailSchema, email)) throw refusal('invalid_email');
@@ -80,6 +81,7 @@ export const createInvitation = settingsMutation({
 /** Unlike createInvitation this requires a configured email provider: the email is its whole purpose. */
 export const resendInvitation = settingsMutation({
   args: { invitationId: v.id('invitations') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const invite = await ctx.db.get(args.invitationId);
     if (!invite) throw refusal('invitation_not_found');
@@ -101,12 +103,14 @@ export const resendInvitation = settingsMutation({
       action: 'update',
       metadata: { email: invite.email, event: 'resent' },
     });
+    return null;
   },
 });
 
 /** Revoke a still-pending invitation (admin only). */
 export const revokeInvitation = settingsMutation({
   args: { invitationId: v.id('invitations') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const invite = await ctx.db.get(args.invitationId);
     if (!invite) throw refusal('invitation_not_found');
@@ -122,5 +126,6 @@ export const revokeInvitation = settingsMutation({
       action: 'update',
       metadata: { email: invite.email, event: 'revoked' },
     });
+    return null;
   },
 });

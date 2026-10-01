@@ -1,3 +1,5 @@
+import { docOf } from './lib/shared/docs';
+import { roleAccessValidator } from './_lib/validators/access';
 import { betterAuth, type BetterAuthOptions } from 'better-auth/minimal';
 import { emailOTP, genericOAuth } from 'better-auth/plugins';
 import { APIError } from 'better-auth/api';
@@ -336,6 +338,18 @@ export const createAuth = (ctx: GenericCtx<DataModel>) => {
 /** The frontend's auth source: `null` when signed out or when the employee is not linked yet. */
 export const getCurrentUser = query({
   args: {},
+  returns: v.union(
+    v.object({
+      _id: v.string(),
+      email: v.string(),
+      type: v.literal('employee'),
+      role: v.string(),
+      roleLabel: v.string(),
+      access: roleAccessValidator,
+      name: v.string(),
+    }),
+    v.null(),
+  ),
   handler: async (ctx) => {
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) return null;
@@ -351,6 +365,7 @@ export const getCurrentUser = query({
 /** Takes the `authId` explicitly: the `sessionId` claim `safeGetAuthUser` needs is not reliably kept when an action re-enters a query through `runQuery`. */
 export const getEmployeeByAuthId = internalQuery({
   args: { authId: v.string() },
+  returns: v.union(docOf('users'), v.null()),
   handler: async (ctx, { authId }) => {
     const employee = await ctx.db
       .query('users')

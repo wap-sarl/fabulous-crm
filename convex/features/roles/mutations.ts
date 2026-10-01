@@ -45,14 +45,17 @@ function assertNoLockOut(ctx: { visibility: { role: { key: string } } }, role: D
 /** Seed the built-in roles (setup wizard, first visit of the settings screen). */
 export const ensureDefaults = settingsMutation({
   args: {},
+  returns: v.null(),
   handler: async (ctx) => {
     await ensureDefaultRoles(ctx, ctx.userId);
+    return null;
   },
 });
 
 /** A custom role, starting from the cells of an existing role. */
 export const createRole = settingsMutation({
   args: { label: v.string(), access: roleAccessValidator },
+  returns: v.string(),
   handler: async (ctx, args) => {
     const label = cleanLabel(args.label);
     let key = roleKeyOf(label);
@@ -87,6 +90,7 @@ export const updateRole = settingsMutation({
     label: v.optional(v.string()),
     access: v.optional(roleAccessValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await ensureDefaultRoles(ctx, ctx.userId);
     const role = await findRole(ctx, args.key);
@@ -99,7 +103,7 @@ export const updateRole = settingsMutation({
       assertNoLockOut(ctx, { ...role, access: args.access });
     }
     const changes = computeChanges(role, updates);
-    if (!changes) return;
+    if (!changes) return null;
     await ctx.db.patch(role._id, { ...updates, ...updateAuditFields(ctx.userId) });
     await logAudit({
       ctx,
@@ -109,12 +113,14 @@ export const updateRole = settingsMutation({
       action: 'update',
       metadata: { key: role.key, changes },
     });
+    return null;
   },
 });
 
 /** A role still held by users or pending invitations needs a replacement role, to which they are moved. */
 export const deleteRole = settingsMutation({
   args: { key: v.string(), replacementKey: v.optional(v.string()) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const role = await findRole(ctx, args.key);
     if (!role) throw refusal('role_not_found');
@@ -152,5 +158,6 @@ export const deleteRole = settingsMutation({
       action: 'delete',
       metadata: { key: role.key, replacementKey: args.replacementKey ?? null },
     });
+    return null;
   },
 });

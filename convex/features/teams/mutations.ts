@@ -32,6 +32,7 @@ async function cleanMembers(ctx: MutationCtx, memberIds: Id<'users'>[]): Promise
 
 export const createTeam = settingsMutation({
   args: { name: v.string(), memberIds: v.array(v.id('users')) },
+  returns: v.id('teams'),
   handler: async (ctx, args) => {
     const teamId = await ctx.db.insert('teams', {
       name: cleanName(args.name),
@@ -55,6 +56,7 @@ export const updateTeam = settingsMutation({
     name: v.optional(v.string()),
     memberIds: v.optional(v.array(v.id('users'))),
   },
+  returns: v.id('teams'),
   handler: async (ctx, args) => {
     const team = await ctx.db.get(args.teamId);
     if (!team || !isNotDeleted(team)) throw refusal('team_not_found');
@@ -80,6 +82,7 @@ export const updateTeam = settingsMutation({
 /** Soft delete; the managers who were in it lose that perimeter immediately. */
 export const deleteTeam = settingsMutation({
   args: { teamId: v.id('teams') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const team = await ctx.db.get(args.teamId);
     if (!team || !isNotDeleted(team)) throw refusal('team_not_found');
@@ -91,5 +94,6 @@ export const deleteTeam = settingsMutation({
       entityId: args.teamId,
       action: 'delete',
     });
+    return null;
   },
 });

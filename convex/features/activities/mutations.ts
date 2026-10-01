@@ -36,6 +36,7 @@ async function requireTeam(ctx: MutationCtx, teamId: Id<'teams'> | undefined) {
 /** Plan an activity (task, meeting, call to make…). Defaults to the caller as owner. */
 export const createActivity = employeeMutation({
   args: activityFieldArgs,
+  returns: v.id('activities'),
   handler: async (ctx, args) => {
     if (args.ownerId && !(await ctx.db.get(args.ownerId))) throw refusal('invalid_owner');
     await requireTeam(ctx, args.teamId);
@@ -67,6 +68,10 @@ export const logCall = employeeMutation({
     notes: v.optional(v.string()),
     followUp: v.optional(v.object({ title: v.string(), dueAt: v.optional(v.number()) })),
   },
+  returns: v.object({
+    callId: v.id('activities'),
+    followUpId: v.union(v.id('activities'), v.null()),
+  }),
   handler: async (ctx, args) => {
     if (!args.leadId && !args.companyId && !args.dealId) throw refusal('activity_link_required');
     const links = { leadId: args.leadId, companyId: args.companyId, dealId: args.dealId };
@@ -116,6 +121,7 @@ export const updateActivity = employeeMutation({
     outcome: v.optional(v.union(v.string(), v.null())),
     customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
+  returns: v.id('activities'),
   handler: async (ctx, args) => {
     const { activityId, customProperties, ...rest } = args;
     const activity = await loadActivity(ctx, activityId);
@@ -158,9 +164,10 @@ export const updateActivity = employeeMutation({
 /** Complete an activity, recording what came out of it. */
 export const completeActivity = employeeMutation({
   args: { activityId: v.id('activities'), outcome: v.optional(v.string()) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const activity = await loadActivity(ctx, args.activityId);
-    if (activity.status === 'done') return;
+    if (activity.status === 'done') return null;
     await ctx.db.patch(args.activityId, {
       status: 'done',
       completedAt: Date.now(),
@@ -175,15 +182,17 @@ export const completeActivity = employeeMutation({
       action: 'update',
       metadata: { changes: { status: { old: activity.status, new: 'done' } } },
     });
+    return null;
   },
 });
 
 /** Put a done or cancelled activity back in the queue. */
 export const reopenActivity = employeeMutation({
   args: { activityId: v.id('activities') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const activity = await loadActivity(ctx, args.activityId);
-    if (activity.status === 'open') return;
+    if (activity.status === 'open') return null;
     await ctx.db.patch(args.activityId, {
       status: 'open',
       completedAt: undefined,
@@ -197,14 +206,16 @@ export const reopenActivity = employeeMutation({
       action: 'update',
       metadata: { changes: { status: { old: activity.status, new: 'open' } } },
     });
+    return null;
   },
 });
 
 export const cancelActivity = employeeMutation({
   args: { activityId: v.id('activities') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const activity = await loadActivity(ctx, args.activityId);
-    if (activity.status === 'cancelled') return;
+    if (activity.status === 'cancelled') return null;
     await ctx.db.patch(args.activityId, { status: 'cancelled', ...updateAuditFields(ctx.userId) });
     await logAudit({
       ctx,
@@ -214,11 +225,13 @@ export const cancelActivity = employeeMutation({
       action: 'update',
       metadata: { changes: { status: { old: activity.status, new: 'cancelled' } } },
     });
+    return null;
   },
 });
 
 export const deleteActivity = employeeMutation({
   args: { activityId: v.id('activities') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     await loadActivity(ctx, args.activityId);
     await ctx.db.patch(args.activityId, {
@@ -232,5 +245,6 @@ export const deleteActivity = employeeMutation({
       entityId: args.activityId,
       action: 'delete',
     });
+    return null;
   },
 });

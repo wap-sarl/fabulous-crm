@@ -16,6 +16,7 @@ export const createLeadList = employeeMutation({
     kind: v.optional(v.union(v.literal('static'), v.literal('dynamic'))),
     criteria: v.optional(leadAdvancedFilterValidator),
   },
+  returns: v.id('leadLists'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
     if (!name) throw refusal('list_name_required', { message: 'Le nom de la liste est requis.' });
@@ -63,6 +64,7 @@ export const updateLeadList = employeeMutation({
     name: v.optional(v.string()),
     criteria: v.optional(leadAdvancedFilterValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
     if (!list) throw refusal('list_not_found');
@@ -95,16 +97,19 @@ export const updateLeadList = employeeMutation({
       const fresh = await ctx.db.get(args.listId);
       if (fresh) await startDynamicListRecalc(ctx, fresh);
     }
+    return null;
   },
 });
 
 export const recalcLeadList = employeeMutation({
   args: { listId: v.id('leadLists') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
     if (!list) throw refusal('list_not_found');
     if (list.kind !== 'dynamic') throw refusal('list_not_dynamic');
     await startDynamicListRecalc(ctx, list);
+    return null;
   },
 });
 
@@ -114,6 +119,10 @@ const LIST_DELETE_BATCH = 200;
 /** Members go in bounded batches to stay under Convex's per-transaction limits: the client calls again until `done`, when the list itself is removed. */
 export const deleteLeadList = employeeMutation({
   args: { listId: v.id('leadLists'), deleteLeads: v.boolean() },
+  returns: v.union(
+    v.object({ done: v.literal(true), deletedLeads: v.number() }),
+    v.object({ done: v.literal(false), deletedLeads: v.number() }),
+  ),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
     if (!list) return { done: true as const, deletedLeads: 0 };

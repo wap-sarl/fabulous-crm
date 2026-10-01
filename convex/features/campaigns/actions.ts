@@ -34,6 +34,10 @@ const BREVO_EMAIL_WEBHOOK_EVENTS = [
 /** Registers the account-level Brevo email webhook for this deployment: run once per deployment, and safe to run again. */
 export const registerBrevoEmailWebhook = internalAction({
   args: {},
+  returns: v.union(
+    v.object({ action: v.literal('skipped'), reason: v.literal('provider_not_brevo') }),
+    v.object({ action: v.string(), id: v.number(), url: v.string() }),
+  ),
   handler: async (ctx) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const brevo = await resolveBrevo(cfg);
@@ -101,6 +105,7 @@ export const registerBrevoEmailWebhook = internalAction({
 /** The per-message `webUrl` never reports inbound replies: this account-level webhook is what makes a STOP reach the CRM. Run once per deployment, safe to run again. */
 export const registerBrevoSmsWebhook = internalAction({
   args: {},
+  returns: v.object({ action: v.string(), id: v.number(), url: v.string() }),
   handler: async (ctx) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const brevo = await resolveBrevo(cfg);
@@ -167,6 +172,7 @@ export const registerBrevoSmsWebhook = internalAction({
 /** Sends one batch of a campaign's pending sends, then reschedules itself until none is left. */
 export const sendCampaignBatch = internalAction({
   args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     // Deferred (e.g. a suspended deployment): the pending sends wait untouched for the next attempt.
     if (
@@ -177,7 +183,7 @@ export const sendCampaignBatch = internalAction({
         args,
       )
     ) {
-      return;
+      return null;
     }
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const provider = await resolveEmailProvider(cfg);
@@ -191,7 +197,7 @@ export const sendCampaignBatch = internalAction({
       await ctx.runMutation(internal.features.campaigns.internal.markCampaignComplete, {
         campaignId: args.campaignId,
       });
-      return;
+      return null;
     }
 
     const isSms = batch.channel === 'sms';
@@ -215,7 +221,7 @@ export const sendCampaignBatch = internalAction({
       await ctx.runMutation(internal.features.campaigns.internal.markCampaignComplete, {
         campaignId: args.campaignId,
       });
-      return;
+      return null;
     }
 
     const results: {
@@ -360,7 +366,7 @@ export const sendCampaignBatch = internalAction({
       await ctx.runMutation(internal.features.campaigns.internal.markCampaignComplete, {
         campaignId: args.campaignId,
       });
-      return;
+      return null;
     } finally {
       dispatcher?.close();
     }
@@ -378,5 +384,6 @@ export const sendCampaignBatch = internalAction({
         campaignId: args.campaignId,
       },
     );
+    return null;
   },
 });

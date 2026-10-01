@@ -48,6 +48,7 @@ async function upsertPair(
 
 export const scanDuplicatesBatch = internalMutation({
   args: { scanId: v.id('duplicateScans'), cursor: v.optional(v.string()) },
+  returns: v.object({ isDone: v.boolean(), continueCursor: v.union(v.string(), v.null()) }),
   handler: async (ctx, args): Promise<{ isDone: boolean; continueCursor: string | null }> => {
     const scan = await ctx.db.get(args.scanId);
     if (scan?.status !== 'running') return { isDone: true, continueCursor: null };
@@ -92,6 +93,7 @@ export const scanDuplicatesBatch = internalMutation({
 /** Continuation of a merge whose related rows exceeded one batch. */
 export const repointMergedLead = internalMutation({
   args: { absorbedId: v.id('leads'), survivorId: v.id('leads') },
+  returns: v.object({ isDone: v.boolean() }),
   handler: async (ctx, args): Promise<{ isDone: boolean }> => {
     const { moreLeft } = await repointLeadRows(ctx, args.absorbedId, args.survivorId);
     if (moreLeft) {
