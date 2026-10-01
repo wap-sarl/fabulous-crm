@@ -72,13 +72,13 @@ export async function advanceRun(
   }
 }
 
-/** End a run before its path does: `failed` on a structural problem (removed node, deleted workflow…), `cancelled` when its contact is gone. */
+/** End a run before its path does: `failed` on a structural problem (removed node, deleted workflow…), `cancelled` when its contact is gone or someone stops it; `workflow` is null when the caller settles the counter itself. */
 export async function endRun(
   ctx: MutationCtx,
   run: Doc<'workflowRuns'>,
   workflow: Doc<'workflows'> | null,
   status: 'failed' | 'cancelled',
-  error: string,
+  error?: string,
 ): Promise<void> {
   await ctx.db.patch(run._id, {
     status,
@@ -91,4 +91,14 @@ export async function endRun(
   if (workflow) {
     await ctx.db.patch(workflow._id, { activeCount: Math.max(0, workflow.activeCount - 1) });
   }
+}
+
+/** Stop a run a person or a re-enrollment cancels: the wake it sleeps on is cancelled with it. */
+export async function stopRun(
+  ctx: MutationCtx,
+  run: Doc<'workflowRuns'>,
+  workflow: Doc<'workflows'> | null,
+): Promise<void> {
+  if (run.scheduledFnId) await ctx.scheduler.cancel(run.scheduledFnId);
+  await endRun(ctx, run, workflow, 'cancelled');
 }
