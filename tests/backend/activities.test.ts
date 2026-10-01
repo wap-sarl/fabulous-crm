@@ -246,7 +246,7 @@ describe('workflow create_task step', () => {
         workflowId: bad,
         status: 'active',
       }),
-    ).rejects.toThrow("l'intitulé est requis");
+    ).rejects.toThrow('l’intitulé est requis');
 
     const workflowId = await activeWorkflow(t, emp, { type: 'create_task', title: 'Un jour' });
     expect((await runStep(t, workflowId, leadId)).status).toBe('success');

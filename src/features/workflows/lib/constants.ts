@@ -23,6 +23,7 @@ import type {
   WorkflowTriggerType,
   WorkflowWaitUnit,
 } from '@crm/lib/backend';
+import { WORKFLOW_STEP_LABELS } from '@crm/lib/backend';
 import type { StatusTone } from '@crm/design-system';
 import { LEAD_FIELD_LABEL } from '../../leads/lib/leadFilters';
 
@@ -267,24 +268,27 @@ export const TRIGGER_TYPE_LABEL: Record<WorkflowTriggerType | 'manual' | 'bulk_r
     bulk_reenroll: 'Réinscription en masse',
   };
 
+/** The steps in the order the picker shows them; their names are the ones the backend's refusals use. */
+const STEP_ICONS: [WorkflowNodeType, LucideIcon][] = [
+  ['send_email', Mail],
+  ['send_sms', MessageSquare],
+  ['update_property', PenLine],
+  ['set_lifecycle_stage', Milestone],
+  ['create_deal', Handshake],
+  ['update_deal_stage', KanbanSquare],
+  ['create_task', ListTodo],
+  ['add_to_list', ListPlus],
+  ['remove_from_list', ListMinus],
+  ['wait', Clock],
+  ['webhook', Webhook],
+  ['branch', Split],
+];
+
 export const STEP_TYPES: {
   type: WorkflowNodeType;
   label: string;
   icon: LucideIcon;
-}[] = [
-  { type: 'send_email', label: 'Envoyer un e-mail', icon: Mail },
-  { type: 'send_sms', label: 'Envoyer un SMS', icon: MessageSquare },
-  { type: 'update_property', label: 'Modifier une propriété', icon: PenLine },
-  { type: 'set_lifecycle_stage', label: 'Changer le statut', icon: Milestone },
-  { type: 'create_deal', label: 'Créer une transaction', icon: Handshake },
-  { type: 'update_deal_stage', label: 'Changer le stade d’une transaction', icon: KanbanSquare },
-  { type: 'create_task', label: 'Créer une tâche', icon: ListTodo },
-  { type: 'add_to_list', label: 'Ajouter à une liste', icon: ListPlus },
-  { type: 'remove_from_list', label: 'Retirer d’une liste', icon: ListMinus },
-  { type: 'wait', label: 'Attendre', icon: Clock },
-  { type: 'webhook', label: 'Webhook', icon: Webhook },
-  { type: 'branch', label: 'Condition (Si / Sinon)', icon: Split },
-];
+}[] = STEP_ICONS.map(([type, icon]) => ({ type, label: WORKFLOW_STEP_LABELS[type], icon }));
 
 export const STEP_TYPE_META = new Map(STEP_TYPES.map((s) => [s.type, s]));
 

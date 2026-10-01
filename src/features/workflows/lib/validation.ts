@@ -1,6 +1,5 @@
-import { isActiveRule } from '@crm/lib/backend';
+import { NO_STEP_ISSUE, stepIssue, stepIssueMessage } from '@crm/lib/backend';
 import type { WorkflowDraft } from '../types';
-import { STEP_TYPE_META } from './constants';
 
 export interface DraftError {
   message: string;
@@ -8,7 +7,7 @@ export interface DraftError {
   nodeId?: string;
 }
 
-/** Mirrors the backend's `validateWorkflowGraph` messages; saving only needs a name, activating needs an empty result here. */
+/** The steps follow the rules the backend activates with (`stepIssue`); saving only needs a name, activating needs an empty result here. */
 export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
   const errors: DraftError[] = [];
 
@@ -17,67 +16,12 @@ export function validateWorkflowDraft(draft: WorkflowDraft): DraftError[] {
     errors.push({ message: 'Choisissez un événement déclencheur.', nodeId: 'trigger' });
   }
   if (!draft.startNodeId || Object.keys(draft.nodes).length === 0) {
-    errors.push({ message: 'Ajoutez au moins une étape.' });
+    errors.push({ message: NO_STEP_ISSUE });
   }
 
   for (const node of Object.values(draft.nodes)) {
-    const label = `Étape « ${STEP_TYPE_META.get(node.type)?.label ?? node.type} »`;
-    const push = (detail: string) =>
-      errors.push({ message: `${label} : ${detail}`, nodeId: node.id });
-
-    switch (node.type) {
-      case 'send_email':
-        if (!node.subject.trim()) push('l’objet est requis.');
-        else if (!node.htmlBody.trim() || node.htmlBody === '<p></p>')
-          push('le contenu est requis.');
-        break;
-      case 'send_sms':
-        if (!node.smsBody.trim()) push('le message est requis.');
-        break;
-      case 'update_property':
-        if (node.value === '' || (Array.isArray(node.value) && node.value.length === 0)) {
-          push('choisissez une valeur.');
-        }
-        break;
-      case 'set_lifecycle_stage':
-        if (!node.stage) push('choisissez un statut.');
-        break;
-      case 'create_deal':
-        if (!node.title.trim()) push('l’intitulé est requis.');
-        else if (node.amount !== undefined && (!Number.isFinite(node.amount) || node.amount < 0))
-          push('montant invalide.');
-        break;
-      case 'update_deal_stage':
-        if (!node.stageKey) push('choisissez un stade.');
-        break;
-      case 'create_task':
-        if (!node.title.trim()) push('l’intitulé est requis.');
-        else if (
-          node.dueInDays !== undefined &&
-          (!Number.isInteger(node.dueInDays) || node.dueInDays < 0 || node.dueInDays > 365)
-        )
-          push('échéance invalide (0 à 365 jours).');
-        break;
-      case 'add_to_list':
-      case 'remove_from_list':
-        if (!node.listId) push('choisissez une liste.');
-        break;
-      case 'wait':
-        if (!Number.isInteger(node.amount) || node.amount < 1) push('durée invalide.');
-        else if (node.unit === 'days' && node.amount > 90) push('durée maximale 90 jours.');
-        break;
-      case 'webhook':
-        if (!/^https?:\/\/.+/.test(node.url)) push('l’URL doit commencer par http(s)://');
-        break;
-      case 'branch': {
-        const active = node.condition.groups.reduce(
-          (n, g) => n + g.rules.filter(isActiveRule).length,
-          0,
-        );
-        if (active === 0) push('au moins une condition est requise.');
-        break;
-      }
-    }
+    const issue = stepIssue(node);
+    if (issue) errors.push({ message: stepIssueMessage(node, issue), nodeId: node.id });
   }
 
   return errors;

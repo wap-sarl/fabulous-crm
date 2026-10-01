@@ -5,8 +5,8 @@ import { z } from 'zod';
 /** An e-mail address as the backend accepts one: something@something.tld, no space; the inputs of the interface ask for more (src/lib/types.ts). */
 export const emailSchema = z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
 
-/** An address the product opens or calls: http or https. */
-export const httpUrlSchema = z.string().regex(/^https?:\/\//);
+/** An address the product opens or calls: http or https, and something after it. */
+export const httpUrlSchema = z.string().regex(/^https?:\/\/./);
 
 /** `#rrggbb`, the only form of a colour the settings keep. */
 export const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);

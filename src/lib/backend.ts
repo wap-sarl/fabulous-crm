@@ -157,6 +157,12 @@ export type {
   WorkflowRunStatus,
   WorkflowStepOutcome,
 } from '../../convex/_lib/validators/workflows';
+export {
+  NO_STEP_ISSUE,
+  stepIssue,
+  stepIssueMessage,
+  WORKFLOW_STEP_LABELS,
+} from '../../convex/_lib/validators/workflowSteps';
 export type { ApiScope } from '../../convex/_lib/validators/apiKeys';
 export {
   IMPORT_MAX_ROWS,

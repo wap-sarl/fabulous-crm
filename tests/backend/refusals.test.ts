@@ -146,7 +146,7 @@ describe('the rules of the shared fields', () => {
       'an http address',
       httpUrlSchema,
       ['https://x', 'http://a.b/c?d'],
-      ['ftp://x', 'x.fr', ' https://x', ''],
+      ['ftp://x', 'x.fr', ' https://x', 'https://', ''],
     ],
     [
       'a colour',

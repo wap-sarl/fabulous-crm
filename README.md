@@ -375,6 +375,10 @@ Les règles que le code suit, chacune gardée par un test :
 - **Une règle que l'interface et le backend vérifient tous deux s'écrit une
   fois**, en zod, dans `convex/_lib/validators/fields.ts` (adresse e-mail, URL,
   couleur, pays, devise, entier borné).
+  Ce qu'une étape de workflow doit contenir avant l'activation est dans
+  `convex/_lib/validators/workflowSteps.ts` : l'éditeur l'affiche sous
+  l'étape, le backend refuse l'activation avec la même phrase
+  (`tests/frontend/workflowStepRules.test.ts`).
 - **Un contact se crée à un seul endroit**, `createLeadRecord`
   (`convex/lib/leads/records.ts`) : la ligne, son entrée au journal, la
   première ligne de son historique de statut, puis les workflows

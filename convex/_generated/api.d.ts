@@ -47,6 +47,7 @@ import type * as _lib_validators_teams from "../_lib/validators/teams.js";
 import type * as _lib_validators_timeline from "../_lib/validators/timeline.js";
 import type * as _lib_validators_tracking from "../_lib/validators/tracking.js";
 import type * as _lib_validators_users from "../_lib/validators/users.js";
+import type * as _lib_validators_workflowSteps from "../_lib/validators/workflowSteps.js";
 import type * as _lib_validators_workflows from "../_lib/validators/workflows.js";
 import type * as auth from "../auth.js";
 import type * as auth_emailTemplates from "../auth/emailTemplates.js";
@@ -286,6 +287,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/timeline": typeof _lib_validators_timeline;
   "_lib/validators/tracking": typeof _lib_validators_tracking;
   "_lib/validators/users": typeof _lib_validators_users;
+  "_lib/validators/workflowSteps": typeof _lib_validators_workflowSteps;
   "_lib/validators/workflows": typeof _lib_validators_workflows;
   auth: typeof auth;
   "auth/emailTemplates": typeof auth_emailTemplates;
