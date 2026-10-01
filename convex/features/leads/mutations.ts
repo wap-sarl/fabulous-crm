@@ -10,7 +10,6 @@ import {
   logAudit,
 } from '../../lib/audit/log';
 import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
-import { generateHexToken } from '../../lib/security/crypto';
 import { editNote, liveNote } from '../../lib/leads/notes';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { addressValidator, propertyValueValidator } from '../../schema';
@@ -35,7 +34,7 @@ import {
   planLeadImport,
 } from '../../lib/leads/import';
 import { companyHintValidator, leadImportRowValidator } from '../../_lib/validators/imports';
-import { CONSENT_TOKEN_BYTES } from '../../lib/leads/import';
+import { createLeadRecord } from '../../lib/leads/records';
 
 /** Marketing consent is absent on purpose: it is RGPD data the lead controls, set only through the public consent link, never by an authenticated path. */
 const leadRowArgs = {
@@ -82,41 +81,23 @@ export const createLead = employeeMutation({
     }
 
     await gateLeadCreate(ctx, 1, 'crm');
-    const leadId = await ctx.db.insert('leads', {
-      firstName: args.firstName.trim(),
-      lastName: args.lastName.trim(),
-      email,
-      phone: args.phone?.trim() || undefined,
-      address: requireValidAddress(args.address),
-      // Consent starts empty; only the lead can grant it via the public link.
-      marketingConsent: [],
-      consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
-      comment: args.comment,
-      ownerIds: await cleanOwnerIds(ctx, args.ownerIds ?? []),
-      companyId,
-      isRedFlagged: args.isRedFlagged ?? false,
-      lifecycleStage,
-      customProperties,
-      ...createAuditFields(ctx.userId),
-    });
-    // The audit entry first, whatever else the write records: afterChange consumers see `create` before the rest.
-    await logAudit({
+    return await createLeadRecord(
       ctx,
-      userId: ctx.userId,
-      entityType: 'lead',
-      entityId: leadId,
-      action: 'create',
-    });
-    await insertLifecycleHistory(
-      ctx,
-      leadId,
-      { from: undefined, to: lifecycleStage },
-      { source: 'manual', changedBy: ctx.userId },
+      { source: 'manual', userId: ctx.userId },
+      {
+        firstName: args.firstName.trim(),
+        lastName: args.lastName.trim(),
+        email,
+        phone: args.phone?.trim() || undefined,
+        address: requireValidAddress(args.address),
+        comment: args.comment,
+        ownerIds: await cleanOwnerIds(ctx, args.ownerIds ?? []),
+        companyId,
+        isRedFlagged: args.isRedFlagged,
+        lifecycleStage,
+        customProperties,
+      },
     );
-
-    await dispatchWorkflowTrigger(ctx, leadId, { type: 'lead_created' });
-
-    return leadId;
   },
 });
 

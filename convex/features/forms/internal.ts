@@ -9,7 +9,6 @@ import { internalMutation } from '../../_lib/functions';
 import { MAX_FILL_MS, MIN_FILL_MS } from '../../_lib/validators/forms';
 import { propertyValueValidator, type PropertyValue } from '../../_lib/validators/properties';
 import { computeChanges, logAudit } from '../../lib/audit/log';
-import { generateHexToken } from '../../lib/security/crypto';
 import {
   buildPublicForm,
   cleanSubmissionValues,
@@ -26,9 +25,10 @@ import {
   verifyRender,
 } from '../../lib/forms/submission';
 import { gateLeadCreate } from '../../lib/extensions/gates';
-import { CONSENT_TOKEN_BYTES, normalizeEmail } from '../../lib/leads/import';
+import { normalizeEmail } from '../../lib/leads/import';
+import { createLeadRecord } from '../../lib/leads/records';
 import { stampLeadSignal } from '../../lib/leads/signals';
-import { insertLifecycleHistory, loadLifecycleConfig } from '../../lib/leads/lifecycle';
+import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../../lib/workflows/dispatch';
 
@@ -189,39 +189,26 @@ export const submitForm = internalMutation({
         return { ok: false as const, code: 'unavailable' as const };
       }
       const lifecycle = await loadLifecycleConfig(ctx);
-      leadId = await ctx.db.insert('leads', {
-        firstName: standard.firstName ?? '',
-        lastName: standard.lastName ?? '',
-        email,
-        phone: standard.phone,
-        comment: initialComment(standard, companyId !== undefined),
-        // Single opt-in: the box the person ticked, on the contact this submission creates and on no other.
-        marketingConsent: ['email'],
-        consentUpdatedAt: now,
-        consentSource: 'form',
-        consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
-        ownerIds: [],
-        companyId,
-        isRedFlagged: false,
-        lifecycleStage: lifecycle.defaultStage,
-        customProperties: Object.keys(custom).length > 0 ? custom : undefined,
-        updatedAt: now,
-      });
-      await logAudit({
+      leadId = await createLeadRecord(
         ctx,
-        entityType: 'lead',
-        entityId: leadId,
-        action: 'create',
-        metadata: { source: 'form', formId: form._id },
-      });
-      await insertLifecycleHistory(
-        ctx,
-        leadId,
-        { from: undefined, to: lifecycle.defaultStage },
-        { source: 'form' },
+        { source: 'form', formId: form._id },
+        {
+          firstName: standard.firstName ?? '',
+          lastName: standard.lastName ?? '',
+          email,
+          phone: standard.phone,
+          comment: initialComment(standard, companyId !== undefined),
+          // Single opt-in: the box the person ticked, on the contact this submission creates and on no other.
+          marketingConsent: ['email'],
+          consentUpdatedAt: now,
+          consentSource: 'form',
+          ownerIds: [],
+          companyId,
+          lifecycleStage: lifecycle.defaultStage,
+          customProperties: Object.keys(custom).length > 0 ? custom : undefined,
+        },
+        { workflows, signal: { kind: 'form_submission', at: now } },
       );
-      await stampLeadSignal(ctx, leadId, 'form_submission', now);
-      await dispatchWorkflowTrigger(ctx, leadId, { type: 'lead_created' }, { workflows });
     }
 
     // Only the accepted values are logged, keyed like the public definition.

@@ -6,7 +6,7 @@ import { requireValidAddress } from '../../addresses/validation';
 import { computeChanges, logAudit } from '../../audit/log';
 import { requireCompany, resolveCompanyForLead } from '../../companies/lookup';
 import { gateLeadCreate } from '../../extensions/gates';
-import { CONSENT_TOKEN_BYTES } from '../../leads/import';
+import { createLeadRecord } from '../../leads/records';
 import {
   assertLifecycleTransition,
   insertLifecycleHistory,
@@ -14,7 +14,6 @@ import {
   planLifecycleTransition,
 } from '../../leads/lifecycle';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../properties/definitions';
-import { generateHexToken } from '../../security/crypto';
 import { filterUndefined, isNotDeleted } from '../../shared/db';
 import { cleanOwnerIds } from '../../users/owners';
 import { dispatchWorkflowTrigger } from '../../workflows/dispatch';
@@ -92,32 +91,23 @@ async function insertContact(
   const companyId = await contactCompany(ctx, apiKeyId, body, email, undefined);
   await gateLeadCreate(ctx, 1, 'api');
 
-  const leadId = await ctx.db.insert('leads', {
-    firstName: requireText(body.firstName, 'firstName'),
-    lastName: requireText(body.lastName, 'lastName'),
-    email,
-    phone: body.phone?.trim() || undefined,
-    address: requireValidAddress(body.address),
-    // Consent starts empty; only the lead can grant it via the public link.
-    marketingConsent: [],
-    consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
-    comment: body.comment,
-    ownerIds,
-    companyId,
-    isRedFlagged: body.isRedFlagged ?? false,
-    lifecycleStage,
-    customProperties,
-    updatedAt: Date.now(),
-  });
-  await logAudit({ ctx, apiKeyId, entityType: 'lead', entityId: leadId, action: 'create' });
-  await insertLifecycleHistory(
+  return await createLeadRecord(
     ctx,
-    leadId,
-    { from: undefined, to: lifecycleStage },
-    { source: 'api' },
+    { source: 'api', apiKeyId },
+    {
+      firstName: requireText(body.firstName, 'firstName'),
+      lastName: requireText(body.lastName, 'lastName'),
+      email,
+      phone: body.phone?.trim() || undefined,
+      address: requireValidAddress(body.address),
+      comment: body.comment,
+      ownerIds,
+      companyId,
+      isRedFlagged: body.isRedFlagged,
+      lifecycleStage,
+      customProperties,
+    },
   );
-  await dispatchWorkflowTrigger(ctx, leadId, { type: 'lead_created' });
-  return leadId;
 }
 
 /** Strict create: a live contact with the same email is a 409, never a merge. */

@@ -194,6 +194,7 @@ import type * as lib_leads_import from "../lib/leads/import.js";
 import type * as lib_leads_lifecycle from "../lib/leads/lifecycle.js";
 import type * as lib_leads_matching from "../lib/leads/matching.js";
 import type * as lib_leads_notes from "../lib/leads/notes.js";
+import type * as lib_leads_records from "../lib/leads/records.js";
 import type * as lib_leads_search from "../lib/leads/search.js";
 import type * as lib_leads_signals from "../lib/leads/signals.js";
 import type * as lib_leads_tableFilters from "../lib/leads/tableFilters.js";
@@ -432,6 +433,7 @@ declare const fullApi: ApiFromModules<{
   "lib/leads/lifecycle": typeof lib_leads_lifecycle;
   "lib/leads/matching": typeof lib_leads_matching;
   "lib/leads/notes": typeof lib_leads_notes;
+  "lib/leads/records": typeof lib_leads_records;
   "lib/leads/search": typeof lib_leads_search;
   "lib/leads/signals": typeof lib_leads_signals;
   "lib/leads/tableFilters": typeof lib_leads_tableFilters;

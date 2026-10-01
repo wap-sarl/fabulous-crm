@@ -375,6 +375,10 @@ Les règles que le code suit, chacune gardée par un test :
 - **Une règle que l'interface et le backend vérifient tous deux s'écrit une
   fois**, en zod, dans `convex/_lib/validators/fields.ts` (adresse e-mail, URL,
   couleur, pays, devise, entier borné).
+- **Un contact se crée à un seul endroit**, `createLeadRecord`
+  (`convex/lib/leads/records.ts`) : la ligne, son entrée au journal, la
+  première ligne de son historique de statut, puis les workflows
+  (`tests/backend/leadCreation.test.ts`).
 - **Ce que le déploiement compte (un plafond) se lit avec `ctx.unscopedDb`**,
   en lecture seule et hors des règles de visibilité ; les lignes rendues à
   l'appelant passent toujours par `ctx.db`
