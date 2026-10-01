@@ -401,4 +401,72 @@ describe('public REST API writes: what a PATCH can change', () => {
       expect(row?.deletedAt).toBeDefined();
     }
   });
+
+  test('clearing a field the record does not have changes nothing: no audit, no workflow', async () => {
+    const { t, emp, post, patch, ok, auditsOf } = await setup();
+    await seedPipeline(t);
+    const watching = await t.run((ctx) =>
+      ctx.db.insert('workflows', {
+        name: 'Suivi',
+        status: 'active',
+        trigger: { type: 'lead_property_changed' },
+        allowReEnrollment: true,
+        nodes: [{ id: 'n1', type: 'wait', amount: 1, unit: 'hours' }],
+        startNodeId: 'n1',
+        enrolledCount: 0,
+        activeCount: 0,
+        completedCount: 0,
+        updatedAt: Date.now(),
+        createdBy: emp.userId,
+      }),
+    );
+    const cases = [
+      {
+        path: 'contacts',
+        body: { firstName: 'A', lastName: 'B', email: 'a@example.com' },
+        absent: { phone: null, address: null, companyId: null },
+      },
+      {
+        path: 'companies',
+        body: { name: 'Acme' },
+        absent: { website: null, sector: null, headcount: null, address: null },
+      },
+      {
+        path: 'deals',
+        body: { title: 'Contrat' },
+        absent: { amount: null, expectedCloseDate: null, leadId: null, sourceCampaignId: null },
+      },
+      {
+        path: 'activities',
+        body: { type: 'note', title: 'Note' },
+        absent: {
+          description: null,
+          dueAt: null,
+          outcome: null,
+          ownerId: null,
+          teamId: null,
+          leadId: null,
+          companyId: null,
+          dealId: null,
+        },
+      },
+    ];
+    for (const { path, body, absent } of cases) {
+      const created = await ok(await post(path, body), 201);
+      expect(created).toMatchObject(absent);
+      const { updatedAt: _before, ...before } = created;
+      const { updatedAt: _after, ...after } = await ok(
+        await patch(`${path}/${created.id}`, absent),
+      );
+      expect(after).toEqual(before);
+      expect((await auditsOf(created.id)).map((a) => a.action)).toEqual(['create']);
+    }
+    const runs = await t.run((ctx) =>
+      ctx.db
+        .query('workflowRuns')
+        .withIndex('by_workflow', (q) => q.eq('workflowId', watching))
+        .collect(),
+    );
+    expect(runs).toEqual([]);
+  });
 });
