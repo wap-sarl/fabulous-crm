@@ -1,6 +1,6 @@
 import type { QueryCtx } from '../../_generated/server';
 import type { Doc } from '../../_generated/dataModel';
-import { appOrigin } from '../config/appUrl';
+import { consentOrigin } from '../config/appUrl';
 import { loadLifecycleConfig } from '../leads/lifecycle';
 import { buildLeadParams } from '../leads/targets';
 import { loadPropertyDefinitions } from '../properties/definitions';
@@ -12,10 +12,5 @@ export async function leadParams(
 ): Promise<Record<string, string>> {
   const defs = await loadPropertyDefinitions(ctx, 'lead');
   const defsById = new Map(defs.map((d) => [d._id as string, d]));
-  return buildLeadParams(
-    lead,
-    defsById,
-    appOrigin() || 'http://localhost:4202',
-    await loadLifecycleConfig(ctx),
-  );
+  return buildLeadParams(lead, defsById, consentOrigin(), await loadLifecycleConfig(ctx));
 }

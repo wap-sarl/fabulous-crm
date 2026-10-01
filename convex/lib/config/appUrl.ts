@@ -14,3 +14,8 @@ export function appOrigins(): string[] {
 export function appOrigin(): string {
   return appOrigins()[0] ?? '';
 }
+
+/** The origin a message writes in its consent link: the app's, else the dev server's. */
+export function consentOrigin(): string {
+  return appOrigin() || 'http://localhost:4202';
+}

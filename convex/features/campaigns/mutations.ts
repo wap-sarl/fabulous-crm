@@ -3,9 +3,9 @@ import type { MutationCtx } from '../../_generated/server';
 import type { Doc } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
-import { appOrigin } from '../../lib/config/appUrl';
+import { consentOrigin } from '../../lib/config/appUrl';
+import { buildSendParams } from '../../lib/campaigns/params';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
-import { generateHexToken } from '../../lib/security/crypto';
 import {
   resolveEmailProvider,
   resolveBrevo,
@@ -19,14 +19,11 @@ import {
   messageTypeValidator,
   type CampaignTrackedLink,
 } from '../../_lib/validators/crm';
-import { buildLeadParams, validateLeadTargetValue } from '../../lib/leads/targets';
+import { validateLeadTargetValue } from '../../lib/leads/targets';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
 import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import type { LifecycleConfig } from '../../_lib/validators/lifecycle';
 import { requireSendAllowed } from '../../lib/extensions/gates';
-
-// 8 bytes → 16 hex chars: short enough for SMS, ample for a low-value target.
-const TRACKED_LINK_TOKEN_BYTES = 8;
 
 // Params injected for every recipient: tracked-link keys may not shadow them.
 const RESERVED_PARAM_KEYS = new Set([
@@ -39,27 +36,6 @@ const RESERVED_PARAM_KEYS = new Set([
   'address',
   'consentUrl',
 ]);
-
-/** Pure, the caller inserts the rows (the tokens need the send id); shared with the resend mutations so a re-materialized send has the shape of a fresh one. */
-export function buildSendParams(
-  lead: Doc<'leads'>,
-  opts: {
-    trackedLinks: CampaignTrackedLink[];
-    defsById: Map<string, PropertyDefinitionDoc>;
-    consentBase: string;
-    linkBase: string | undefined;
-    lifecycle: LifecycleConfig;
-  },
-): { params: Record<string, string>; tokens: { linkKey: string; token: string }[] } {
-  const params = buildLeadParams(lead, opts.defsById, opts.consentBase, opts.lifecycle);
-  // One fresh token per (recipient × tracked link); the URL is injected into params.
-  const tokens = opts.trackedLinks.map((link) => {
-    const token = generateHexToken(TRACKED_LINK_TOKEN_BYTES);
-    params[link.key] = `${opts.linkBase}/l/${token}`;
-    return { linkKey: link.key, token };
-  });
-  return { params, tokens };
-}
 
 export const createCampaign = employeeMutation({
   args: {
@@ -226,7 +202,7 @@ async function loadResendContext(ctx: MutationCtx, campaign: Doc<'campaigns'>) {
     isSms: (campaign.channel ?? 'email') === 'sms',
     trackedLinks,
     defsById: await loadPropertyDefsById(ctx, 'lead'),
-    consentBase: appOrigin() || 'http://localhost:4202',
+    consentBase: consentOrigin(),
     linkBase,
     lifecycle: await loadLifecycleConfig(ctx),
   };
