@@ -3,20 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id, WorkflowNode } from '@crm/lib/backend';
 import { useAuthMutation, useAuthQuery } from '@crm/widgets';
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Spinner,
-  StatusBadge,
-  toast,
-} from '@crm/design-system';
-import { ArrowLeft, Pause, Play, RefreshCw, Save } from 'lucide-react';
+import { Spinner, toast } from '@crm/design-system';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { useLeadLists } from '../../features/leads/hooks/useLeadLists';
@@ -31,10 +18,9 @@ import {
   type PanelSelection,
 } from '../../features/workflows/components/StepConfigPanel';
 import type { TriggerFormValue } from '../../features/workflows/components/config/TriggerConfig';
-import {
-  WORKFLOW_STATUS_LABEL,
-  WORKFLOW_STATUS_TONE,
-} from '../../features/workflows/lib/constants';
+import { WorkflowEditorHeader } from '../../features/workflows/components/WorkflowEditorHeader';
+import { SaveWorkflowDialog } from '../../features/workflows/components/SaveWorkflowDialog';
+import { RemoveBranchDialog } from '../../features/workflows/components/RemoveBranchDialog';
 import { invalidNodeIds, validateWorkflowDraft } from '../../features/workflows/lib/validation';
 
 export function WorkflowEditorPage() {
@@ -258,55 +244,20 @@ export function WorkflowEditorPage() {
 
   return (
     <div className="flex h-[calc(100dvh-120px)] min-h-[560px] flex-col gap-3 px-5 py-4 sm:px-7">
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => navigate(isEdit ? `/workflows/${workflowId}` : '/workflows')}
-        >
-          <ArrowLeft className="size-4" />
-          Retour
-        </Button>
-        <Input
-          value={draft.name}
-          onChange={(e) => dispatch({ type: 'setName', name: e.target.value })}
-          placeholder="Nom du workflow"
-          className="w-72 font-semibold"
-          data-testid="workflow-name"
-          disabled={readOnly}
-        />
-        <StatusBadge tone={WORKFLOW_STATUS_TONE[status]}>
-          {WORKFLOW_STATUS_LABEL[status]}
-        </StatusBadge>
-        <div className="ml-auto flex items-center gap-2">
-          {readOnly ? (
-            <Button variant="outline" onClick={handlePause} disabled={submitting}>
-              <Pause className="size-4" />
-              Mettre en pause pour modifier
-            </Button>
-          ) : (
-            <>
-              <Button
-                variant="outline"
-                onClick={() => (isEdit ? setSaveChoiceOpen(true) : void handleSave())}
-                disabled={submitting}
-                data-testid="save-workflow"
-              >
-                <Save className="size-4" />
-                Enregistrer
-              </Button>
-              <Button
-                onClick={handleActivate}
-                disabled={submitting}
-                data-testid="activate-workflow"
-              >
-                <Play className="size-4" />
-                Activer
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
+      <WorkflowEditorHeader
+        isEdit={isEdit}
+        workflowId={workflowId}
+        navigate={navigate}
+        draft={draft}
+        dispatch={dispatch}
+        status={status}
+        readOnly={readOnly}
+        submitting={submitting}
+        setSaveChoiceOpen={setSaveChoiceOpen}
+        handleSave={handleSave}
+        handleActivate={handleActivate}
+        handlePause={handlePause}
+      />
 
       {readOnly ? (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-[13px] text-amber-800">
@@ -364,91 +315,22 @@ export function WorkflowEditorPage() {
         }}
       />
 
-      <Dialog open={saveChoiceOpen} onOpenChange={(open) => !submitting && setSaveChoiceOpen(open)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Enregistrer le workflow</DialogTitle>
-            <DialogDescription>
-              Enregistrer simplement les modifications, ou aussi réinscrire les leads qui
-              correspondent aux critères d’inscription ?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-2 text-[13px]">
-            <div className="rounded-lg border bg-canvas px-3 py-2 text-body">
-              {matching === undefined ? (
-                <span className="inline-flex items-center gap-2">
-                  <Spinner size="sm" /> Calcul des leads correspondants…
-                </span>
-              ) : (
-                <>
-                  <span className="font-bold text-ink">{matching.total}</span> lead(s)
-                  correspondant(s){' '}
-                  {draft.enrollmentCriteria
-                    ? 'aux critères d’inscription.'
-                    : '— aucun critère : tous les leads sont concernés.'}
-                </>
-              )}
-            </div>
-            <p className="text-faint">
-              La réinscription annule les parcours en cours et relance chaque lead sur la nouvelle
-              version du workflow (même si la réinscription est désactivée).
-            </p>
-          </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button
-              className="w-full"
-              variant="outline"
-              disabled={submitting}
-              onClick={handleSave}
-              data-testid="save-only"
-            >
-              <Save className="size-4" />
-              Enregistrer uniquement
-            </Button>
-            <Button
-              className="w-full"
-              disabled={submitting || matching === undefined}
-              onClick={handleSaveAndReenroll}
-              data-testid="save-and-reenroll"
-            >
-              <RefreshCw className="size-4" />
-              Enregistrer et réinscrire {matching ? `${matching.total} lead(s)` : '…'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <SaveWorkflowDialog
+        saveChoiceOpen={saveChoiceOpen}
+        setSaveChoiceOpen={setSaveChoiceOpen}
+        submitting={submitting}
+        matching={matching}
+        draft={draft}
+        handleSave={handleSave}
+        handleSaveAndReenroll={handleSaveAndReenroll}
+      />
 
-      <Dialog
-        open={confirmRemoveId !== null}
-        onOpenChange={(open) => !open && setConfirmRemoveId(null)}
-      >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Supprimer la condition ?</DialogTitle>
-            <DialogDescription>
-              {confirmRemoveId
-                ? `Supprimer cette condition supprimera aussi les ${
-                    subtreeIds(draft.nodes, confirmRemoveId).length - 1
-                  } étape(s) qui en dépendent.`
-                : null}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setConfirmRemoveId(null)}>
-              Annuler
-            </Button>
-            <Button
-              color="destructive"
-              onClick={() => {
-                if (confirmRemoveId) dispatch({ type: 'removeNode', id: confirmRemoveId });
-                setConfirmRemoveId(null);
-              }}
-            >
-              Supprimer
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <RemoveBranchDialog
+        confirmRemoveId={confirmRemoveId}
+        setConfirmRemoveId={setConfirmRemoveId}
+        draft={draft}
+        dispatch={dispatch}
+      />
     </div>
   );
 }

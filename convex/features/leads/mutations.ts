@@ -1,4 +1,6 @@
 import { v } from 'convex/values';
+import type { Id } from '../../_generated/dataModel';
+import type { MutationCtx } from '../../_generated/server';
 import { employeeMutation } from '../../_lib/auth';
 import {
   createAuditFields,
@@ -8,6 +10,7 @@ import {
 } from '../../lib/audit/log';
 import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
 import { generateHexToken } from '../../lib/security/crypto';
+import { editNote, liveNote } from '../../lib/leads/notes';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { addressValidator, propertyValueValidator } from '../../schema';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties/definitions';
@@ -30,7 +33,7 @@ import {
   normalizeEmail,
   planLeadImport,
 } from '../../lib/leads/import';
-import { leadImportRowValidator } from '../../_lib/validators/imports';
+import { companyHintValidator, leadImportRowValidator } from '../../_lib/validators/imports';
 import { CONSENT_TOKEN_BYTES } from '../../lib/leads/import';
 
 /** Marketing consent is absent on purpose: it is RGPD data the lead controls, set only through the public consent link, never by an authenticated path. */
@@ -46,15 +49,7 @@ const leadRowArgs = {
   // A stage key from appConfig.lifecycle; defaults to the configured stage.
   lifecycleStage: v.optional(v.string()),
   companyId: v.optional(v.id('companies')),
-  company: v.optional(
-    v.object({
-      name: v.optional(v.string()),
-      country: v.optional(v.string()),
-      registrationNumber: v.optional(v.string()),
-      vatNumber: v.optional(v.string()),
-      domain: v.optional(v.string()),
-    }),
-  ),
+  company: v.optional(companyHintValidator),
 } as const;
 
 function initialLifecycleStage(config: LifecycleConfig, requested: string | undefined): string {
@@ -213,24 +208,32 @@ export const updateLead = employeeMutation({
   },
 });
 
+/** Marks a live contact deleted and audits it; false for one that is missing or already deleted. */
+async function softDeleteLead(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  leadId: Id<'leads'>,
+): Promise<boolean> {
+  const lead = await ctx.db.get(leadId);
+  if (!lead || lead.deletedAt != null) return false;
+  await ctx.db.patch(leadId, {
+    deletedAt: Date.now(),
+    ...updateAuditFields(userId),
+  });
+  await logAudit({
+    ctx,
+    userId,
+    entityType: 'lead',
+    entityId: leadId,
+    action: 'delete',
+  });
+  return true;
+}
+
 export const deleteLead = employeeMutation({
   args: { leadId: v.id('leads') },
   handler: async (ctx, args) => {
-    const lead = await ctx.db.get(args.leadId);
-    if (!lead || lead.deletedAt != null) {
-      throw new Error('lead_not_found');
-    }
-    await ctx.db.patch(args.leadId, {
-      deletedAt: Date.now(),
-      ...updateAuditFields(ctx.userId),
-    });
-    await logAudit({
-      ctx,
-      userId: ctx.userId,
-      entityType: 'lead',
-      entityId: args.leadId,
-      action: 'delete',
-    });
+    if (!(await softDeleteLead(ctx, ctx.userId, args.leadId))) throw new Error('lead_not_found');
   },
 });
 
@@ -241,20 +244,7 @@ export const deleteLeads = employeeMutation({
     const uniqueIds = [...new Set(args.leadIds)];
     let deleted = 0;
     for (const leadId of uniqueIds) {
-      const lead = await ctx.db.get(leadId);
-      if (!lead || lead.deletedAt != null) continue;
-      await ctx.db.patch(leadId, {
-        deletedAt: Date.now(),
-        ...updateAuditFields(ctx.userId),
-      });
-      await logAudit({
-        ctx,
-        userId: ctx.userId,
-        entityType: 'lead',
-        entityId: leadId,
-        action: 'delete',
-      });
-      deleted++;
+      if (await softDeleteLead(ctx, ctx.userId, leadId)) deleted++;
     }
     return { deleted };
   },
@@ -348,31 +338,12 @@ export const updateNote = employeeMutation({
     content: v.string(),
   },
   handler: async (ctx, args) => {
-    const note = await ctx.db.get(args.noteId);
-    if (!note || !isNotDeleted(note)) {
-      throw new Error('note_not_found');
-    }
+    const note = await liveNote(ctx, args.noteId);
     const content = args.content.trim();
     if (!content) {
       throw new Error('empty_note');
     }
-
-    const updates = { content };
-    const changes = computeChanges(note, updates);
-    await ctx.db.patch(args.noteId, { ...updates, ...updateAuditFields(ctx.userId) });
-
-    if (changes) {
-      await logAudit({
-        ctx,
-        userId: ctx.userId,
-        entityType: 'leadNote',
-        entityId: args.noteId,
-        action: 'update',
-        metadata: { changes },
-      });
-    }
-
-    return args.noteId;
+    return await editNote(ctx, ctx.userId, note, { content });
   },
 });
 
@@ -383,27 +354,8 @@ export const setNotePinned = employeeMutation({
     isPinned: v.boolean(),
   },
   handler: async (ctx, args) => {
-    const note = await ctx.db.get(args.noteId);
-    if (!note || !isNotDeleted(note)) {
-      throw new Error('note_not_found');
-    }
-
-    const updates = { isPinned: args.isPinned };
-    const changes = computeChanges(note, updates);
-    await ctx.db.patch(args.noteId, { ...updates, ...updateAuditFields(ctx.userId) });
-
-    if (changes) {
-      await logAudit({
-        ctx,
-        userId: ctx.userId,
-        entityType: 'leadNote',
-        entityId: args.noteId,
-        action: 'update',
-        metadata: { changes },
-      });
-    }
-
-    return args.noteId;
+    const note = await liveNote(ctx, args.noteId);
+    return await editNote(ctx, ctx.userId, note, { isPinned: args.isPinned });
   },
 });
 
@@ -411,10 +363,7 @@ export const setNotePinned = employeeMutation({
 export const deleteNote = employeeMutation({
   args: { noteId: v.id('leadNotes') },
   handler: async (ctx, args) => {
-    const note = await ctx.db.get(args.noteId);
-    if (!note || !isNotDeleted(note)) {
-      throw new Error('note_not_found');
-    }
+    await liveNote(ctx, args.noteId);
     await ctx.db.patch(args.noteId, {
       deletedAt: Date.now(),
       ...updateAuditFields(ctx.userId),

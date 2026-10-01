@@ -28,7 +28,7 @@ import { LeadScoreCard } from '../../features/leads/components/LeadScoreCard';
 import { LeadRgpdCard } from '../../features/leads/components/LeadRgpdCard';
 import { EntityDealsCard } from '../../features/deals/components/EntityDealsCard';
 import { EntityActivitiesCard } from '../../features/activities/components/EntityActivitiesCard';
-import { LogCallDialog } from '../../features/activities/components/ActivityDialogs';
+import { LogCallDialog } from '../../features/activities/components/LogCallDialog';
 import { LeadTimeline } from '../../features/timeline/components/LeadTimeline';
 import { EntityAttachmentsCard } from '../../features/attachments/components/EntityAttachmentsCard';
 import {

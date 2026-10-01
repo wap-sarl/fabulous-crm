@@ -2,6 +2,8 @@ import type { LucideIcon } from 'lucide-react';
 import { File, FileImage, FileSpreadsheet, FileText, FileVideo } from 'lucide-react';
 import type { AttachmentRow } from '@crm/lib/backend';
 
+export const ROOT_LABEL = 'Fichiers';
+
 /** « 1,2 Mo » style size. */
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} o`;

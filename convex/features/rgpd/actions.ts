@@ -3,7 +3,7 @@ import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
 import { employeeAction } from '../../_lib/auth';
 import { authComponent } from '../../auth';
-import type { ContactArchive } from './internal';
+import type { ContactArchive } from '../../lib/rgpd/access';
 
 /** Right of access: the archive of everything the CRM holds about one contact, for the settings holders; audited. */
 export const exportContactData = employeeAction({

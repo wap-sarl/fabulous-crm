@@ -9,12 +9,10 @@ import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefini
 import { formatPropertyValue, hasPropertyValue } from '../../properties/lib/customProperties';
 import { activityErrorMessage, useActivityActions } from '../hooks/useActivityActions';
 import { ACTIVITY_ICON } from '../lib/constants';
-import {
-  ActivityFormDialog,
-  CompleteActivityDialog,
-  LogCallDialog,
-  type ActivityLinks,
-} from './ActivityDialogs';
+import type { ActivityLinks } from '../types';
+import { ActivityFormDialog } from './ActivityFormDialog';
+import { CompleteActivityDialog } from './CompleteActivityDialog';
+import { LogCallDialog } from './LogCallDialog';
 import { dateTimeFormat } from '@crm/lib/format';
 
 /** One activity line: icon, title, due/completed date, outcome, complete/reopen. */

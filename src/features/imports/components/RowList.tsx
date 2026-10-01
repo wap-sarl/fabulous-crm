@@ -3,7 +3,7 @@ import { api, type DuplicateReason, type Id, type ImportRowOutcome } from '@crm/
 import { useAuthPaginatedQuery } from '@crm/widgets';
 import { DUPLICATE_REASON_LABEL } from '../../leads/lib/duplicates';
 import { describeImportError } from '../lib/errorLabels';
-import { OUTCOME_LABEL } from '../../../pages/imports/importStatus';
+import { OUTCOME_LABEL } from '../lib/importStatus';
 
 /** The rows of one outcome, a page at a time, with the source cells that matter. */
 export function RowList({

@@ -125,7 +125,7 @@ interface DraftState {
   lastInsertedId: string | null;
 }
 
-type DraftAction =
+export type DraftAction =
   | { type: 'init'; draft: WorkflowDraft }
   | { type: 'setName'; name: string }
   | { type: 'setTrigger'; trigger: WorkflowTrigger | null }

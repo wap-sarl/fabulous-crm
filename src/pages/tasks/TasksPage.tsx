@@ -19,10 +19,8 @@ import { Plus, Upload } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useEmployees } from '../../lib/hooks/useEmployees';
 import { useTeams } from '../../lib/hooks/useTeams';
-import {
-  ActivityFormDialog,
-  CompleteActivityDialog,
-} from '../../features/activities/components/ActivityDialogs';
+import { ActivityFormDialog } from '../../features/activities/components/ActivityFormDialog';
+import { CompleteActivityDialog } from '../../features/activities/components/CompleteActivityDialog';
 import { ActivityListItem } from '../../features/activities/components/EntityActivitiesCard';
 import {
   activityErrorMessage,

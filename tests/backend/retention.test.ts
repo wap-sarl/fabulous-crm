@@ -9,8 +9,8 @@ import {
   PURGE_CASCADE_BATCH,
   PURGE_ENTITY_PAGE,
   PURGE_WRITE_BUDGET,
-  purgePage,
-} from '../../convex/lib/retention/purge';
+} from '../../convex/lib/retention/budget';
+import { purgePage } from '../../convex/lib/retention/purge';
 import { DAY_MS } from '../../convex/_lib/time';
 import { insertListMember } from '../../convex/lib/leadLists/members';
 import {

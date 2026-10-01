@@ -12,7 +12,7 @@ import {
   toast,
 } from '@crm/design-system';
 import { useLeadActions } from '../../leads/hooks/useLeadActions';
-import { AdvancedFilterGroupsEditor } from '../../filters/components/AdvancedFilterBuilder';
+import { AdvancedFilterGroupsEditor } from '../../filters/components/AdvancedFilterGroupsEditor';
 import { countActiveRules, emptyAdvancedFilter } from '../../filters/lib/advancedFilter';
 import { useLeadFieldCatalog } from '../../leads/hooks/useLeadFieldCatalog';
 import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';

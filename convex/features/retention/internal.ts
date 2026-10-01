@@ -10,8 +10,8 @@ import {
   emptyCounts,
   PURGE_MAX_PAGES,
   purgeCountsValidator,
-  purgePage,
-} from '../../lib/retention/purge';
+} from '../../lib/retention/budget';
+import { purgePage } from '../../lib/retention/purge';
 
 /** The nightly purge: the policy and the reference time are frozen on the first page, so a setting changed during a run does not mix cutoffs. */
 export const runPurge = internalMutation({

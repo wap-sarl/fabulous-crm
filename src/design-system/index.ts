@@ -24,16 +24,16 @@ export { MultiSelect } from './components/inputs/multi-select';
 export { DatePicker } from './components/inputs/date-picker';
 export { OtpInput } from './components/inputs/otp-input';
 export { Combobox } from './components/inputs/combobox';
+export { AddressInput } from './components/inputs/address-input';
 export {
-  AddressInput,
   createGooglePlacesProvider,
   createBanAddressProvider,
-} from './components/inputs/address-input';
+} from './components/inputs/address-providers';
 export type {
   AddressValue,
   AddressSuggestionsProvider,
   AddressDetailsResolver,
-} from './components/inputs/address-input';
+} from './components/inputs/address-providers';
 export { PhoneInput } from './components/inputs/phone-input';
 export { TimeInput } from './components/inputs/time-input';
 export { EmailInput, validateEmail } from './components/inputs/email-input';

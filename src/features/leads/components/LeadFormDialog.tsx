@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useConvex } from 'convex/react';
-import { z } from 'zod';
 import { describeError } from '@crm/lib/errors';
-import { EMAIL_ERROR_MESSAGES } from '@crm/lib/types';
 import { api } from '@crm/lib/backend';
 import type { Id, PropertyValue } from '@crm/lib/backend';
 import {
@@ -13,7 +11,6 @@ import {
   DialogTitle,
   DialogFooter,
   Button,
-  Input,
   Label,
   Textarea,
   Checkbox,
@@ -23,10 +20,7 @@ import {
   SelectContent,
   SelectItem,
   PhoneInput,
-  EmailInput,
-  validateEmail,
   toast,
-  type AddressValue,
   MultiSelect,
 } from '@crm/design-system';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
@@ -35,11 +29,21 @@ import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefini
 import { useLifecycleConfig } from '../hooks/useLifecycleConfig';
 import { CompanyPicker } from '../../companies/components/CompanyPicker';
 import { HelperText } from '@crm/design-system';
-import { DEFAULT_COUNTRY, validateAddress } from '@crm/lib/backend';
+import { validateAddress } from '@crm/lib/backend';
 import { CountryAddressInput } from '../../../lib/countryInputs';
 import { validatePropertyValue } from '../../properties/lib/customProperties';
 import { CustomPropertyFields } from '../../properties/components/CustomPropertyFields';
 import type { LeadRow } from '../types';
+import {
+  emptyForm,
+  fromLead,
+  identitySchema,
+  toFieldErrors,
+  type FieldErrors,
+  type FormState,
+  type RequiredField,
+} from '../lib/leadForm';
+import { LeadIdentityFields } from './LeadIdentityFields';
 
 interface LeadFormDialogProps {
   open: boolean;
@@ -47,94 +51,7 @@ interface LeadFormDialogProps {
   lead?: LeadRow;
 }
 
-interface FormState {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  /** '' = the configured default stage (create only). */
-  lifecycleStage: string;
-  /** '' = none. The server never fills it in: a domain match is proposed, not applied. */
-  companyId: Id<'companies'> | '';
-  ownerIds: string[];
-  isRedFlagged: boolean;
-  comment: string;
-  address: AddressValue;
-  customProperties: Record<string, PropertyValue>;
-}
-
-const EMPTY_ADDRESS: AddressValue = {
-  country: DEFAULT_COUNTRY,
-  streetNumber: '',
-  street: '',
-  postalCode: '',
-  city: '',
-};
-
-function emptyForm(): FormState {
-  return {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    lifecycleStage: '',
-    companyId: '',
-    ownerIds: [],
-    isRedFlagged: false,
-    comment: '',
-    address: EMPTY_ADDRESS,
-    customProperties: {},
-  };
-}
-
-function fromLead(lead: LeadRow): FormState {
-  return {
-    firstName: lead.firstName,
-    lastName: lead.lastName,
-    email: lead.email ?? '',
-    phone: lead.phone ?? '',
-    lifecycleStage: lead.lifecycleStage ?? '',
-    companyId: lead.companyId ?? '',
-    ownerIds: lead.ownerIds,
-    isRedFlagged: lead.isRedFlagged,
-    comment: lead.comment ?? '',
-    address: {
-      country: lead.address?.country ?? DEFAULT_COUNTRY,
-      streetNumber: lead.address?.streetNumber ?? '',
-      street: lead.address?.street ?? '',
-      line2: lead.address?.line2,
-      postalCode: lead.address?.postalCode ?? '',
-      city: lead.address?.city ?? '',
-      region: lead.address?.region,
-    },
-    customProperties: { ...(lead.customProperties ?? {}) },
-  };
-}
-
 type DomainMatch = { _id: Id<'companies'>; name: string };
-
-const identitySchema = z.object({
-  firstName: z.string().trim().min(1, 'Le prénom est requis.'),
-  lastName: z.string().trim().min(1, 'Le nom est requis.'),
-  email: z
-    .string()
-    .trim()
-    .min(1, 'L’e-mail est requis.')
-    .pipe(z.email({ error: EMAIL_ERROR_MESSAGES.invalid })),
-});
-type Identity = z.infer<typeof identitySchema>;
-type RequiredField = keyof Identity;
-type FieldErrors = Partial<Record<RequiredField, string>>;
-
-function toFieldErrors(error: z.ZodError<Identity>): FieldErrors {
-  const { fieldErrors } = z.flattenError(error);
-  const errors: FieldErrors = {};
-  for (const field of Object.keys(identitySchema.shape) as RequiredField[]) {
-    const message = fieldErrors[field]?.[0];
-    if (message) errors[field] = message;
-  }
-  return errors;
-}
 
 export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
   const isEdit = !!lead;
@@ -302,49 +219,7 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
         </DialogHeader>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-1">
-            <Label htmlFor="firstName">Prénom *</Label>
-            <Input
-              id="firstName"
-              value={form.firstName}
-              onChange={(e) => setField('firstName', e.target.value)}
-              invalid={!!fieldErrors.firstName}
-              aria-invalid={!!fieldErrors.firstName}
-              aria-describedby={fieldErrors.firstName ? 'firstName-error' : undefined}
-            />
-            {fieldErrors.firstName ? (
-              <HelperText id="firstName-error" variant="error">
-                {fieldErrors.firstName}
-              </HelperText>
-            ) : null}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="lastName">Nom *</Label>
-            <Input
-              id="lastName"
-              value={form.lastName}
-              onChange={(e) => setField('lastName', e.target.value)}
-              invalid={!!fieldErrors.lastName}
-              aria-invalid={!!fieldErrors.lastName}
-              aria-describedby={fieldErrors.lastName ? 'lastName-error' : undefined}
-            />
-            {fieldErrors.lastName ? (
-              <HelperText id="lastName-error" variant="error">
-                {fieldErrors.lastName}
-              </HelperText>
-            ) : null}
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="email">E-mail *</Label>
-            <EmailInput
-              id="email"
-              value={form.email}
-              onChange={(e) => setField('email', e.target.value)}
-              error={fieldErrors.email ?? (form.email ? validateEmail(form.email) : null)}
-              errorId="email-error"
-            />
-          </div>
+          <LeadIdentityFields form={form} setField={setField} fieldErrors={fieldErrors} />
           <div className="space-y-1">
             <Label htmlFor="phone">Téléphone</Label>
             <PhoneInput

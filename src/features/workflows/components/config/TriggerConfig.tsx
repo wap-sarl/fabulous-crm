@@ -22,7 +22,7 @@ import type {
   WorkflowTrigger,
 } from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
-import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterBuilder';
+import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterGroupsEditor';
 import { countActiveRules, emptyAdvancedFilter } from '../../../filters/lib/advancedFilter';
 import { LEAD_FILTER_FIELDS } from '../../../leads/lib/leadFilters';
 import { useLeadFieldCatalog } from '../../../leads/hooks/useLeadFieldCatalog';

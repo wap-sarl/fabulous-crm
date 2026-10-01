@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import type { TimelineEvent } from '../../convex/features/timeline/queries';
+import type { TimelineEvent } from '../../convex/lib/timeline/events';
 import type { TimelineKind } from '../../convex/_lib/validators/timeline';
 import { asIdentity, createTestConvex, seedEmployee } from './helpers';
 

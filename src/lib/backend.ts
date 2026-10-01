@@ -28,7 +28,7 @@ export type {
 } from '../../convex/_lib/validators/forms';
 export { FORM_STANDARD_FIELDS, formFieldKey } from '../../convex/_lib/validators/forms';
 export type { TimelineKind } from '../../convex/_lib/validators/timeline';
-export type { TimelineEvent } from '../../convex/features/timeline/queries';
+export type { TimelineEvent } from '../../convex/lib/timeline/events';
 export type { DuplicateReason } from '../../convex/_lib/validators/duplicates';
 export type { DuplicateLeadSummary } from '../../convex/features/duplicates/queries';
 export type { AttachmentEntityType } from '../../convex/_lib/validators/attachments';

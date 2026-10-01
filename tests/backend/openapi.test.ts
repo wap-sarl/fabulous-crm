@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import SwaggerParser from '@apidevtools/swagger-parser';
-import { API_ROUTE_TABLE } from '../../convex/features/api/routes';
+import { API_ROUTE_TABLE } from '../../convex/lib/api/routeTable';
 import { openapiDocument } from '../../convex/lib/api/openapi.generated';
 import { createTestConvex } from './helpers';
 
