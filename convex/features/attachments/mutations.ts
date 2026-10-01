@@ -1,3 +1,4 @@
+import { follows, nonNegativeSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
@@ -33,7 +34,7 @@ async function requireEntity(
 }
 
 function assertSize(size: number, max: number): void {
-  if (!Number.isFinite(size) || size < 0) throw refusal('invalid_file_size');
+  if (!follows(nonNegativeSchema, size)) throw refusal('invalid_file_size');
   if (size > max) throw refusal('attachment_too_large', { reason: String(max) });
 }
 

@@ -1,4 +1,9 @@
-import { currencyCodeSchema, follows } from '../../_lib/validators/fields';
+import {
+  currencyCodeSchema,
+  dayDateSchema,
+  follows,
+  nonNegativeSchema,
+} from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { PropertyValue } from '../../_lib/validators/properties';
@@ -142,8 +147,6 @@ async function promoteLeadOnWin(ctx: MutationCtx, deal: Doc<'deals'>): Promise<v
   }
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
 /** Field-level checks shared by create and update; throws `invalid_deal: <field>`. */
 export async function validateDealFields(
   ctx: MutationCtx,
@@ -158,7 +161,7 @@ export async function validateDealFields(
   },
 ): Promise<void> {
   if (fields.title !== undefined && !fields.title.trim()) throw refusal('deal_title_required');
-  if (fields.amount !== undefined && (!Number.isFinite(fields.amount) || fields.amount < 0)) {
+  if (!follows(nonNegativeSchema.optional(), fields.amount)) {
     throw refusal('invalid_deal', { reason: 'amount' });
   }
   if (
@@ -167,7 +170,7 @@ export async function validateDealFields(
   ) {
     throw refusal('invalid_deal', { reason: 'currency' });
   }
-  if (fields.expectedCloseDate !== undefined && !DATE_RE.test(fields.expectedCloseDate)) {
+  if (!follows(dayDateSchema.optional(), fields.expectedCloseDate)) {
     throw refusal('invalid_deal', { reason: 'expectedCloseDate' });
   }
   if (fields.ownerIds) await cleanOwnerIds(ctx, fields.ownerIds);

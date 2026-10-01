@@ -7,26 +7,22 @@ import {
   leadAdvancedFilterValidator,
   type LeadAdvancedFilter,
 } from '../../_lib/validators/filters';
+import { follows } from '../../_lib/validators/fields';
 import {
-  MAX_DECAY_HALF_LIFE_DAYS,
-  MAX_LEAD_SCORE,
-  MIN_LEAD_SCORE,
+  decayHalfLifeSchema,
+  leadScoreSchema,
+  scoringPointsSchema,
   validateScoringCriteria,
 } from '../../_lib/validators/scoring';
 import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
 import { ensureScoringState, loadScoringRules, startScoreRecompute } from '../../lib/scoring/score';
 
 function checkPoints(points: number): void {
-  if (!Number.isInteger(points) || points === 0 || Math.abs(points) > MAX_LEAD_SCORE) {
-    throw refusal('invalid_scoring_points');
-  }
+  if (!follows(scoringPointsSchema, points)) throw refusal('invalid_scoring_points');
 }
 
 function checkDecay(days: number | undefined): void {
-  if (days === undefined) return;
-  if (!Number.isFinite(days) || days <= 0 || days > MAX_DECAY_HALF_LIFE_DAYS) {
-    throw refusal('invalid_scoring_decay');
-  }
+  if (!follows(decayHalfLifeSchema.optional(), days)) throw refusal('invalid_scoring_decay');
 }
 
 function checkCriteria(criteria: LeadAdvancedFilter): void {
@@ -186,13 +182,7 @@ export const startScoreSimulation = settingsMutation({
   args: { threshold: v.number() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (
-      !Number.isInteger(args.threshold) ||
-      args.threshold < MIN_LEAD_SCORE ||
-      args.threshold > MAX_LEAD_SCORE
-    ) {
-      throw refusal('invalid_scoring_threshold');
-    }
+    if (!follows(leadScoreSchema, args.threshold)) throw refusal('invalid_scoring_threshold');
     const state = await ensureScoringState(ctx);
     const stamp = Date.now();
     await ctx.db.patch(state._id, {

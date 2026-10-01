@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Doc, Id } from '@crm/lib/backend';
-import { registrationSchemeFor, validateAddress, vatSchemeFor } from '@crm/lib/backend';
+import {
+  countSchema,
+  follows,
+  registrationSchemeFor,
+  validateAddress,
+  vatSchemeFor,
+} from '@crm/lib/backend';
 import {
   Button,
   Combobox,
@@ -156,7 +162,7 @@ export function CompanyFormDialog({
       }
     }
     const headcount = form.headcount.trim() === '' ? undefined : Number(form.headcount);
-    if (headcount !== undefined && (!Number.isInteger(headcount) || headcount < 0)) {
+    if (!follows(countSchema.optional(), headcount)) {
       toast.error('Effectif invalide.');
       return;
     }

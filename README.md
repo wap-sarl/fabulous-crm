@@ -374,7 +374,7 @@ Les règles que le code suit, chacune gardée par un test :
   qu'il est : une anomalie.
 - **Une règle que l'interface et le backend vérifient tous deux s'écrit une
   fois**, en zod, dans `convex/_lib/validators/fields.ts` (adresse e-mail, URL,
-  couleur, pays, devise, entier borné).
+  couleur, pays, devise, entier borné ou positif, quantité non négative, jour).
   Ce qu'une étape de workflow doit contenir avant l'activation est dans
   `convex/_lib/validators/workflowSteps.ts` : l'éditeur l'affiche sous
   l'étape, le backend refuse l'activation avec la même phrase

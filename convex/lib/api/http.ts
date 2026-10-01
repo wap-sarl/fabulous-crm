@@ -1,3 +1,4 @@
+import { boundedInt, follows } from '../../_lib/validators/fields';
 import type { Doc } from '../../_generated/dataModel';
 import type { ActionCtx } from '../../_generated/server';
 import type { ApiScope } from '../../_lib/validators/apiKeys';
@@ -64,7 +65,7 @@ const API_PAGE_LIMIT_MAX = 100;
 export function paginationOptsOf(url: URL): { numItems: number; cursor: string | null } {
   const raw = url.searchParams.get('limit');
   const numItems = raw === null ? API_PAGE_LIMIT_DEFAULT : Number(raw);
-  if (!Number.isInteger(numItems) || numItems < 1 || numItems > API_PAGE_LIMIT_MAX) {
+  if (!follows(boundedInt(1, API_PAGE_LIMIT_MAX), numItems)) {
     throw apiError(
       400,
       'invalid_limit',

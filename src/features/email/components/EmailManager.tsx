@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { api, emailSchema, follows } from '@crm/lib/backend';
+import { api, emailSchema, follows, positiveIntSchema } from '@crm/lib/backend';
 import {
   Button,
   Card,
@@ -100,7 +100,7 @@ export function EmailManager() {
       setError('Le serveur SMTP nécessite au minimum un hôte et un port.');
       return;
     }
-    if (port !== undefined && (!Number.isInteger(port) || port <= 0)) {
+    if (!follows(positiveIntSchema.optional(), port)) {
       setError('Le port SMTP doit être un entier positif.');
       return;
     }

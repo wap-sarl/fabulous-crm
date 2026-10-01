@@ -1,4 +1,4 @@
-import { follows, httpUrlSchema } from '../../_lib/validators/fields';
+import { follows, httpUrlSchema, positiveIntSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
@@ -155,11 +155,7 @@ export const createCampaign = employeeMutation({
           });
         }
         // Template email: a positive integer Brevo template id is required.
-        if (
-          !args.brevoTemplateId ||
-          !Number.isInteger(args.brevoTemplateId) ||
-          args.brevoTemplateId <= 0
-        ) {
+        if (!follows(positiveIntSchema, args.brevoTemplateId)) {
           throw refusal('brevo_template_invalid', { message: 'ID de template Brevo invalide.' });
         }
         brevoTemplateId = args.brevoTemplateId;

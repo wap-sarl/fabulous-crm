@@ -1,4 +1,6 @@
 import { type Infer, v } from 'convex/values';
+import { z } from 'zod';
+import { boundedInt } from './fields';
 import {
   criteriaUsesRelativeDates,
   isActiveRule,
@@ -10,7 +12,18 @@ import { logsValidator } from './shared';
 /** Scores are clamped to this range; thresholds live inside it too. */
 export const MIN_LEAD_SCORE = 0;
 export const MAX_LEAD_SCORE = 100;
-export const MAX_DECAY_HALF_LIFE_DAYS = 365;
+const MAX_DECAY_HALF_LIFE_DAYS = 365;
+
+/** A score: what a lead holds, what a threshold names. */
+export const leadScoreSchema = boundedInt(MIN_LEAD_SCORE, MAX_LEAD_SCORE);
+
+/** The points of a rule: a whole number within the score range on either side, never zero. */
+export const scoringPointsSchema = boundedInt(-MAX_LEAD_SCORE, MAX_LEAD_SCORE).refine(
+  (points) => points !== 0,
+);
+
+/** A half-life in days: more than nothing, a year at most. */
+export const decayHalfLifeSchema = z.number().gt(0).max(MAX_DECAY_HALF_LIFE_DAYS);
 
 /** `points` may be negative; `decayHalfLifeDays` halves them every N days since the freshest behavioural timestamp the criteria reference, and a rule with none keeps its full points. */
 export const scoringRuleValidator = v.object({

@@ -22,7 +22,8 @@ import {
   MAX_LIFECYCLE_STAGES,
   lifecycleStageValidator,
 } from '../../_lib/validators/lifecycle';
-import { MAX_LEAD_SCORE, MIN_LEAD_SCORE } from '../../_lib/validators/scoring';
+import { follows } from '../../_lib/validators/fields';
+import { leadScoreSchema } from '../../_lib/validators/scoring';
 
 /** For the branding assets (logo, favicon): the `storageId` the upload returns is then passed to `updateConfig`. */
 export const generateUploadUrl = settingsMutation({
@@ -146,9 +147,7 @@ export const updateLifecycleConfig = settingsMutation({
     if (args.scorePromotion) {
       const { stage, minScore } = args.scorePromotion;
       if (!keys.has(stage)) throw refusal('lifecycle_invalid_promotion_stage');
-      if (!Number.isInteger(minScore) || minScore < MIN_LEAD_SCORE || minScore > MAX_LEAD_SCORE) {
-        throw refusal('lifecycle_invalid_promotion_score');
-      }
+      if (!follows(leadScoreSchema, minScore)) throw refusal('lifecycle_invalid_promotion_score');
     }
 
     await ctx.db.patch(cfg._id, {

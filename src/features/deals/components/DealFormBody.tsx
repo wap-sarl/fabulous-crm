@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
-import { api } from '@crm/lib/backend';
+import { api, follows, nonNegativeSchema } from '@crm/lib/backend';
 import type { DealRow, Doc, Id, PropertyValue } from '@crm/lib/backend';
 import { DEFAULT_CURRENCY, defaultPipelineStage, stageRequiresTag } from '@crm/lib/backend';
 import {
@@ -125,7 +125,7 @@ export function DealFormBody({
       return;
     }
     const amount = form.amount.trim() === '' ? undefined : Number(form.amount);
-    if (amount !== undefined && (!Number.isFinite(amount) || amount < 0)) {
+    if (!follows(nonNegativeSchema.optional(), amount)) {
       toast.error('Montant invalide.');
       return;
     }

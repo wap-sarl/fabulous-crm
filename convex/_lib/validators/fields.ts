@@ -20,6 +20,18 @@ export const currencyCodeSchema = z.string().regex(/^[A-Z]{3}$/);
 /** A whole number within bounds, as the settings keep their limits. */
 export const boundedInt = (min: number, max: number) => z.number().int().min(min).max(max);
 
+/** A whole number from 1: a number of rows, an id a provider gives, a port. */
+export const positiveIntSchema = z.int().min(1);
+
+/** A whole number from 0: a number of people. */
+export const countSchema = z.int().min(0);
+
+/** A quantity that cannot be negative: an amount, a size. */
+export const nonNegativeSchema = z.number().min(0);
+
+/** A day as `YYYY-MM-DD`. */
+export const dayDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+
 /** Whether a value follows a rule: the one question most callers ask. */
 export const follows = (schema: z.ZodType, value: unknown): boolean =>
   schema.safeParse(value).success;

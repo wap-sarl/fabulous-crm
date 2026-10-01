@@ -1,3 +1,4 @@
+import { follows, positiveIntSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
@@ -81,7 +82,7 @@ export const createJob = employeeMutation({
   handler: async (ctx, args) => {
     requireImportAccess(ctx.visibility, args.entity);
     if (args.headers.length !== args.targets.length) throw refusal('mapping_mismatch');
-    if (!Number.isInteger(args.totalRows) || args.totalRows < 1) throw refusal('import_empty');
+    if (!follows(positiveIntSchema, args.totalRows)) throw refusal('import_empty');
     if (args.totalRows > IMPORT_MAX_ROWS) throw refusal('import_too_large');
     // Deals land in the default pipeline, which otherwise only exists once someone opened the deals page.
     if (args.entity === 'deal') await ensureDefaultPipeline(ctx, ctx.userId);
