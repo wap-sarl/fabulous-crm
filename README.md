@@ -375,6 +375,10 @@ Les règles que le code suit, chacune gardée par un test :
 - **Une règle que l'interface et le backend vérifient tous deux s'écrit une
   fois**, en zod, dans `convex/_lib/validators/fields.ts` (adresse e-mail, URL,
   couleur, pays, devise, entier borné).
+- **Ce que le déploiement compte (un plafond) se lit avec `ctx.unscopedDb`**,
+  en lecture seule et hors des règles de visibilité ; les lignes rendues à
+  l'appelant passent toujours par `ctx.db`
+  (`tests/backend/dynamicListCap.test.ts`).
 
 ## Développement
 

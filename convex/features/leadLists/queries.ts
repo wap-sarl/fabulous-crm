@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { employeeQuery } from '../../_lib/auth';
 import { leadListMemberCounts } from '../../lib/leadLists/members';
-import { DEFAULT_MAX_DYNAMIC_LISTS } from '../../_lib/validators/leadLists';
+import { dynamicListLimits } from '../../lib/leadLists/dynamic';
 
 /** Member counts come from the aggregate: the junction table grows as leads × lists, and scanning it would hit Convex's read limit (#14). */
 export const listLeadLists = employeeQuery({
@@ -60,12 +60,5 @@ export const listLeadLists = employeeQuery({
 export const getListLimits = employeeQuery({
   args: {},
   returns: v.object({ maxDynamicLists: v.number(), dynamicCount: v.number() }),
-  handler: async (ctx) => {
-    const lists = await ctx.db.query('leadLists').collect();
-    const cfg = await ctx.db.query('appConfig').first();
-    return {
-      maxDynamicLists: cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS,
-      dynamicCount: lists.filter((l) => l.kind === 'dynamic').length,
-    };
-  },
+  handler: (ctx) => dynamicListLimits(ctx),
 });

@@ -46,12 +46,15 @@ async function requireRole(
 
 const isEmployee = (u: Doc<'users'>) => u.type === 'employee';
 
+/** Read-only and past the row-level rules: for what the deployment counts (a cap), never for rows given to the caller. */
+const unscoped = (ctx: DbCtx): QueryCtx['db'] => ctx.db;
+
 export const employeeQuery = customQuery(
   query,
   customCtx(async (ctx) => {
     const session = await requireRole(ctx, isEmployee, 'employees only');
     const visibility = await loadVisibility(ctx, session.user);
-    return { ...session, visibility, db: scopedReader(ctx, visibility) };
+    return { ...session, visibility, db: scopedReader(ctx, visibility), unscopedDb: unscoped(ctx) };
   }),
 );
 
@@ -67,7 +70,7 @@ export const settingsQuery = customQuery(
   query,
   customCtx(async (ctx) => {
     const session = await requireSettings(ctx);
-    return { ...session, db: scopedReader(ctx, session.visibility) };
+    return { ...session, db: scopedReader(ctx, session.visibility), unscopedDb: unscoped(ctx) };
   }),
 );
 
@@ -76,7 +79,7 @@ export const employeeMutation = customMutation(
   customCtx(async (ctx) => {
     const session = await requireRole(ctx, isEmployee, 'employees only');
     const visibility = await loadVisibility(ctx, session.user);
-    return { ...session, visibility, db: scopedWriter(ctx, visibility) };
+    return { ...session, visibility, db: scopedWriter(ctx, visibility), unscopedDb: unscoped(ctx) };
   }),
 );
 
@@ -84,7 +87,7 @@ export const settingsMutation = customMutation(
   mutation,
   customCtx(async (ctx) => {
     const session = await requireSettings(ctx);
-    return { ...session, db: scopedWriter(ctx, session.visibility) };
+    return { ...session, db: scopedWriter(ctx, session.visibility), unscopedDb: unscoped(ctx) };
   }),
 );
 

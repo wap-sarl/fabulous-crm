@@ -3,12 +3,9 @@ import { v } from 'convex/values';
 import { employeeMutation } from '../../_lib/auth';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
 import { deleteListMember } from '../../lib/leadLists/members';
-import {
-  DEFAULT_MAX_DYNAMIC_LISTS,
-  validateDynamicListCriteria,
-} from '../../_lib/validators/leadLists';
+import { validateDynamicListCriteria } from '../../_lib/validators/leadLists';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
-import { startDynamicListRecalc } from '../../lib/leadLists/dynamic';
+import { dynamicListLimits, startDynamicListRecalc } from '../../lib/leadLists/dynamic';
 
 export const createLeadList = employeeMutation({
   args: {
@@ -25,12 +22,8 @@ export const createLeadList = employeeMutation({
     if (kind === 'dynamic') {
       const error = validateDynamicListCriteria(args.criteria);
       if (error) throw refusalFrom(error, 'invalid_list_criteria');
-      const lists = await ctx.db.query('leadLists').collect();
-      const cfg = await ctx.db.query('appConfig').first();
-      const cap = cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS;
-      if (lists.filter((l) => l.kind === 'dynamic').length >= cap) {
-        throw refusal('dynamic_list_cap_reached');
-      }
+      const { maxDynamicLists, dynamicCount } = await dynamicListLimits(ctx);
+      if (dynamicCount >= maxDynamicLists) throw refusal('dynamic_list_cap_reached');
     } else if (args.criteria) {
       throw refusal('list_not_dynamic');
     }
