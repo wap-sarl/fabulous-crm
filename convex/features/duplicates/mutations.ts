@@ -7,7 +7,7 @@ import { employeeMutation, settingsMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { addressValidator } from '../../schema';
 import { computeChanges, logAudit, updateAuditFields } from '../../lib/audit/log';
-import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { isNotDeleted } from '../../lib/shared/db';
 import {
   insertLifecycleHistory,
   loadLifecycleConfig,
@@ -174,7 +174,7 @@ export const mergeLeads = employeeMutation({
       ? hasViewMarks(survivor) && NO_VIEW_MARKS
       : mergedViewMarks(survivor, absorbed);
 
-    const changes = computeChanges(survivor, filterUndefined(updates));
+    const changes = computeChanges(survivor, updates);
     await ctx.db.patch(survivor._id, {
       ...updates,
       ...viewMarks,

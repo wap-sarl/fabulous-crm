@@ -187,6 +187,73 @@ describe('workflows: editing', () => {
   });
 });
 
+describe('workflows: an edit that clears', () => {
+  const criteria = {
+    combinator: 'and' as const,
+    groups: [
+      {
+        combinator: 'and' as const,
+        rules: [
+          {
+            field: { kind: 'standard' as const, field: 'lifecycleStage' as const },
+            operator: 'equals' as const,
+            value: 'customer',
+          },
+        ],
+      },
+    ],
+  };
+
+  test('an active workflow cannot lose its first step or its criteria: a cleared field is a change like another', async () => {
+    const w = await setup();
+    const full = { ...draft(), description: 'Relance des clients', enrollmentCriteria: criteria };
+    const workflowId = await w.as.mutation(fn.createWorkflow, full);
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'active' });
+
+    for (const cleared of ['startNodeId', 'enrollmentCriteria'] as const) {
+      const { [cleared]: _dropped, ...rest } = full;
+      await expect(w.as.mutation(fn.updateWorkflow, { workflowId, ...rest })).rejects.toMatchObject(
+        {
+          data: { code: 'workflow_pause_first' },
+        },
+      );
+    }
+    expect(await get(w, workflowId)).toMatchObject({
+      startNodeId: 'n1',
+      enrollmentCriteria: criteria,
+    });
+
+    // The description is not structural: it can be cleared while the workflow runs, and the journal says so.
+    const { description: _description, ...withoutDescription } = full;
+    await w.as.mutation(fn.updateWorkflow, { workflowId, ...withoutDescription });
+    expect((await get(w, workflowId)).description).toBeUndefined();
+    expect((await auditsOf(w, workflowId)).at(-1)).toMatchObject({
+      action: 'update',
+      metadata: { changes: { description: { old: 'Relance des clients', new: null } } },
+    });
+  });
+
+  test('a paused workflow can lose them, and the journal says what was cleared', async () => {
+    const w = await setup();
+    const full = { ...draft(), enrollmentCriteria: criteria };
+    const workflowId = await w.as.mutation(fn.createWorkflow, full);
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'active' });
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'paused' });
+
+    const { startNodeId: _start, enrollmentCriteria: _criteria, ...bare } = full;
+    await w.as.mutation(fn.updateWorkflow, { workflowId, ...bare });
+    const workflow = await get(w, workflowId);
+    expect(workflow.startNodeId).toBeUndefined();
+    expect(workflow.enrollmentCriteria).toBeUndefined();
+    expect((await auditsOf(w, workflowId)).at(-1)?.metadata).toEqual({
+      changes: {
+        startNodeId: { old: 'n1', new: null },
+        enrollmentCriteria: { old: criteria, new: null },
+      },
+    });
+  });
+});
+
 describe('workflows: pause and resume', () => {
   test('a pause and an activation are audited; the status it already has changes nothing', async () => {
     const w = await setup();

@@ -12,7 +12,6 @@ import {
   logAudit,
   updateAuditFields,
 } from '../../lib/audit/log';
-import { filterUndefined } from '../../lib/shared/db';
 import { blank, normalizeIdentifiers } from '../../lib/companies/lookup';
 import { requireValidAddress } from '../../lib/addresses/validation';
 
@@ -116,7 +115,7 @@ export const updateCompany = employeeMutation({
       );
     }
 
-    const changes = computeChanges(company, filterUndefined(updates));
+    const changes = computeChanges(company, updates);
     const renamed = typeof updates.name === 'string' && updates.name !== company.name;
     await ctx.db.patch(companyId, { ...updates, ...updateAuditFields(ctx.userId) });
 

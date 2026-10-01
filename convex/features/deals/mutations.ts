@@ -22,7 +22,7 @@ import {
   logAudit,
   updateAuditFields,
 } from '../../lib/audit/log';
-import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { isNotDeleted } from '../../lib/shared/db';
 import { stageTotals, statusTotals } from '../../lib/deals/aggregates';
 import {
   createDealRecord,
@@ -154,16 +154,9 @@ export const updatePipeline = settingsMutation({
       }
       updates.isDefault = true;
     }
-    const changes = computeChanges(pipeline, filterUndefined(updates));
-    // `computeChanges` ignores undefined values, so a cleared graph (stored as an absent field) is tracked here.
-    const graphChanged =
-      ('transitions' in updates &&
-        JSON.stringify(updates.transitions ?? null) !==
-          JSON.stringify(pipeline.transitions ?? null)) ||
-      ('layout' in updates &&
-        JSON.stringify(updates.layout ?? null) !== JSON.stringify(pipeline.layout ?? null));
+    const changes = computeChanges(pipeline, updates);
     await ctx.db.patch(pipeline._id, { ...updates, ...updateAuditFields(ctx.userId) });
-    if (changes || graphChanged) {
+    if (changes) {
       await logAudit({
         ctx,
         userId: ctx.userId,
@@ -266,7 +259,7 @@ export const updateDeal = employeeMutation({
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(rest)) {
       if (value === undefined) continue;
-      // null → remove the field; `filterUndefined` keeps null so patch clears it.
+      // null → remove the field: patching undefined clears it.
       updates[key] = value === null ? undefined : value;
     }
     if (typeof updates.title === 'string') updates.title = updates.title.trim();
@@ -278,7 +271,7 @@ export const updateDeal = employeeMutation({
       );
     }
 
-    const changes = computeChanges(deal, filterUndefined(updates));
+    const changes = computeChanges(deal, updates);
     await ctx.db.patch(dealId, { ...updates, ...updateAuditFields(ctx.userId) });
     if (changes) {
       await logAudit({

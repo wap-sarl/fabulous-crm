@@ -7,7 +7,6 @@ import { activityTypeValidator } from '../../_lib/validators/activities';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties/definitions';
 import { computeChanges, logAudit, updateAuditFields } from '../../lib/audit/log';
-import { filterUndefined } from '../../lib/shared/db';
 import {
   createActivityRecord,
   loadActivity,
@@ -145,7 +144,7 @@ export const updateActivity = employeeMutation({
         customProperties,
       );
     }
-    const changes = computeChanges(activity, filterUndefined(updates));
+    const changes = computeChanges(activity, updates);
     await ctx.db.patch(activityId, { ...updates, ...updateAuditFields(ctx.userId) });
     if (changes) {
       await logAudit({
