@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
@@ -33,7 +34,7 @@ export const createCompany = employeeMutation({
   args: companyFieldArgs,
   handler: async (ctx, args) => {
     const name = args.name.trim();
-    if (!name) throw new Error('company_name_required');
+    if (!name) throw refusal('company_name_required');
     const ids = await normalizeIdentifiers(ctx, args);
 
     const companyId = await ctx.db.insert('companies', {
@@ -70,12 +71,12 @@ export const updateCompany = employeeMutation({
   handler: async (ctx, args) => {
     const { companyId, ...rest } = args;
     const company = await ctx.db.get(companyId);
-    if (!company || company.deletedAt != null) throw new Error('company_not_found');
+    if (!company || company.deletedAt != null) throw refusal('company_not_found');
 
     const updates: Record<string, unknown> = {};
     if (rest.name !== undefined) {
       const name = rest.name.trim();
-      if (!name) throw new Error('company_name_required');
+      if (!name) throw refusal('company_name_required');
       updates.name = name;
     }
     // Identifiers are normalized together: the country decides the scheme the registration number is validated against.
@@ -144,7 +145,7 @@ export const deleteCompany = employeeMutation({
   args: { companyId: v.id('companies') },
   handler: async (ctx, args) => {
     const company = await ctx.db.get(args.companyId);
-    if (!company || company.deletedAt != null) throw new Error('company_not_found');
+    if (!company || company.deletedAt != null) throw refusal('company_not_found');
     await ctx.db.patch(args.companyId, {
       deletedAt: Date.now(),
       ...updateAuditFields(ctx.userId),

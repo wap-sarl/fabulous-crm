@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { logAudit } from '../../lib/audit/log';
@@ -119,31 +120,31 @@ export const updateLifecycleConfig = settingsMutation({
     const cfg = await ctx.db.query('appConfig').first();
     if (!cfg) throw new Error('Config not initialized');
 
-    if (args.stages.length === 0) throw new Error('lifecycle_no_stages');
-    if (args.stages.length > MAX_LIFECYCLE_STAGES) throw new Error('lifecycle_too_many_stages');
+    if (args.stages.length === 0) throw refusal('lifecycle_no_stages');
+    if (args.stages.length > MAX_LIFECYCLE_STAGES) throw refusal('lifecycle_too_many_stages');
     const stages = args.stages.map((s) => ({ key: s.key, label: s.label.trim() }));
     const keys = new Set<string>();
     for (const stage of stages) {
-      if (!LIFECYCLE_STAGE_KEY_RE.test(stage.key)) throw new Error('lifecycle_invalid_key');
-      if (keys.has(stage.key)) throw new Error('lifecycle_duplicate_key');
-      if (!stage.label) throw new Error('lifecycle_empty_label');
+      if (!LIFECYCLE_STAGE_KEY_RE.test(stage.key)) throw refusal('lifecycle_invalid_key');
+      if (keys.has(stage.key)) throw refusal('lifecycle_duplicate_key');
+      if (!stage.label) throw refusal('lifecycle_empty_label');
       keys.add(stage.key);
     }
-    if (!keys.has(args.defaultStage)) throw new Error('lifecycle_invalid_default');
+    if (!keys.has(args.defaultStage)) throw refusal('lifecycle_invalid_default');
 
     const previous = await loadLifecycleConfig(ctx);
     for (const stage of previous.stages) {
       if (keys.has(stage.key)) continue;
       if ((await countLiveLeadsByLifecycleStage(ctx, stage.key)) > 0) {
-        throw new Error('lifecycle_stage_in_use');
+        throw refusal('lifecycle_stage_in_use');
       }
     }
 
     if (args.scorePromotion) {
       const { stage, minScore } = args.scorePromotion;
-      if (!keys.has(stage)) throw new Error('lifecycle_invalid_promotion_stage');
+      if (!keys.has(stage)) throw refusal('lifecycle_invalid_promotion_stage');
       if (!Number.isInteger(minScore) || minScore < MIN_LEAD_SCORE || minScore > MAX_LEAD_SCORE) {
-        throw new Error('lifecycle_invalid_promotion_score');
+        throw refusal('lifecycle_invalid_promotion_score');
       }
     }
 

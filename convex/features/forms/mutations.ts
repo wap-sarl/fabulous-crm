@@ -1,3 +1,4 @@
+import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { settingsMutation } from '../../_lib/auth';
@@ -19,7 +20,7 @@ async function checkCustomTargets(ctx: MutationCtx, fields: FormFieldInput[]): P
     if (field.target.kind !== 'custom') continue;
     const def = defsById.get(field.target.propertyDefId);
     if (!def || def.deletedAt !== undefined || def.computed) {
-      throw new Error('form_unknown_property');
+      throw refusal('form_unknown_property');
     }
   }
 }
@@ -35,7 +36,7 @@ export const createForm = settingsMutation({
   },
   handler: async (ctx, args) => {
     const error = validateFormShape(args);
-    if (error) throw new Error(error);
+    if (error) throw refusalFrom(error, 'invalid_form');
     await checkCustomTargets(ctx, args.fields);
     const formId = await ctx.db.insert('forms', {
       name: args.name.trim(),
@@ -69,7 +70,7 @@ export const updateForm = settingsMutation({
   },
   handler: async (ctx, args) => {
     const form = await ctx.db.get(args.formId);
-    if (!form || !isNotDeleted(form)) throw new Error('form_not_found');
+    if (!form || !isNotDeleted(form)) throw refusal('form_not_found');
     const next = {
       name: args.name ?? form.name,
       fields: args.fields ?? form.fields,
@@ -78,7 +79,7 @@ export const updateForm = settingsMutation({
       consentText: args.consentText ?? form.consentText,
     };
     const error = validateFormShape(next);
-    if (error) throw new Error(error);
+    if (error) throw refusalFrom(error, 'invalid_form');
     if (args.fields) await checkCustomTargets(ctx, args.fields);
     await ctx.db.patch(args.formId, {
       name: next.name.trim(),
@@ -110,7 +111,7 @@ export const deleteForm = settingsMutation({
   args: { formId: v.id('forms') },
   handler: async (ctx, args) => {
     const form = await ctx.db.get(args.formId);
-    if (!form || !isNotDeleted(form)) throw new Error('form_not_found');
+    if (!form || !isNotDeleted(form)) throw refusal('form_not_found');
     await ctx.db.patch(args.formId, {
       deletedAt: Date.now(),
       active: false,

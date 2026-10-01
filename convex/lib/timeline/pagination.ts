@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { IndexRange, PaginationOptions, PaginationResult } from 'convex/server';
 
 /** Window on a source's sort key: rows with `from <= key < before`. */
@@ -33,7 +34,7 @@ function decodeCursor(cursor: string | null): TimelineCursor {
       done: Array.isArray(parsed.done) ? parsed.done.filter((k) => typeof k === 'string') : [],
     };
   } catch {
-    throw new Error('timeline_invalid_cursor');
+    throw refusal('timeline_invalid_cursor');
   }
 }
 

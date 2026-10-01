@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
@@ -21,12 +22,12 @@ export const exportContactData = employeeAction({
       : null;
     if (!access) throw new Error('Unauthorized: settings access');
     // Out of the role's perimeter reads like a contact that does not exist, as everywhere else.
-    if (!access.visible) throw new Error('lead_not_found');
+    if (!access.visible) throw refusal('lead_not_found');
     const archive: ContactArchive | null = await ctx.runQuery(
       internal.features.rgpd.internal.collectContactData,
       { leadId },
     );
-    if (!archive) throw new Error('lead_not_found');
+    if (!archive) throw refusal('lead_not_found');
     const requestId: Id<'rgpdRequests'> = await ctx.runMutation(
       internal.features.rgpd.internal.recordAccess,
       { leadId, userId: access.userId, cut: archive.cut },

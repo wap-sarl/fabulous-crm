@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
@@ -54,7 +55,7 @@ const leadRowArgs = {
 
 function initialLifecycleStage(config: LifecycleConfig, requested: string | undefined): string {
   if (requested === undefined) return config.defaultStage;
-  if (lifecycleStageIndex(config, requested) === -1) throw new Error('unknown_lifecycle_stage');
+  if (lifecycleStageIndex(config, requested) === -1) throw refusal('unknown_lifecycle_stage');
   return requested;
 }
 
@@ -139,7 +140,7 @@ export const updateLead = employeeMutation({
     const { leadId, email, customProperties, lifecycleStage, companyId, ...rest } = args;
     const lead = await ctx.db.get(leadId);
     if (!lead || lead.deletedAt != null) {
-      throw new Error('lead_not_found');
+      throw refusal('lead_not_found');
     }
 
     const updates: Record<string, unknown> = { ...rest };
@@ -233,7 +234,7 @@ async function softDeleteLead(
 export const deleteLead = employeeMutation({
   args: { leadId: v.id('leads') },
   handler: async (ctx, args) => {
-    if (!(await softDeleteLead(ctx, ctx.userId, args.leadId))) throw new Error('lead_not_found');
+    if (!(await softDeleteLead(ctx, ctx.userId, args.leadId))) throw refusal('lead_not_found');
   },
 });
 
@@ -266,8 +267,8 @@ export const importLeads = employeeMutation({
   handler: async (ctx, args) => {
     if (args.listId) {
       const list = await ctx.db.get(args.listId);
-      if (!list) throw new Error('list_not_found');
-      if (list.kind === 'dynamic') throw new Error('list_is_dynamic');
+      if (!list) throw refusal('list_not_found');
+      if (list.kind === 'dynamic') throw refusal('list_is_dynamic');
     }
     const errors: { index: number; error: string }[] = [];
     let created = 0;
@@ -304,11 +305,11 @@ export const createNote = employeeMutation({
   handler: async (ctx, args) => {
     const lead = await ctx.db.get(args.leadId);
     if (!lead || !isNotDeleted(lead)) {
-      throw new Error('lead_not_found');
+      throw refusal('lead_not_found');
     }
     const content = args.content.trim();
     if (!content) {
-      throw new Error('empty_note');
+      throw refusal('empty_note');
     }
 
     const noteId = await ctx.db.insert('leadNotes', {
@@ -341,7 +342,7 @@ export const updateNote = employeeMutation({
     const note = await liveNote(ctx, args.noteId);
     const content = args.content.trim();
     if (!content) {
-      throw new Error('empty_note');
+      throw refusal('empty_note');
     }
     return await editNote(ctx, ctx.userId, note, { content });
   },

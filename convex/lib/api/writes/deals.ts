@@ -1,3 +1,4 @@
+import { refusal } from '../../../_lib/refusal';
 import type { Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
 import { createDealRecord, moveDealToStage, validateDealFields } from '../../deals/records';
@@ -90,10 +91,10 @@ export async function updateDeal(
       { source: 'api', apiKeyId },
       { tags: body.stageTags, comment: body.stageComment },
     );
-    if (move.kind === 'unknown_stage') throw new Error('unknown_stage');
-    if (move.kind === 'unknown_tag') throw new Error('unknown_stage_tag');
-    if (move.kind === 'tag_required') throw new Error('stage_tag_required');
-    if (move.kind === 'forbidden') throw new Error('deal_transition_forbidden');
+    if (move.kind === 'unknown_stage') throw refusal('unknown_stage');
+    if (move.kind === 'unknown_tag') throw refusal('unknown_stage_tag');
+    if (move.kind === 'tag_required') throw refusal('stage_tag_required');
+    if (move.kind === 'forbidden') throw refusal('deal_transition_forbidden');
   }
   return toPublicDeal((await ctx.db.get(deal._id))!);
 }

@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
@@ -29,14 +30,14 @@ const activityFieldArgs = {
 async function requireTeam(ctx: MutationCtx, teamId: Id<'teams'> | undefined) {
   if (!teamId) return;
   const team = await ctx.db.get(teamId);
-  if (!team || team.deletedAt !== undefined) throw new Error('team_not_found');
+  if (!team || team.deletedAt !== undefined) throw refusal('team_not_found');
 }
 
 /** Plan an activity (task, meeting, call to make…). Defaults to the caller as owner. */
 export const createActivity = employeeMutation({
   args: activityFieldArgs,
   handler: async (ctx, args) => {
-    if (args.ownerId && !(await ctx.db.get(args.ownerId))) throw new Error('invalid_owner');
+    if (args.ownerId && !(await ctx.db.get(args.ownerId))) throw refusal('invalid_owner');
     await requireTeam(ctx, args.teamId);
     return await createActivityRecord(
       ctx,
@@ -67,7 +68,7 @@ export const logCall = employeeMutation({
     followUp: v.optional(v.object({ title: v.string(), dueAt: v.optional(v.number()) })),
   },
   handler: async (ctx, args) => {
-    if (!args.leadId && !args.companyId && !args.dealId) throw new Error('activity_link_required');
+    if (!args.leadId && !args.companyId && !args.dealId) throw refusal('activity_link_required');
     const links = { leadId: args.leadId, companyId: args.companyId, dealId: args.dealId };
     const callId = await createActivityRecord(
       ctx,
@@ -118,8 +119,8 @@ export const updateActivity = employeeMutation({
   handler: async (ctx, args) => {
     const { activityId, customProperties, ...rest } = args;
     const activity = await loadActivity(ctx, activityId);
-    if (rest.title !== undefined && !rest.title.trim()) throw new Error('activity_title_required');
-    if (rest.ownerId && !(await ctx.db.get(rest.ownerId))) throw new Error('invalid_owner');
+    if (rest.title !== undefined && !rest.title.trim()) throw refusal('activity_title_required');
+    if (rest.ownerId && !(await ctx.db.get(rest.ownerId))) throw refusal('invalid_owner');
     await requireTeam(ctx, rest.teamId ?? undefined);
     await requireActivityLinks(ctx, {
       leadId: rest.leadId ?? undefined,

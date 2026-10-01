@@ -1,6 +1,7 @@
 import type { LeadImportRow } from '@crm/lib/backend';
 import { isValidEmail, isValidPhone } from '@crm/lib/shared';
 import { addressFields, type ImportFieldDef, parseBool, parseOwners } from './fields';
+import { countryCodeSchema, follows } from '@crm/lib/backend';
 
 export const LEAD_FIELDS_GROUP = 'Champs du lead';
 const COMPANY_GROUP = 'Entreprise';
@@ -151,7 +152,9 @@ export const LEAD_FIELDS: readonly ImportFieldDef<LeadImportRow>[] = [
     aliases: ['pays entreprise', 'company country'],
     parse: (raw) => {
       const code = raw.trim().toUpperCase();
-      return /^[A-Z]{2}$/.test(code) ? { value: code } : { error: `code pays invalide « ${raw} »` };
+      return follows(countryCodeSchema, code)
+        ? { value: code }
+        : { error: `code pays invalide « ${raw} »` };
     },
     apply: (row, value) => {
       companyOf(row).country = value as string;

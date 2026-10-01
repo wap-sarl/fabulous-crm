@@ -24,6 +24,7 @@ import {
 } from '@crm/design-system';
 import { Plus, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
+import { errorLabel } from '@crm/lib/errors';
 
 const ERROR_MESSAGES: Record<string, string> = {
   lifecycle_no_stages: 'Au moins un statut est requis.',
@@ -135,9 +136,7 @@ export function LifecyclePage() {
       setDirty(false);
       toast.success('Statuts enregistrés.');
     } catch (e) {
-      const message = e instanceof Error ? e.message : '';
-      const known = Object.keys(ERROR_MESSAGES).find((k) => message.includes(k));
-      toast.error(known ? ERROR_MESSAGES[known] : 'Échec de l’enregistrement.');
+      toast.error(errorLabel(e, ERROR_MESSAGES, 'Échec de l’enregistrement.'));
     } finally {
       setSaving(false);
     }

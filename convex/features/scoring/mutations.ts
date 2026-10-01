@@ -1,3 +1,4 @@
+import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
@@ -17,20 +18,20 @@ import { ensureScoringState, loadScoringRules, startScoreRecompute } from '../..
 
 function checkPoints(points: number): void {
   if (!Number.isInteger(points) || points === 0 || Math.abs(points) > MAX_LEAD_SCORE) {
-    throw new Error('invalid_scoring_points');
+    throw refusal('invalid_scoring_points');
   }
 }
 
 function checkDecay(days: number | undefined): void {
   if (days === undefined) return;
   if (!Number.isFinite(days) || days <= 0 || days > MAX_DECAY_HALF_LIFE_DAYS) {
-    throw new Error('invalid_scoring_decay');
+    throw refusal('invalid_scoring_decay');
   }
 }
 
 function checkCriteria(criteria: LeadAdvancedFilter): void {
   const error = validateScoringCriteria(criteria);
-  if (error) throw new Error(error);
+  if (error) throw refusalFrom(error, 'invalid_scoring_criteria');
 }
 
 export const createScoringRule = settingsMutation({
@@ -44,7 +45,7 @@ export const createScoringRule = settingsMutation({
   },
   handler: async (ctx, args) => {
     const name = args.name.trim();
-    if (!name) throw new Error('scoring_name_required');
+    if (!name) throw refusal('scoring_name_required');
     checkPoints(args.points);
     checkDecay(args.decayHalfLifeDays);
     checkCriteria(args.criteria);
@@ -86,12 +87,12 @@ export const updateScoringRule = settingsMutation({
   },
   handler: async (ctx, args) => {
     const rule = await ctx.db.get(args.ruleId);
-    if (!rule) throw new Error('scoring_rule_not_found');
+    if (!rule) throw refusal('scoring_rule_not_found');
 
     const patch: Partial<typeof rule> = {};
     if (args.name !== undefined) {
       const name = args.name.trim();
-      if (!name) throw new Error('scoring_name_required');
+      if (!name) throw refusal('scoring_name_required');
       patch.name = name;
     }
     if (args.description !== undefined) patch.description = args.description.trim() || undefined;
@@ -153,10 +154,10 @@ export const reorderScoringRules = settingsMutation({
     const known = new Set(rules.map((r) => r._id));
     const seen = new Set<Id<'scoringRules'>>();
     for (const id of args.ruleIds) {
-      if (!known.has(id) || seen.has(id)) throw new Error('invalid_scoring_order');
+      if (!known.has(id) || seen.has(id)) throw refusal('invalid_scoring_order');
       seen.add(id);
     }
-    if (seen.size !== known.size) throw new Error('invalid_scoring_order');
+    if (seen.size !== known.size) throw refusal('invalid_scoring_order');
     for (const [index, id] of args.ruleIds.entries()) {
       await ctx.db.patch(id, { order: index });
     }
@@ -180,7 +181,7 @@ export const startScoreSimulation = settingsMutation({
       args.threshold < MIN_LEAD_SCORE ||
       args.threshold > MAX_LEAD_SCORE
     ) {
-      throw new Error('invalid_scoring_threshold');
+      throw refusal('invalid_scoring_threshold');
     }
     const state = await ensureScoringState(ctx);
     const stamp = Date.now();

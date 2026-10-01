@@ -194,15 +194,15 @@ describe('settings: the bounded numbers', () => {
 
   test('how long records, events and the journal are kept: one changed, the others stay', async () => {
     const { t, update } = await setup({ retention: { softDeleteDays: 10, auditDays: 100 } });
-    await expect(update({ retentionSoftDeleteDays: 0 })).rejects.toThrow(
-      'retention_out_of_bounds:softDeleteDays',
-    );
-    await expect(update({ retentionEventDays: 29 })).rejects.toThrow(
-      'retention_out_of_bounds:eventDays',
-    );
-    await expect(update({ retentionAuditDays: 3651 })).rejects.toThrow(
-      'retention_out_of_bounds:auditDays',
-    );
+    await expect(update({ retentionSoftDeleteDays: 0 })).rejects.toMatchObject({
+      data: { code: 'retention_out_of_bounds', reason: 'softDeleteDays' },
+    });
+    await expect(update({ retentionEventDays: 29 })).rejects.toMatchObject({
+      data: { code: 'retention_out_of_bounds', reason: 'eventDays' },
+    });
+    await expect(update({ retentionAuditDays: 3651 })).rejects.toMatchObject({
+      data: { code: 'retention_out_of_bounds', reason: 'auditDays' },
+    });
     await update({ retentionEventDays: 60 });
     expect((await stored(t)).retention).toEqual({
       softDeleteDays: 10,

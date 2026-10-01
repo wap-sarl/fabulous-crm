@@ -1,4 +1,5 @@
 'use node';
+import { refusalText } from '../../_lib/refusal';
 
 import { v } from 'convex/values';
 import { internalAction } from '../../_generated/server';
@@ -104,7 +105,7 @@ export const runWorkflowActionStep = internalAction({
       await complete(response.ok ? 'success' : 'failed', `HTTP ${response.status}`);
     } catch (error) {
       console.error('workflow action step crashed', error);
-      await complete('failed', error instanceof Error ? error.message : 'erreur inconnue');
+      await complete('failed', refusalText(error, 'erreur inconnue'));
     }
   },
 });

@@ -227,7 +227,7 @@ describe('attachments', () => {
         entityId: leadId,
         size: 2048,
       }),
-    ).rejects.toThrow('attachment_too_large:1024');
+    ).rejects.toMatchObject({ data: { code: 'attachment_too_large', reason: '1024' } });
 
     // A client that lied about the size still cannot register the blob; it is dropped.
     const storageId = await storeBlob(t, 2048);

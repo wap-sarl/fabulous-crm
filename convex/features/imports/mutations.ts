@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
@@ -26,12 +27,12 @@ export const saveMapping = employeeMutation({
   handler: async (ctx, args) => {
     requireImportAccess(ctx.visibility, args.entity);
     const name = args.name.trim();
-    if (!name) throw new Error('mapping_name_required');
-    if (args.headers.length !== args.targets.length) throw new Error('mapping_mismatch');
+    if (!name) throw refusal('mapping_name_required');
+    if (args.headers.length !== args.targets.length) throw refusal('mapping_mismatch');
     const now = Date.now();
     if (args.mappingId) {
       const mapping = await ctx.db.get(args.mappingId);
-      if (!mapping || mapping.entity !== args.entity) throw new Error('mapping_not_found');
+      if (!mapping || mapping.entity !== args.entity) throw refusal('mapping_not_found');
       await ctx.db.patch(args.mappingId, {
         name,
         headers: args.headers,
@@ -79,16 +80,16 @@ export const createJob = employeeMutation({
   returns: v.id('importJobs'),
   handler: async (ctx, args) => {
     requireImportAccess(ctx.visibility, args.entity);
-    if (args.headers.length !== args.targets.length) throw new Error('mapping_mismatch');
-    if (!Number.isInteger(args.totalRows) || args.totalRows < 1) throw new Error('import_empty');
-    if (args.totalRows > IMPORT_MAX_ROWS) throw new Error('import_too_large');
+    if (args.headers.length !== args.targets.length) throw refusal('mapping_mismatch');
+    if (!Number.isInteger(args.totalRows) || args.totalRows < 1) throw refusal('import_empty');
+    if (args.totalRows > IMPORT_MAX_ROWS) throw refusal('import_too_large');
     // Deals land in the default pipeline, which otherwise only exists once someone opened the deals page.
     if (args.entity === 'deal') await ensureDefaultPipeline(ctx, ctx.userId);
     if (args.listId) {
-      if (args.entity !== 'lead') throw new Error('list_for_leads_only');
+      if (args.entity !== 'lead') throw refusal('list_for_leads_only');
       const list = await ctx.db.get(args.listId);
-      if (!list) throw new Error('list_not_found');
-      if (list.kind === 'dynamic') throw new Error('list_is_dynamic');
+      if (!list) throw refusal('list_not_found');
+      if (list.kind === 'dynamic') throw refusal('list_is_dynamic');
     }
     return await ctx.db.insert('importJobs', {
       entity: args.entity,
@@ -127,12 +128,12 @@ export const appendRows = employeeMutation({
   returns: v.null(),
   handler: async (ctx, { jobId, rows }) => {
     const job = await loadOwnJob(ctx, jobId);
-    if (job.status !== 'uploading') throw new Error('import_not_uploading');
+    if (job.status !== 'uploading') throw refusal('import_not_uploading');
     if (rows.length === 0) return null;
-    if (job.uploadedRows + rows.length > job.totalRows) throw new Error('import_row_out_of_range');
+    if (job.uploadedRows + rows.length > job.totalRows) throw refusal('import_row_out_of_range');
     let errors = 0;
     for (const [i, row] of rows.entries()) {
-      if (row.index !== job.uploadedRows + i) throw new Error('import_chunk_out_of_order');
+      if (row.index !== job.uploadedRows + i) throw refusal('import_chunk_out_of_order');
       const invalid = row.data === undefined;
       if (invalid) errors += 1;
       await ctx.db.insert('importRows', {
@@ -161,8 +162,8 @@ export const simulateJob = employeeMutation({
   returns: v.null(),
   handler: async (ctx, { jobId }) => {
     const job = await loadOwnJob(ctx, jobId);
-    if (job.status !== 'uploading') throw new Error('import_not_uploading');
-    if (job.uploadedRows !== job.totalRows) throw new Error('import_incomplete');
+    if (job.status !== 'uploading') throw refusal('import_not_uploading');
+    if (job.uploadedRows !== job.totalRows) throw refusal('import_incomplete');
     await ctx.db.patch(jobId, {
       status: 'simulating',
       nextBatch: 0,
@@ -188,8 +189,8 @@ export const launchJob = employeeMutation({
   returns: v.null(),
   handler: async (ctx, { jobId, duplicatePolicy }) => {
     const job = await loadOwnJob(ctx, jobId);
-    if (job.status !== 'simulated') throw new Error('import_not_simulated');
-    if (job.counts.duplicates > 0 && !duplicatePolicy) throw new Error('duplicate_policy_required');
+    if (job.status !== 'simulated') throw refusal('import_not_simulated');
+    if (job.counts.duplicates > 0 && !duplicatePolicy) throw refusal('duplicate_policy_required');
     await ctx.db.patch(jobId, {
       status: 'running',
       duplicatePolicy,
@@ -215,7 +216,7 @@ export const resumeJob = employeeMutation({
   handler: async (ctx, { jobId }) => {
     const job = await loadOwnJob(ctx, jobId);
     if (job.status !== 'interrupted' || !job.interruptedFrom)
-      throw new Error('import_not_interrupted');
+      throw refusal('import_not_interrupted');
     await ctx.db.patch(jobId, {
       status: job.interruptedFrom,
       interruptedFrom: undefined,
@@ -253,7 +254,7 @@ export const deleteJob = employeeMutation({
   returns: v.null(),
   handler: async (ctx, { jobId }) => {
     const job = await loadOwnJob(ctx, jobId);
-    if (job.status === 'simulating' || job.status === 'running') throw new Error('import_running');
+    if (job.status === 'simulating' || job.status === 'running') throw refusal('import_running');
     await ctx.db.patch(jobId, { status: 'cancelled', updatedAt: Date.now() });
     await ctx.scheduler.runAfter(0, internal.features.imports.internal.dropRows, {
       jobId,

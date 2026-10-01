@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import { employeeRoleValidator } from '../../_lib/validators/employees';
@@ -10,11 +11,11 @@ import { logAudit, updateAuditFields } from '../../lib/audit/log';
 export const setEmployeeRole = settingsMutation({
   args: { userId: v.id('users'), role: employeeRoleValidator },
   handler: async (ctx, args) => {
-    if (args.userId === ctx.userId) throw new Error('cannot_change_own_role');
+    if (args.userId === ctx.userId) throw refusal('cannot_change_own_role');
     const user = await ctx.db.get(args.userId);
-    if (user?.type !== 'employee' || !isNotDeleted(user)) throw new Error('user_not_found');
+    if (user?.type !== 'employee' || !isNotDeleted(user)) throw refusal('user_not_found');
     if (!(await findRole(ctx, args.role)) && !DEFAULT_ROLES.some((r) => r.key === args.role)) {
-      throw new Error('invalid_role');
+      throw refusal('invalid_role');
     }
     const previous = user.role ?? 'member';
     if (previous === args.role) return;

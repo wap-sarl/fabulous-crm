@@ -1,3 +1,4 @@
+import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { employeeMutation } from '../../_lib/auth';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
@@ -17,20 +18,20 @@ export const createLeadList = employeeMutation({
   },
   handler: async (ctx, args) => {
     const name = args.name.trim();
-    if (!name) throw new Error('Le nom de la liste est requis.');
+    if (!name) throw refusal('list_name_required', { message: 'Le nom de la liste est requis.' });
     const kind = args.kind ?? 'static';
 
     if (kind === 'dynamic') {
       const error = validateDynamicListCriteria(args.criteria);
-      if (error) throw new Error(error);
+      if (error) throw refusalFrom(error, 'invalid_list_criteria');
       const lists = await ctx.db.query('leadLists').collect();
       const cfg = await ctx.db.query('appConfig').first();
       const cap = cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS;
       if (lists.filter((l) => l.kind === 'dynamic').length >= cap) {
-        throw new Error('dynamic_list_cap_reached');
+        throw refusal('dynamic_list_cap_reached');
       }
     } else if (args.criteria) {
-      throw new Error('list_not_dynamic');
+      throw refusal('list_not_dynamic');
     }
 
     const listId = await ctx.db.insert('leadLists', {
@@ -64,14 +65,16 @@ export const updateLeadList = employeeMutation({
   },
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
-    if (!list) throw new Error('list_not_found');
+    if (!list) throw refusal('list_not_found');
 
     const name = args.name?.trim();
-    if (name !== undefined && !name) throw new Error('Le nom de la liste est requis.');
+    if (name !== undefined && !name) {
+      throw refusal('list_name_required', { message: 'Le nom de la liste est requis.' });
+    }
     if (args.criteria) {
-      if (list.kind !== 'dynamic') throw new Error('list_not_dynamic');
+      if (list.kind !== 'dynamic') throw refusal('list_not_dynamic');
       const error = validateDynamicListCriteria(args.criteria);
-      if (error) throw new Error(error);
+      if (error) throw refusalFrom(error, 'invalid_list_criteria');
     }
 
     await ctx.db.patch(args.listId, {
@@ -99,8 +102,8 @@ export const recalcLeadList = employeeMutation({
   args: { listId: v.id('leadLists') },
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
-    if (!list) throw new Error('list_not_found');
-    if (list.kind !== 'dynamic') throw new Error('list_not_dynamic');
+    if (!list) throw refusal('list_not_found');
+    if (list.kind !== 'dynamic') throw refusal('list_not_dynamic');
     await startDynamicListRecalc(ctx, list);
   },
 });

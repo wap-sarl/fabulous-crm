@@ -1,4 +1,5 @@
 import { ConvexError, type Value } from 'convex/values';
+import { refusalOf } from '../../_lib/refusal';
 
 /** REST error shape; a ConvexError crosses the mutation → action boundary and rolls the write back. */
 export type ApiErrorData = {
@@ -38,15 +39,12 @@ const CONFLICT_CODES = new Set([
   'stage_tag_required',
 ]);
 
-const CODE_RE = /^[a-z][a-z0-9_]*$/;
-
-/** Backend `code[: reason]` errors → API errors (conflict codes 409, other codes 400, else internal). */
+/** Backend refusals (`code`, `code: reason`) → API errors (conflict codes 409, other codes 400); anything else passes as it is, an internal error. */
 export function toApiError(error: unknown): unknown {
   if (isApiError(error)) return error;
-  if (!(error instanceof Error)) return error;
-  const [code, ...rest] = error.message.split(': ');
-  if (!CODE_RE.test(code)) return error;
-  const reason = rest.join(': ');
+  const known = refusalOf(error);
+  if (!known) return error;
+  const { code, reason } = known;
   return apiError(
     CONFLICT_CODES.has(code) ? 409 : 400,
     code,

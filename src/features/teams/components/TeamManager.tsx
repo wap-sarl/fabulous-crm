@@ -19,7 +19,7 @@ import {
 import { Mail, RotateCw, Trash2, UserPlus } from 'lucide-react';
 import { TeamsSection } from './TeamsSection';
 import { useRoles } from '../../../lib/hooks/useRoles';
-import { describeError, errorLabel } from '@crm/lib/errors';
+import { describeError, errorLabel, errorText } from '@crm/lib/errors';
 
 const INVITE_ERRORS: Record<string, string> = {
   invalid_email: 'Adresse e-mail invalide.',
@@ -81,9 +81,8 @@ export function TeamManager() {
       await resendInvitation({ invitationId });
       setSuccess(`Invitation renvoyée à ${inviteEmail}.`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : '';
       setError(
-        message.includes('email_not_configured')
+        errorText(err).includes('email_not_configured')
           ? "Aucun fournisseur d'e-mail n'est configuré. Configurez-le dans Paramètres → E-mail."
           : 'Le renvoi a échoué. Veuillez réessayer.',
       );

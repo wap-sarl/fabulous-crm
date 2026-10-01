@@ -55,6 +55,14 @@ export {
 } from '../../convex/_lib/validators/access';
 export { slugOf } from '../../convex/_lib/text';
 export {
+  countryCodeSchema,
+  currencyCodeSchema,
+  emailSchema,
+  follows,
+  hexColorSchema,
+  httpUrlSchema,
+} from '../../convex/_lib/validators/fields';
+export {
   MAX_SSO_PROVIDER_ID_LENGTH,
   ssoProviderIdOf,
   ssoProviderIdSchema,

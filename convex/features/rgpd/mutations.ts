@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { settingsMutation } from '../../_lib/auth';
@@ -9,9 +10,9 @@ export const eraseContact = settingsMutation({
   args: { leadId: v.id('leads'), confirm: v.boolean() },
   returns: v.id('rgpdRequests'),
   handler: async (ctx, { leadId, confirm }) => {
-    if (!confirm) throw new Error('erasure_not_confirmed');
+    if (!confirm) throw refusal('erasure_not_confirmed');
     const lead = await ctx.db.get(leadId);
-    if (!lead) throw new Error('lead_not_found');
+    if (!lead) throw refusal('lead_not_found');
     const requestId = await ctx.db.insert('rgpdRequests', {
       type: 'erasure',
       leadId,
@@ -34,7 +35,7 @@ export const setProfilingExclusion = settingsMutation({
   returns: v.null(),
   handler: async (ctx, { leadId, exclude }) => {
     const lead = await ctx.db.get(leadId);
-    if (!lead || lead.deletedAt !== undefined) throw new Error('lead_not_found');
+    if (!lead || lead.deletedAt !== undefined) throw refusal('lead_not_found');
     if ((lead.excludeFromProfiling ?? false) === exclude) return null;
     await ctx.db.patch(leadId, {
       excludeFromProfiling: exclude || undefined,

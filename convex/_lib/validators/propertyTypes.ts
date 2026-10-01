@@ -1,3 +1,4 @@
+import { emailSchema, follows } from './fields';
 import type { PropertyOption, PropertyValidation, PropertyValue } from './properties';
 
 /** Adding a type takes one key and one descriptor here, and one descriptor in `src/features/properties/lib/propertyTypes.tsx`; keep this file dependency-free, the frontend imports it. */
@@ -30,7 +31,6 @@ export interface PropertyTypeDescriptor {
 }
 
 // Pragmatic, widely-compatible email check (mirrors the frontend zEmailSchema intent).
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const nonEmptyString = (value: unknown): string | undefined =>
   typeof value === 'string' && value.length > 0 ? value : undefined;
@@ -88,8 +88,7 @@ export const PROPERTY_TYPES: Record<PropertyTypeKey, PropertyTypeDescriptor> = {
     rules: [],
     optionBased: false,
     sanitize: nonEmptyString,
-    validate: (value) =>
-      typeof value !== 'string' || !EMAIL_RE.test(value) ? 'Adresse e-mail invalide.' : null,
+    validate: (value) => (!follows(emailSchema, value) ? 'Adresse e-mail invalide.' : null),
     formatParam: asString,
   },
   select: {

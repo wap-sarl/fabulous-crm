@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import type { AccessModule } from '../../_lib/validators/access';
@@ -25,7 +26,7 @@ export async function loadOwnJob(
 ): Promise<Doc<'importJobs'>> {
   const job = await ctx.db.get(jobId);
   if (!job || (job.createdBy !== ctx.userId && !ctx.visibility.access.settings)) {
-    throw new Error('import_not_found');
+    throw refusal('import_not_found');
   }
   requireImportAccess(ctx.visibility, job.entity);
   return job;

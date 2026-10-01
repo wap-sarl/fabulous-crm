@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { isNotDeleted } from '../shared/db';
@@ -7,7 +8,7 @@ export async function cleanOwnerIds(ctx: MutationCtx, ids: Id<'users'>[]): Promi
   const out: Id<'users'>[] = [];
   for (const id of new Set(ids)) {
     const user = await ctx.db.get(id);
-    if (user?.type !== 'employee' || !isNotDeleted(user)) throw new Error('invalid_owner');
+    if (user?.type !== 'employee' || !isNotDeleted(user)) throw refusal('invalid_owner');
     out.push(id);
   }
   return out;

@@ -16,28 +16,46 @@ function refusalOf(error: unknown): Refusal | null {
   return null;
 }
 
-/** The code of `labels` an error's message carries, the longest first so that a code never hides one it is part of. */
+/** What an error says, to look a code up in: the `code` or `code: reason` of a refusal, the only text that reaches production; else its message. */
+export function errorText(error: unknown): string {
+  if (error instanceof ConvexError) {
+    const refusal = refusalOf(error);
+    if (refusal) {
+      const { reason } = refusal.data;
+      return typeof reason === 'string' ? `${refusal.code}: ${reason}` : refusal.code;
+    }
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** The sentence a refusal brings with it, when the backend wrote one. */
+function refusalMessage(error: unknown): string | null {
+  const message = refusalOf(error)?.data.message;
+  return typeof message === 'string' && message ? message : null;
+}
+
+/** The code of `labels` an error carries, the longest first so that a code never hides one it is part of. */
 export function errorCode(error: unknown, labels: Record<string, string>): string | undefined {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = errorText(error);
   return Object.keys(labels)
     .sort((a, b) => b.length - a.length)
     .find((code) => message.includes(code));
 }
 
-/** The sentence for the code an error carries, else `fallback`. */
+/** The sentence for the code an error carries, else the one the refusal brings, else `fallback`. */
 export function errorLabel(
   error: unknown,
   labels: Record<string, string>,
   fallback: string,
 ): string {
   const code = errorCode(error, labels);
-  return code ? labels[code] : fallback;
+  return code ? labels[code] : (refusalMessage(error) ?? fallback);
 }
 
-/** The overlay's message for a refusal it owns, else `fallback`. Generic error toasts go through here. */
+/** The overlay's message for a refusal it owns, else the one the refusal brings, else `fallback`. Generic error toasts go through here. */
 export function describeError(error: unknown, fallback: string): string {
   const refusal = refusalOf(error);
-  return (refusal && extensions.describeRefusal?.(refusal)) || fallback;
+  return (refusal && extensions.describeRefusal?.(refusal)) || refusalMessage(error) || fallback;
 }
 
 export const SIGN_IN_GENERIC_ERROR = 'Une erreur est survenue. Veuillez réessayer.';

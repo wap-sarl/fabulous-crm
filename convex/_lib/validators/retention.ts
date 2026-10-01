@@ -1,3 +1,4 @@
+import { boundedInt, follows } from './fields';
 import { v } from 'convex/values';
 import type { AppConfig } from './appConfig';
 import { TRACKING_RETENTION_BOUNDS } from './tracking';
@@ -42,4 +43,4 @@ export function retentionPolicyOf(
 }
 
 export const isWithinRetentionBounds = (key: RetentionKey, days: number): boolean =>
-  Number.isInteger(days) && days >= RETENTION_BOUNDS[key].min && days <= RETENTION_BOUNDS[key].max;
+  follows(boundedInt(RETENTION_BOUNDS[key].min, RETENTION_BOUNDS[key].max), days);

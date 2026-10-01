@@ -1,5 +1,11 @@
 import type { Id } from '@crm/lib/backend';
-import { MAX_SSO_PROVIDER_ID_LENGTH, ssoProviderIdOf, ssoProviderIdSchema } from '@crm/lib/backend';
+import {
+  MAX_SSO_PROVIDER_ID_LENGTH,
+  ssoProviderIdOf,
+  ssoProviderIdSchema,
+  follows,
+  httpUrlSchema,
+} from '@crm/lib/backend';
 
 /** Draft custom SSO provider as edited in the wizard (scopes as a string field). */
 export type SsoDraft = {
@@ -113,7 +119,7 @@ export function ssoDraftsError(drafts: SsoDraft[]): string | null {
     if (!ssoProviderIdSchema.safeParse(p.providerId.trim()).success)
       return `Identifiant (slug) invalide pour "${p.label}" : ${ID_RULE}.`;
     if (!p.enabled) continue;
-    if (!/^https?:\/\//.test(p.issuerUrl.trim()))
+    if (!follows(httpUrlSchema, p.issuerUrl.trim()))
       return `URL d'émetteur invalide pour "${p.label}".`;
     if (!p.clientId.trim()) return `Client ID manquant pour "${p.label}".`;
     if (!p.clientSecret.trim()) return `Client secret manquant pour "${p.label}".`;

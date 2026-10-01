@@ -1,3 +1,4 @@
+import { follows, httpUrlSchema } from '../../_lib/validators/fields';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type {
   WorkflowEmailEvent,
@@ -176,7 +177,7 @@ export function validateWorkflowGraph(
         break;
       }
       case 'webhook':
-        if (!/^https?:\/\//.test(node.url)) {
+        if (!follows(httpUrlSchema, node.url)) {
           return `${label} : l'URL doit commencer par http(s)://`;
         }
         break;

@@ -22,6 +22,7 @@ import { WorkflowEditorHeader } from '../../features/workflows/components/Workfl
 import { SaveWorkflowDialog } from '../../features/workflows/components/SaveWorkflowDialog';
 import { RemoveBranchDialog } from '../../features/workflows/components/RemoveBranchDialog';
 import { invalidNodeIds, validateWorkflowDraft } from '../../features/workflows/lib/validation';
+import { describeError } from '@crm/lib/errors';
 
 export function WorkflowEditorPage() {
   const { workflowId } = useParams<{ workflowId: string }>();
@@ -161,7 +162,7 @@ export function WorkflowEditorPage() {
       setSaveChoiceOpen(false);
       if (!isEdit) navigate(`/workflows/${id}/edit`, { replace: true });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Échec de l’enregistrement.');
+      toast.error(describeError(e, 'Échec de l’enregistrement.'));
     } finally {
       setSubmitting(false);
     }
@@ -188,7 +189,7 @@ export function WorkflowEditorPage() {
       toast.success('Réinscription lancée — suivez la progression sur la page du workflow.');
       navigate(`/workflows/${id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Échec de la réinscription.');
+      toast.error(describeError(e, 'Échec de la réinscription.'));
     } finally {
       setSubmitting(false);
       setSaveChoiceOpen(false);
@@ -210,7 +211,7 @@ export function WorkflowEditorPage() {
       toast.success('Workflow activé.');
       navigate(`/workflows/${id}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Échec de l’activation.');
+      toast.error(describeError(e, 'Échec de l’activation.'));
     } finally {
       setSubmitting(false);
     }
@@ -225,7 +226,7 @@ export function WorkflowEditorPage() {
       });
       toast.success('Workflow mis en pause. Vous pouvez le modifier.');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Échec de la mise en pause.');
+      toast.error(describeError(e, 'Échec de la mise en pause.'));
     } finally {
       setSubmitting(false);
     }

@@ -1,3 +1,4 @@
+import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import { settingsMutation, employeeMutation } from '../../_lib/auth';
@@ -40,7 +41,7 @@ function normalizeStages(stages: PipelineStage[]): PipelineStage[] {
     tagsRequired: s.tags?.length && s.tagsRequired ? true : undefined,
   }));
   const error = validatePipelineStages(normalized);
-  if (error) throw new Error(error);
+  if (error) throw refusalFrom(error, 'invalid_pipeline_stages');
   return normalized;
 }
 
@@ -50,7 +51,7 @@ function checkTransitions(
   transitions: PipelineTransition[] | undefined,
 ): PipelineTransition[] | undefined {
   const error = validatePipelineTransitions(stages, transitions);
-  if (error) throw new Error(error);
+  if (error) throw refusalFrom(error, 'invalid_pipeline_transitions');
   return normalizeTransitions(stages, transitions);
 }
 
@@ -69,7 +70,7 @@ export const createPipeline = settingsMutation({
   },
   handler: async (ctx, args) => {
     const name = args.name.trim();
-    if (!name) throw new Error('pipeline_name_required');
+    if (!name) throw refusal('pipeline_name_required');
     const stages = normalizeStages(args.stages);
     const transitions = checkTransitions(stages, args.transitions);
     const others = (await ctx.db.query('pipelines').collect()).filter(isNotDeleted);
@@ -112,7 +113,7 @@ export const updatePipeline = settingsMutation({
     const updates: Partial<Doc<'pipelines'>> = {};
     if (args.name !== undefined) {
       const name = args.name.trim();
-      if (!name) throw new Error('pipeline_name_required');
+      if (!name) throw refusal('pipeline_name_required');
       updates.name = name;
     }
     if (args.stages !== undefined) {
@@ -121,7 +122,7 @@ export const updatePipeline = settingsMutation({
       for (const stage of pipeline.stages) {
         if (kept.has(stage.key)) continue;
         if ((await stageTotals(ctx, pipeline._id, stage.key)).count > 0) {
-          throw new Error('pipeline_stage_in_use');
+          throw refusal('pipeline_stage_in_use');
         }
       }
       updates.stages = stages;
@@ -180,7 +181,7 @@ export const deletePipeline = settingsMutation({
     const pipeline = await loadPipeline(ctx, args.pipelineId);
     for (const status of ['open', 'won', 'lost'] as const) {
       if ((await statusTotals(ctx, pipeline._id, status)).count > 0) {
-        throw new Error('pipeline_in_use');
+        throw refusal('pipeline_in_use');
       }
     }
     await ctx.db.patch(pipeline._id, {
@@ -249,7 +250,7 @@ export const updateDeal = employeeMutation({
   handler: async (ctx, args) => {
     const { dealId, customProperties, ...rest } = args;
     const deal = await ctx.db.get(dealId);
-    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+    if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
     const nonNull = Object.fromEntries(
       Object.entries(rest).filter(([, value]) => value !== null),
     ) as Parameters<typeof validateDealFields>[1];
@@ -296,7 +297,7 @@ export const moveDealStage = employeeMutation({
   },
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
-    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+    if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
     const move = await moveDealToStage(
       ctx,
       deal,
@@ -304,10 +305,10 @@ export const moveDealStage = employeeMutation({
       { source: 'manual', changedBy: ctx.userId },
       { tags: args.tags, comment: args.comment },
     );
-    if (move.kind === 'unknown_stage') throw new Error('unknown_stage');
-    if (move.kind === 'unknown_tag') throw new Error('unknown_stage_tag');
-    if (move.kind === 'tag_required') throw new Error('stage_tag_required');
-    if (move.kind === 'forbidden') throw new Error('deal_transition_forbidden');
+    if (move.kind === 'unknown_stage') throw refusal('unknown_stage');
+    if (move.kind === 'unknown_tag') throw refusal('unknown_stage_tag');
+    if (move.kind === 'tag_required') throw refusal('stage_tag_required');
+    if (move.kind === 'forbidden') throw refusal('deal_transition_forbidden');
     return move.kind;
   },
 });
@@ -316,7 +317,7 @@ export const deleteDeal = employeeMutation({
   args: { dealId: v.id('deals') },
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
-    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+    if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
     await ctx.db.patch(args.dealId, { deletedAt: Date.now(), ...updateAuditFields(ctx.userId) });
     await logAudit({
       ctx,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useAction, useMutation, useQuery } from 'convex/react';
-import { api } from '@crm/lib/backend';
+import { api, emailSchema, follows } from '@crm/lib/backend';
 import {
   Button,
   Card,
@@ -15,6 +15,7 @@ import {
 import type { Draft } from '../types';
 import { BrevoSettings } from './BrevoSettings';
 import { SmtpSettings } from './SmtpSettings';
+import { errorText } from '@crm/lib/errors';
 
 export function EmailManager() {
   const config = useQuery(api.features.config.queries.getAdminConfig);
@@ -47,7 +48,7 @@ export function EmailManager() {
       const r = await sendTestEmail({ to });
       setTestResult(r);
     } catch (e) {
-      setTestResult({ ok: false, error: e instanceof Error ? e.message : String(e) });
+      setTestResult({ ok: false, error: errorText(e) });
     } finally {
       setTesting(false);
     }
@@ -85,7 +86,7 @@ export function EmailManager() {
     setSuccess(false);
 
     const senderEmail = draft.senderEmail.trim();
-    if (!senderEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(senderEmail)) {
+    if (!senderEmail || !follows(emailSchema, senderEmail)) {
       setError("L'adresse d'expéditeur doit être un e-mail valide.");
       return;
     }
@@ -127,7 +128,7 @@ export function EmailManager() {
       setSuccess(true);
     } catch (e) {
       setError(
-        e instanceof Error && e.message.includes('smtp_config_incomplete')
+        errorText(e).includes('smtp_config_incomplete')
           ? 'Configuration SMTP incomplète (hôte et port requis).'
           : "L'enregistrement a échoué. Veuillez réessayer.",
       );

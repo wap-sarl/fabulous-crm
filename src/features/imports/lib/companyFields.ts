@@ -1,6 +1,7 @@
 import type { CompanyImportRow } from '@crm/lib/backend';
 import { numberOrUndefined } from './parseCsv';
 import { addressFields, type ImportFieldDef, parseOwners } from './fields';
+import { countryCodeSchema, follows } from '@crm/lib/backend';
 
 export const COMPANY_FIELDS_GROUP = 'Champs de l’entreprise';
 
@@ -35,7 +36,9 @@ export const COMPANY_FIELDS: readonly ImportFieldDef<CompanyImportRow>[] = [
     aliases: ['pays', 'country', 'country code'],
     parse: (raw) => {
       const code = raw.trim().toUpperCase();
-      return /^[A-Z]{2}$/.test(code) ? { value: code } : { error: `code pays invalide « ${raw} »` };
+      return follows(countryCodeSchema, code)
+        ? { value: code }
+        : { error: `code pays invalide « ${raw} »` };
     },
     apply: (row, value) => {
       row.country = value as string;

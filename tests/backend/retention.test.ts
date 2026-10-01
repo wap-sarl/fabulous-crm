@@ -491,15 +491,17 @@ describe('retention purge', () => {
     });
     await expect(
       as.mutation(api.features.config.mutations.updateConfig, { retentionSoftDeleteDays: 0 }),
-    ).rejects.toThrow(/retention_out_of_bounds:softDeleteDays/);
+    ).rejects.toMatchObject({
+      data: { code: 'retention_out_of_bounds', reason: 'softDeleteDays' },
+    });
     await expect(
       as.mutation(api.features.config.mutations.updateConfig, {
         retentionAuditDays: RETENTION_BOUNDS.auditDays.max + 1,
       }),
-    ).rejects.toThrow(/retention_out_of_bounds:auditDays/);
+    ).rejects.toMatchObject({ data: { code: 'retention_out_of_bounds', reason: 'auditDays' } });
     await expect(
       as.mutation(api.features.config.mutations.updateConfig, { retentionEventDays: 90.5 }),
-    ).rejects.toThrow(/retention_out_of_bounds:eventDays/);
+    ).rejects.toMatchObject({ data: { code: 'retention_out_of_bounds', reason: 'eventDays' } });
     await as.mutation(api.features.config.mutations.updateConfig, { retentionSoftDeleteDays: 5 });
     expect((await as.query(api.features.config.queries.getAdminConfig, {}))?.retention).toEqual({
       softDeleteDays: 5,

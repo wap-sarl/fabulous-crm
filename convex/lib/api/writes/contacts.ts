@@ -1,3 +1,4 @@
+import { refusal } from '../../../_lib/refusal';
 import type { Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
 import { lifecycleStageIndex } from '../../../_lib/validators/lifecycle';
@@ -85,7 +86,7 @@ async function insertContact(
   const lifecycle = await loadLifecycleConfig(ctx);
   const lifecycleStage = body.lifecycleStage ?? lifecycle.defaultStage;
   if (lifecycleStageIndex(lifecycle, lifecycleStage) === -1) {
-    throw new Error('unknown_lifecycle_stage');
+    throw refusal('unknown_lifecycle_stage');
   }
   const ownerIds = await cleanOwnerIds(ctx, refs(ctx, 'users', body.ownerIds ?? [], 'ownerIds'));
   const companyId = await contactCompany(ctx, apiKeyId, body, email, undefined);

@@ -2,6 +2,7 @@ import { useAuthMutation } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { AttachmentEntityType, Id } from '@crm/lib/backend';
 import { formatFileSize } from '../lib/files';
+import { errorText } from '@crm/lib/errors';
 
 /** Attachment mutations plus the two-step upload (URL, POST, register). */
 export function useAttachmentActions() {
@@ -46,8 +47,8 @@ export function useAttachmentActions() {
 }
 
 export function attachmentErrorMessage(e: unknown, fallback: string): string {
-  const message = e instanceof Error ? e.message : String(e);
-  const tooLarge = /attachment_too_large:(\d+)/.exec(message);
+  const message = errorText(e);
+  const tooLarge = /attachment_too_large: ?(\d+)/.exec(message);
   if (tooLarge) return `Fichier trop volumineux (maximum ${formatFileSize(Number(tooLarge[1]))}).`;
   if (message.includes('invalid_folder')) return 'Nom de dossier invalide.';
   if (message.includes('invalid_file_name')) return 'Nom de fichier invalide.';

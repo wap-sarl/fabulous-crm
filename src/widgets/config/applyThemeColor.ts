@@ -1,6 +1,5 @@
+import { follows, hexColorSchema } from '@crm/lib/backend';
 /** The derived shades mirror how theme.css defines them for its default color; `--primary-foreground` is left untouched on purpose, always white. */
-
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
 
 /** The vars we override, so reset can remove exactly this set. */
 const MANAGED_VARS = ['--primary', '--primary-strong', '--primary-soft', '--ring'] as const;
@@ -76,7 +75,7 @@ function derivePrimaryShades(hex: string): { strong: string; soft: string } {
 
 /** Does nothing on a malformed value, so a bad stored config can never break rendering. */
 export function applyPrimaryColor(hex: string): void {
-  if (typeof document === 'undefined' || !HEX_RE.test(hex)) return;
+  if (typeof document === 'undefined' || !follows(hexColorSchema, hex)) return;
   const root = document.documentElement.style;
   const { strong, soft } = derivePrimaryShades(hex);
   root.setProperty('--primary', hex);
@@ -113,5 +112,5 @@ export function bootstrapPrimaryColor(): void {
   } catch {
     return;
   }
-  if (cached && HEX_RE.test(cached)) applyPrimaryColor(cached);
+  if (cached && follows(hexColorSchema, cached)) applyPrimaryColor(cached);
 }

@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
@@ -16,8 +17,8 @@ import { ensureDefaultRoles, findRole } from '../../lib/roles/access';
 
 function cleanLabel(raw: string): string {
   const label = raw.trim();
-  if (!label) throw new Error('role_label_required');
-  if (label.length > MAX_ROLE_LABEL_LENGTH) throw new Error('role_label_too_long');
+  if (!label) throw refusal('role_label_required');
+  if (label.length > MAX_ROLE_LABEL_LENGTH) throw refusal('role_label_too_long');
   return label;
 }
 
@@ -38,7 +39,7 @@ async function usersOfRole(ctx: MutationCtx, key: string) {
 /** The lock-out guard: the caller's own role must keep the settings switch. */
 function assertNoLockOut(ctx: { visibility: { role: { key: string } } }, role: Doc<'roles'>) {
   const warnings = accessWarnings([role], { callerRoleKey: ctx.visibility.role.key });
-  if (warnings.some((w) => w.code === 'own_settings_lost')) throw new Error('role_lock_out');
+  if (warnings.some((w) => w.code === 'own_settings_lost')) throw refusal('role_lock_out');
 }
 
 /** Seed the built-in roles (setup wizard, first visit of the settings screen). */
@@ -55,7 +56,7 @@ export const createRole = settingsMutation({
   handler: async (ctx, args) => {
     const label = cleanLabel(args.label);
     let key = roleKeyOf(label);
-    if (!ROLE_KEY_RE.test(key)) throw new Error('role_label_invalid');
+    if (!ROLE_KEY_RE.test(key)) throw refusal('role_label_invalid');
     // Keys are stable and unique: suffix a clash (« Support » twice → support_2).
     const base = key;
     for (let n = 2; await findRole(ctx, key); n++) key = `${base}_${n}`.slice(0, 32);
@@ -89,11 +90,11 @@ export const updateRole = settingsMutation({
   handler: async (ctx, args) => {
     await ensureDefaultRoles(ctx, ctx.userId);
     const role = await findRole(ctx, args.key);
-    if (!role) throw new Error('role_not_found');
+    if (!role) throw refusal('role_not_found');
     const updates: { label?: string; access?: Doc<'roles'>['access'] } = {};
     if (args.label !== undefined) updates.label = cleanLabel(args.label);
     if (args.access !== undefined) {
-      if (role.key === ADMIN_ROLE_KEY) throw new Error('role_admin_locked');
+      if (role.key === ADMIN_ROLE_KEY) throw refusal('role_admin_locked');
       updates.access = args.access;
       assertNoLockOut(ctx, { ...role, access: args.access });
     }
@@ -116,17 +117,17 @@ export const deleteRole = settingsMutation({
   args: { key: v.string(), replacementKey: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const role = await findRole(ctx, args.key);
-    if (!role) throw new Error('role_not_found');
+    if (!role) throw refusal('role_not_found');
     if (role.builtIn || (BUILT_IN_ROLE_KEYS as readonly string[]).includes(role.key)) {
-      throw new Error('role_built_in');
+      throw refusal('role_built_in');
     }
     const { users, invitations } = await usersOfRole(ctx, role.key);
     if (users.length > 0 || invitations.length > 0) {
       if (!args.replacementKey || args.replacementKey === role.key) {
-        throw new Error('role_in_use');
+        throw refusal('role_in_use');
       }
       const replacement = await findRole(ctx, args.replacementKey);
-      if (!replacement) throw new Error('role_not_found');
+      if (!replacement) throw refusal('role_not_found');
       for (const user of users) {
         await ctx.db.patch(user._id, { role: replacement.key, ...updateAuditFields(ctx.userId) });
         await logAudit({

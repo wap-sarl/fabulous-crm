@@ -187,7 +187,7 @@ export const FORM_EMBED_JS = `(function () {
           trackingVisitor: trackingVisitor()
         })
       }).then(function (r) {
-        if (r.status === 429) throw new Error('rate');
+        if (r.status === 429) throw refusal('rate');
         return r.json();
       }).then(function (res) {
         if (res && res.ok) {

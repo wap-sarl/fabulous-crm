@@ -33,6 +33,7 @@ import {
   triggerLabel,
 } from '../../features/workflows/lib/constants';
 import { numberFormat } from '@crm/lib/format';
+import { describeError } from '@crm/lib/errors';
 const dateTimeFormat = new Intl.DateTimeFormat('fr-FR', {
   day: 'numeric',
   month: 'short',
@@ -92,7 +93,7 @@ export function WorkflowDetailPage() {
       await setWorkflowStatus({ workflowId: id, status: next });
       toast.success(next === 'active' ? 'Workflow activé.' : 'Workflow mis en pause.');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Échec du changement de statut.');
+      toast.error(describeError(e, 'Échec du changement de statut.'));
     }
   };
 
@@ -103,7 +104,7 @@ export function WorkflowDetailPage() {
       toast.success('Workflow supprimé.');
       navigate('/workflows');
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Échec de la suppression.');
+      toast.error(describeError(e, 'Échec de la suppression.'));
     }
   };
 
@@ -305,7 +306,7 @@ export function WorkflowDetailPage() {
             await cancelRun({ runId });
             toast.success('Parcours annulé.');
           } catch (e) {
-            toast.error(e instanceof Error ? e.message : "Échec de l'annulation.");
+            toast.error(describeError(e, "Échec de l'annulation."));
           }
         }}
       />

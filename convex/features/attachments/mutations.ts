@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
@@ -28,26 +29,26 @@ async function requireEntity(
   const table = entityType === 'lead' ? 'leads' : entityType === 'company' ? 'companies' : 'deals';
   const id = ctx.db.normalizeId(table, entityId);
   const doc = id ? await ctx.db.get(id) : null;
-  if (!doc || !isNotDeleted(doc)) throw new Error(`${entityType}_not_found`);
+  if (!doc || !isNotDeleted(doc)) throw refusal(`${entityType}_not_found`);
 }
 
 function assertSize(size: number, max: number): void {
-  if (!Number.isFinite(size) || size < 0) throw new Error('invalid_file_size');
-  if (size > max) throw new Error(`attachment_too_large:${max}`);
+  if (!Number.isFinite(size) || size < 0) throw refusal('invalid_file_size');
+  if (size > max) throw refusal('attachment_too_large', { reason: String(max) });
 }
 
 /** A live (not trashed) attachment, or throw. */
 async function requireAttachment(ctx: MutationCtx, id: Doc<'attachments'>['_id']) {
   const attachment = await ctx.db.get(id);
-  if (!attachment || attachment.deletedAt !== undefined) throw new Error('attachment_not_found');
+  if (!attachment || attachment.deletedAt !== undefined) throw refusal('attachment_not_found');
   return attachment;
 }
 
 /** A trashed attachment, or throw (`attachment_not_found` once purged, `attachment_not_deleted` if live). */
 async function requireTrashed(ctx: MutationCtx, id: Doc<'attachments'>['_id']) {
   const attachment = await ctx.db.get(id);
-  if (!attachment) throw new Error('attachment_not_found');
-  if (attachment.deletedAt === undefined) throw new Error('attachment_not_deleted');
+  if (!attachment) throw refusal('attachment_not_found');
+  if (attachment.deletedAt === undefined) throw refusal('attachment_not_deleted');
   return attachment;
 }
 
@@ -86,7 +87,7 @@ export const createAttachment = employeeMutation({
   handler: async (ctx, args) => {
     await requireEntity(ctx, args.entityType, args.entityId);
     const blob = await ctx.db.system.get(args.storageId);
-    if (!blob) throw new Error('blob_not_found');
+    if (!blob) throw refusal('blob_not_found');
     const maxSizeBytes = await attachmentMaxBytes(ctx);
     if (blob.size > maxSizeBytes) {
       await ctx.storage.delete(args.storageId);

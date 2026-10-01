@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
@@ -13,8 +14,8 @@ import { isNotDeleted } from '../../lib/shared/db';
 
 function cleanName(raw: string): string {
   const name = raw.trim();
-  if (!name) throw new Error('team_name_required');
-  if (name.length > MAX_TEAM_NAME_LENGTH) throw new Error('team_name_too_long');
+  if (!name) throw refusal('team_name_required');
+  if (name.length > MAX_TEAM_NAME_LENGTH) throw refusal('team_name_too_long');
   return name;
 }
 
@@ -23,7 +24,7 @@ async function cleanMembers(ctx: MutationCtx, memberIds: Id<'users'>[]): Promise
   const out: Id<'users'>[] = [];
   for (const id of new Set(memberIds)) {
     const user = await ctx.db.get(id);
-    if (user?.type !== 'employee' || !isNotDeleted(user)) throw new Error('invalid_member');
+    if (user?.type !== 'employee' || !isNotDeleted(user)) throw refusal('invalid_member');
     out.push(id);
   }
   return out;
@@ -56,7 +57,7 @@ export const updateTeam = settingsMutation({
   },
   handler: async (ctx, args) => {
     const team = await ctx.db.get(args.teamId);
-    if (!team || !isNotDeleted(team)) throw new Error('team_not_found');
+    if (!team || !isNotDeleted(team)) throw refusal('team_not_found');
     const updates: { name?: string; memberIds?: Id<'users'>[] } = {};
     if (args.name !== undefined) updates.name = cleanName(args.name);
     if (args.memberIds !== undefined) updates.memberIds = await cleanMembers(ctx, args.memberIds);
@@ -81,7 +82,7 @@ export const deleteTeam = settingsMutation({
   args: { teamId: v.id('teams') },
   handler: async (ctx, args) => {
     const team = await ctx.db.get(args.teamId);
-    if (!team || !isNotDeleted(team)) throw new Error('team_not_found');
+    if (!team || !isNotDeleted(team)) throw refusal('team_not_found');
     await ctx.db.patch(args.teamId, { deletedAt: Date.now(), ...updateAuditFields(ctx.userId) });
     await logAudit({
       ctx,

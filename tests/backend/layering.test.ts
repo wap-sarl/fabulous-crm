@@ -30,6 +30,7 @@ describe('the layers of the backend', () => {
       ...filesOf(join(ROOT, '_lib/validators')),
       join(ROOT, '_lib/time.ts'),
       join(ROOT, '_lib/text.ts'),
+      join(ROOT, '_lib/refusal.ts'),
     ];
     expect(upward(lowest, /\/convex\/(lib|features)\//)).toEqual([]);
   });

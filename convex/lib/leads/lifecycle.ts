@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { notifyChange } from '../extensions/observers';
@@ -37,8 +38,8 @@ export function planLifecycleTransition(
 
 /** For the interactive paths only: the bulk ones (CSV, workflows) decide their own outcome instead of throwing. */
 export function assertLifecycleTransition(plan: LifecycleTransition): void {
-  if (plan.kind === 'unknown_stage') throw new Error('unknown_lifecycle_stage');
-  if (plan.kind === 'regression_blocked') throw new Error('lifecycle_regression_blocked');
+  if (plan.kind === 'unknown_stage') throw refusal('unknown_lifecycle_stage');
+  if (plan.kind === 'regression_blocked') throw refusal('lifecycle_regression_blocked');
 }
 
 export type LifecycleChangeMeta = {

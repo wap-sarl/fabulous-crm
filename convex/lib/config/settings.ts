@@ -1,3 +1,5 @@
+import { boundedInt, follows, hexColorSchema } from '../../_lib/validators/fields';
+import { refusal } from '../../_lib/refusal';
 import { type ObjectType, v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
@@ -95,50 +97,44 @@ export const settingsArgs = {
 type SettingsArgs = ObjectType<typeof settingsArgs>;
 type Config = Doc<'appConfig'>;
 
-/** `#rrggbb` — the only accepted form for the brand accent color. */
-const hexColorRe = /^#[0-9a-fA-F]{6}$/;
-
 /** Secrets are stored as ciphertext (lib/security/crypto.ts); an omitted or empty one keeps the stored value. */
 const keepSecret = async (incoming: string | undefined, existing: string | undefined) =>
   incoming && incoming.length > 0 ? await encryptSecret(incoming) : (existing ?? '');
 
 /** The colour, the ids of the new sign-in providers and the bounded numbers, refused before anything is written. */
 export function checkSettings(cfg: Config, args: SettingsArgs): void {
-  if (args.primaryColor !== undefined && !hexColorRe.test(args.primaryColor)) {
-    throw new Error('invalid_primary_color');
+  if (args.primaryColor !== undefined && !follows(hexColorSchema, args.primaryColor)) {
+    throw refusal('invalid_primary_color');
   }
   if (args.ssoProviders) {
     // An id already stored is not checked again: its callback path is declared at the issuer.
     const stored = new Set((cfg.auth.ssoProviders ?? []).map((p) => p.providerId));
     const ids = args.ssoProviders.map((p) => p.providerId);
     if (ids.some((id) => !stored.has(id) && !ssoProviderIdSchema.safeParse(id).success)) {
-      throw new Error('sso_provider_invalid_id');
+      throw refusal('sso_provider_invalid_id');
     }
-    if (new Set(ids).size !== ids.length) throw new Error('sso_provider_duplicate_id');
+    if (new Set(ids).size !== ids.length) throw refusal('sso_provider_duplicate_id');
   }
   if (
     args.attachmentsMaxSizeBytes !== undefined &&
-    (!Number.isInteger(args.attachmentsMaxSizeBytes) ||
-      args.attachmentsMaxSizeBytes < 1024 * 1024 ||
-      args.attachmentsMaxSizeBytes > ATTACHMENT_MAX_BYTES_CEILING)
+    !follows(boundedInt(1024 * 1024, ATTACHMENT_MAX_BYTES_CEILING), args.attachmentsMaxSizeBytes)
   ) {
-    throw new Error('invalid_attachment_max_size');
+    throw refusal('invalid_attachment_max_size');
   }
   if (
     args.attachmentsRetentionDays !== undefined &&
-    (!Number.isInteger(args.attachmentsRetentionDays) ||
-      args.attachmentsRetentionDays < ATTACHMENT_RETENTION_MIN_DAYS ||
-      args.attachmentsRetentionDays > ATTACHMENT_RETENTION_MAX_DAYS)
+    !follows(
+      boundedInt(ATTACHMENT_RETENTION_MIN_DAYS, ATTACHMENT_RETENTION_MAX_DAYS),
+      args.attachmentsRetentionDays,
+    )
   ) {
-    throw new Error('invalid_attachment_retention');
+    throw refusal('invalid_attachment_retention');
   }
   if (
     args.listsMaxDynamicLists !== undefined &&
-    (!Number.isInteger(args.listsMaxDynamicLists) ||
-      args.listsMaxDynamicLists < 1 ||
-      args.listsMaxDynamicLists > MAX_DYNAMIC_LISTS_CEILING)
+    !follows(boundedInt(1, MAX_DYNAMIC_LISTS_CEILING), args.listsMaxDynamicLists)
   ) {
-    throw new Error('invalid_max_dynamic_lists');
+    throw refusal('invalid_max_dynamic_lists');
   }
 }
 
@@ -209,7 +205,7 @@ export function nextRetention(cfg: Config, args: SettingsArgs): Config['retentio
   for (const key of RETENTION_KEYS) {
     const days = retentionArgs[key];
     if (days !== undefined && !isWithinRetentionBounds(key, days)) {
-      throw new Error(`retention_out_of_bounds:${key}`);
+      throw refusal('retention_out_of_bounds', { reason: key });
     }
   }
   if (!RETENTION_KEYS.some((key) => retentionArgs[key] !== undefined)) return undefined;
@@ -235,15 +231,15 @@ export async function nextTracking(
   const trackingRetention = trackingRetentionSchema.safeParse(
     args.trackingRetentionDays ?? tracking.retentionDays,
   );
-  if (!trackingRetention.success) throw new Error('tracking_retention_out_of_bounds');
+  if (!trackingRetention.success) throw refusal('tracking_retention_out_of_bounds');
   const trackingOrigins = trackingOriginsSchema.safeParse(
     args.trackingAllowedOrigins ?? tracking.allowedOrigins,
   );
-  if (!trackingOrigins.success) throw new Error('tracking_origins_invalid');
+  if (!trackingOrigins.success) throw refusal('tracking_origins_invalid');
   const privacyUrl =
     args.trackingPrivacyUrl === undefined ? tracking.privacyUrl : args.trackingPrivacyUrl;
   if (privacyUrl && !trackingPrivacyUrlSchema.safeParse(privacyUrl).success) {
-    throw new Error('tracking_privacy_url_invalid');
+    throw refusal('tracking_privacy_url_invalid');
   }
   const nextTracking = {
     enabled: args.trackingEnabled ?? tracking.enabled,
@@ -255,10 +251,10 @@ export async function nextTracking(
   };
   if (trackingChanged && nextTracking.enabled) {
     // A beacon is accepted from the listed sites only: tracking without one would record nothing.
-    if (nextTracking.allowedOrigins.length === 0) throw new Error('tracking_origins_required');
+    if (nextTracking.allowedOrigins.length === 0) throw refusal('tracking_origins_required');
     // Named tracking is profiling: the banner must say so and link to the policy.
     if (nextTracking.mode === 'named' && !nextTracking.privacyUrl) {
-      throw new Error('tracking_privacy_url_required');
+      throw refusal('tracking_privacy_url_required');
     }
   }
   // Leaving named mode detaches what it attached; going back to it starts from nothing.
@@ -286,7 +282,7 @@ export async function mergeConnectors(
   );
   // An enabled connector nobody could use would only fail at the first connection.
   if (merged.some((c) => c.enabled && (!c.clientId || !c.clientSecret))) {
-    throw new Error('connector_credentials_required');
+    throw refusal('connector_credentials_required');
   }
   return merged;
 }
@@ -311,7 +307,7 @@ export async function mergeEmail(
   };
   // A half-configured SMTP relay is refused: host and port are the minimum to connect, the From identity comes from senderEmail.
   if (mergedEmail.provider === 'smtp' && (!mergedEmail.smtpHost || !mergedEmail.smtpPort)) {
-    throw new Error('smtp_config_incomplete');
+    throw refusal('smtp_config_incomplete');
   }
   return mergedEmail;
 }

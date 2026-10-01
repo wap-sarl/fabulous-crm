@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useConvex, useMutation, useQuery } from 'convex/react';
 import { useNavigate } from 'react-router-dom';
-import { api } from '@crm/lib/backend';
+import { api, follows, httpUrlSchema } from '@crm/lib/backend';
 import { errorLabel } from '@crm/lib/errors';
 import { zEmailSchema } from '@crm/lib/types';
 import { Button, Logo, Progress, Spinner } from '@crm/design-system';
@@ -85,7 +85,7 @@ export function SetupWizardPage() {
       }
       case 1: {
         if (!data.organizationName.trim()) return fail("Le nom de l'organisation est requis.");
-        if (!/^https?:\/\//.test(data.appUrl.trim()))
+        if (!follows(httpUrlSchema, data.appUrl.trim()))
           return fail('URL invalide (http/https requis).');
         if (!zEmailSchema.safeParse(data.senderEmail).success)
           return fail("E-mail de l'expéditeur invalide.");

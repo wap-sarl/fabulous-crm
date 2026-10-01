@@ -1,3 +1,4 @@
+import { refusal, refusalText } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import type { LeadImportRow } from '../../_lib/validators/imports';
@@ -126,10 +127,10 @@ export async function planLeadImport(
       row.lifecycleStage !== undefined &&
       lifecycleStageIndex(caches.lifecycle, row.lifecycleStage) === -1
     ) {
-      throw new Error('unknown_lifecycle_stage');
+      throw refusal('unknown_lifecycle_stage');
     }
   } catch (e) {
-    return { kind: 'error', error: e instanceof Error ? e.message : 'invalid_property_value' };
+    return { kind: 'error', error: refusalText(e, 'invalid_property_value') };
   }
   const email = normalizeEmail(row.email);
   const matched = opts.matchId ? await ctx.db.get(opts.matchId) : null;
@@ -220,7 +221,7 @@ export async function applyLeadImport(
         if (matched) updates.companyId = matched;
       }
     } catch (e) {
-      return { kind: 'error', error: e instanceof Error ? e.message : 'company_error' };
+      return { kind: 'error', error: refusalText(e, 'company_error') };
     }
 
     let lifecycleChange: { from: string | undefined; to: string } | undefined;
@@ -281,7 +282,7 @@ export async function applyLeadImport(
         caches.companyCache,
       )) ?? undefined;
   } catch (e) {
-    return { kind: 'error', error: e instanceof Error ? e.message : 'invalid_row' };
+    return { kind: 'error', error: refusalText(e, 'invalid_row') };
   }
   const lifecycleStage = row.lifecycleStage ?? caches.lifecycle.defaultStage;
   const leadId = await ctx.db.insert('leads', {

@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { computeChanges, logAudit, updateAuditFields } from '../audit/log';
@@ -20,7 +21,7 @@ export async function liveNote(
 ): Promise<Doc<'leadNotes'>> {
   const note = await ctx.db.get(noteId);
   if (!note || !isNotDeleted(note)) {
-    throw new Error('note_not_found');
+    throw refusal('note_not_found');
   }
   return note;
 }

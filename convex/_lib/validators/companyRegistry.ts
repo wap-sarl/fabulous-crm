@@ -61,7 +61,6 @@ const REGISTRATION_SCHEMES: Record<string, RegistrationScheme> = {
 };
 
 /** ISO-3166-1 alpha-2 codes: two letters, stored uppercase. */
-export const COUNTRY_CODE_RE = /^[A-Z]{2}$/;
 export const DEFAULT_COUNTRY = 'FR';
 
 export function normalizeCountryCode(raw: string | undefined): string {

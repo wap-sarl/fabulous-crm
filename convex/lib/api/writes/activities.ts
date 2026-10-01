@@ -1,3 +1,4 @@
+import { refusal } from '../../../_lib/refusal';
 import type { Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
 import { createActivityRecord, requireActivityLinks } from '../../activities/records';
@@ -21,7 +22,7 @@ async function activityOwner(
   if (raw === undefined) return undefined;
   const ownerId = ref(ctx, 'users', raw, 'ownerId');
   const user = await ctx.db.get(ownerId);
-  if (user?.type !== 'employee' || !isNotDeleted(user)) throw new Error('invalid_owner');
+  if (user?.type !== 'employee' || !isNotDeleted(user)) throw refusal('invalid_owner');
   return ownerId;
 }
 
@@ -32,7 +33,7 @@ async function activityTeam(
   if (raw === undefined) return undefined;
   const teamId = ref(ctx, 'teams', raw, 'teamId');
   const team = await ctx.db.get(teamId);
-  if (!team || !isNotDeleted(team)) throw new Error('team_not_found');
+  if (!team || !isNotDeleted(team)) throw refusal('team_not_found');
   return teamId;
 }
 
@@ -75,7 +76,7 @@ export async function updateActivity(
   if (body.type !== undefined) updates.type = body.type;
   if (body.title !== undefined) {
     const title = body.title.trim();
-    if (!title) throw new Error('activity_title_required');
+    if (!title) throw refusal('activity_title_required');
     updates.title = title;
   }
   if (body.description !== undefined) updates.description = body.description?.trim() || null;

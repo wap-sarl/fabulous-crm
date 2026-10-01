@@ -10,6 +10,7 @@
 
 import type * as _lib_auth from "../_lib/auth.js";
 import type * as _lib_functions from "../_lib/functions.js";
+import type * as _lib_refusal from "../_lib/refusal.js";
 import type * as _lib_socialProviders from "../_lib/socialProviders.js";
 import type * as _lib_softDelete from "../_lib/softDelete.js";
 import type * as _lib_text from "../_lib/text.js";
@@ -28,6 +29,7 @@ import type * as _lib_validators_crm from "../_lib/validators/crm.js";
 import type * as _lib_validators_deals from "../_lib/validators/deals.js";
 import type * as _lib_validators_duplicates from "../_lib/validators/duplicates.js";
 import type * as _lib_validators_employees from "../_lib/validators/employees.js";
+import type * as _lib_validators_fields from "../_lib/validators/fields.js";
 import type * as _lib_validators_filters from "../_lib/validators/filters.js";
 import type * as _lib_validators_forms from "../_lib/validators/forms.js";
 import type * as _lib_validators_imports from "../_lib/validators/imports.js";
@@ -245,6 +247,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   "_lib/auth": typeof _lib_auth;
   "_lib/functions": typeof _lib_functions;
+  "_lib/refusal": typeof _lib_refusal;
   "_lib/socialProviders": typeof _lib_socialProviders;
   "_lib/softDelete": typeof _lib_softDelete;
   "_lib/text": typeof _lib_text;
@@ -263,6 +266,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/deals": typeof _lib_validators_deals;
   "_lib/validators/duplicates": typeof _lib_validators_duplicates;
   "_lib/validators/employees": typeof _lib_validators_employees;
+  "_lib/validators/fields": typeof _lib_validators_fields;
   "_lib/validators/filters": typeof _lib_validators_filters;
   "_lib/validators/forms": typeof _lib_validators_forms;
   "_lib/validators/imports": typeof _lib_validators_imports;
