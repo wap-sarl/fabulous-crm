@@ -164,7 +164,7 @@ export function CompaniesPage() {
                   >
                     <TableCell>
                       <span className="flex items-center gap-3">
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#EFEBFE] text-[#6A4BF0]">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-violet-soft text-violet">
                           <Building2 className="size-4" />
                         </span>
                         <span className="min-w-0">
@@ -193,7 +193,7 @@ export function CompaniesPage() {
                       {dateFormat.format(company._creationTime)}
                     </TableCell>
                     <TableCell>
-                      <ChevronRight className="h-4 w-4 text-[#C8CCD4]" aria-hidden />
+                      <ChevronRight className="h-4 w-4 text-ghost" aria-hidden />
                     </TableCell>
                   </TableRow>
                 ))

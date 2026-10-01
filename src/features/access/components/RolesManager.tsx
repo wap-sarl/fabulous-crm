@@ -119,7 +119,7 @@ export function RolesManager() {
 
         <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full text-sm" data-testid="access-matrix">
-            <thead className="bg-[#F7F8FA] text-xs text-faint">
+            <thead className="bg-background text-xs text-faint">
               <tr>
                 <th className="px-3 py-2 text-left font-medium">Rôle</th>
                 {ACCESS_MODULES.map((m) => (

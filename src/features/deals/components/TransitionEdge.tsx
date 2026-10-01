@@ -69,7 +69,7 @@ export function TransitionEdge(props: EdgeProps<Edge>) {
   // Midpoint of a quadratic curve: halfway between the chord's middle and the control point.
   const labelX = (start.x + end.x) / 2 + nx * bend + pull.x;
   const labelY = (start.y + end.y) / 2 + ny * bend + pull.y;
-  const stroke = selected ? '#4F46E5' : '#9AA0AD';
+  const stroke = selected ? 'var(--primary)' : 'var(--faint)';
   const onPointerDown = (e: React.PointerEvent<SVGPathElement>) => {
     if (readOnly || e.button !== 0) return;
     e.stopPropagation();

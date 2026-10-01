@@ -67,7 +67,7 @@ export function FormPreview({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-[#FAFAFB] p-4">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4">
       {draft.fields.map((field) => (
         <div key={formFieldKey(field.target)} className="flex flex-col gap-1">
           <span className="text-[13px] font-semibold text-ink">

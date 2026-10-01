@@ -97,7 +97,7 @@ export function RunDetailSheet({ runId, onClose, onCancelRun }: RunDetailSheetPr
                 Aucune étape exécutée pour le moment.
               </div>
             ) : (
-              <ol className="relative flex flex-col gap-0 border-l border-[#E4E6EB] pl-5">
+              <ol className="relative flex flex-col gap-0 border-l border-input pl-5">
                 {run.steps.map((step) => {
                   const node = nodeById.get(step.nodeId);
                   const meta = STEP_TYPE_META.get(

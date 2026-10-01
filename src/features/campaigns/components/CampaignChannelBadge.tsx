@@ -6,7 +6,7 @@ export function CampaignChannelBadge({ channel }: { channel?: CampaignChannel })
   const isSms = channel === 'sms';
   const Icon = isSms ? MessageSquare : Mail;
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-[7px] bg-[#EFEBFE] px-2 py-[3px] text-xs font-semibold text-[#6A4BF0]">
+    <span className="inline-flex items-center gap-1.5 rounded-[7px] bg-violet-soft px-2 py-[3px] text-xs font-semibold text-violet">
       <Icon className="size-3.5" />
       {isSms ? 'SMS' : 'E-mail'}
     </span>

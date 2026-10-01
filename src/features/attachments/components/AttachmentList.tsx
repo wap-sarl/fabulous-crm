@@ -28,14 +28,14 @@ export function AttachmentList({
           <button
             type="button"
             onClick={() => setFolder(prefix + name)}
-            className="flex w-full items-center gap-3 rounded-md px-1 py-2 text-left hover:bg-[#F7F8FA]"
+            className="flex w-full items-center gap-3 rounded-md px-1 py-2 text-left hover:bg-accent"
             data-testid="attachment-folder"
           >
             <Folder className="size-4 shrink-0 text-amber-500" aria-hidden />
             <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
               {name}
             </span>
-            <ChevronRight className="size-4 text-[#C8CCD4]" aria-hidden />
+            <ChevronRight className="size-4 text-ghost" aria-hidden />
           </button>
         </li>
       ))}

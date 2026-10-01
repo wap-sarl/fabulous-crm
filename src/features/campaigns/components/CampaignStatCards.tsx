@@ -72,8 +72,8 @@ export function CampaignStatCards({
         label={isSms ? 'Ignorés — sans téléphone' : 'Ignorés — sans e-mail'}
         value={numberFormat.format(skippedCount)}
         icon={<MailX />}
-        iconBg="#F3F4F6"
-        iconColor="#6B7280"
+        iconBg="var(--muted)"
+        iconColor="var(--soft)"
       />
       <StatCard
         label="En attente"
@@ -134,8 +134,8 @@ export function CampaignStatCards({
               : `${pctOfSent(openedCount).toFixed(1)}% des envoyés`
           }
           icon={<MailOpen />}
-          iconBg="#EFEAFE"
-          iconColor="#6A4BF0"
+          iconBg="var(--violet-soft)"
+          iconColor="var(--violet)"
         />
       )}
       <StatCard
@@ -164,15 +164,15 @@ export function CampaignStatCards({
               : 'Éditeur HTML'
         }
         icon={<FileCode2 />}
-        iconBg="#E6F6F6"
+        iconBg="color-mix(in srgb, var(--chart-4) 10%, white)"
         iconColor="var(--chart-4)"
       />
       <StatCard
         label="Créée le"
         value={dateFormat.format(campaign._creationTime)}
         icon={<CalendarPlus />}
-        iconBg="#F3F4F6"
-        iconColor="#6B7280"
+        iconBg="var(--muted)"
+        iconColor="var(--soft)"
       />
     </div>
   );

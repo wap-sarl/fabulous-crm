@@ -182,8 +182,8 @@ export function WorkflowDetailPage() {
             label="En cours"
             value={numberFormat.format(workflow.activeCount)}
             icon={<Play />}
-            iconBg="#E8F0FE"
-            iconColor="#1A56DB"
+            iconBg="var(--info-soft)"
+            iconColor="var(--info)"
           />
           <StatCard
             label="Terminés"
@@ -196,8 +196,8 @@ export function WorkflowDetailPage() {
             label="Échecs / annulés"
             value={numberFormat.format(failedCount)}
             icon={<XCircle />}
-            iconBg="#FDECEC"
-            iconColor="#C81E1E"
+            iconBg="var(--destructive-soft)"
+            iconColor="var(--destructive)"
           />
         </div>
 

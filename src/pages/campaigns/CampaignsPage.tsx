@@ -107,7 +107,7 @@ export function CampaignsPage() {
                   type="button"
                   data-testid="campaign-row"
                   onClick={() => navigate(`/campaigns/${c._id}`)}
-                  className="flex cursor-pointer flex-col gap-3 rounded-xl border bg-card p-4 text-left shadow-card transition-all hover:border-[#DADDE4] hover:shadow-card-hover"
+                  className="flex cursor-pointer flex-col gap-3 rounded-xl border bg-card p-4 text-left shadow-card transition-all hover:border-border-strong hover:shadow-card-hover"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <CampaignChannelBadge channel={c.channel} />

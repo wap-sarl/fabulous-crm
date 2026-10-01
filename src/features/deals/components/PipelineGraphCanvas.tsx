@@ -172,7 +172,7 @@ export function PipelineGraphCanvas({
           target: t.to,
           type: 'transition',
           deletable: editable,
-          markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: '#9AA0AD' },
+          markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: 'var(--faint)' },
         };
       });
     });
@@ -306,7 +306,12 @@ export function PipelineGraphCanvas({
             maxZoom={1.5}
             proOptions={{ hideAttribution: false }}
           >
-            <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="#D8DBE2" />
+            <Background
+              variant={BackgroundVariant.Dots}
+              gap={20}
+              size={1.5}
+              color="var(--border-strong)"
+            />
           </ReactFlow>
         </div>
       </EditorContext.Provider>

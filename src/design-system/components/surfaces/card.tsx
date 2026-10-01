@@ -16,7 +16,8 @@ function Card({
       ref={ref}
       className={cn(
         'rounded-xl border bg-card text-card-foreground shadow-card',
-        clickable && 'cursor-pointer transition-all hover:border-[#DADDE4] hover:shadow-card-hover',
+        clickable &&
+          'cursor-pointer transition-all hover:border-border-strong hover:shadow-card-hover',
         className,
       )}
       {...props}

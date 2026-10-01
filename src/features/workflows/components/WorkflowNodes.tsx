@@ -24,7 +24,7 @@ function HiddenHandles() {
 const cardClass = (selected: boolean, invalid: boolean) =>
   cn(
     'flex cursor-pointer flex-col justify-center gap-1 rounded-[10px] border bg-card px-4 py-3 text-left shadow-card transition-all hover:shadow-card-hover',
-    selected ? 'border-primary ring-2 ring-primary/20' : 'hover:border-[#DADDE4]',
+    selected ? 'border-primary ring-2 ring-primary/20' : 'hover:border-border-strong',
     invalid && !selected && 'border-amber-400',
   );
 
@@ -122,7 +122,7 @@ export function AddNode({ data }: NodeProps) {
       style={{ width: ADD_SIZE, height: ADD_SIZE }}
       aria-label="Ajouter une étape"
       data-testid="workflow-add-node"
-      className="flex cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-[#C9CDD6] bg-canvas text-faint transition-colors hover:border-primary hover:text-primary"
+      className="flex cursor-pointer items-center justify-center rounded-full border-2 border-dashed border-ghost bg-canvas text-faint transition-colors hover:border-primary hover:text-primary"
       onClick={() => onInsert(slot)}
     >
       <Plus className="size-4" />

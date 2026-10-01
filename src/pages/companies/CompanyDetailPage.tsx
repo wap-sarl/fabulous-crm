@@ -91,7 +91,7 @@ export function CompanyDetailPage() {
       <PageHeader
         onBack={() => navigate('/companies')}
         leading={
-          <span className="flex size-[46px] items-center justify-center rounded-xl bg-[#EFEBFE] text-[#6A4BF0]">
+          <span className="flex size-[46px] items-center justify-center rounded-xl bg-violet-soft text-violet">
             <Building2 className="size-5" />
           </span>
         }
@@ -191,7 +191,7 @@ export function CompanyDetailPage() {
                       <button
                         type="button"
                         onClick={() => navigate(`/leads/${lead._id}`)}
-                        className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-[#F7F8FA]"
+                        className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-accent"
                       >
                         <InitialsAvatar name={fullName} size={32} />
                         <span className="min-w-0 flex-1">
@@ -205,7 +205,7 @@ export function CompanyDetailPage() {
                         <StatusBadge tone="violet">
                           {lifecycle.labelOf(lead.lifecycleStage)}
                         </StatusBadge>
-                        <ChevronRight className="size-4 shrink-0 text-[#C8CCD4]" />
+                        <ChevronRight className="size-4 shrink-0 text-ghost" />
                       </button>
                     </li>
                   );

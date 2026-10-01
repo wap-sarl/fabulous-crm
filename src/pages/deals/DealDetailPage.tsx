@@ -140,7 +140,7 @@ export function DealDetailPage() {
                                 : 'bg-primary text-white'
                             : reached
                               ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                              : 'bg-muted text-soft hover:bg-[#E6E8EC]',
+                              : 'bg-muted text-soft hover:bg-input',
                         )}
                       >
                         {stage.label}

@@ -76,7 +76,12 @@ function CanvasInner({ draft, invalidIds, handlers }: WorkflowCanvasProps) {
         deleteKeyCode={null}
         proOptions={{ hideAttribution: false }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1.5} color="#D8DBE2" />
+        <Background
+          variant={BackgroundVariant.Dots}
+          gap={20}
+          size={1.5}
+          color="var(--border-strong)"
+        />
       </ReactFlow>
     </CanvasContext.Provider>
   );

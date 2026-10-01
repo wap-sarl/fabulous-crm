@@ -258,7 +258,7 @@ export function LeadsTable({
                         onClick={() => onEdit(lead)}
                         aria-label="Modifier"
                         className={cn(
-                          'flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-faint transition-colors hover:bg-[#EEF0F3] hover:text-body',
+                          'flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-faint transition-colors hover:bg-secondary hover:text-body',
                         )}
                       >
                         <Pencil className="h-4 w-4" />
@@ -271,7 +271,7 @@ export function LeadsTable({
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                      <ChevronRight className="ml-1 h-4 w-4 text-[#C8CCD4]" aria-hidden />
+                      <ChevronRight className="ml-1 h-4 w-4 text-ghost" aria-hidden />
                     </div>
                   </TableCell>
                 </TableRow>

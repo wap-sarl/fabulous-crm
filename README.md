@@ -387,6 +387,9 @@ Les règles que le code suit, chacune gardée par un test :
   en lecture seule et hors des règles de visibilité ; les lignes rendues à
   l'appelant passent toujours par `ctx.db`
   (`tests/backend/dynamicListCap.test.ts`).
+- **Une page ou une fonctionnalité peint avec les jetons du thème**
+  (`src/design-system/theme.css`), jamais avec une couleur écrite à la main
+  (`tests/frontend/colourTokens.test.ts`).
 
 ## Développement
 

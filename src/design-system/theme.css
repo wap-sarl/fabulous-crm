@@ -44,7 +44,11 @@
   --info: #1d6be0;
   --info-foreground: #ffffff;
   --info-soft: #e7f0ff;
+  --violet: #6a4bf0;
+  --violet-soft: #efebfe;
   --border: #eaecf0;
+  /* The border of a card under the pointer, the dots of a canvas. */
+  --border-strong: #dadde4;
   --input: #e4e7ec;
   --ring: #5b50f5;
 
@@ -54,6 +58,8 @@
   --soft: #5b6270;
   --faint: #98a0ad;
   --placeholder: #a6abb6;
+  /* What is only hinted: the chevron of a row, a dashed outline, a connector. */
+  --ghost: #c8ccd4;
 
   --chart-1: #6a4bf0;
   --chart-2: #12a150;
@@ -112,7 +118,10 @@
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
   --color-info-soft: var(--info-soft);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
   --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ink: var(--ink);
@@ -120,6 +129,7 @@
   --color-soft: var(--soft);
   --color-faint: var(--faint);
   --color-placeholder: var(--placeholder);
+  --color-ghost: var(--ghost);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
   --color-chart-3: var(--chart-3);
