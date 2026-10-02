@@ -1,8 +1,9 @@
+import { countryCodeSchema, follows } from '../../_lib/validators/fields';
+import { refusal } from '../../_lib/refusal';
 import type { FilterBuilder, NamedTableInfo } from 'convex/server';
 import type { DataModel, Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import {
-  COUNTRY_CODE_RE,
   normalizeCountryCode,
   registrationSchemeFor,
   vatSchemeFor,
@@ -35,7 +36,7 @@ export async function requireCompany(
   companyId: Id<'companies'>,
 ): Promise<void> {
   const company = await ctx.db.get(companyId);
-  if (!company || company.deletedAt != null) throw new Error('company_not_found');
+  if (!company || company.deletedAt != null) throw refusal('company_not_found');
 }
 
 /** Live company by normalized VAT number, or null. */
@@ -57,7 +58,7 @@ export function normalizeVatNumber(country: string, raw: string | undefined): st
   const normalized = scheme.normalize(raw);
   if (!normalized) return undefined;
   const error = scheme.validate(normalized, country);
-  if (error) throw new Error(`invalid_vat_number: ${error}`);
+  if (error) throw refusal('invalid_vat_number', { reason: error });
   return normalized;
 }
 
@@ -83,7 +84,7 @@ export function normalizeRegistrationNumber(
   const normalized = scheme.normalize(raw);
   if (!normalized) return undefined;
   const error = scheme.validate(normalized);
-  if (error) throw new Error(`invalid_registration_number: ${error}`);
+  if (error) throw refusal('invalid_registration_number', { reason: error });
   return normalized;
 }
 
@@ -96,23 +97,23 @@ export async function normalizeIdentifiers(
   selfId?: string,
 ) {
   const country = normalizeCountryCode(args.country);
-  if (!COUNTRY_CODE_RE.test(country)) throw new Error('invalid_country');
+  if (!follows(countryCodeSchema, country)) throw refusal('invalid_country');
   const registrationNumber = normalizeRegistrationNumber(country, args.registrationNumber);
   const vatNumber = normalizeVatNumber(country, args.vatNumber);
   const domain = args.domain === undefined ? undefined : normalizeDomain(args.domain);
-  if (args.domain?.trim() && !domain) throw new Error('invalid_domain');
+  if (args.domain?.trim() && !domain) throw refusal('invalid_domain');
 
   if (registrationNumber) {
     const other = await findCompanyByRegistration(ctx, country, registrationNumber);
-    if (other && other._id !== selfId) throw new Error('company_registration_exists');
+    if (other && other._id !== selfId) throw refusal('company_registration_exists');
   }
   if (vatNumber) {
     const other = await findCompanyByVat(ctx, vatNumber);
-    if (other && other._id !== selfId) throw new Error('company_vat_exists');
+    if (other && other._id !== selfId) throw refusal('company_vat_exists');
   }
   if (domain) {
     const other = await findCompanyByDomain(ctx, domain);
-    if (other && other._id !== selfId) throw new Error('company_domain_exists');
+    if (other && other._id !== selfId) throw refusal('company_domain_exists');
   }
   return { country, registrationNumber, vatNumber, domain };
 }

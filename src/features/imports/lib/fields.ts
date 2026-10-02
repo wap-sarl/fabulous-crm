@@ -1,4 +1,10 @@
-import { DEFAULT_COUNTRY, type Id, type PropertyValue } from '@crm/lib/backend';
+import {
+  DEFAULT_COUNTRY,
+  type Id,
+  type PropertyValue,
+  countryCodeSchema,
+  follows,
+} from '@crm/lib/backend';
 import { propertyTypeUi } from '../../properties/lib/propertyTypes';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
@@ -224,7 +230,7 @@ export function addressFields<Row extends { address?: ImportAddress }>(): Import
       aliases: ['pays'],
       parse: (raw) => {
         const code = raw.trim().toUpperCase();
-        return /^[A-Z]{2}$/.test(code)
+        return follows(countryCodeSchema, code)
           ? { value: code }
           : { error: `code pays invalide « ${raw} »` };
       },

@@ -119,6 +119,33 @@ function mapPractitioner(rpps: string, resource: FhirPractitioner): RppsPractiti
 
 export const verifyRpps = employeeAction({
   args: { value: v.string() },
+  returns: v.union(
+    v.object({
+      status: v.literal('found'),
+      data: v.object({
+        rpps: v.string(),
+        fullName: v.union(v.string(), v.null()),
+        family: v.union(v.string(), v.null()),
+        given: v.union(v.string(), v.null()),
+        prefix: v.union(v.string(), v.null()),
+        active: v.boolean(),
+        profession: v.union(v.object({ code: v.string(), label: v.string() }), v.null()),
+        diploma: v.union(v.object({ code: v.string(), label: v.string() }), v.null()),
+        smartcard: v.union(
+          v.object({
+            type: v.string(),
+            number: v.string(),
+            start: v.union(v.string(), v.null()),
+            end: v.union(v.string(), v.null()),
+          }),
+          v.null(),
+        ),
+        lastUpdated: v.union(v.string(), v.null()),
+      }),
+    }),
+    v.object({ status: v.literal('not_found'), message: v.string() }),
+    v.object({ status: v.literal('error'), message: v.string() }),
+  ),
   handler: async (ctx, { value }): Promise<RppsVerificationResult> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!(await enforceRateLimit(ctx, 'rppsVerify', identity?.subject ?? 'anonymous'))) {

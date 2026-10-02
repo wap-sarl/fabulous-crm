@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
-import { api } from '@crm/lib/backend';
+import { api, follows, positiveIntSchema } from '@crm/lib/backend';
 import type { CampaignChannel, CampaignTrackedLink, MessageType } from '@crm/lib/backend';
 import { useAuthMutation } from '@crm/widgets';
 import {
@@ -142,7 +142,7 @@ export function CampaignCreatePage() {
       content.htmlBody = htmlBody;
     } else {
       const brevoTemplateId = Number(templateId);
-      if (!Number.isInteger(brevoTemplateId) || brevoTemplateId <= 0) {
+      if (!follows(positiveIntSchema, brevoTemplateId)) {
         toast.error('ID de template Brevo invalide.');
         return;
       }

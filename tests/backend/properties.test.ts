@@ -102,7 +102,9 @@ describe('custom properties across entities', () => {
         name: 'Acme',
         customProperties: { [seats]: 1000 },
       }),
-    ).rejects.toThrow('invalid_property_value: Sièges');
+    ).rejects.toMatchObject({
+      data: { code: 'invalid_property_value', reason: expect.stringMatching(/^Sièges: /) },
+    });
 
     const companyId = await as.mutation(api.features.companies.mutations.createCompany, {
       name: 'Acme',

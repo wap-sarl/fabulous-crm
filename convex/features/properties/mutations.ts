@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import {
@@ -27,9 +28,9 @@ function validateOptions(
   const cleaned = (options ?? [])
     .map((o) => ({ value: o.value.trim(), label: o.label.trim() }))
     .filter((o) => o.value.length > 0);
-  if (cleaned.length === 0) throw new Error('options_required');
+  if (cleaned.length === 0) throw refusal('options_required');
   const values = new Set(cleaned.map((o) => o.value));
-  if (values.size !== cleaned.length) throw new Error('duplicate_option_values');
+  if (values.size !== cleaned.length) throw refusal('duplicate_option_values');
   return cleaned;
 }
 
@@ -45,19 +46,19 @@ function validateValidation(
     if (value !== undefined && value !== '') (rules as Record<string, unknown>)[key] = value;
   }
   if (rules.min !== undefined && rules.max !== undefined && rules.min > rules.max)
-    throw new Error('invalid_range');
-  if ((rules.minLength ?? 0) < 0 || (rules.maxLength ?? 0) < 0) throw new Error('invalid_length');
+    throw refusal('invalid_range');
+  if ((rules.minLength ?? 0) < 0 || (rules.maxLength ?? 0) < 0) throw refusal('invalid_length');
   if (
     rules.minLength !== undefined &&
     rules.maxLength !== undefined &&
     rules.minLength > rules.maxLength
   )
-    throw new Error('invalid_range');
+    throw refusal('invalid_range');
   if (rules.pattern) {
     try {
       new RegExp(rules.pattern);
     } catch {
-      throw new Error('invalid_pattern');
+      throw refusal('invalid_pattern');
     }
   }
   const cleaned = filterUndefined(rules);
@@ -74,9 +75,10 @@ export const createDefinition = settingsMutation({
     validation: v.optional(propertyValidationValidator),
     showInTable: v.boolean(),
   },
+  returns: v.id('propertyDefinitions'),
   handler: async (ctx, args) => {
     const label = args.label.trim();
-    if (!label) throw new Error('label_required');
+    if (!label) throw refusal('label_required');
     const options = validateOptions(args.type, args.options);
     const validation = validateValidation(args.type, args.validation);
 
@@ -117,15 +119,16 @@ export const updateDefinition = settingsMutation({
     showInTable: v.optional(v.boolean()),
     order: v.optional(v.number()),
   },
+  returns: v.id('propertyDefinitions'),
   handler: async (ctx, args) => {
     const { definitionId, validation, ...rest } = args;
     const def = await ctx.db.get(definitionId);
-    if (!def || !isNotDeleted(def)) throw new Error('definition_not_found');
+    if (!def || !isNotDeleted(def)) throw refusal('definition_not_found');
 
     const updates: Record<string, unknown> = { ...rest };
     if (rest.label !== undefined) {
       const label = rest.label.trim();
-      if (!label) throw new Error('label_required');
+      if (!label) throw refusal('label_required');
       updates.label = label;
     }
     if (rest.options !== undefined) {
@@ -159,9 +162,10 @@ export const updateDefinition = settingsMutation({
 
 export const deleteDefinition = settingsMutation({
   args: { definitionId: v.id('propertyDefinitions') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const def = await ctx.db.get(args.definitionId);
-    if (!def || !isNotDeleted(def)) throw new Error('definition_not_found');
+    if (!def || !isNotDeleted(def)) throw refusal('definition_not_found');
 
     // Stored values stay untouched and revive if the definition is restored: every consumer iterates active definitions only.
     await ctx.db.patch(args.definitionId, {
@@ -176,12 +180,14 @@ export const deleteDefinition = settingsMutation({
       entityId: args.definitionId,
       action: 'delete',
     });
+    return null;
   },
 });
 
 /** Reorder the definitions of one entity type (ids in their new display order). */
 export const reorderDefinitions = settingsMutation({
   args: { definitionIds: v.array(v.id('propertyDefinitions')) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     let position = 0;
     for (const definitionId of args.definitionIds) {
@@ -200,5 +206,6 @@ export const reorderDefinitions = settingsMutation({
       action: 'update',
       metadata: { order: args.definitionIds },
     });
+    return null;
   },
 });

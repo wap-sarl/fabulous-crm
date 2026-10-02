@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@crm/design-system';
-import { validatePropertyValue } from '@crm/lib/backend';
+import { validatePropertyValue, follows, httpUrlSchema } from '@crm/lib/backend';
 import type {
   CampaignTrackedLink,
   PropertyValue,
@@ -110,7 +110,7 @@ export function TrackedLinkModal({
       : null;
   const valueMissing =
     value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
-  const redirectInvalid = redirectUrl.trim() !== '' && !/^https?:\/\//.test(redirectUrl.trim());
+  const redirectInvalid = redirectUrl.trim() !== '' && !follows(httpUrlSchema, redirectUrl.trim());
   const canSubmit =
     label.trim() !== '' &&
     (!!selectedDef || !!standardField) &&

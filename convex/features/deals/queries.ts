@@ -1,3 +1,6 @@
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
+import { lifecycleStageValidator } from '../../_lib/validators/lifecycle';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import type { Doc, Id } from '../../_generated/dataModel';
@@ -26,11 +29,34 @@ import { normalizeSearchText } from '../../lib/leads/search';
 /** Pipelines in display order (default first). */
 export const listPipelines = employeeQuery({
   args: {},
+  returns: v.array(docOf('pipelines')),
   handler: async (ctx) => await listLivePipelines(ctx),
 });
 
 export const getPipelineStats = employeeQuery({
   args: { pipelineId: v.id('pipelines') },
+  returns: v.union(
+    v.object({
+      _id: v.id('pipelines'),
+      name: v.string(),
+      isDefault: v.boolean(),
+      stages: v.array(
+        v.object({
+          count: v.number(),
+          amount: v.number(),
+          tags: v.optional(v.array(lifecycleStageValidator)),
+          tagsRequired: v.optional(v.boolean()),
+          key: v.string(),
+          label: v.string(),
+          kind: dealStatusValidator,
+        }),
+      ),
+      open: v.object({ count: v.number(), amount: v.number() }),
+      won: v.object({ count: v.number(), amount: v.number() }),
+      lost: v.object({ count: v.number(), amount: v.number() }),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const pipeline = await ctx.db.get(args.pipelineId);
     if (!pipeline || !isNotDeleted(pipeline)) return null;
@@ -114,6 +140,15 @@ export const listStageDeals = employeeQuery({
     stageKey: v.string(),
     paginationOpts: paginationOptsValidator,
   },
+  returns: paginationResultValidator(
+    v.object({
+      ...docOf('deals').fields,
+      leadName: v.union(v.string(), v.null()),
+      ownerNames: v.array(v.string()),
+      stageLabel: v.string(),
+      stageTagLabels: v.array(v.string()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const result = await ctx.db
       .query('deals')
@@ -190,6 +225,15 @@ function matchesDealFilters(deal: Doc<'deals'>, f: DealFilters): boolean {
 
 export const listDealsPaginated = employeeQuery({
   args: { paginationOpts: paginationOptsValidator, ...dealFilterArgs },
+  returns: paginationResultValidator(
+    v.object({
+      ...docOf('deals').fields,
+      leadName: v.union(v.string(), v.null()),
+      ownerNames: v.array(v.string()),
+      stageLabel: v.string(),
+      stageTagLabels: v.array(v.string()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const one = <T>(list: T[] | undefined) => (list?.length === 1 ? list[0] : undefined);
     const lead = one(args.leadIds);
@@ -225,6 +269,40 @@ export const listDealsPaginated = employeeQuery({
 /** Deal page payload: the deal with names, its pipeline, and the stage history. */
 export const getDeal = employeeQuery({
   args: { dealId: v.id('deals') },
+  returns: v.union(
+    v.object({
+      deal: v.object({
+        ...docOf('deals').fields,
+        leadName: v.union(v.string(), v.null()),
+        ownerNames: v.array(v.string()),
+        stageLabel: v.string(),
+        stageTagLabels: v.array(v.string()),
+      }),
+      pipeline: v.union(docOf('pipelines'), v.null()),
+      sourceCampaignName: v.union(v.string(), v.null()),
+      history: v.array(
+        v.object({
+          _id: v.id('dealStageHistory'),
+          from: v.union(v.string(), v.null()),
+          fromLabel: v.union(v.string(), v.null()),
+          to: v.string(),
+          toLabel: v.string(),
+          tags: v.array(v.string()),
+          comment: v.union(v.string(), v.null()),
+          source: v.union(
+            v.literal('workflow'),
+            v.literal('create'),
+            v.literal('manual'),
+            v.literal('api'),
+          ),
+          changedAt: v.number(),
+          changedByName: v.union(v.string(), v.null()),
+          workflowName: v.union(v.string(), v.null()),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
     if (!deal || !isNotDeleted(deal)) return null;
@@ -274,6 +352,15 @@ export const getDeal = employeeQuery({
 /** A lead's transactions (newest first, bounded) for the lead page. */
 export const listDealsForEntity = employeeQuery({
   args: { leadId: v.id('leads') },
+  returns: v.array(
+    v.object({
+      ...docOf('deals').fields,
+      leadName: v.union(v.string(), v.null()),
+      ownerNames: v.array(v.string()),
+      stageLabel: v.string(),
+      stageTagLabels: v.array(v.string()),
+    }),
+  ),
   handler: async (ctx, args) => {
     const rows = await ctx.db
       .query('deals')

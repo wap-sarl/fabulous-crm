@@ -5,7 +5,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { insertListMember } from '../../convex/lib/leadLists/members';
 import { syncLeadScore } from '../../convex/lib/scoring/score';
 import { stampLeadSignal } from '../../convex/lib/leads/signals';
-import { PURGE_CASCADE_BATCH } from '../../convex/lib/retention/purge';
+import { PURGE_CASCADE_BATCH } from '../../convex/lib/retention/budget';
 import { uniformAccess } from '../../convex/_lib/validators/access';
 import {
   asIdentity,
@@ -253,7 +253,7 @@ describe('RGPD rights', () => {
     const { ada } = await seedWorld(ctx);
     await expect(
       asMember.action(api.features.rgpd.actions.exportContactData, { leadId: ada }),
-    ).rejects.toThrow(/settings access/);
+    ).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'settings' } });
     const { archive, requestId } = await as.action(api.features.rgpd.actions.exportContactData, {
       leadId: ada,
     });

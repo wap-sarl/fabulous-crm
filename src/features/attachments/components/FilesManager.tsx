@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery } from 'convex/react';
-import { api } from '@crm/lib/backend';
+import { api, boundedInt, follows } from '@crm/lib/backend';
 import {
   ATTACHMENT_MAX_BYTES_CEILING,
   ATTACHMENT_RETENTION_MAX_DAYS,
@@ -28,16 +28,12 @@ export function FilesManager() {
 
   const save = async () => {
     const mb = Number(maxMb);
-    if (!Number.isInteger(mb) || mb < 1 || mb > ATTACHMENT_MAX_BYTES_CEILING / MB) {
+    if (!follows(boundedInt(1, ATTACHMENT_MAX_BYTES_CEILING / MB), mb)) {
       toast.error(`Indiquez une taille entre 1 et ${ATTACHMENT_MAX_BYTES_CEILING / MB} Mo.`);
       return;
     }
     const days = Number(retention);
-    if (
-      !Number.isInteger(days) ||
-      days < ATTACHMENT_RETENTION_MIN_DAYS ||
-      days > ATTACHMENT_RETENTION_MAX_DAYS
-    ) {
+    if (!follows(boundedInt(ATTACHMENT_RETENTION_MIN_DAYS, ATTACHMENT_RETENTION_MAX_DAYS), days)) {
       toast.error(
         `Indiquez une durée entre ${ATTACHMENT_RETENTION_MIN_DAYS} et ${ATTACHMENT_RETENTION_MAX_DAYS} jours.`,
       );

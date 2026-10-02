@@ -5,11 +5,8 @@ import type {
   WorkflowSmsEvent,
   WorkflowTrigger,
 } from '../../_lib/validators/workflows';
-import {
-  isActiveRule,
-  type LeadAdvancedFilter,
-  type FilterField,
-} from '../../_lib/validators/filters';
+import type { FilterField } from '../../_lib/validators/filters';
+import { NO_STEP_ISSUE, stepIssue, stepIssueMessage } from '../../_lib/validators/workflowSteps';
 import {
   isTransitionAllowed,
   pipelineStage,
@@ -17,7 +14,6 @@ import {
   validateStageTags,
 } from '../../_lib/validators/deals';
 import { validateLeadTargetValue } from '../leads/targets';
-import { DAY_MS } from '../../_lib/time';
 
 /** Pure helpers, without ctx or db: the public mutations and the trigger dispatcher share them. */
 
@@ -25,16 +21,7 @@ const MAX_NODES = 50;
 export const MAX_STEPS_PER_RUN = 100;
 /** Per-workflow-per-lead enrollment cap bounding cross-workflow ping-pong. */
 export const MAX_ENROLLMENTS_PER_LEAD_PER_DAY = 5;
-const MIN_WAIT_MS = 60_000;
-const MAX_WAIT_MS = 90 * DAY_MS;
 export const WEBHOOK_TIMEOUT_MS = 10_000;
-
-const WAIT_UNIT_MS = { minutes: 60_000, hours: 3_600_000, days: DAY_MS } as const;
-
-/** Sleep duration of a wait node. Bounds are enforced by validateWorkflowGraph. */
-export function delayMs(node: { amount: number; unit: keyof typeof WAIT_UNIT_MS }): number {
-  return node.amount * WAIT_UNIT_MS[node.unit];
-}
 
 /** Outgoing references of a node, in branch order. */
 function nodeChildIds(node: WorkflowNode): string[] {
@@ -43,9 +30,6 @@ function nodeChildIds(node: WorkflowNode): string[] {
   }
   return node.next !== undefined ? [node.next] : [];
 }
-
-const countActiveRules = (filter: LeadAdvancedFilter) =>
-  filter.groups.reduce((n, g) => n + g.rules.filter(isActiveRule).length, 0);
 
 /** The structural checks that hold even for a draft; the error is in French because it is shown to the user. */
 export function lightValidateGraph(nodes: WorkflowNode[], startNodeId?: string): string | null {
@@ -67,21 +51,6 @@ export function lightValidateGraph(nodes: WorkflowNode[], startNodeId?: string):
   return null;
 }
 
-const NODE_TYPE_LABELS: Record<WorkflowNode['type'], string> = {
-  send_email: 'Envoyer un e-mail',
-  send_sms: 'Envoyer un SMS',
-  update_property: 'Modifier une propriété',
-  set_lifecycle_stage: 'Changer le statut',
-  create_deal: 'Créer une transaction',
-  update_deal_stage: 'Changer le stade d’une transaction',
-  create_task: 'Créer une tâche',
-  add_to_list: 'Ajouter à une liste',
-  remove_from_list: 'Retirer d’une liste',
-  wait: 'Attendre',
-  webhook: 'Webhook',
-  branch: 'Condition',
-};
-
 /** The gate before activation: the graph must be a strict tree (no cycle, no orphan, no shared child) and every node's config complete. */
 export function validateWorkflowGraph(
   nodes: WorkflowNode[],
@@ -95,7 +64,7 @@ export function validateWorkflowGraph(
   const lightError = lightValidateGraph(nodes, startNodeId);
   if (lightError) return lightError;
 
-  if (!startNodeId || nodes.length === 0) return 'Ajoutez au moins une étape.';
+  if (!startNodeId || nodes.length === 0) return NO_STEP_ISSUE;
 
   const byId = new Map(nodes.map((n) => [n.id, n]));
 
@@ -115,80 +84,44 @@ export function validateWorkflowGraph(
   }
 
   for (const node of nodes) {
-    const label = `Étape « ${NODE_TYPE_LABELS[node.type]} »`;
-    switch (node.type) {
-      case 'send_email':
-        if (!node.subject.trim()) return `${label} : l'objet est requis.`;
-        if (!node.htmlBody.trim()) return `${label} : le contenu est requis.`;
-        break;
-      case 'send_sms':
-        if (!node.smsBody.trim()) return `${label} : le message est requis.`;
-        break;
-      case 'update_property': {
-        const error = validateLeadTargetValue(node.target, node.value, defsById);
-        if (error) return `${label} : ${error}`;
-        break;
-      }
-      case 'set_lifecycle_stage':
-        if (!node.stage) return `${label} : choisissez un statut.`;
-        if (!lifecycleStageKeys.has(node.stage)) return `${label} : statut introuvable.`;
-        break;
-      case 'create_deal': {
-        if (!node.title.trim()) return `${label} : l'intitulé est requis.`;
-        if (node.amount !== undefined && (!Number.isFinite(node.amount) || node.amount < 0)) {
-          return `${label} : montant invalide.`;
-        }
-        if (pipelines.size === 0) return `${label} : aucun pipeline.`;
-        const error = validatePipelineStageRef(node, pipelines);
-        if (error) return `${label} : ${error}`;
-        break;
-      }
-      case 'create_task':
-        if (!node.title.trim()) return `${label} : l'intitulé est requis.`;
-        if (
-          node.dueInDays !== undefined &&
-          (!Number.isInteger(node.dueInDays) || node.dueInDays < 0 || node.dueInDays > 365)
-        ) {
-          return `${label} : échéance invalide (0 à 365 jours).`;
-        }
-        break;
-      case 'update_deal_stage': {
-        if (!node.stageKey) return `${label} : choisissez un stade.`;
-        const error =
-          validatePipelineStageRef(node, pipelines) ??
-          validateStageTagsRef(node, pipelines) ??
-          validateStageTransitionFromTrigger(node, trigger, pipelines);
-        if (error) return `${label} : ${error}`;
-        break;
-      }
-      case 'add_to_list':
-      case 'remove_from_list':
-        if (!node.listId) return `${label} : choisissez une liste.`;
-        if (!listIds.has(node.listId)) return `${label} : liste introuvable.`;
-        break;
-      case 'wait': {
-        if (!Number.isFinite(node.amount) || node.amount < 1 || !Number.isInteger(node.amount)) {
-          return `${label} : durée invalide.`;
-        }
-        const ms = delayMs(node);
-        if (ms < MIN_WAIT_MS) return `${label} : durée minimale 1 minute.`;
-        if (ms > MAX_WAIT_MS) return `${label} : durée maximale 90 jours.`;
-        break;
-      }
-      case 'webhook':
-        if (!/^https?:\/\//.test(node.url)) {
-          return `${label} : l'URL doit commencer par http(s)://`;
-        }
-        break;
-      case 'branch':
-        if (countActiveRules(node.condition) === 0) {
-          return `${label} : au moins une condition est requise.`;
-        }
-        break;
-    }
+    const issue =
+      stepIssue(node) ??
+      storedIssue(node, defsById, listIds, lifecycleStageKeys, pipelines, trigger);
+    if (issue) return stepIssueMessage(node, issue);
   }
 
   return null;
+}
+
+/** What only the database can tell of a step: that what it names exists, and that the pipeline allows the move. */
+function storedIssue(
+  node: WorkflowNode,
+  defsById: Map<string, Doc<'propertyDefinitions'>>,
+  listIds: Set<string>,
+  lifecycleStageKeys: Set<string>,
+  pipelines: Map<string, Doc<'pipelines'>>,
+  trigger: WorkflowTrigger | undefined,
+): string | null {
+  switch (node.type) {
+    case 'update_property':
+      return validateLeadTargetValue(node.target, node.value, defsById);
+    case 'set_lifecycle_stage':
+      return node.stage && lifecycleStageKeys.has(node.stage) ? null : 'statut introuvable.';
+    case 'create_deal':
+      if (pipelines.size === 0) return 'aucun pipeline.';
+      return validatePipelineStageRef(node, pipelines);
+    case 'update_deal_stage':
+      return (
+        validatePipelineStageRef(node, pipelines) ??
+        validateStageTagsRef(node, pipelines) ??
+        validateStageTransitionFromTrigger(node, trigger, pipelines)
+      );
+    case 'add_to_list':
+    case 'remove_from_list':
+      return node.listId && listIds.has(node.listId) ? null : 'liste introuvable.';
+    default:
+      return null;
+  }
 }
 
 function validatePipelineStageRef(

@@ -357,6 +357,40 @@ Côté interface : un composant, un hook ou un helper va dans
 garde que le composant de la page. Le backend n'est importé que par
 `src/lib/backend.ts`.
 
+Les règles que le code suit, chacune gardée par un test :
+
+- **Un fichier écrit à la main tient en 400 lignes**, ou dit pourquoi il en
+  fait plus (`tests/backend/fileSize.test.ts`).
+- **Une fonction Convex déclare `args` et `returns`**
+  (`tests/backend/returnValidators.test.ts`). Une ligne stockée se déclare
+  avec `docOf('<table>')` (`convex/lib/shared/docs.ts`), une forme déjà nommée
+  par son validator.
+- **Un refus que la personne peut corriger est levé avec `refusal(code)`**
+  (`convex/_lib/refusal.ts`), jamais avec `new Error('code')` : en production,
+  Convex ne transmet au client que le contenu d'un refus, un `Error` y arrive
+  sous la forme « Server Error ». Le détail va dans `reason`, une phrase
+  destinée à la personne dans `message`. L'interface lit le tout avec
+  `errorLabel` et `describeError` (`src/lib/errors.ts`). Un `Error` reste ce
+  qu'il est : une anomalie.
+- **Une règle que l'interface et le backend vérifient tous deux s'écrit une
+  fois**, en zod, dans `convex/_lib/validators/fields.ts` (adresse e-mail, URL,
+  couleur, pays, devise, entier borné ou positif, quantité non négative, jour).
+  Ce qu'une étape de workflow doit contenir avant l'activation est dans
+  `convex/_lib/validators/workflowSteps.ts` : l'éditeur l'affiche sous
+  l'étape, le backend refuse l'activation avec la même phrase
+  (`tests/frontend/workflowStepRules.test.ts`).
+- **Un contact se crée à un seul endroit**, `createLeadRecord`
+  (`convex/lib/leads/records.ts`) : la ligne, son entrée au journal, la
+  première ligne de son historique de statut, puis les workflows
+  (`tests/backend/leadCreation.test.ts`).
+- **Une query ou une mutation ne lit que par son `ctx.db`**, soumis aux règles
+  de visibilité de l'appelant. Ce que le déploiement compte (un plafond) est
+  une query interne qui ne rend que des nombres ; chacune est listée, avec sa
+  raison, dans `tests/backend/layering.test.ts`.
+- **Une page ou une fonctionnalité peint avec les jetons du thème**
+  (`src/design-system/theme.css`), jamais avec une couleur écrite à la main
+  (`tests/frontend/colourTokens.test.ts`).
+
 ## Développement
 
 ### Dans le conteneur dev (recommandé)
@@ -702,6 +736,18 @@ docker run -d -p 8099:80 -e VITE_CONVEX_URL=https://<deployment>.convex.cloud wa
 
 Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
 (cache immutable sur `/assets`, no-cache sur le HTML et `env.js`, fallback SPA).
+
+### Après une mise à jour
+
+- `bunx convex run features/workflows/internal:listWorkflowsToFix --prod`
+  liste les workflows actifs ou en pause que l'activation refuserait avec les
+  règles de la version déployée. Un workflow en faute continue de tourner,
+  mais une fois mis en pause il ne se réactive plus avant d'être corrigé :
+  mieux vaut le corriger avant.
+- Chaque fonction Convex vérifie à l'exécution ce qu'elle rend (`returns`).
+  Après un déploiement, une `ReturnsValidationError` dans les logs
+  (`bunx convex logs --prod`) désigne une fonction qui rend un champ que son
+  validator ne déclare pas.
 
 ### Déploiement local via Docker (build + run)
 

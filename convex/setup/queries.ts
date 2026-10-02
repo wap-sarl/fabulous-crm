@@ -5,6 +5,7 @@ import { isSetupComplete } from './helpers';
 /** Public status the setup gate reads on every page load; without SETUP_TOKEN on the deployment the wizard cannot proceed. */
 export const status = query({
   args: {},
+  returns: v.object({ setupComplete: v.boolean(), setupTokenConfigured: v.boolean() }),
   handler: async (ctx) => {
     const cfg = await ctx.db.query('appConfig').first();
     return {
@@ -17,6 +18,7 @@ export const status = query({
 /** False once setup is complete, so a stale wizard can't run again. */
 export const verifySetupToken = query({
   args: { setupToken: v.string() },
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const cfg = await ctx.db.query('appConfig').first();
     if (await isSetupComplete(ctx, cfg)) return false;

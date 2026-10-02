@@ -1,3 +1,4 @@
+import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { settingsMutation } from '../../_lib/auth';
 import {
@@ -18,11 +19,12 @@ export const createApiKey = settingsMutation({
     scopes: v.array(apiScopeValidator),
     expiresAt: v.optional(v.number()),
   },
+  returns: v.object({ id: v.id('apiKeys'), key: v.string() }),
   handler: async (ctx, args) => {
     const error = validateApiKeyShape(args);
-    if (error) throw new Error(error);
+    if (error) throw refusalFrom(error, 'invalid_api_key');
     if (args.expiresAt !== undefined && args.expiresAt <= Date.now()) {
-      throw new Error('api_key_expiry_in_past');
+      throw refusal('api_key_expiry_in_past');
     }
 
     // 4 random bytes collide only pathologically; regenerate rather than reason about it.
@@ -63,9 +65,10 @@ export const updateApiKey = settingsMutation({
     name: v.optional(v.string()),
     scopes: v.optional(v.array(apiScopeValidator)),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const key = await ctx.db.get(args.id);
-    if (!key) throw new Error('api_key_not_found');
+    if (!key) throw refusal('api_key_not_found');
     const patch: Partial<typeof key> = {};
     if (args.name !== undefined) patch.name = args.name.trim();
     if (args.scopes !== undefined) patch.scopes = args.scopes;
@@ -73,7 +76,7 @@ export const updateApiKey = settingsMutation({
       name: patch.name ?? key.name,
       scopes: patch.scopes ?? key.scopes,
     });
-    if (error) throw new Error(error);
+    if (error) throw refusalFrom(error, 'invalid_api_key');
     await ctx.db.patch(args.id, { ...patch, ...updateAuditFields(ctx.userId) });
     await logAudit({
       ctx,
@@ -83,16 +86,18 @@ export const updateApiKey = settingsMutation({
       action: 'update',
       metadata: { fields: Object.keys(patch) },
     });
+    return null;
   },
 });
 
 /** Revocation is soft and permanent: the row stays for the audit trail. */
 export const revokeApiKey = settingsMutation({
   args: { id: v.id('apiKeys') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const key = await ctx.db.get(args.id);
-    if (!key) throw new Error('api_key_not_found');
-    if (key.revokedAt !== undefined) return;
+    if (!key) throw refusal('api_key_not_found');
+    if (key.revokedAt !== undefined) return null;
     await ctx.db.patch(args.id, { revokedAt: Date.now(), ...updateAuditFields(ctx.userId) });
     await logAudit({
       ctx,
@@ -102,5 +107,6 @@ export const revokeApiKey = settingsMutation({
       action: 'update',
       metadata: { revoked: true, keyId: key.keyId },
     });
+    return null;
   },
 });

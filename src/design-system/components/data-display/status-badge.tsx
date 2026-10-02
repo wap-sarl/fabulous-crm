@@ -6,7 +6,7 @@ type StatusTone = 'blue' | 'amber' | 'violet' | 'green' | 'red' | 'gray';
 const TONE_STYLES: Record<StatusTone, { bg: string; fg: string }> = {
   blue: { bg: '#E7F0FF', fg: '#1D6BE0' },
   amber: { bg: '#FCF1DD', fg: '#B4740A' },
-  violet: { bg: '#EFEBFE', fg: '#6A4BF0' },
+  violet: { bg: 'var(--violet-soft)', fg: 'var(--violet)' },
   green: { bg: '#E3F6EC', fg: '#0C8A43' },
   red: { bg: '#FBE9E9', fg: '#D23B3F' },
   gray: { bg: '#F0F1F3', fg: '#6B7280' },

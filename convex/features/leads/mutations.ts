@@ -1,4 +1,7 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
+import type { Id } from '../../_generated/dataModel';
+import type { MutationCtx } from '../../_generated/server';
 import { employeeMutation } from '../../_lib/auth';
 import {
   createAuditFields,
@@ -7,7 +10,7 @@ import {
   logAudit,
 } from '../../lib/audit/log';
 import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
-import { generateHexToken } from '../../lib/security/crypto';
+import { editNote, liveNote } from '../../lib/leads/notes';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { addressValidator, propertyValueValidator } from '../../schema';
 import { loadPropertyDefsById, sanitizeCustomProperties } from '../../lib/properties/definitions';
@@ -30,8 +33,8 @@ import {
   normalizeEmail,
   planLeadImport,
 } from '../../lib/leads/import';
-import { leadImportRowValidator } from '../../_lib/validators/imports';
-import { CONSENT_TOKEN_BYTES } from '../../lib/leads/import';
+import { companyHintValidator, leadImportRowValidator } from '../../_lib/validators/imports';
+import { createLeadRecord } from '../../lib/leads/records';
 
 /** Marketing consent is absent on purpose: it is RGPD data the lead controls, set only through the public consent link, never by an authenticated path. */
 const leadRowArgs = {
@@ -46,20 +49,12 @@ const leadRowArgs = {
   // A stage key from appConfig.lifecycle; defaults to the configured stage.
   lifecycleStage: v.optional(v.string()),
   companyId: v.optional(v.id('companies')),
-  company: v.optional(
-    v.object({
-      name: v.optional(v.string()),
-      country: v.optional(v.string()),
-      registrationNumber: v.optional(v.string()),
-      vatNumber: v.optional(v.string()),
-      domain: v.optional(v.string()),
-    }),
-  ),
+  company: v.optional(companyHintValidator),
 } as const;
 
 function initialLifecycleStage(config: LifecycleConfig, requested: string | undefined): string {
   if (requested === undefined) return config.defaultStage;
-  if (lifecycleStageIndex(config, requested) === -1) throw new Error('unknown_lifecycle_stage');
+  if (lifecycleStageIndex(config, requested) === -1) throw refusal('unknown_lifecycle_stage');
   return requested;
 }
 
@@ -68,6 +63,7 @@ export const createLead = employeeMutation({
     ...leadRowArgs,
     customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
+  returns: v.id('leads'),
   handler: async (ctx, args) => {
     const customProperties = sanitizeCustomProperties(
       await loadPropertyDefsById(ctx, 'lead'),
@@ -85,41 +81,23 @@ export const createLead = employeeMutation({
     }
 
     await gateLeadCreate(ctx, 1, 'crm');
-    const leadId = await ctx.db.insert('leads', {
-      firstName: args.firstName.trim(),
-      lastName: args.lastName.trim(),
-      email,
-      phone: args.phone?.trim() || undefined,
-      address: requireValidAddress(args.address),
-      // Consent starts empty; only the lead can grant it via the public link.
-      marketingConsent: [],
-      consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
-      comment: args.comment,
-      ownerIds: await cleanOwnerIds(ctx, args.ownerIds ?? []),
-      companyId,
-      isRedFlagged: args.isRedFlagged ?? false,
-      lifecycleStage,
-      customProperties,
-      ...createAuditFields(ctx.userId),
-    });
-    // The audit entry first, whatever else the write records: afterChange consumers see `create` before the rest.
-    await logAudit({
+    return await createLeadRecord(
       ctx,
-      userId: ctx.userId,
-      entityType: 'lead',
-      entityId: leadId,
-      action: 'create',
-    });
-    await insertLifecycleHistory(
-      ctx,
-      leadId,
-      { from: undefined, to: lifecycleStage },
-      { source: 'manual', changedBy: ctx.userId },
+      { source: 'manual', userId: ctx.userId },
+      {
+        firstName: args.firstName.trim(),
+        lastName: args.lastName.trim(),
+        email,
+        phone: args.phone?.trim() || undefined,
+        address: requireValidAddress(args.address),
+        comment: args.comment,
+        ownerIds: await cleanOwnerIds(ctx, args.ownerIds ?? []),
+        companyId,
+        isRedFlagged: args.isRedFlagged,
+        lifecycleStage,
+        customProperties,
+      },
     );
-
-    await dispatchWorkflowTrigger(ctx, leadId, { type: 'lead_created' });
-
-    return leadId;
   },
 });
 
@@ -139,12 +117,13 @@ export const updateLead = employeeMutation({
     companyId: v.optional(v.union(v.id('companies'), v.null())),
     customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
   },
+  returns: v.id('leads'),
   handler: async (ctx, args) => {
     // Marketing consent is not an accepted field: it is RGPD data the lead controls, changed only through the public consent link.
     const { leadId, email, customProperties, lifecycleStage, companyId, ...rest } = args;
     const lead = await ctx.db.get(leadId);
     if (!lead || lead.deletedAt != null) {
-      throw new Error('lead_not_found');
+      throw refusal('lead_not_found');
     }
 
     const updates: Record<string, unknown> = { ...rest };
@@ -213,48 +192,46 @@ export const updateLead = employeeMutation({
   },
 });
 
+/** Marks a live contact deleted and audits it; false for one that is missing or already deleted. */
+async function softDeleteLead(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  leadId: Id<'leads'>,
+): Promise<boolean> {
+  const lead = await ctx.db.get(leadId);
+  if (!lead || lead.deletedAt != null) return false;
+  await ctx.db.patch(leadId, {
+    deletedAt: Date.now(),
+    ...updateAuditFields(userId),
+  });
+  await logAudit({
+    ctx,
+    userId,
+    entityType: 'lead',
+    entityId: leadId,
+    action: 'delete',
+  });
+  return true;
+}
+
 export const deleteLead = employeeMutation({
   args: { leadId: v.id('leads') },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const lead = await ctx.db.get(args.leadId);
-    if (!lead || lead.deletedAt != null) {
-      throw new Error('lead_not_found');
-    }
-    await ctx.db.patch(args.leadId, {
-      deletedAt: Date.now(),
-      ...updateAuditFields(ctx.userId),
-    });
-    await logAudit({
-      ctx,
-      userId: ctx.userId,
-      entityType: 'lead',
-      entityId: args.leadId,
-      action: 'delete',
-    });
+    if (!(await softDeleteLead(ctx, ctx.userId, args.leadId))) throw refusal('lead_not_found');
+    return null;
   },
 });
 
 /** Missing or already deleted ids are skipped silently rather than aborting the batch. */
 export const deleteLeads = employeeMutation({
   args: { leadIds: v.array(v.id('leads')) },
+  returns: v.object({ deleted: v.number() }),
   handler: async (ctx, args) => {
     const uniqueIds = [...new Set(args.leadIds)];
     let deleted = 0;
     for (const leadId of uniqueIds) {
-      const lead = await ctx.db.get(leadId);
-      if (!lead || lead.deletedAt != null) continue;
-      await ctx.db.patch(leadId, {
-        deletedAt: Date.now(),
-        ...updateAuditFields(ctx.userId),
-      });
-      await logAudit({
-        ctx,
-        userId: ctx.userId,
-        entityType: 'lead',
-        entityId: leadId,
-        action: 'delete',
-      });
-      deleted++;
+      if (await softDeleteLead(ctx, ctx.userId, leadId)) deleted++;
     }
     return { deleted };
   },
@@ -273,11 +250,16 @@ export const importLeads = employeeMutation({
     // Optional list every imported (created OR updated) lead is added to.
     listId: v.optional(v.id('leadLists')),
   },
+  returns: v.object({
+    created: v.number(),
+    updated: v.number(),
+    errors: v.array(v.object({ index: v.number(), error: v.string() })),
+  }),
   handler: async (ctx, args) => {
     if (args.listId) {
       const list = await ctx.db.get(args.listId);
-      if (!list) throw new Error('list_not_found');
-      if (list.kind === 'dynamic') throw new Error('list_is_dynamic');
+      if (!list) throw refusal('list_not_found');
+      if (list.kind === 'dynamic') throw refusal('list_is_dynamic');
     }
     const errors: { index: number; error: string }[] = [];
     let created = 0;
@@ -311,14 +293,15 @@ export const createNote = employeeMutation({
     leadId: v.id('leads'),
     content: v.string(),
   },
+  returns: v.id('leadNotes'),
   handler: async (ctx, args) => {
     const lead = await ctx.db.get(args.leadId);
     if (!lead || !isNotDeleted(lead)) {
-      throw new Error('lead_not_found');
+      throw refusal('lead_not_found');
     }
     const content = args.content.trim();
     if (!content) {
-      throw new Error('empty_note');
+      throw refusal('empty_note');
     }
 
     const noteId = await ctx.db.insert('leadNotes', {
@@ -347,32 +330,14 @@ export const updateNote = employeeMutation({
     noteId: v.id('leadNotes'),
     content: v.string(),
   },
+  returns: v.id('leadNotes'),
   handler: async (ctx, args) => {
-    const note = await ctx.db.get(args.noteId);
-    if (!note || !isNotDeleted(note)) {
-      throw new Error('note_not_found');
-    }
+    const note = await liveNote(ctx, args.noteId);
     const content = args.content.trim();
     if (!content) {
-      throw new Error('empty_note');
+      throw refusal('empty_note');
     }
-
-    const updates = { content };
-    const changes = computeChanges(note, updates);
-    await ctx.db.patch(args.noteId, { ...updates, ...updateAuditFields(ctx.userId) });
-
-    if (changes) {
-      await logAudit({
-        ctx,
-        userId: ctx.userId,
-        entityType: 'leadNote',
-        entityId: args.noteId,
-        action: 'update',
-        metadata: { changes },
-      });
-    }
-
-    return args.noteId;
+    return await editNote(ctx, ctx.userId, note, { content });
   },
 });
 
@@ -382,39 +347,19 @@ export const setNotePinned = employeeMutation({
     noteId: v.id('leadNotes'),
     isPinned: v.boolean(),
   },
+  returns: v.id('leadNotes'),
   handler: async (ctx, args) => {
-    const note = await ctx.db.get(args.noteId);
-    if (!note || !isNotDeleted(note)) {
-      throw new Error('note_not_found');
-    }
-
-    const updates = { isPinned: args.isPinned };
-    const changes = computeChanges(note, updates);
-    await ctx.db.patch(args.noteId, { ...updates, ...updateAuditFields(ctx.userId) });
-
-    if (changes) {
-      await logAudit({
-        ctx,
-        userId: ctx.userId,
-        entityType: 'leadNote',
-        entityId: args.noteId,
-        action: 'update',
-        metadata: { changes },
-      });
-    }
-
-    return args.noteId;
+    const note = await liveNote(ctx, args.noteId);
+    return await editNote(ctx, ctx.userId, note, { isPinned: args.isPinned });
   },
 });
 
 /** Soft-delete a note. */
 export const deleteNote = employeeMutation({
   args: { noteId: v.id('leadNotes') },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const note = await ctx.db.get(args.noteId);
-    if (!note || !isNotDeleted(note)) {
-      throw new Error('note_not_found');
-    }
+    await liveNote(ctx, args.noteId);
     await ctx.db.patch(args.noteId, {
       deletedAt: Date.now(),
       ...updateAuditFields(ctx.userId),
@@ -426,5 +371,6 @@ export const deleteNote = employeeMutation({
       entityId: args.noteId,
       action: 'delete',
     });
+    return null;
   },
 });

@@ -12,11 +12,12 @@ import {
   toast,
 } from '@crm/design-system';
 import { useLeadActions } from '../../leads/hooks/useLeadActions';
-import { AdvancedFilterGroupsEditor } from '../../filters/components/AdvancedFilterBuilder';
+import { AdvancedFilterGroupsEditor } from '../../filters/components/AdvancedFilterGroupsEditor';
 import { countActiveRules, emptyAdvancedFilter } from '../../filters/lib/advancedFilter';
 import { useLeadFieldCatalog } from '../../leads/hooks/useLeadFieldCatalog';
 import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import type { LeadListRow } from '../types';
+import { errorText } from '@crm/lib/errors';
 
 /** Create/edit modal for a dynamic list: name + the lead criteria builder. */
 export function DynamicListDialog({
@@ -53,9 +54,8 @@ export function DynamicListDialog({
       }
       onClose();
     } catch (error) {
-      const message = error instanceof Error ? error.message : '';
       toast.error(
-        message.includes('dynamic_list_cap_reached')
+        errorText(error).includes('dynamic_list_cap_reached')
           ? 'Nombre maximum de listes dynamiques atteint.'
           : 'Échec de l’enregistrement de la liste.',
       );

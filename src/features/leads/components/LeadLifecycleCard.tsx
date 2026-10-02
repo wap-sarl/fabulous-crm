@@ -42,7 +42,7 @@ export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardPro
                   ? 'rounded-md bg-primary px-2 py-1 text-xs font-semibold text-white'
                   : reached
                     ? 'rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary'
-                    : 'rounded-md bg-[#F2F3F5] px-2 py-1 text-xs font-medium text-faint'
+                    : 'rounded-md bg-muted px-2 py-1 text-xs font-medium text-faint'
               }
               aria-current={current ? 'step' : undefined}
             >

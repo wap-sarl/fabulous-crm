@@ -1,3 +1,4 @@
+import { refusalText } from '../../../_lib/refusal';
 import { internal } from '../../../_generated/api';
 import type { Doc, Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
@@ -137,7 +138,7 @@ export const companyImporter: EntityImporter<CompanyImportRow, Caches, State> = 
         state: { kind: 'create', name, ids, customProperties },
       };
     } catch (e) {
-      const error = e instanceof Error ? e.message : 'invalid_row';
+      const error = refusalText(e, 'invalid_row');
       return { verdict: { kind: 'error', error }, state: { kind: 'error', error } };
     }
   },

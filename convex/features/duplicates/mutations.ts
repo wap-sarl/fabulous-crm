@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
@@ -6,7 +7,7 @@ import { employeeMutation, settingsMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { addressValidator } from '../../schema';
 import { computeChanges, logAudit, updateAuditFields } from '../../lib/audit/log';
-import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { isNotDeleted } from '../../lib/shared/db';
 import {
   insertLifecycleHistory,
   loadLifecycleConfig,
@@ -32,13 +33,14 @@ const STALE_SCAN_MS = 15 * 60 * 1000;
 /** Start a batched scan of the whole leads table. One at a time. */
 export const startDuplicateScan = settingsMutation({
   args: {},
+  returns: v.id('duplicateScans'),
   handler: async (ctx) => {
     const running = await ctx.db
       .query('duplicateScans')
       .withIndex('by_status', (q) => q.eq('status', 'running'))
       .first();
     if (running) {
-      if (Date.now() - running.startedAt < STALE_SCAN_MS) throw new Error('scan_running');
+      if (Date.now() - running.startedAt < STALE_SCAN_MS) throw refusal('scan_running');
       await ctx.db.patch(running._id, { status: 'done', finishedAt: Date.now() });
     }
     const scanId = await ctx.db.insert('duplicateScans', {
@@ -58,10 +60,12 @@ export const startDuplicateScan = settingsMutation({
 /** Mark a pair as not duplicates; later scans leave it alone. */
 export const ignoreDuplicatePair = employeeMutation({
   args: { pairId: v.id('leadDuplicates') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const pair = await ctx.db.get(args.pairId);
-    if (!pair) throw new Error('pair_not_found');
+    if (!pair) throw refusal('pair_not_found');
     await ctx.db.patch(args.pairId, { status: 'ignored', updatedAt: Date.now() });
+    return null;
   },
 });
 
@@ -98,21 +102,22 @@ export const mergeLeads = employeeMutation({
     absorbedId: v.id('leads'),
     fields: v.object(mergeFieldArgs),
   },
+  returns: v.object({ survivorId: v.id('leads'), repointingScheduled: v.boolean() }),
   handler: async (ctx, args) => {
-    if (args.survivorId === args.absorbedId) throw new Error('merge_same_lead');
+    if (args.survivorId === args.absorbedId) throw refusal('merge_same_lead');
     const survivor = await ctx.db.get(args.survivorId);
     const absorbed = await ctx.db.get(args.absorbedId);
-    if (!survivor || !isNotDeleted(survivor)) throw new Error('lead_not_found');
-    if (!absorbed || !isNotDeleted(absorbed)) throw new Error('lead_not_found');
+    if (!survivor || !isNotDeleted(survivor)) throw refusal('lead_not_found');
+    if (!absorbed || !isNotDeleted(absorbed)) throw refusal('lead_not_found');
 
     const { fields } = args;
     const updates: Record<string, unknown> = {};
     if (fields.firstName !== undefined) {
-      if (!fields.firstName.trim()) throw new Error('first_name_required');
+      if (!fields.firstName.trim()) throw refusal('first_name_required');
       updates.firstName = fields.firstName.trim();
     }
     if (fields.lastName !== undefined) {
-      if (!fields.lastName.trim()) throw new Error('last_name_required');
+      if (!fields.lastName.trim()) throw refusal('last_name_required');
       updates.lastName = fields.lastName.trim();
     }
     if (fields.email !== undefined) updates.email = fields.email?.trim().toLowerCase() || undefined;
@@ -140,7 +145,7 @@ export const mergeLeads = employeeMutation({
         survivor,
         fields.lifecycleStage,
       );
-      if (plan.kind === 'unknown_stage') throw new Error('unknown_lifecycle_stage');
+      if (plan.kind === 'unknown_stage') throw refusal('unknown_lifecycle_stage');
       // A merge is a data repair, not a funnel move: regressions are allowed.
       if (plan.kind === 'change' || plan.kind === 'regression_blocked') {
         lifecycleChange = { from: survivor.lifecycleStage, to: fields.lifecycleStage };
@@ -169,7 +174,7 @@ export const mergeLeads = employeeMutation({
       ? hasViewMarks(survivor) && NO_VIEW_MARKS
       : mergedViewMarks(survivor, absorbed);
 
-    const changes = computeChanges(survivor, filterUndefined(updates));
+    const changes = computeChanges(survivor, updates);
     await ctx.db.patch(survivor._id, {
       ...updates,
       ...viewMarks,

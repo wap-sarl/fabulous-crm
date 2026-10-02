@@ -42,12 +42,12 @@ import { dateTimeFormat } from '@crm/lib/format';
 const timeFormat = new Intl.DateTimeFormat('fr-FR', { timeStyle: 'short' });
 
 const TONE_ICON_STYLE: Record<StatusTone, string> = {
-  blue: 'bg-[#E8F0FE] text-[#1A56DB]',
-  amber: 'bg-[#FEF3E2] text-[#B45309]',
-  violet: 'bg-[#EFEBFE] text-[#6A4BF0]',
-  green: 'bg-[#E6F6EC] text-[#1B7F3B]',
-  red: 'bg-[#FDE8E8] text-[#B42318]',
-  gray: 'bg-[#F2F3F5] text-[#5C6370]',
+  blue: 'bg-info-soft text-info',
+  amber: 'bg-warning-soft text-warning',
+  violet: 'bg-violet-soft text-violet',
+  green: 'bg-success-soft text-success',
+  red: 'bg-destructive-soft text-destructive',
+  gray: 'bg-muted text-soft',
 };
 
 interface Presentation {

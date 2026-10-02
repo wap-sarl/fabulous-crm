@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { internal } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
@@ -25,7 +26,7 @@ export async function ensureScoringState(ctx: MutationCtx): Promise<Doc<'scoring
   if (state) return state;
   const id = await ctx.db.insert('scoringState', {});
   const created = await ctx.db.get(id);
-  if (!created) throw new Error('scoring_state_missing');
+  if (!created) throw refusal('scoring_state_missing');
   return created;
 }
 

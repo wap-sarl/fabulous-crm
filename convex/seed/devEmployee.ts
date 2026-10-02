@@ -1,13 +1,14 @@
 import { v } from 'convex/values';
 import { internalMutation } from '../_generated/server';
 
-/** A fresh deployment has nobody who can sign in: this creates its first employee, or revives it. */
+/** A fresh deployment has nobody who can sign in: this creates its first employee, or gives back the live one that has the address. */
 export const createDevEmployee = internalMutation({
   args: {
     email: v.string(),
     firstName: v.string(),
     lastName: v.string(),
   },
+  returns: v.object({ userId: v.id('users'), created: v.boolean() }),
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
     const existing = await ctx.db

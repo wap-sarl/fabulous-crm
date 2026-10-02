@@ -1,3 +1,5 @@
+import { campaignChannelValidator } from '../../_lib/validators/crm';
+import { messageTypeValidator } from '../../_lib/validators/crm';
 import { v } from 'convex/values';
 import { internalQuery } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
@@ -13,6 +15,25 @@ const BATCH_SIZE = 50;
 /** Load the campaign template id plus the next batch of pending sends. */
 export const getPendingSends = internalQuery({
   args: { campaignId: v.id('campaigns') },
+  returns: v.union(
+    v.object({
+      channel: v.optional(campaignChannelValidator),
+      brevoTemplateId: v.optional(v.number()),
+      subject: v.optional(v.string()),
+      htmlBody: v.optional(v.string()),
+      smsBody: v.optional(v.string()),
+      messageType: v.optional(messageTypeValidator),
+      sends: v.array(
+        v.object({
+          sendId: v.id('campaignSends'),
+          email: v.optional(v.string()),
+          phone: v.optional(v.string()),
+          params: v.record(v.string(), v.string()),
+        }),
+      ),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const campaign = await ctx.db.get(args.campaignId);
     if (!campaign) return null;
@@ -54,6 +75,7 @@ export const recordSendResults = internalMutation({
       }),
     ),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     let sentDelta = 0;
     let failedDelta = 0;
@@ -80,6 +102,7 @@ export const recordSendResults = internalMutation({
         updatedAt: Date.now(),
       });
     }
+    return null;
   },
 });
 
@@ -92,7 +115,11 @@ export const recordBrevoEmailEvent = internalMutation({
     url: v.optional(v.string()),
     reason: v.optional(v.string()),
   },
-  handler: (ctx, args) => recordEmailEvent(ctx, args),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await recordEmailEvent(ctx, args);
+    return null;
+  },
 });
 
 /** A Brevo SMS webhook event; a STOP revokes the lead's SMS consent. */
@@ -104,7 +131,11 @@ export const handleSmsEvent = internalMutation({
     msgStatus: v.string(),
     eventAt: v.number(),
   },
-  handler: (ctx, args) => recordSmsEvent(ctx, args),
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await recordSmsEvent(ctx, args);
+    return null;
+  },
 });
 
 /** One page of the recipients of a campaign, as sends; it schedules the next page, then the drain. */
@@ -116,6 +147,7 @@ export const prepareCampaignBatch = internalMutation({
     // Tests only: a small page exercises the per-page gate; production keeps the batch of lib/campaigns/prepare.ts.
     batchSize: v.optional(v.number()),
   },
+  returns: v.object({ isDone: v.boolean(), continueCursor: v.union(v.string(), v.null()) }),
   handler: (ctx, args) => prepareBatch(ctx, args),
 });
 
@@ -123,25 +155,33 @@ export const prepareCampaignBatch = internalMutation({
 export const handleTrackedLinkClick = internalMutation({
   // `grantHash`: the hash of the one-time value the route may put in the landing URL (named tracking).
   args: { token: v.string(), grantHash: v.optional(v.string()) },
+  returns: v.object({
+    found: v.boolean(),
+    redirectUrl: v.optional(v.string()),
+    identify: v.optional(v.boolean()),
+  }),
   handler: (ctx, args) => clickTrackedLink(ctx, args),
 });
 
 /** Finalize a campaign once no pending sends remain. */
 export const markCampaignComplete = internalMutation({
   args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) return;
+    if (!campaign) return null;
     await ctx.db.patch(args.campaignId, {
       status: campaign.sentCount > 0 ? 'sent' : 'failed',
       updatedAt: Date.now(),
     });
+    return null;
   },
 });
 
 /** When the send path cannot proceed (no usable provider, a fatal error mid-drain): the pending sends are failed so they show in the UI and can be retried. */
 export const failPendingSends = internalMutation({
   args: { campaignId: v.id('campaigns'), error: v.string() },
+  returns: v.object({ failed: v.number() }),
   handler: async (ctx, args) => {
     const pending = await ctx.db
       .query('campaignSends')

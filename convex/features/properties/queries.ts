@@ -1,3 +1,4 @@
+import { docOf } from '../../lib/shared/docs';
 import { v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
 import { propertyEntityTypeValidator } from '../../_lib/validators/properties';
@@ -6,6 +7,7 @@ import { loadPropertyDefinitions } from '../../lib/properties/definitions';
 
 export const listDefinitions = employeeQuery({
   args: { entityType: v.optional(propertyEntityTypeValidator) },
+  returns: v.array(docOf('propertyDefinitions')),
   handler: async (ctx, args) => {
     if (args.entityType) return await loadPropertyDefinitions(ctx, args.entityType);
     const all = await ctx.db.query('propertyDefinitions').collect();

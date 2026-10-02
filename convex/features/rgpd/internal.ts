@@ -1,11 +1,14 @@
+import { docOf } from '../../lib/shared/docs';
+import { addressValidator } from '../../_lib/validators/shared';
+import { marketingConsentChannelValidator } from '../../_lib/validators/crm';
+import { consentSourceValidator } from '../../_lib/validators/crm';
+import { propertyValueValidator } from '../../_lib/validators/properties';
+import { campaignChannelValidator } from '../../_lib/validators/crm';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
-import type { Doc } from '../../_generated/dataModel';
-import { internalQuery, type MutationCtx, type QueryCtx } from '../../_generated/server';
+import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
-import { EXPORT_ROW_CAP } from '../../_lib/validators/rgpd';
 import { logAudit } from '../../lib/audit/log';
-import { computeLeadScore, loadScoringRules } from '../../lib/scoring/score';
 import {
   addCounts,
   emptyCounts,
@@ -13,8 +16,9 @@ import {
   PURGE_CASCADE_BATCH,
   PURGE_ROW_PAGE,
   type PurgeCounts,
-  purgeLeadRows,
-} from '../../lib/retention/purge';
+} from '../../lib/retention/budget';
+import { purgeLeadRows } from '../../lib/retention/rows';
+import { collect } from '../../lib/rgpd/access';
 import { loadVisibility, moduleAllows } from '../../lib/roles/visibility';
 
 /** For the export action, which has no db: the settings switch is not enough, a custom role may hold settings with leads at own, team or none. */
@@ -37,220 +41,107 @@ export const exportAccessOf = internalQuery({
   },
 });
 
-/** Every row about one contact, table by table, capped per table; the archive the person is entitled to. */
-async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
-  const cut: string[] = [];
-  const cap = EXPORT_ROW_CAP;
-  const capped = <T>(table: string, rows: T[]): T[] => {
-    if (rows.length >= cap) cut.push(table);
-    return rows;
-  };
-  const leadId = lead._id;
-  // The tables are independent of one another: one round of reads, every part required.
-  const [
-    company,
-    notes,
-    lifecycleHistory,
-    deals,
-    activities,
-    memberships,
-    sends,
-    events,
-    runs,
-    steps,
-    submissions,
-    pageViews,
-    attachmentRows,
-    rules,
-    audit,
-  ] = await Promise.all([
-    lead.companyId ? ctx.db.get(lead.companyId) : Promise.resolve(null),
-    ctx.db
-      .query('leadNotes')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('leadNotes', rows)),
-    ctx.db
-      .query('lifecycleStageHistory')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('lifecycleStageHistory', rows)),
-    ctx.db
-      .query('deals')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('deals', rows)),
-    ctx.db
-      .query('activities')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('activities', rows)),
-    ctx.db
-      .query('leadListMembers')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('leadListMembers', rows)),
-    ctx.db
-      .query('campaignSends')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('campaignSends', rows)),
-    ctx.db
-      .query('campaignEvents')
-      .withIndex('by_lead_eventAt', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('campaignEvents', rows)),
-    ctx.db
-      .query('workflowRuns')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('workflowRuns', rows)),
-    ctx.db
-      .query('workflowRunSteps')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('workflowRunSteps', rows)),
-    ctx.db
-      .query('formSubmissions')
-      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('formSubmissions', rows)),
-    ctx.db
-      .query('pageViews')
-      .withIndex('by_lead_at', (q) => q.eq('leadId', leadId))
-      .take(cap)
-      .then((rows) => capped('pageViews', rows)),
-    ctx.db
-      .query('attachments')
-      .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
-      .take(cap)
-      .then((rows) => capped('attachments', rows)),
-    // Rules are read only; the loader's ctx type is the mutation one, the query ctx reads the same table.
-    loadScoringRules(ctx as unknown as MutationCtx),
-    ctx.db
-      .query('auditLogs')
-      .withIndex('by_entity', (q) => q.eq('entityType', 'lead').eq('entityId', leadId))
-      .take(cap)
-      .then((rows) => capped('auditLogs', rows)),
-  ]);
-  const [listDocs, campaignDocs, workflowDocs, formDocs] = await Promise.all([
-    Promise.all(memberships.map((m) => ctx.db.get(m.listId))),
-    Promise.all([...new Set(sends.map((s) => s.campaignId))].map((id) => ctx.db.get(id))),
-    Promise.all([...new Set(runs.map((r) => r.workflowId))].map((id) => ctx.db.get(id))),
-    Promise.all([...new Set(submissions.map((s) => s.formId))].map((id) => ctx.db.get(id))),
-  ]);
-  const formById = new Map(formDocs.flatMap((f) => (f ? [[f._id, f] as const] : [])));
-  // What the person typed, under the form's name; the salted IP hash is the CRM's, not theirs.
-  const formSubmissions = submissions.map((s) => ({
-    form: formById.get(s.formId)?.name ?? null,
-    submittedAt: s._creationTime,
-    values: s.values,
-    userAgent: s.userAgent ?? null,
-  }));
-  const lists = listDocs.flatMap((list) =>
-    list ? [{ name: list.name, kind: list.kind ?? 'static' }] : [],
-  );
-  const campaignById = new Map(campaignDocs.flatMap((c) => (c ? [[c._id, c] as const] : [])));
-  const campaigns = sends.map((send) => {
-    const campaign = campaignById.get(send.campaignId);
-    return {
-      campaign: campaign
-        ? {
-            name: campaign.name,
-            channel: campaign.channel ?? 'email',
-            subject: campaign.subject ?? null,
-          }
-        : null,
-      send,
-      events: events.filter((e) => e.sendId === send._id),
-    };
-  });
-  const workflowById = new Map(workflowDocs.flatMap((w) => (w ? [[w._id, w] as const] : [])));
-  const workflows = runs.map((run) => {
-    const workflow = workflowById.get(run.workflowId);
-    return {
-      workflow: workflow ? { name: workflow.name } : null,
-      run,
-      steps: steps.filter((s) => s.runId === run._id),
-    };
-  });
-  const attachments = attachmentRows.map((a) => ({
-    name: a.name,
-    folder: a.folder,
-    mimeType: a.mimeType,
-    size: a.size,
-    updatedAt: a.updatedAt,
-    deletedAt: a.deletedAt ?? null,
-  }));
-  const scored = lead.excludeFromProfiling ? null : computeLeadScore(lead, rules, Date.now());
-  const scoring = {
-    excludedFromProfiling: lead.excludeFromProfiling ?? false,
-    score: scored?.score ?? null,
-    rules: Object.entries(scored?.breakdown ?? {}).map(([ruleId, points]) => ({
-      rule: rules.find((r) => r._id === ruleId)?.name ?? ruleId,
-      points,
-    })),
-  };
-  // The person's own data: not the consent link's secret, the search and dedupe keys, nor the employees in charge.
-  const contact = {
-    _id: lead._id,
-    _creationTime: lead._creationTime,
-    firstName: lead.firstName,
-    lastName: lead.lastName,
-    email: lead.email,
-    phone: lead.phone,
-    address: lead.address,
-    marketingConsent: lead.marketingConsent,
-    consentUpdatedAt: lead.consentUpdatedAt,
-    consentSource: lead.consentSource,
-    comment: lead.comment,
-    isRedFlagged: lead.isRedFlagged,
-    excludeFromProfiling: lead.excludeFromProfiling,
-    lifecycleStage: lead.lifecycleStage,
-    lastActivityAt: lead.lastActivityAt,
-    lastEmailOpenAt: lead.lastEmailOpenAt,
-    emailOpenCount: lead.emailOpenCount,
-    lastEmailClickAt: lead.lastEmailClickAt,
-    emailClickCount: lead.emailClickCount,
-    lastFormSubmissionAt: lead.lastFormSubmissionAt,
-    formSubmissionCount: lead.formSubmissionCount,
-    lastPageViewAt: lead.lastPageViewAt,
-    pageViewCount: lead.pageViewCount,
-    customProperties: lead.customProperties,
-    updatedAt: lead.updatedAt,
-    deletedAt: lead.deletedAt,
-  };
-  return {
-    exportedAt: Date.now(),
-    contact,
-    company: company ? { name: company.name, domain: company.domain ?? null } : null,
-    notes,
-    lifecycleHistory,
-    lists,
-    deals,
-    activities,
-    campaigns,
-    workflows,
-    formSubmissions,
-    // Where the person browsed, as the tracking recorded it; the browser id is the CRM's, not theirs.
-    pageViews: pageViews.map((v) => ({
-      at: v.at,
-      url: v.url,
-      title: v.title ?? null,
-      referrer: v.referrer ?? null,
-    })),
-    scoring,
-    attachments,
-    audit,
-    // Tables read up to their cap; the archive is complete when this is empty.
-    cut,
-  };
-}
-
-export type ContactArchive = Awaited<ReturnType<typeof collect>>;
-
 export const collectContactData = internalQuery({
   args: { leadId: v.id('leads') },
+  returns: v.union(
+    v.object({
+      exportedAt: v.number(),
+      contact: v.object({
+        _id: v.id('leads'),
+        _creationTime: v.number(),
+        firstName: v.string(),
+        lastName: v.string(),
+        email: v.optional(v.string()),
+        phone: v.optional(v.string()),
+        address: v.optional(addressValidator),
+        marketingConsent: v.array(marketingConsentChannelValidator),
+        consentUpdatedAt: v.optional(v.number()),
+        consentSource: v.optional(consentSourceValidator),
+        comment: v.optional(v.string()),
+        isRedFlagged: v.boolean(),
+        excludeFromProfiling: v.optional(v.boolean()),
+        lifecycleStage: v.optional(v.string()),
+        lastActivityAt: v.optional(v.number()),
+        lastEmailOpenAt: v.optional(v.number()),
+        emailOpenCount: v.optional(v.number()),
+        lastEmailClickAt: v.optional(v.number()),
+        emailClickCount: v.optional(v.number()),
+        lastFormSubmissionAt: v.optional(v.number()),
+        formSubmissionCount: v.optional(v.number()),
+        lastPageViewAt: v.optional(v.number()),
+        pageViewCount: v.optional(v.number()),
+        customProperties: v.optional(v.record(v.string(), propertyValueValidator)),
+        updatedAt: v.number(),
+        deletedAt: v.optional(v.number()),
+      }),
+      company: v.union(
+        v.object({ name: v.string(), domain: v.union(v.string(), v.null()) }),
+        v.null(),
+      ),
+      notes: v.array(docOf('leadNotes')),
+      lifecycleHistory: v.array(docOf('lifecycleStageHistory')),
+      lists: v.array(
+        v.object({ name: v.string(), kind: v.union(v.literal('static'), v.literal('dynamic')) }),
+      ),
+      deals: v.array(docOf('deals')),
+      activities: v.array(docOf('activities')),
+      campaigns: v.array(
+        v.object({
+          campaign: v.union(
+            v.object({
+              name: v.string(),
+              channel: campaignChannelValidator,
+              subject: v.union(v.string(), v.null()),
+            }),
+            v.null(),
+          ),
+          send: docOf('campaignSends'),
+          events: v.array(docOf('campaignEvents')),
+        }),
+      ),
+      workflows: v.array(
+        v.object({
+          workflow: v.union(v.object({ name: v.string() }), v.null()),
+          run: docOf('workflowRuns'),
+          steps: v.array(docOf('workflowRunSteps')),
+        }),
+      ),
+      formSubmissions: v.array(
+        v.object({
+          form: v.union(v.string(), v.null()),
+          submittedAt: v.number(),
+          values: v.record(v.string(), propertyValueValidator),
+          userAgent: v.union(v.string(), v.null()),
+        }),
+      ),
+      pageViews: v.array(
+        v.object({
+          at: v.number(),
+          url: v.string(),
+          title: v.union(v.string(), v.null()),
+          referrer: v.union(v.string(), v.null()),
+        }),
+      ),
+      scoring: v.object({
+        excludedFromProfiling: v.boolean(),
+        score: v.union(v.number(), v.null()),
+        rules: v.array(v.object({ rule: v.string(), points: v.number() })),
+      }),
+      attachments: v.array(
+        v.object({
+          name: v.string(),
+          folder: v.string(),
+          mimeType: v.string(),
+          size: v.number(),
+          updatedAt: v.number(),
+          deletedAt: v.union(v.number(), v.null()),
+        }),
+      ),
+      audit: v.array(docOf('auditLogs')),
+      cut: v.array(v.string()),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, { leadId }) => {
     const lead = await ctx.db.get(leadId);
     return lead ? await collect(ctx, lead) : null;

@@ -249,7 +249,7 @@ describe('deals', () => {
 
     await expect(
       as.mutation(api.features.deals.mutations.createDeal, { title: 'Bad', amount: -1 }),
-    ).rejects.toThrow('invalid_deal: amount');
+    ).rejects.toMatchObject({ data: { code: 'invalid_deal', reason: 'amount' } });
     await expect(
       as.mutation(api.features.deals.mutations.createDeal, { title: 'Bad', stageKey: 'nope' }),
     ).rejects.toThrow('unknown_stage');

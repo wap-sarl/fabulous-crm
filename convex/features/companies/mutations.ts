@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
@@ -11,7 +12,6 @@ import {
   logAudit,
   updateAuditFields,
 } from '../../lib/audit/log';
-import { filterUndefined } from '../../lib/shared/db';
 import { blank, normalizeIdentifiers } from '../../lib/companies/lookup';
 import { requireValidAddress } from '../../lib/addresses/validation';
 
@@ -31,9 +31,10 @@ const companyFieldArgs = {
 
 export const createCompany = employeeMutation({
   args: companyFieldArgs,
+  returns: v.id('companies'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
-    if (!name) throw new Error('company_name_required');
+    if (!name) throw refusal('company_name_required');
     const ids = await normalizeIdentifiers(ctx, args);
 
     const companyId = await ctx.db.insert('companies', {
@@ -67,15 +68,16 @@ export const updateCompany = employeeMutation({
     ...companyFieldArgs,
     name: v.optional(v.string()),
   },
+  returns: v.id('companies'),
   handler: async (ctx, args) => {
     const { companyId, ...rest } = args;
     const company = await ctx.db.get(companyId);
-    if (!company || company.deletedAt != null) throw new Error('company_not_found');
+    if (!company || company.deletedAt != null) throw refusal('company_not_found');
 
     const updates: Record<string, unknown> = {};
     if (rest.name !== undefined) {
       const name = rest.name.trim();
-      if (!name) throw new Error('company_name_required');
+      if (!name) throw refusal('company_name_required');
       updates.name = name;
     }
     // Identifiers are normalized together: the country decides the scheme the registration number is validated against.
@@ -113,7 +115,7 @@ export const updateCompany = employeeMutation({
       );
     }
 
-    const changes = computeChanges(company, filterUndefined(updates));
+    const changes = computeChanges(company, updates);
     const renamed = typeof updates.name === 'string' && updates.name !== company.name;
     await ctx.db.patch(companyId, { ...updates, ...updateAuditFields(ctx.userId) });
 
@@ -142,9 +144,10 @@ export const updateCompany = employeeMutation({
 /** Soft delete: the contacts stay (they are people, not the company's property) and are detached in scheduled batches. */
 export const deleteCompany = employeeMutation({
   args: { companyId: v.id('companies') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const company = await ctx.db.get(args.companyId);
-    if (!company || company.deletedAt != null) throw new Error('company_not_found');
+    if (!company || company.deletedAt != null) throw refusal('company_not_found');
     await ctx.db.patch(args.companyId, {
       deletedAt: Date.now(),
       ...updateAuditFields(ctx.userId),
@@ -159,5 +162,6 @@ export const deleteCompany = employeeMutation({
     await ctx.scheduler.runAfter(0, internal.features.companies.internal.detachCompanyLeads, {
       companyId: args.companyId,
     });
+    return null;
   },
 });

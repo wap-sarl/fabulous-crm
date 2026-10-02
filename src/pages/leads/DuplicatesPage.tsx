@@ -102,7 +102,7 @@ export function DuplicatesPage() {
             <Card key={pair._id} className="p-4" data-testid="duplicate-pair">
               <div className="flex flex-wrap items-start gap-4">
                 <LeadSide lead={pair.leadA} />
-                <ArrowLeftRight className="mt-2 size-4 shrink-0 text-[#C8CCD4]" aria-hidden />
+                <ArrowLeftRight className="mt-2 size-4 shrink-0 text-ghost" aria-hidden />
                 <LeadSide lead={pair.leadB} />
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
                   <div className="flex flex-wrap gap-1.5">

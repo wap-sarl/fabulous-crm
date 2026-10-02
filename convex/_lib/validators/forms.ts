@@ -1,3 +1,4 @@
+import { follows, httpUrlSchema } from './fields';
 import { type Infer, v } from 'convex/values';
 import { logsValidator, softDeleteValidator } from './shared';
 import { propertyValueValidator } from './properties';
@@ -142,7 +143,10 @@ export function validateFormShape(form: {
   if (!form.buttonText.trim()) return 'form_button_text_required';
   // The GDPR checkbox is mandatory, so its sentence is too.
   if (!form.consentText.trim()) return 'form_consent_text_required';
-  if (form.afterSubmit.kind === 'redirect' && !/^https?:\/\//.test(form.afterSubmit.url.trim())) {
+  if (
+    form.afterSubmit.kind === 'redirect' &&
+    !follows(httpUrlSchema, form.afterSubmit.url.trim())
+  ) {
     return 'form_invalid_redirect_url';
   }
   if (form.afterSubmit.kind === 'message' && !form.afterSubmit.message.trim()) {

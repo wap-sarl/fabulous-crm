@@ -1,8 +1,12 @@
 import { v } from 'convex/values';
+import { internalQuery } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { loadActiveWorkflows } from '../../lib/workflows/dispatch';
 import { evalAdvancedFilter } from '../../lib/leads/matching';
-import { criteriaUsesRelativeDates } from '../../_lib/validators/leadLists';
+import {
+  criteriaUsesRelativeDates,
+  DEFAULT_MAX_DYNAMIC_LISTS,
+} from '../../_lib/validators/leadLists';
 import { startDynamicListRecalc, syncDynamicMembership } from '../../lib/leadLists/dynamic';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { internal } from '../../_generated/api';
@@ -11,12 +15,27 @@ import { DAY_MS } from '../../_lib/time';
 const RECALC_BATCH = 100;
 const DRIFT_RECALC_MS = DAY_MS;
 
+/** The cap of dynamic lists and how much of it is used. An internal query because the cap is the deployment's: it counts the lists the caller cannot see, and gives back numbers only. */
+export const dynamicListLimits = internalQuery({
+  args: {},
+  returns: v.object({ maxDynamicLists: v.number(), dynamicCount: v.number() }),
+  handler: async (ctx) => {
+    const lists = await ctx.db.query('leadLists').collect();
+    const cfg = await ctx.db.query('appConfig').first();
+    return {
+      maxDynamicLists: cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS,
+      dynamicCount: lists.filter((l) => l.kind === 'dynamic').length,
+    };
+  },
+});
+
 export const recalcDynamicListPage = internalMutation({
   args: { listId: v.id('leadLists'), stamp: v.number(), cursor: v.optional(v.string()) },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
-    if (list?.kind !== 'dynamic' || !list.criteria) return;
-    if (list.recalc?.stamp !== args.stamp) return;
+    if (list?.kind !== 'dynamic' || !list.criteria) return null;
+    if (list.recalc?.stamp !== args.stamp) return null;
 
     const page = await ctx.db
       .query('leads')
@@ -36,7 +55,7 @@ export const recalcDynamicListPage = internalMutation({
         stamp: args.stamp,
         cursor: page.continueCursor,
       });
-      return;
+      return null;
     }
 
     const nextRecalcId = criteriaUsesRelativeDates(list.criteria)
@@ -51,14 +70,17 @@ export const recalcDynamicListPage = internalMutation({
       lastRecalcAt: Date.now(),
       nextRecalcId,
     });
+    return null;
   },
 });
 
 /** Time-drift reconciliation entry point (booked by recalcDynamicListPage). */
 export const startScheduledListRecalc = internalMutation({
   args: { listId: v.id('leadLists') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
     if (list && list.kind === 'dynamic') await startDynamicListRecalc(ctx, list);
+    return null;
   },
 });

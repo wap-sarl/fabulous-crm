@@ -1,3 +1,5 @@
+import { propertyOptionValidator } from '../../_lib/validators/properties';
+import { formAfterSubmitValidator } from '../../_lib/validators/forms';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
@@ -7,7 +9,6 @@ import { internalMutation } from '../../_lib/functions';
 import { MAX_FILL_MS, MIN_FILL_MS } from '../../_lib/validators/forms';
 import { propertyValueValidator, type PropertyValue } from '../../_lib/validators/properties';
 import { computeChanges, logAudit } from '../../lib/audit/log';
-import { generateHexToken } from '../../lib/security/crypto';
 import {
   buildPublicForm,
   cleanSubmissionValues,
@@ -24,15 +25,47 @@ import {
   verifyRender,
 } from '../../lib/forms/submission';
 import { gateLeadCreate } from '../../lib/extensions/gates';
-import { CONSENT_TOKEN_BYTES, normalizeEmail } from '../../lib/leads/import';
+import { normalizeEmail } from '../../lib/leads/import';
+import { createLeadRecord } from '../../lib/leads/records';
 import { stampLeadSignal } from '../../lib/leads/signals';
-import { insertLifecycleHistory, loadLifecycleConfig } from '../../lib/leads/lifecycle';
+import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../../lib/workflows/dispatch';
 
 /** The public render payload of one active form (null hides which ids exist), with its signed render stamp. */
 export const getPublicForm = internalQuery({
   args: { formId: v.string(), visitorToken: v.optional(v.string()) },
+  returns: v.union(
+    v.object({
+      ts: v.number(),
+      sig: v.string(),
+      fields: v.array(
+        v.object({
+          key: v.string(),
+          label: v.string(),
+          required: v.boolean(),
+          input: v.union(
+            v.literal('number'),
+            v.literal('boolean'),
+            v.literal('email'),
+            v.literal('text'),
+            v.literal('select'),
+            v.literal('radio'),
+            v.literal('checkbox'),
+            v.literal('date'),
+            v.literal('tel'),
+            v.literal('textarea'),
+          ),
+          options: v.optional(v.array(propertyOptionValidator)),
+        }),
+      ),
+      knownFields: v.array(v.string()),
+      buttonText: v.string(),
+      consentText: v.string(),
+      afterSubmit: formAfterSubmitValidator,
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const formId = ctx.db.normalizeId('forms', args.formId);
     const form = formId ? await loadLiveForm(ctx, formId) : null;
@@ -64,6 +97,23 @@ export const submitForm = internalMutation({
     ipHash: v.string(),
     userAgent: v.optional(v.string()),
   },
+  returns: v.union(
+    v.object({ ok: v.literal(false), code: v.literal('not_found') }),
+    v.object({
+      ok: v.literal(true),
+      afterSubmit: formAfterSubmitValidator,
+      visitorToken: v.string(),
+    }),
+    v.object({ ok: v.literal(false), code: v.literal('too_fast') }),
+    v.object({ ok: v.literal(false), code: v.literal('stale') }),
+    v.object({ ok: v.literal(false), code: v.literal('consent_required') }),
+    v.object({
+      ok: v.literal(false),
+      code: v.literal('invalid_fields'),
+      errors: v.record(v.string(), v.string()),
+    }),
+    v.object({ ok: v.literal(false), code: v.literal('unavailable') }),
+  ),
   handler: async (ctx, args) => {
     const formId = ctx.db.normalizeId('forms', args.formId);
     const form = formId ? await loadLiveForm(ctx, formId) : null;
@@ -139,39 +189,26 @@ export const submitForm = internalMutation({
         return { ok: false as const, code: 'unavailable' as const };
       }
       const lifecycle = await loadLifecycleConfig(ctx);
-      leadId = await ctx.db.insert('leads', {
-        firstName: standard.firstName ?? '',
-        lastName: standard.lastName ?? '',
-        email,
-        phone: standard.phone,
-        comment: initialComment(standard, companyId !== undefined),
-        // Single opt-in: the box the person ticked, on the contact this submission creates and on no other.
-        marketingConsent: ['email'],
-        consentUpdatedAt: now,
-        consentSource: 'form',
-        consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
-        ownerIds: [],
-        companyId,
-        isRedFlagged: false,
-        lifecycleStage: lifecycle.defaultStage,
-        customProperties: Object.keys(custom).length > 0 ? custom : undefined,
-        updatedAt: now,
-      });
-      await logAudit({
+      leadId = await createLeadRecord(
         ctx,
-        entityType: 'lead',
-        entityId: leadId,
-        action: 'create',
-        metadata: { source: 'form', formId: form._id },
-      });
-      await insertLifecycleHistory(
-        ctx,
-        leadId,
-        { from: undefined, to: lifecycle.defaultStage },
-        { source: 'form' },
+        { source: 'form', formId: form._id },
+        {
+          firstName: standard.firstName ?? '',
+          lastName: standard.lastName ?? '',
+          email,
+          phone: standard.phone,
+          comment: initialComment(standard, companyId !== undefined),
+          // Single opt-in: the box the person ticked, on the contact this submission creates and on no other.
+          marketingConsent: ['email'],
+          consentUpdatedAt: now,
+          consentSource: 'form',
+          ownerIds: [],
+          companyId,
+          lifecycleStage: lifecycle.defaultStage,
+          customProperties: Object.keys(custom).length > 0 ? custom : undefined,
+        },
+        { workflows, signal: { kind: 'form_submission', at: now } },
       );
-      await stampLeadSignal(ctx, leadId, 'form_submission', now);
-      await dispatchWorkflowTrigger(ctx, leadId, { type: 'lead_created' }, { workflows });
     }
 
     // Only the accepted values are logged, keyed like the public definition.

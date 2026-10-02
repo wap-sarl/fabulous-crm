@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Doc, Id } from '@crm/lib/backend';
 import {
-  DEFAULT_COUNTRY,
+  countSchema,
+  follows,
   registrationSchemeFor,
   validateAddress,
   vatSchemeFor,
@@ -32,11 +33,11 @@ import {
   type CompanyRegistrationContext,
   type CompanyVatContext,
 } from '../../../lib/countryInputs';
-import type { PropertyValue } from '@crm/lib/backend';
 import { CustomPropertyFields } from '../../properties/components/CustomPropertyFields';
 import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { useCompanyActions } from '../hooks/useCompanyActions';
+import { emptyForm, fromCompany, type FormState } from '../lib/companyForm';
 import { companyErrorMessage } from '../lib/errors';
 import { describeError } from '@crm/lib/errors';
 
@@ -46,68 +47,6 @@ interface CompanyFormDialogProps {
   company?: Doc<'companies'>;
   /** Called with the new id after a successful creation. */
   onCreated?: (companyId: Id<'companies'>) => void;
-}
-
-interface FormState {
-  name: string;
-  country: string;
-  registrationNumber: string;
-  vatNumber: string;
-  domain: string;
-  website: string;
-  sector: string;
-  headcount: string;
-  address: AddressValue;
-  customProperties: Record<string, PropertyValue>;
-  ownerIds: string[];
-}
-
-const emptyAddress = (country: string): AddressValue => ({
-  country,
-  streetNumber: '',
-  street: '',
-  postalCode: '',
-  city: '',
-});
-
-function emptyForm(): FormState {
-  return {
-    name: '',
-    country: DEFAULT_COUNTRY,
-    registrationNumber: '',
-    vatNumber: '',
-    domain: '',
-    website: '',
-    sector: '',
-    headcount: '',
-    address: emptyAddress(DEFAULT_COUNTRY),
-    customProperties: {},
-    ownerIds: [],
-  };
-}
-
-function fromCompany(company: Doc<'companies'>): FormState {
-  return {
-    name: company.name,
-    country: company.country,
-    registrationNumber: company.registrationNumber ?? '',
-    vatNumber: company.vatNumber ?? '',
-    domain: company.domain ?? '',
-    website: company.website ?? '',
-    sector: company.sector ?? '',
-    headcount: company.headcount !== undefined ? String(company.headcount) : '',
-    customProperties: { ...(company.customProperties ?? {}) },
-    ownerIds: company.ownerIds,
-    address: {
-      country: company.address?.country ?? company.country,
-      streetNumber: company.address?.streetNumber ?? '',
-      street: company.address?.street ?? '',
-      line2: company.address?.line2,
-      postalCode: company.address?.postalCode ?? '',
-      city: company.address?.city ?? '',
-      region: company.address?.region,
-    },
-  };
 }
 
 /** An address block the user actually filled in (vs. the empty default). */
@@ -223,7 +162,7 @@ export function CompanyFormDialog({
       }
     }
     const headcount = form.headcount.trim() === '' ? undefined : Number(form.headcount);
-    if (headcount !== undefined && (!Number.isInteger(headcount) || headcount < 0)) {
+    if (!follows(countSchema.optional(), headcount)) {
       toast.error('Effectif invalide.');
       return;
     }

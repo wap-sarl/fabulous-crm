@@ -1,3 +1,4 @@
+import { refusal } from '../../../_lib/refusal';
 import type { Doc } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
 import { findLeadByEmail } from '../../../lib/leads/import';
@@ -12,6 +13,6 @@ export async function leadOf(
   if (!caches.leadByEmail.has(email))
     caches.leadByEmail.set(email, await findLeadByEmail(ctx, email));
   const lead = caches.leadByEmail.get(email);
-  if (!lead || !isNotDeleted(lead)) throw new Error('contact_not_found');
+  if (!lead || !isNotDeleted(lead)) throw refusal('contact_not_found');
   return lead;
 }

@@ -1,3 +1,4 @@
+import { refusal, refusalText } from '../../../_lib/refusal';
 import type { Doc, Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
 import { defaultPipelineStage, type PipelineStage } from '../../../_lib/validators/deals';
@@ -53,12 +54,12 @@ function resolvePipeline(
   const pipeline = row.pipeline?.trim()
     ? caches.pipelines.find((p) => fold(p.name) === fold(row.pipeline ?? ''))
     : caches.defaultPipeline;
-  if (!pipeline) throw new Error('pipeline_not_found');
+  if (!pipeline) throw refusal('pipeline_not_found');
   if (!row.stage?.trim()) return { pipeline, stage: undefined };
   const stage = pipeline.stages.find(
     (s) => fold(s.label) === fold(row.stage ?? '') || s.key === row.stage,
   );
-  if (!stage) throw new Error('unknown_stage');
+  if (!stage) throw refusal('unknown_stage');
   return { pipeline, stage };
 }
 
@@ -85,7 +86,7 @@ export const dealImporter: EntityImporter<DealImportRow, Caches, State> = {
   plan: async (ctx, row, caches, opts) => {
     try {
       const title = row.title.trim();
-      if (!title) throw new Error('deal_title_required');
+      if (!title) throw refusal('deal_title_required');
       await validateDealFields(ctx, {
         amount: row.amount,
         currency: row.currency,
@@ -111,7 +112,7 @@ export const dealImporter: EntityImporter<DealImportRow, Caches, State> = {
       }
       return { verdict: { kind: 'create' }, state: { kind: 'create', ...resolved } };
     } catch (e) {
-      const error = e instanceof Error ? e.message : 'invalid_row';
+      const error = refusalText(e, 'invalid_row');
       return { verdict: { kind: 'error', error }, state: { kind: 'error', error } };
     }
   },

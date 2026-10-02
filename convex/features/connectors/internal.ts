@@ -17,6 +17,7 @@ import { sha256Base64Url } from '../../lib/security/crypto';
 /** A state is good for one callback: consuming it deletes it, so a replayed callback finds nothing. */
 export const consumeState = internalMutation({
   args: { nonce: v.string(), provider: connectorProviderValidator },
+  returns: v.union(v.object({ userId: v.id('users'), codeVerifier: v.string() }), v.null()),
   handler: async (ctx, { nonce, provider }) => {
     const now = Date.now();
     // Connections nobody finished are swept a few at a time.
@@ -90,6 +91,14 @@ export const storeFailure = internalMutation({
 /** The OAuth app's credentials, in clear, for the action that talks to the provider. */
 export const credentialsFor = internalQuery({
   args: { provider: connectorProviderValidator },
+  returns: v.union(
+    v.object({
+      clientId: v.string(),
+      clientSecret: v.string(),
+      source: v.union(v.literal('own'), v.literal('managed')),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, { provider }) =>
     await resolveCredentials(await ctx.db.query('appConfig').first(), provider),
 });
@@ -129,6 +138,16 @@ export const storePending = internalMutation({
 /** The tokens in clear, for the refresh and revocation actions only. */
 export const accountSecrets = internalQuery({
   args: { accountId: v.id('connectorAccounts') },
+  returns: v.union(
+    v.object({
+      provider: connectorProviderValidator,
+      status: v.union(v.literal('active'), v.literal('error'), v.literal('revoking')),
+      refreshToken: v.string(),
+      accessToken: v.union(v.string(), v.null()),
+      accessTokenExpiresAt: v.union(v.number(), v.null()),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, { accountId }) => {
     const account = await ctx.db.get(accountId);
     if (!account) return null;
@@ -151,9 +170,10 @@ export const recordRefresh = internalMutation({
     refreshToken: v.optional(v.string()),
     error: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const account = await ctx.db.get(args.accountId);
-    if (!account || account.status === 'revoking') return;
+    if (!account || account.status === 'revoking') return null;
     const now = Date.now();
     if (args.error) {
       await ctx.db.patch(args.accountId, {
@@ -163,7 +183,7 @@ export const recordRefresh = internalMutation({
         accessTokenExpiresAt: undefined,
         updatedAt: now,
       });
-      return;
+      return null;
     }
     await ctx.db.patch(args.accountId, {
       status: 'active',
@@ -173,6 +193,7 @@ export const recordRefresh = internalMutation({
       ...(args.refreshToken ? { refreshToken: await encryptSecret(args.refreshToken) } : {}),
       updatedAt: now,
     });
+    return null;
   },
 });
 
@@ -182,10 +203,11 @@ export const removeAccount = internalMutation({
     revoked: v.boolean(),
     error: v.optional(v.string()),
   },
+  returns: v.null(),
   handler: async (ctx, { accountId, revoked, error }) => {
     const account = await ctx.db.get(accountId);
     // Reconnected while the revocation was in flight: the row now holds a fresh grant.
-    if (account?.status !== 'revoking') return;
+    if (account?.status !== 'revoking') return null;
     await ctx.db.delete(accountId);
     await logAudit({
       ctx,
@@ -195,5 +217,6 @@ export const removeAccount = internalMutation({
       action: 'delete',
       metadata: { provider: account.provider, revokedAtProvider: revoked, error },
     });
+    return null;
   },
 });

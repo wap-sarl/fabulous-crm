@@ -187,6 +187,73 @@ describe('workflows: editing', () => {
   });
 });
 
+describe('workflows: an edit that clears', () => {
+  const criteria = {
+    combinator: 'and' as const,
+    groups: [
+      {
+        combinator: 'and' as const,
+        rules: [
+          {
+            field: { kind: 'standard' as const, field: 'lifecycleStage' as const },
+            operator: 'equals' as const,
+            value: 'customer',
+          },
+        ],
+      },
+    ],
+  };
+
+  test('an active workflow cannot lose its first step or its criteria: a cleared field is a change like another', async () => {
+    const w = await setup();
+    const full = { ...draft(), description: 'Relance des clients', enrollmentCriteria: criteria };
+    const workflowId = await w.as.mutation(fn.createWorkflow, full);
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'active' });
+
+    for (const cleared of ['startNodeId', 'enrollmentCriteria'] as const) {
+      const { [cleared]: _dropped, ...rest } = full;
+      await expect(w.as.mutation(fn.updateWorkflow, { workflowId, ...rest })).rejects.toMatchObject(
+        {
+          data: { code: 'workflow_pause_first' },
+        },
+      );
+    }
+    expect(await get(w, workflowId)).toMatchObject({
+      startNodeId: 'n1',
+      enrollmentCriteria: criteria,
+    });
+
+    // The description is not structural: it can be cleared while the workflow runs, and the journal says so.
+    const { description: _description, ...withoutDescription } = full;
+    await w.as.mutation(fn.updateWorkflow, { workflowId, ...withoutDescription });
+    expect((await get(w, workflowId)).description).toBeUndefined();
+    expect((await auditsOf(w, workflowId)).at(-1)).toMatchObject({
+      action: 'update',
+      metadata: { changes: { description: { old: 'Relance des clients', new: null } } },
+    });
+  });
+
+  test('a paused workflow can lose them, and the journal says what was cleared', async () => {
+    const w = await setup();
+    const full = { ...draft(), enrollmentCriteria: criteria };
+    const workflowId = await w.as.mutation(fn.createWorkflow, full);
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'active' });
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'paused' });
+
+    const { startNodeId: _start, enrollmentCriteria: _criteria, ...bare } = full;
+    await w.as.mutation(fn.updateWorkflow, { workflowId, ...bare });
+    const workflow = await get(w, workflowId);
+    expect(workflow.startNodeId).toBeUndefined();
+    expect(workflow.enrollmentCriteria).toBeUndefined();
+    expect((await auditsOf(w, workflowId)).at(-1)?.metadata).toEqual({
+      changes: {
+        startNodeId: { old: 'n1', new: null },
+        enrollmentCriteria: { old: criteria, new: null },
+      },
+    });
+  });
+});
+
 describe('workflows: pause and resume', () => {
   test('a pause and an activation are audited; the status it already has changes nothing', async () => {
     const w = await setup();
@@ -223,6 +290,64 @@ describe('workflows: pause and resume', () => {
     const runId = await insertRun(w, workflowId);
     await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'active' });
     expect(await wakesOf(w, runId)).toEqual([]);
+  });
+});
+
+describe('workflows: rules tightened after a workflow was activated', () => {
+  test('the active and paused workflows the activation would refuse are listed; they keep running, and cannot be resumed once paused', async () => {
+    const w = await setup();
+    // As an older version left them: valid when activated, at fault under the rules of today.
+    const longWait = await workflowIn(w, 'active');
+    const emptyMail = await workflowIn(w, 'paused');
+    const fine = await workflowIn(w, 'active');
+    const gone = await workflowIn(w, 'active');
+    const draftAtFault = await workflowIn(w, 'draft');
+    await w.t.run(async (ctx) => {
+      await ctx.db.patch(longWait, {
+        name: 'Longue attente',
+        nodes: [{ id: 'n1', type: 'wait', amount: 90 * 24 + 1, unit: 'hours' }],
+      });
+      const mail = {
+        id: 'n1',
+        type: 'send_email' as const,
+        subject: 'Bonjour',
+        htmlBody: '<p></p>',
+      };
+      await ctx.db.patch(emptyMail, { name: 'Message vide', nodes: [mail] });
+      await ctx.db.patch(gone, { nodes: [mail], deletedAt: NOW });
+      await ctx.db.patch(draftAtFault, { nodes: [mail] });
+    });
+
+    expect(await w.t.query(internal.features.workflows.internal.listWorkflowsToFix, {})).toEqual([
+      {
+        workflowId: longWait,
+        name: 'Longue attente',
+        status: 'active',
+        issue: 'Étape « Attendre » : durée maximale 90 jours.',
+      },
+      {
+        workflowId: emptyMail,
+        name: 'Message vide',
+        status: 'paused',
+        issue: 'Étape « Envoyer un e-mail » : le contenu est requis.',
+      },
+    ]);
+    expect((await get(w, fine)).status).toBe('active');
+
+    await expect(
+      w.as.mutation(fn.setWorkflowStatus, { workflowId: emptyMail, status: 'active' }),
+    ).rejects.toMatchObject({
+      data: {
+        code: 'workflow_graph_invalid',
+        message: 'Étape « Envoyer un e-mail » : le contenu est requis.',
+      },
+    });
+    // The one at fault and active is left running; pausing it is what makes the fix compulsory.
+    expect((await get(w, longWait)).status).toBe('active');
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId: longWait, status: 'paused' });
+    await expect(
+      w.as.mutation(fn.setWorkflowStatus, { workflowId: longWait, status: 'active' }),
+    ).rejects.toMatchObject({ data: { code: 'workflow_graph_invalid' } });
   });
 });
 

@@ -13,16 +13,14 @@ import type { PropertyDefinitionRow } from '../../properties/types';
 import { STEP_TYPE_META } from '../lib/constants';
 import { TriggerConfig, type TriggerFormValue } from './config/TriggerConfig';
 import { EmailStepConfig, SmsStepConfig } from './config/MessageStepConfigs';
-import {
-  CreateDealStepConfig,
-  CreateTaskStepConfig,
-  DealStageStepConfig,
-  LifecycleStepConfig,
-  ListStepConfig,
-  PropertyStepConfig,
-  WaitStepConfig,
-  WebhookStepConfig,
-} from './config/SimpleStepConfigs';
+import { CreateDealStepConfig } from './config/CreateDealStepConfig';
+import { CreateTaskStepConfig } from './config/CreateTaskStepConfig';
+import { DealStageStepConfig } from './config/DealStageStepConfig';
+import { LifecycleStepConfig } from './config/LifecycleStepConfig';
+import { ListStepConfig } from './config/ListStepConfig';
+import { PropertyStepConfig } from './config/PropertyStepConfig';
+import { WaitStepConfig } from './config/WaitStepConfig';
+import { WebhookStepConfig } from './config/WebhookStepConfig';
 import { BranchStepConfig } from './config/BranchStepConfig';
 
 export type PanelSelection =

@@ -1,11 +1,10 @@
+import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { employeeMutation } from '../../_lib/auth';
+import { internal } from '../../_generated/api';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
 import { deleteListMember } from '../../lib/leadLists/members';
-import {
-  DEFAULT_MAX_DYNAMIC_LISTS,
-  validateDynamicListCriteria,
-} from '../../_lib/validators/leadLists';
+import { validateDynamicListCriteria } from '../../_lib/validators/leadLists';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { startDynamicListRecalc } from '../../lib/leadLists/dynamic';
 
@@ -15,22 +14,20 @@ export const createLeadList = employeeMutation({
     kind: v.optional(v.union(v.literal('static'), v.literal('dynamic'))),
     criteria: v.optional(leadAdvancedFilterValidator),
   },
+  returns: v.id('leadLists'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
-    if (!name) throw new Error('Le nom de la liste est requis.');
+    if (!name) throw refusal('list_name_required', { message: 'Le nom de la liste est requis.' });
     const kind = args.kind ?? 'static';
 
     if (kind === 'dynamic') {
       const error = validateDynamicListCriteria(args.criteria);
-      if (error) throw new Error(error);
-      const lists = await ctx.db.query('leadLists').collect();
-      const cfg = await ctx.db.query('appConfig').first();
-      const cap = cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS;
-      if (lists.filter((l) => l.kind === 'dynamic').length >= cap) {
-        throw new Error('dynamic_list_cap_reached');
-      }
+      if (error) throw refusalFrom(error, 'invalid_list_criteria');
+      const { maxDynamicLists, dynamicCount }: { maxDynamicLists: number; dynamicCount: number } =
+        await ctx.runQuery(internal.features.leadLists.internal.dynamicListLimits, {});
+      if (dynamicCount >= maxDynamicLists) throw refusal('dynamic_list_cap_reached');
     } else if (args.criteria) {
-      throw new Error('list_not_dynamic');
+      throw refusal('list_not_dynamic');
     }
 
     const listId = await ctx.db.insert('leadLists', {
@@ -62,16 +59,19 @@ export const updateLeadList = employeeMutation({
     name: v.optional(v.string()),
     criteria: v.optional(leadAdvancedFilterValidator),
   },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
-    if (!list) throw new Error('list_not_found');
+    if (!list) throw refusal('list_not_found');
 
     const name = args.name?.trim();
-    if (name !== undefined && !name) throw new Error('Le nom de la liste est requis.');
+    if (name !== undefined && !name) {
+      throw refusal('list_name_required', { message: 'Le nom de la liste est requis.' });
+    }
     if (args.criteria) {
-      if (list.kind !== 'dynamic') throw new Error('list_not_dynamic');
+      if (list.kind !== 'dynamic') throw refusal('list_not_dynamic');
       const error = validateDynamicListCriteria(args.criteria);
-      if (error) throw new Error(error);
+      if (error) throw refusalFrom(error, 'invalid_list_criteria');
     }
 
     await ctx.db.patch(args.listId, {
@@ -92,16 +92,19 @@ export const updateLeadList = employeeMutation({
       const fresh = await ctx.db.get(args.listId);
       if (fresh) await startDynamicListRecalc(ctx, fresh);
     }
+    return null;
   },
 });
 
 export const recalcLeadList = employeeMutation({
   args: { listId: v.id('leadLists') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
-    if (!list) throw new Error('list_not_found');
-    if (list.kind !== 'dynamic') throw new Error('list_not_dynamic');
+    if (!list) throw refusal('list_not_found');
+    if (list.kind !== 'dynamic') throw refusal('list_not_dynamic');
     await startDynamicListRecalc(ctx, list);
+    return null;
   },
 });
 
@@ -111,6 +114,10 @@ const LIST_DELETE_BATCH = 200;
 /** Members go in bounded batches to stay under Convex's per-transaction limits: the client calls again until `done`, when the list itself is removed. */
 export const deleteLeadList = employeeMutation({
   args: { listId: v.id('leadLists'), deleteLeads: v.boolean() },
+  returns: v.union(
+    v.object({ done: v.literal(true), deletedLeads: v.number() }),
+    v.object({ done: v.literal(false), deletedLeads: v.number() }),
+  ),
   handler: async (ctx, args) => {
     const list = await ctx.db.get(args.listId);
     if (!list) return { done: true as const, deletedLeads: 0 };

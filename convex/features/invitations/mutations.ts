@@ -1,3 +1,5 @@
+import { emailSchema, follows } from '../../_lib/validators/fields';
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { internal } from '../../_generated/api';
@@ -12,8 +14,6 @@ import { DEFAULT_ROLES } from '../../_lib/validators/roles';
 import { gateInvitation } from '../../lib/extensions/gates';
 import { countPendingInvitations } from '../../lib/invitations/pending';
 import { findRole } from '../../lib/roles/access';
-
-const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** The invite carries no token: the recipient signs in with the allowlisted email; the dev whitelist keeps real people from being emailed in dev. */
 async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
@@ -30,11 +30,12 @@ async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
 /** The invited email may sign in by any Better Auth method: the employee row is provisioned with this role on first login. */
 export const createInvitation = settingsMutation({
   args: { email: v.string(), role: invitationRoleValidator },
+  returns: v.id('invitations'),
   handler: async (ctx, args) => {
     const email = args.email.trim().toLowerCase();
-    if (!emailRe.test(email)) throw new Error('invalid_email');
+    if (!follows(emailSchema, email)) throw refusal('invalid_email');
     if (!(await findRole(ctx, args.role)) && !DEFAULT_ROLES.some((r) => r.key === args.role)) {
-      throw new Error('invalid_role');
+      throw refusal('invalid_role');
     }
 
     const existing = await ctx.db
@@ -43,13 +44,13 @@ export const createInvitation = settingsMutation({
         q.eq('email', email).eq('type', 'employee').eq('deletedAt', undefined),
       )
       .first();
-    if (existing) throw new Error('already_member');
+    if (existing) throw refusal('already_member');
 
     const pending = await ctx.db
       .query('invitations')
       .withIndex('by_email_status', (q) => q.eq('email', email).eq('status', 'pending'))
       .first();
-    if (pending) throw new Error('already_invited');
+    if (pending) throw refusal('already_invited');
     await gateInvitation(ctx, 'create', await countPendingInvitations(ctx));
 
     const now = Date.now();
@@ -80,14 +81,15 @@ export const createInvitation = settingsMutation({
 /** Unlike createInvitation this requires a configured email provider: the email is its whole purpose. */
 export const resendInvitation = settingsMutation({
   args: { invitationId: v.id('invitations') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const invite = await ctx.db.get(args.invitationId);
-    if (!invite) throw new Error('invitation_not_found');
-    if (invite.status !== 'pending') throw new Error('invitation_not_pending');
+    if (!invite) throw refusal('invitation_not_found');
+    if (invite.status !== 'pending') throw refusal('invitation_not_pending');
 
     const cfg = await ctx.db.query('appConfig').first();
     if (!isEmailProviderConfigured(await resolveEmailProvider(cfg))) {
-      throw new Error('email_not_configured');
+      throw refusal('email_not_configured');
     }
 
     await ctx.db.patch(args.invitationId, { invitedAt: Date.now() });
@@ -101,16 +103,18 @@ export const resendInvitation = settingsMutation({
       action: 'update',
       metadata: { email: invite.email, event: 'resent' },
     });
+    return null;
   },
 });
 
 /** Revoke a still-pending invitation (admin only). */
 export const revokeInvitation = settingsMutation({
   args: { invitationId: v.id('invitations') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const invite = await ctx.db.get(args.invitationId);
-    if (!invite) throw new Error('invitation_not_found');
-    if (invite.status !== 'pending') throw new Error('invitation_not_pending');
+    if (!invite) throw refusal('invitation_not_found');
+    if (invite.status !== 'pending') throw refusal('invitation_not_pending');
 
     await ctx.db.patch(args.invitationId, { status: 'revoked' });
 
@@ -122,5 +126,6 @@ export const revokeInvitation = settingsMutation({
       action: 'update',
       metadata: { email: invite.email, event: 'revoked' },
     });
+    return null;
   },
 });

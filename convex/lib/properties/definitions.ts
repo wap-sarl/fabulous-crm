@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import {
@@ -46,7 +47,7 @@ export function sanitizeCustomProperties(
 
     if (clean[key] !== undefined) {
       const error = validatePropertyValue(def, clean[key]);
-      if (error) throw new Error(`invalid_property_value: ${def.label}: ${error}`);
+      if (error) throw refusal('invalid_property_value', { reason: `${def.label}: ${error}` });
     }
   }
   return clean;

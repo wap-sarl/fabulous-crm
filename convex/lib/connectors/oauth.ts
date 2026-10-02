@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 // Connector foundation: provider catalogue, the signed OAuth state, PKCE, and where the credentials come from.
 import { internal } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
@@ -47,7 +48,7 @@ export const PROVIDERS: Record<ConnectorProvider, ProviderEndpoints> = {
 /** The key the state is signed with: `OAUTH_STATE_SECRET`, shared with a callback dispatcher; else the auth secret. */
 function stateSecret(): string {
   const secret = process.env.OAUTH_STATE_SECRET || process.env.BETTER_AUTH_SECRET;
-  if (!secret) throw new Error('oauth_state_secret_missing');
+  if (!secret) throw refusal('oauth_state_secret_missing');
   return `connector-state:${secret}`;
 }
 
@@ -110,7 +111,7 @@ export function redirectUri(): string {
   const dispatcher = (process.env.OAUTH_CALLBACK_BASE ?? '').trim().replace(/\/+$/, '');
   if (dispatcher) return `${dispatcher}/oauth/callback`;
   const site = (process.env.CONVEX_SITE_URL ?? '').replace(/\/+$/, '');
-  if (!site) throw new Error('convex_site_url_missing');
+  if (!site) throw refusal('convex_site_url_missing');
   return `${site}/connectors/callback`;
 }
 

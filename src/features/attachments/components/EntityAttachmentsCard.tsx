@@ -2,55 +2,16 @@ import { useRef, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { AttachmentEntityType, AttachmentRow, TrashedAttachmentRow } from '@crm/lib/backend';
-import {
-  Button,
-  Card,
-  ConfirmDialog,
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  IconButton,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Spinner,
-  cn,
-  toast,
-} from '@crm/design-system';
-import {
-  ArchiveRestore,
-  ChevronRight,
-  Download,
-  Eye,
-  Folder,
-  FolderPlus,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { Card, ConfirmDialog, Spinner, cn, toast } from '@crm/design-system';
 import { attachmentErrorMessage, useAttachmentActions } from '../hooks/useAttachmentActions';
-import {
-  allFolders,
-  breadcrumbs,
-  fileIconOf,
-  folderContents,
-  formatFileSize,
-  previewKindOf,
-} from '../lib/files';
-import { dateFormat } from '@crm/lib/format';
-const ROOT_LABEL = 'Fichiers';
+import { ROOT_LABEL, allFolders, folderContents, formatFileSize } from '../lib/files';
+import { AttachmentList } from './AttachmentList';
+import { AttachmentsToolbar } from './AttachmentsToolbar';
+import { AttachmentsTrash } from './AttachmentsTrash';
+import { EditAttachmentDialog } from './EditAttachmentDialog';
+import { FolderBreadcrumbs } from './FolderBreadcrumbs';
+import { NewFolderDialog } from './NewFolderDialog';
+import { PreviewDialog } from './PreviewDialog';
 
 interface EntityAttachmentsCardProps {
   entityType: AttachmentEntityType;
@@ -155,152 +116,21 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
 
   return (
     <Card className="p-5" data-testid="entity-attachments-card">
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-[15px] font-bold text-ink">
-          {showTrash ? `Corbeille (${trashCount})` : 'Fichiers'}
-        </h2>
-        <div className="flex gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowTrash((v) => !v)}
-            data-testid="attachments-trash-toggle"
-          >
-            {showTrash ? (
-              <>
-                <Folder className="size-4" />
-                Fichiers
-              </>
-            ) : (
-              <>
-                <Trash2 className="size-4" />
-                Corbeille{trashCount > 0 ? ` (${trashCount})` : ''}
-              </>
-            )}
-          </Button>
-          {!showTrash ? (
-            <>
-              <Button variant="ghost" size="sm" onClick={() => setNewFolderOpen(true)}>
-                <FolderPlus className="size-4" />
-                Dossier
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => inputRef.current?.click()}
-                disabled={uploading !== null}
-                data-testid="add-attachment"
-              >
-                <Upload className="size-4" />
-                Ajouter
-              </Button>
-            </>
-          ) : null}
-          <input
-            ref={inputRef}
-            type="file"
-            multiple
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files) void handleFiles(e.target.files);
-              e.target.value = '';
-            }}
-          />
-        </div>
-      </div>
+      <AttachmentsToolbar
+        showTrash={showTrash}
+        setShowTrash={setShowTrash}
+        trashCount={trashCount}
+        setNewFolderOpen={setNewFolderOpen}
+        inputRef={inputRef}
+        uploading={uploading}
+        handleFiles={handleFiles}
+      />
 
       {showTrash ? (
-        <section aria-label="Corbeille" data-testid="attachments-trash">
-          {trash === undefined ? (
-            <Spinner size="sm" />
-          ) : trash.length === 0 ? (
-            <p className="py-4 text-center text-sm text-faint">La corbeille est vide.</p>
-          ) : (
-            <ul className="flex flex-col divide-y divide-border">
-              {trash.map((file) => {
-                const Icon = fileIconOf(file.mimeType);
-                return (
-                  <li
-                    key={file._id}
-                    className="flex items-center gap-3 px-1 py-2"
-                    data-testid="trashed-attachment-item"
-                  >
-                    <Icon className="size-4 shrink-0 text-soft" aria-hidden />
-                    <span className="min-w-0 flex-1">
-                      <span
-                        className="block truncate text-[13px] font-semibold text-ink"
-                        title={file.name}
-                      >
-                        {file.name}
-                      </span>
-                      <span className="block truncate text-xs text-faint">
-                        {file.folder || ROOT_LABEL} · supprimé le{' '}
-                        {dateFormat.format(file.deletedAt)}
-                        {file.deletedByName ? ` par ${file.deletedByName}` : ''} ·{' '}
-                        {file.daysLeft > 0
-                          ? `effacé dans ${file.daysLeft} jour${file.daysLeft > 1 ? 's' : ''}`
-                          : 'effacement imminent'}
-                      </span>
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => restore(file)}
-                      data-testid="restore-attachment"
-                    >
-                      <ArchiveRestore className="size-4" />
-                      Restaurer
-                    </Button>
-                    <IconButton
-                      variant="secondary"
-                      size="sm"
-                      aria-label={`Supprimer définitivement ${file.name}`}
-                      onClick={() => setPurging(file)}
-                      data-testid="purge-attachment"
-                    >
-                      <Trash2 className="size-4" />
-                    </IconButton>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          {limits ? (
-            <p className="mt-2 text-xs text-faint">
-              Un fichier supprimé reste restaurable pendant {limits.retentionDays} jour
-              {limits.retentionDays > 1 ? 's' : ''}, puis est effacé définitivement.
-            </p>
-          ) : null}
-        </section>
+        <AttachmentsTrash trash={trash} limits={limits} restore={restore} setPurging={setPurging} />
       ) : null}
 
-      <nav
-        className={cn(
-          'mb-2 flex flex-wrap items-center gap-1 text-xs text-faint',
-          showTrash && 'hidden',
-        )}
-        aria-label="Dossier"
-      >
-        <button
-          type="button"
-          onClick={() => setFolder('')}
-          className={cn('hover:text-ink', folder === '' && 'font-semibold text-ink')}
-        >
-          {ROOT_LABEL}
-        </button>
-        {breadcrumbs(folder).map((crumb, i, arr) => (
-          <span key={crumb.path} className="flex items-center gap-1">
-            <ChevronRight className="size-3" aria-hidden />
-            <button
-              type="button"
-              onClick={() => setFolder(crumb.path)}
-              className={cn('hover:text-ink', i === arr.length - 1 && 'font-semibold text-ink')}
-            >
-              {crumb.label}
-            </button>
-          </span>
-        ))}
-      </nav>
+      <FolderBreadcrumbs showTrash={showTrash} folder={folder} setFolder={setFolder} />
 
       <section
         aria-label="Dépôt de fichiers"
@@ -328,87 +158,15 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
             Glissez des fichiers ici{limits ? ` (max ${formatFileSize(limits.maxSizeBytes)})` : ''}.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-border">
-            {visibleFolders.map((name) => (
-              <li key={`folder:${name}`}>
-                <button
-                  type="button"
-                  onClick={() => setFolder(prefix + name)}
-                  className="flex w-full items-center gap-3 rounded-md px-1 py-2 text-left hover:bg-[#F7F8FA]"
-                  data-testid="attachment-folder"
-                >
-                  <Folder className="size-4 shrink-0 text-amber-500" aria-hidden />
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">
-                    {name}
-                  </span>
-                  <ChevronRight className="size-4 text-[#C8CCD4]" aria-hidden />
-                </button>
-              </li>
-            ))}
-            {files.map((file) => {
-              const Icon = fileIconOf(file.mimeType);
-              const canPreview = previewKindOf(file.mimeType) !== null && !!file.url;
-              return (
-                <li
-                  key={file._id}
-                  className="flex items-center gap-3 px-1 py-2"
-                  data-testid="attachment-item"
-                >
-                  <Icon className="size-4 shrink-0 text-soft" aria-hidden />
-                  <span className="min-w-0 flex-1">
-                    <button
-                      type="button"
-                      onClick={() =>
-                        canPreview ? setPreviewing(file) : window.open(file.url ?? '', '_blank')
-                      }
-                      className="block max-w-full truncate text-left text-[13px] font-semibold text-ink hover:underline"
-                      title={file.name}
-                    >
-                      {file.name}
-                    </button>
-                    <span className="block truncate text-xs text-faint">
-                      {formatFileSize(file.size)} · {dateFormat.format(file._creationTime)}
-                      {file.authorName ? ` · ${file.authorName}` : ''}
-                    </span>
-                  </span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <IconButton aria-label="Actions" variant="secondary" size="sm">
-                        <MoreHorizontal className="size-4" />
-                      </IconButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {canPreview && (
-                        <DropdownMenuItem onSelect={() => setPreviewing(file)}>
-                          <Eye className="size-4" /> Aperçu
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuItem asChild>
-                        <a
-                          href={file.url ?? '#'}
-                          target="_blank"
-                          rel="noreferrer"
-                          download={file.name}
-                        >
-                          <Download className="size-4" /> Télécharger
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => setEditing(file)}>
-                        <Pencil className="size-4" /> Renommer / déplacer
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onSelect={() => setDeleting(file)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="size-4" /> Supprimer
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </li>
-              );
-            })}
-          </ul>
+          <AttachmentList
+            visibleFolders={visibleFolders}
+            files={files}
+            prefix={prefix}
+            setFolder={setFolder}
+            setPreviewing={setPreviewing}
+            setEditing={setEditing}
+            setDeleting={setDeleting}
+          />
         )}
         {uploading && (
           <p className="mt-2 flex items-center gap-2 text-xs text-faint">
@@ -463,147 +221,5 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
         onConfirm={purge}
       />
     </Card>
-  );
-}
-
-function PreviewDialog({ file, onClose }: { file: AttachmentRow | null; onClose: () => void }) {
-  const kind = file ? previewKindOf(file.mimeType) : null;
-  return (
-    <Dialog open={file !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-4xl">
-        <DialogHeader>
-          <DialogTitle className="truncate">{file?.name}</DialogTitle>
-        </DialogHeader>
-        {file?.url && kind === 'image' ? (
-          <img src={file.url} alt={file.name} className="max-h-[70vh] w-full object-contain" />
-        ) : file?.url && kind === 'pdf' ? (
-          <iframe src={file.url} title={file.name} className="h-[70vh] w-full rounded-md border" />
-        ) : (
-          <p className="text-sm text-faint">Aperçu indisponible.</p>
-        )}
-        <DialogFooter>
-          {file?.url && (
-            <Button variant="outline" asChild>
-              <a href={file.url} target="_blank" rel="noreferrer" download={file.name}>
-                <Download className="size-4" />
-                Télécharger
-              </a>
-            </Button>
-          )}
-          <Button onClick={onClose}>Fermer</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function EditAttachmentDialog({
-  file,
-  folders,
-  onClose,
-  onSave,
-}: {
-  file: AttachmentRow;
-  folders: string[];
-  onClose: () => void;
-  onSave: (name: string, folder: string) => Promise<void>;
-}) {
-  const ROOT = '__root__';
-  const [name, setName] = useState(file.name);
-  const [folder, setFolder] = useState(file.folder);
-  const [busy, setBusy] = useState(false);
-  return (
-    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Renommer / déplacer</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label htmlFor="attachment-name">Nom</Label>
-            <Input id="attachment-name" value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="space-y-1">
-            <Label>Dossier</Label>
-            <Select value={folder || ROOT} onValueChange={(v) => setFolder(v === ROOT ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {folders.map((f) => (
-                  <SelectItem key={f || ROOT} value={f || ROOT}>
-                    {f ? f : ROOT_LABEL}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Annuler
-          </Button>
-          <Button
-            loading={busy}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await onSave(name, folder);
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Enregistrer
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function NewFolderDialog({
-  open,
-  onClose,
-  onCreate,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onCreate: (name: string) => void;
-}) {
-  const [name, setName] = useState('');
-  const submit = () => {
-    const clean = name.trim().replace(/[\\/]+/g, '-');
-    if (!clean) {
-      toast.error('Nommez le dossier.');
-      return;
-    }
-    onCreate(clean);
-    setName('');
-  };
-  return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-sm">
-        <DialogHeader>
-          <DialogTitle>Nouveau dossier</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-1">
-          <Label htmlFor="new-folder-name">Nom</Label>
-          <Input
-            id="new-folder-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
-            placeholder="Devis, Contrats…"
-          />
-        </div>
-        <DialogFooter>
-          <Button variant="ghost" onClick={onClose}>
-            Annuler
-          </Button>
-          <Button onClick={submit}>Créer</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

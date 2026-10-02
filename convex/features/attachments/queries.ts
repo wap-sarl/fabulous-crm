@@ -1,3 +1,5 @@
+import { docOf } from '../../lib/shared/docs';
+import { storageProviderValidator } from '../../_lib/validators/attachments';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import type { QueryCtx } from '../../_generated/server';
@@ -54,6 +56,13 @@ async function rowsOf(
 /** The live files of a record, newest first; the client derives the folder tree from `folder`. */
 export const listAttachments = employeeQuery({
   args: { entityType: attachmentEntityTypeValidator, entityId: v.string() },
+  returns: v.array(
+    v.object({
+      ...docOf('attachments').fields,
+      url: v.union(v.string(), v.null()),
+      authorName: v.union(v.string(), v.null()),
+    }),
+  ),
   handler: async (ctx, args): Promise<AttachmentRow[]> =>
     rowsOf(ctx, args.entityType, args.entityId, false),
 });
@@ -68,6 +77,31 @@ export type TrashedAttachmentRow = AttachmentRow & {
 /** The trash of a record: deleted files with who deleted them and when they get purged. */
 export const listDeletedAttachments = employeeQuery({
   args: { entityType: attachmentEntityTypeValidator, entityId: v.string() },
+  returns: v.array(
+    v.object({
+      _id: v.id('attachments'),
+      _creationTime: v.number(),
+      createdBy: v.optional(v.id('users')),
+      updatedBy: v.optional(v.id('users')),
+      deletedAt: v.number(),
+      deletedBy: v.optional(v.id('users')),
+      purgeAt: v.number(),
+      storageId: v.optional(v.id('_storage')),
+      updatedAt: v.number(),
+      entityType: attachmentEntityTypeValidator,
+      entityId: v.string(),
+      name: v.string(),
+      folder: v.string(),
+      mimeType: v.string(),
+      size: v.number(),
+      provider: storageProviderValidator,
+      key: v.string(),
+      url: v.union(v.string(), v.null()),
+      authorName: v.union(v.string(), v.null()),
+      deletedByName: v.union(v.string(), v.null()),
+      daysLeft: v.number(),
+    }),
+  ),
   handler: async (ctx, args): Promise<TrashedAttachmentRow[]> => {
     const retentionDays = await attachmentRetentionDays(ctx);
     const now = Date.now();
@@ -95,6 +129,7 @@ export const listDeletedAttachments = employeeQuery({
 /** The upload cap and trash retention, for the client-side pre-check and the card's wording. */
 export const getAttachmentLimits = employeeQuery({
   args: {},
+  returns: v.object({ maxSizeBytes: v.number(), retentionDays: v.number() }),
   handler: async (ctx) => ({
     maxSizeBytes: await attachmentMaxBytes(ctx),
     retentionDays: await attachmentRetentionDays(ctx),

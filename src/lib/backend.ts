@@ -28,7 +28,7 @@ export type {
 } from '../../convex/_lib/validators/forms';
 export { FORM_STANDARD_FIELDS, formFieldKey } from '../../convex/_lib/validators/forms';
 export type { TimelineKind } from '../../convex/_lib/validators/timeline';
-export type { TimelineEvent } from '../../convex/features/timeline/queries';
+export type { TimelineEvent } from '../../convex/lib/timeline/events';
 export type { DuplicateReason } from '../../convex/_lib/validators/duplicates';
 export type { DuplicateLeadSummary } from '../../convex/features/duplicates/queries';
 export type { AttachmentEntityType } from '../../convex/_lib/validators/attachments';
@@ -54,6 +54,18 @@ export {
   accessWarnings,
 } from '../../convex/_lib/validators/access';
 export { slugOf } from '../../convex/_lib/text';
+export {
+  boundedInt,
+  countryCodeSchema,
+  countSchema,
+  currencyCodeSchema,
+  emailSchema,
+  follows,
+  hexColorSchema,
+  httpUrlSchema,
+  nonNegativeSchema,
+  positiveIntSchema,
+} from '../../convex/_lib/validators/fields';
 export {
   MAX_SSO_PROVIDER_ID_LENGTH,
   ssoProviderIdOf,
@@ -149,6 +161,12 @@ export type {
   WorkflowRunStatus,
   WorkflowStepOutcome,
 } from '../../convex/_lib/validators/workflows';
+export {
+  NO_STEP_ISSUE,
+  stepIssue,
+  stepIssueMessage,
+  WORKFLOW_STEP_LABELS,
+} from '../../convex/_lib/validators/workflowSteps';
 export type { ApiScope } from '../../convex/_lib/validators/apiKeys';
 export {
   IMPORT_MAX_ROWS,

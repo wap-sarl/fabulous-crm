@@ -96,7 +96,7 @@ export function PropertiesManager({ entityType }: { entityType: PropertyEntityTy
                 type="button"
                 aria-label="Modifier"
                 onClick={() => openEdit(def)}
-                className="flex size-8 items-center justify-center rounded-lg text-faint transition-colors hover:bg-[#EEF0F3] hover:text-body"
+                className="flex size-8 items-center justify-center rounded-lg text-faint transition-colors hover:bg-secondary hover:text-body"
               >
                 <Pencil className="h-4 w-4" />
               </button>

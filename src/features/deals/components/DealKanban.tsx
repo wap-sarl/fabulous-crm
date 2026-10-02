@@ -125,7 +125,7 @@ function StageColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        'flex w-72 shrink-0 flex-col rounded-xl border bg-[#F7F8FA] transition-all',
+        'flex w-72 shrink-0 flex-col rounded-xl border bg-background transition-all',
         isOver && !blocked && 'border-primary bg-primary/5',
         blocked && 'opacity-40 grayscale',
         stage.kind === 'won' && 'border-t-4 border-t-green-500',

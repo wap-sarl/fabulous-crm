@@ -1,6 +1,6 @@
 import { HelperText, Label } from '@crm/design-system';
 import type { WorkflowNode } from '@crm/lib/backend';
-import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterBuilder';
+import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterGroupsEditor';
 import type { PropertyDefinitionRow } from '../../../properties/types';
 import { useLeadFieldCatalog } from '../../../leads/hooks/useLeadFieldCatalog';
 

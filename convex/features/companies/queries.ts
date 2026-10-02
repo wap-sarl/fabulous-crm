@@ -1,3 +1,7 @@
+import type { Infer } from 'convex/values';
+import { auditLogValidator } from '../../_lib/validators/auditLogs';
+import { paginationResultValidator } from 'convex/server';
+import { docOf } from '../../lib/shared/docs';
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import type { Doc } from '../../_generated/dataModel';
@@ -58,6 +62,9 @@ export const listCompaniesPaginated = employeeQuery({
     search: v.optional(v.string()),
     advancedFilter: v.optional(companyAdvancedFilterValidator),
   },
+  returns: paginationResultValidator(
+    v.object({ ...docOf('companies').fields, contactCount: v.number() }),
+  ),
   handler: async (ctx, args) => {
     const term = args.search ? normalizeSearchText(args.search) : '';
     const result = term
@@ -88,6 +95,7 @@ export const listCompaniesPaginated = employeeQuery({
 /** Live company count for the list header. */
 export const countCompanies = employeeQuery({
   args: {},
+  returns: v.object({ total: v.number() }),
   handler: async (ctx) => {
     const namespaces = ownerNamespaces(ctx.visibility, 'companies');
     if (namespaces === 'all') return { total: await countLiveCompanies(ctx) };
@@ -101,6 +109,7 @@ export const countCompanies = employeeQuery({
 /** Live companies as filter options (id + name), name order — feeds the « Entreprise » field. */
 export const listCompanyOptions = employeeQuery({
   args: {},
+  returns: v.array(v.object({ _id: v.id('companies'), name: v.string() })),
   handler: async (ctx) => {
     const rows = await ctx.db.query('companies').withIndex('by_name').order('asc').collect();
     return rows.filter(isNotDeleted).map((c) => ({ _id: c._id, name: c.name }));
@@ -110,6 +119,9 @@ export const listCompanyOptions = employeeQuery({
 /** Feeds the lead form picker: at most 10 live companies, the first by name when the term is empty. */
 export const searchCompanies = employeeQuery({
   args: { search: v.optional(v.string()) },
+  returns: v.array(
+    v.object({ _id: v.id('companies'), name: v.string(), domain: v.union(v.string(), v.null()) }),
+  ),
   handler: async (ctx, args) => {
     const term = args.search ? normalizeSearchText(args.search) : '';
     const rows = term
@@ -127,6 +139,10 @@ export const searchCompanies = employeeQuery({
 
 export const findCompanyByEmailDomain = employeeQuery({
   args: { email: v.string() },
+  returns: v.union(
+    v.object({ _id: v.id('companies'), name: v.string(), domain: v.string() }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const domain = companyDomainOfEmail(args.email);
     if (!domain) return null;
@@ -137,6 +153,14 @@ export const findCompanyByEmailDomain = employeeQuery({
 
 export const getCompany = employeeQuery({
   args: { companyId: v.id('companies') },
+  returns: v.union(
+    v.object({
+      ...docOf('companies').fields,
+      ownerNames: v.array(v.string()),
+      contactCount: v.number(),
+    }),
+    v.null(),
+  ),
   handler: async (ctx, args) => {
     const company = await ctx.db.get(args.companyId);
     if (!company || !isNotDeleted(company)) return null;
@@ -150,8 +174,18 @@ export const getCompany = employeeQuery({
 });
 
 /** The company page's activity is its audit trail, most recent first. */
+const companyActivityRow = v.object({
+  _id: v.id('auditLogs'),
+  action: auditLogValidator.fields.action,
+  timestamp: v.number(),
+  userName: v.union(v.string(), v.null()),
+  // What an audit row carries is free by the schema.
+  metadata: v.any(),
+});
+
 export const listCompanyActivity = employeeQuery({
   args: { companyId: v.id('companies') },
+  returns: v.array(companyActivityRow),
   handler: async (ctx, args) => {
     const logs = await ctx.db
       .query('auditLogs')
@@ -173,7 +207,7 @@ export const listCompanyActivity = employeeQuery({
       }
       return names.get(id) ?? null;
     };
-    const out = [];
+    const out: Infer<typeof companyActivityRow>[] = [];
     for (const log of logs) {
       out.push({
         _id: log._id,

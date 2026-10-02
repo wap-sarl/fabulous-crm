@@ -49,14 +49,15 @@ export async function logAudit(
   });
 }
 
+/** A key set to `undefined` clears the field when the row is patched: it is a change, written with `new: null`. */
 export function computeChanges(
   current: Record<string, unknown>,
   updates: Record<string, unknown>,
 ): Record<string, { old: unknown; new: unknown }> | undefined {
   const changes: Record<string, { old: unknown; new: unknown }> = {};
   for (const [key, newValue] of Object.entries(updates)) {
-    if (newValue !== undefined && JSON.stringify(current[key]) !== JSON.stringify(newValue)) {
-      changes[key] = { old: current[key], new: newValue };
+    if (JSON.stringify(current[key]) !== JSON.stringify(newValue)) {
+      changes[key] = { old: current[key], new: newValue === undefined ? null : newValue };
     }
   }
   return Object.keys(changes).length > 0 ? changes : undefined;

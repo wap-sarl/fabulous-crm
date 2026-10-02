@@ -25,7 +25,7 @@ export function InsertEdge(props: EdgeProps) {
 
   return (
     <>
-      <BaseEdge id={id} path={path} style={{ stroke: '#C9CDD6', strokeWidth: 1.5 }} />
+      <BaseEdge id={id} path={path} style={{ stroke: 'var(--ghost)', strokeWidth: 1.5 }} />
       <EdgeLabelRenderer>
         {branchLabel ? (
           <span

@@ -233,7 +233,7 @@ export function LeadsTable({
                           <span
                             key={c}
                             title={CONSENT_CHANNEL_LABEL[c]}
-                            className="rounded-md bg-[#F2F3F5] px-2 py-0.5 text-[11.5px] font-medium text-soft"
+                            className="rounded-md bg-muted px-2 py-0.5 text-[11.5px] font-medium text-soft"
                           >
                             {CONSENT_CHIP_LABEL[c] ?? c}
                           </span>
@@ -258,7 +258,7 @@ export function LeadsTable({
                         onClick={() => onEdit(lead)}
                         aria-label="Modifier"
                         className={cn(
-                          'flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-faint transition-colors hover:bg-[#EEF0F3] hover:text-body',
+                          'flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-faint transition-colors hover:bg-secondary hover:text-body',
                         )}
                       >
                         <Pencil className="h-4 w-4" />
@@ -271,7 +271,7 @@ export function LeadsTable({
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
-                      <ChevronRight className="ml-1 h-4 w-4 text-[#C8CCD4]" aria-hidden />
+                      <ChevronRight className="ml-1 h-4 w-4 text-ghost" aria-hidden />
                     </div>
                   </TableCell>
                 </TableRow>

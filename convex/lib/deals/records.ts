@@ -1,3 +1,10 @@
+import {
+  currencyCodeSchema,
+  dayDateSchema,
+  follows,
+  nonNegativeSchema,
+} from '../../_lib/validators/fields';
+import { refusal } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { PropertyValue } from '../../_lib/validators/properties';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
@@ -28,7 +35,7 @@ export async function loadPipeline(
   pipelineId: Id<'pipelines'>,
 ): Promise<Doc<'pipelines'>> {
   const pipeline = await ctx.db.get(pipelineId);
-  if (!pipeline || !isNotDeleted(pipeline)) throw new Error('pipeline_not_found');
+  if (!pipeline || !isNotDeleted(pipeline)) throw refusal('pipeline_not_found');
   return pipeline;
 }
 
@@ -140,9 +147,6 @@ async function promoteLeadOnWin(ctx: MutationCtx, deal: Doc<'deals'>): Promise<v
   }
 }
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const CURRENCY_RE = /^[A-Z]{3}$/;
-
 /** Field-level checks shared by create and update; throws `invalid_deal: <field>`. */
 export async function validateDealFields(
   ctx: MutationCtx,
@@ -156,23 +160,26 @@ export async function validateDealFields(
     sourceCampaignId?: Id<'campaigns'>;
   },
 ): Promise<void> {
-  if (fields.title !== undefined && !fields.title.trim()) throw new Error('deal_title_required');
-  if (fields.amount !== undefined && (!Number.isFinite(fields.amount) || fields.amount < 0)) {
-    throw new Error('invalid_deal: amount');
+  if (fields.title !== undefined && !fields.title.trim()) throw refusal('deal_title_required');
+  if (!follows(nonNegativeSchema.optional(), fields.amount)) {
+    throw refusal('invalid_deal', { reason: 'amount' });
   }
-  if (fields.currency !== undefined && !CURRENCY_RE.test(fields.currency.toUpperCase())) {
-    throw new Error('invalid_deal: currency');
+  if (
+    fields.currency !== undefined &&
+    !follows(currencyCodeSchema, fields.currency.toUpperCase())
+  ) {
+    throw refusal('invalid_deal', { reason: 'currency' });
   }
-  if (fields.expectedCloseDate !== undefined && !DATE_RE.test(fields.expectedCloseDate)) {
-    throw new Error('invalid_deal: expectedCloseDate');
+  if (!follows(dayDateSchema.optional(), fields.expectedCloseDate)) {
+    throw refusal('invalid_deal', { reason: 'expectedCloseDate' });
   }
   if (fields.ownerIds) await cleanOwnerIds(ctx, fields.ownerIds);
   if (fields.leadId) {
     const lead = await ctx.db.get(fields.leadId);
-    if (!lead || !isNotDeleted(lead)) throw new Error('lead_not_found');
+    if (!lead || !isNotDeleted(lead)) throw refusal('lead_not_found');
   }
   if (fields.sourceCampaignId && !(await ctx.db.get(fields.sourceCampaignId))) {
-    throw new Error('invalid_deal: sourceCampaignId');
+    throw refusal('invalid_deal', { reason: 'sourceCampaignId' });
   }
 }
 
@@ -200,14 +207,14 @@ export async function createDealRecord(
   const pipeline = data.pipelineId
     ? await loadPipeline(ctx, data.pipelineId)
     : await defaultPipeline(ctx);
-  if (!pipeline) throw new Error('pipeline_not_found');
+  if (!pipeline) throw refusal('pipeline_not_found');
   const stage = data.stageKey
     ? pipelineStage(pipeline, data.stageKey)
     : defaultPipelineStage(pipeline);
-  if (!stage) throw new Error('unknown_stage');
+  if (!stage) throw refusal('unknown_stage');
   const checked = stageEntryFor(stage, { tags: data.stageTags, comment: data.stageComment });
   if ('error' in checked) {
-    throw new Error(checked.error === 'tag_required' ? 'stage_tag_required' : 'unknown_stage_tag');
+    throw refusal(checked.error === 'tag_required' ? 'stage_tag_required' : 'unknown_stage_tag');
   }
   const entry = checked.entry;
   const now = Date.now();

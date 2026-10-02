@@ -1,3 +1,4 @@
+import { refusal, refusalText } from '../../../_lib/refusal';
 import type { Doc, Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
 import type { ActivityImportRow } from '../../../_lib/validators/imports';
@@ -47,7 +48,7 @@ async function companyOf(
     caches.companyByName.set(name, rows.find(isNotDeleted) ?? null);
   }
   const company = caches.companyByName.get(name);
-  if (!company) throw new Error('company_not_found');
+  if (!company) throw refusal('company_not_found');
   return company;
 }
 
@@ -77,8 +78,8 @@ export const activityImporter: EntityImporter<ActivityImportRow, Caches, State> 
   plan: async (ctx, row, caches, opts) => {
     try {
       const title = row.title.trim();
-      if (!title) throw new Error('activity_title_required');
-      if (row.ownerId && !(await ctx.db.get(row.ownerId))) throw new Error('invalid_owner');
+      if (!title) throw refusal('activity_title_required');
+      if (row.ownerId && !(await ctx.db.get(row.ownerId))) throw refusal('invalid_owner');
       const email = normalizeEmail(row.contactEmail);
       const leadId = email ? (await leadOf(ctx, caches, email))._id : undefined;
       const companyName = row.companyName?.trim();
@@ -99,7 +100,7 @@ export const activityImporter: EntityImporter<ActivityImportRow, Caches, State> 
       }
       return { verdict: { kind: 'create' }, state: { kind: 'create', ...resolved } };
     } catch (e) {
-      const error = e instanceof Error ? e.message : 'invalid_row';
+      const error = refusalText(e, 'invalid_row');
       return { verdict: { kind: 'error', error }, state: { kind: 'error', error } };
     }
   },

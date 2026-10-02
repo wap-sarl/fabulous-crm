@@ -9,12 +9,10 @@ import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefini
 import { formatPropertyValue, hasPropertyValue } from '../../properties/lib/customProperties';
 import { activityErrorMessage, useActivityActions } from '../hooks/useActivityActions';
 import { ACTIVITY_ICON } from '../lib/constants';
-import {
-  ActivityFormDialog,
-  CompleteActivityDialog,
-  LogCallDialog,
-  type ActivityLinks,
-} from './ActivityDialogs';
+import type { ActivityLinks } from '../types';
+import { ActivityFormDialog } from './ActivityFormDialog';
+import { CompleteActivityDialog } from './CompleteActivityDialog';
+import { LogCallDialog } from './LogCallDialog';
 import { dateTimeFormat } from '@crm/lib/format';
 
 /** One activity line: icon, title, due/completed date, outcome, complete/reopen. */
@@ -52,7 +50,7 @@ export function ActivityListItem({
           'mt-0.5 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-full border transition-colors',
           activity.status === 'done'
             ? 'border-green-600 bg-green-600 text-white'
-            : 'border-[#C8CCD4] text-transparent hover:border-primary hover:text-primary',
+            : 'border-ghost text-transparent hover:border-primary hover:text-primary',
         )}
         data-testid="activity-toggle"
       >
@@ -65,7 +63,7 @@ export function ActivityListItem({
         )}
       </button>
       <span
-        className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[#F2F3F5] text-soft"
+        className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-soft"
         title={ACTIVITY_TYPE_LABEL[activity.type]}
       >
         <Icon className="size-3.5" />

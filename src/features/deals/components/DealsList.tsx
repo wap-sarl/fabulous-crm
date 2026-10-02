@@ -215,7 +215,7 @@ export function DealsList({
                       : '—'}
                   </TableCell>
                   <TableCell>
-                    <ChevronRight className="h-4 w-4 text-[#C8CCD4]" aria-hidden />
+                    <ChevronRight className="h-4 w-4 text-ghost" aria-hidden />
                   </TableCell>
                 </TableRow>
               ))

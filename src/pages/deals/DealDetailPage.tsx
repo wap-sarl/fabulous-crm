@@ -74,7 +74,7 @@ export function DealDetailPage() {
       <PageHeader
         onBack={() => navigate(`/deals?pipeline=${deal.pipelineId}`)}
         leading={
-          <span className="flex size-[46px] items-center justify-center rounded-xl bg-[#E3F6EC] text-[#0C8A43]">
+          <span className="flex size-[46px] items-center justify-center rounded-xl bg-success-soft text-success">
             <Handshake className="size-5" />
           </span>
         }
@@ -140,7 +140,7 @@ export function DealDetailPage() {
                                 : 'bg-primary text-white'
                             : reached
                               ? 'bg-primary/10 text-primary hover:bg-primary/20'
-                              : 'bg-[#F2F3F5] text-soft hover:bg-[#E6E8EC]',
+                              : 'bg-muted text-soft hover:bg-input',
                         )}
                       >
                         {stage.label}

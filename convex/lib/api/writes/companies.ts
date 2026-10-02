@@ -1,3 +1,4 @@
+import { refusal } from '../../../_lib/refusal';
 import { internal } from '../../../_generated/api';
 import type { Id } from '../../../_generated/dataModel';
 import type { MutationCtx } from '../../../_generated/server';
@@ -23,7 +24,7 @@ export async function createCompany(
   body: CompanyCreateBody,
 ) {
   const name = body.name.trim();
-  if (!name) throw new Error('company_name_required');
+  if (!name) throw refusal('company_name_required');
   const ids = await normalizeIdentifiers(ctx, body);
   const defs = await loadPropertyDefsById(ctx, 'company');
   requireKnownProperties(defs, body.customProperties);
@@ -58,7 +59,7 @@ export async function updateCompany(
   const updates: Record<string, unknown> = {};
   if (body.name !== undefined) {
     const name = body.name.trim();
-    if (!name) throw new Error('company_name_required');
+    if (!name) throw refusal('company_name_required');
     updates.name = name;
   }
   // Identifiers normalize together (the country picks the scheme); `null` clears one.

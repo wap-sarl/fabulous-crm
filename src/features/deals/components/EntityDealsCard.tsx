@@ -38,9 +38,9 @@ export function EntityDealsCard({ leadId, leadName }: EntityDealsCardProps) {
               <button
                 type="button"
                 onClick={() => navigate(`/deals/${deal._id}`)}
-                className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-[#F7F8FA]"
+                className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-accent"
               >
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[#E3F6EC] text-[#0C8A43]">
+                <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-success-soft text-success">
                   <Handshake className="size-4" />
                 </span>
                 <span className="min-w-0 flex-1">
@@ -52,7 +52,7 @@ export function EntityDealsCard({ leadId, leadName }: EntityDealsCardProps) {
                   </span>
                 </span>
                 <StatusBadge tone={DEAL_STATUS_TONE[deal.status]}>{deal.stageLabel}</StatusBadge>
-                <ChevronRight className="size-4 shrink-0 text-[#C8CCD4]" />
+                <ChevronRight className="size-4 shrink-0 text-ghost" />
               </button>
             </li>
           ))}

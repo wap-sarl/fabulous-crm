@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import {
@@ -31,7 +32,7 @@ const convexStore: FileStore = {
 export function fileStore(provider: StorageProvider): FileStore {
   if (provider === 'convex') return convexStore;
   // Reserved: implement with the bucket client and register it here.
-  throw new Error(`storage_provider_not_implemented: ${provider}`);
+  throw refusal('storage_provider_not_implemented', { reason: provider });
 }
 
 const MAX_FOLDER_DEPTH = 8;
@@ -44,10 +45,10 @@ export function normalizeFolder(raw: string | undefined): string {
     .split(/[\\/]+/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-  if (segments.length > MAX_FOLDER_DEPTH) throw new Error('invalid_folder');
+  if (segments.length > MAX_FOLDER_DEPTH) throw refusal('invalid_folder');
   for (const segment of segments) {
     if (segment === '.' || segment === '..' || segment.length > MAX_SEGMENT_LENGTH) {
-      throw new Error('invalid_folder');
+      throw refusal('invalid_folder');
     }
   }
   return segments.join('/');
@@ -59,7 +60,7 @@ export function normalizeFileName(raw: string): string {
     .trim()
     .replace(/[\\/]+/g, '-')
     .slice(0, MAX_NAME_LENGTH);
-  if (!name || name === '.' || name === '..') throw new Error('invalid_file_name');
+  if (!name || name === '.' || name === '..') throw refusal('invalid_file_name');
   return name;
 }
 

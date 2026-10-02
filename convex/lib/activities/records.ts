@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import type { ActivityStatus, ActivityType } from '../../_lib/validators/activities';
@@ -28,15 +29,15 @@ export async function requireActivityLinks(
 ): Promise<void> {
   if (links.leadId) {
     const lead = await ctx.db.get(links.leadId);
-    if (!lead || !isNotDeleted(lead)) throw new Error('lead_not_found');
+    if (!lead || !isNotDeleted(lead)) throw refusal('lead_not_found');
   }
   if (links.companyId) {
     const company = await ctx.db.get(links.companyId);
-    if (!company || !isNotDeleted(company)) throw new Error('company_not_found');
+    if (!company || !isNotDeleted(company)) throw refusal('company_not_found');
   }
   if (links.dealId) {
     const deal = await ctx.db.get(links.dealId);
-    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+    if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
   }
 }
 
@@ -47,7 +48,7 @@ export async function createActivityRecord(
   meta: { changedBy?: Id<'users'>; apiKeyId?: Id<'apiKeys'>; workflowId?: Id<'workflows'> },
 ): Promise<Id<'activities'>> {
   const title = data.title.trim();
-  if (!title) throw new Error('activity_title_required');
+  if (!title) throw refusal('activity_title_required');
   await requireActivityLinks(ctx, data);
   const status = data.status ?? 'open';
   const now = Date.now();
@@ -90,6 +91,6 @@ export async function loadActivity(
   activityId: Id<'activities'>,
 ): Promise<Doc<'activities'>> {
   const activity = await ctx.db.get(activityId);
-  if (!activity || !isNotDeleted(activity)) throw new Error('activity_not_found');
+  if (!activity || !isNotDeleted(activity)) throw refusal('activity_not_found');
   return activity;
 }

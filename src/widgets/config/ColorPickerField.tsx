@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react';
 import { Input, Label, cn } from '@crm/design-system';
 import { Check } from 'lucide-react';
+import { follows, hexColorSchema } from '@crm/lib/backend';
 
 /** Theme default (`--primary` in theme.css) — the fallback when nothing is set. */
 const DEFAULT_PRIMARY_COLOR = '#5b50f5';
@@ -17,8 +18,6 @@ const PRESETS = [
   '#111827', // Ink
 ];
 
-const HEX_RE = /^#[0-9a-fA-F]{6}$/;
-
 const normalize = (hex: string) => hex.trim().toLowerCase();
 
 export interface ColorPickerFieldProps {
@@ -34,14 +33,15 @@ export interface ColorPickerFieldProps {
 /** Shared by the setup wizard and the settings screen; only a valid `#rrggbb` value is emitted. */
 export function ColorPickerField({ label, hint, value, onChange }: ColorPickerFieldProps) {
   const inputId = useId();
-  const current = value && HEX_RE.test(value) ? normalize(value) : DEFAULT_PRIMARY_COLOR;
+  const current =
+    value && follows(hexColorSchema, value) ? normalize(value) : DEFAULT_PRIMARY_COLOR;
   // A local buffer lets the user type an incomplete hex without it being rejected mid-entry.
   const [text, setText] = useState(current);
   useEffect(() => setText(current), [current]);
 
   const commit = (raw: string) => {
     const hex = normalize(raw);
-    if (HEX_RE.test(hex)) onChange(hex);
+    if (follows(hexColorSchema, hex)) onChange(hex);
   };
 
   return (

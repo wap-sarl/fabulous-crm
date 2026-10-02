@@ -230,7 +230,7 @@ function MergeBody({
 
       <div className="max-h-[55vh] overflow-y-auto rounded-md border border-border">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-[#F7F8FA] text-xs text-faint">
+          <thead className="sticky top-0 bg-background text-xs text-faint">
             <tr>
               <th className="w-36 px-3 py-2 text-left font-medium">Champ</th>
               {(['a', 'b'] as const).map((side) => (
@@ -261,9 +261,7 @@ function MergeBody({
                         <label
                           className={cn(
                             'flex cursor-pointer items-start gap-2 rounded-md px-2 py-1 transition-colors',
-                            pick === side
-                              ? 'bg-primary/10 text-ink'
-                              : 'text-faint hover:bg-[#F7F8FA]',
+                            pick === side ? 'bg-primary/10 text-ink' : 'text-faint hover:bg-accent',
                           )}
                         >
                           <input

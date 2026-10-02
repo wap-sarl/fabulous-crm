@@ -1,3 +1,4 @@
+import { refusal, refusalText } from '../../_lib/refusal';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import type { LeadImportRow } from '../../_lib/validators/imports';
@@ -6,11 +7,10 @@ import type { PropertyValue } from '../../_lib/validators/properties';
 import type { DuplicateReason } from '../../_lib/validators/duplicates';
 import { dispatchWorkflowTrigger, loadActiveWorkflows } from '../workflows/dispatch';
 import { diffLeadFilterFields } from '../workflows/rules';
-import { computeChanges, createAuditFields, logAudit, updateAuditFields } from '../audit/log';
+import { computeChanges, logAudit, updateAuditFields } from '../audit/log';
 import { filterUndefined, isNotDeleted } from '../shared/db';
 import { requireValidAddress } from '../addresses/validation';
 import { resolveCompanyForLead } from '../companies/lookup';
-import { generateHexToken } from '../security/crypto';
 import {
   compareIdentities,
   findDuplicateCandidates,
@@ -22,6 +22,7 @@ import {
 } from '../duplicates/detection';
 import { insertListMember } from '../leadLists/members';
 import { insertLifecycleHistory, loadLifecycleConfig, planLifecycleTransition } from './lifecycle';
+import { createLeadRecord } from './records';
 import { cleanOwnerIds } from '../users/owners';
 import {
   loadPropertyDefsById,
@@ -30,8 +31,6 @@ import {
 } from '../properties/definitions';
 
 // The import plans a row, then applies the plan: a dry run and the run it precedes read the same rules by construction.
-
-export const CONSENT_TOKEN_BYTES = 24;
 
 /** Emails are stored lowercased so the upsert can match on them. */
 export function normalizeEmail(raw: string | undefined): string | undefined {
@@ -126,10 +125,10 @@ export async function planLeadImport(
       row.lifecycleStage !== undefined &&
       lifecycleStageIndex(caches.lifecycle, row.lifecycleStage) === -1
     ) {
-      throw new Error('unknown_lifecycle_stage');
+      throw refusal('unknown_lifecycle_stage');
     }
   } catch (e) {
-    return { kind: 'error', error: e instanceof Error ? e.message : 'invalid_property_value' };
+    return { kind: 'error', error: refusalText(e, 'invalid_property_value') };
   }
   const email = normalizeEmail(row.email);
   const matched = opts.matchId ? await ctx.db.get(opts.matchId) : null;
@@ -220,7 +219,7 @@ export async function applyLeadImport(
         if (matched) updates.companyId = matched;
       }
     } catch (e) {
-      return { kind: 'error', error: e instanceof Error ? e.message : 'company_error' };
+      return { kind: 'error', error: refusalText(e, 'company_error') };
     }
 
     let lifecycleChange: { from: string | undefined; to: string } | undefined;
@@ -281,44 +280,25 @@ export async function applyLeadImport(
         caches.companyCache,
       )) ?? undefined;
   } catch (e) {
-    return { kind: 'error', error: e instanceof Error ? e.message : 'invalid_row' };
+    return { kind: 'error', error: refusalText(e, 'invalid_row') };
   }
   const lifecycleStage = row.lifecycleStage ?? caches.lifecycle.defaultStage;
-  const leadId = await ctx.db.insert('leads', {
-    firstName: row.firstName.trim(),
-    lastName: row.lastName.trim(),
-    email,
-    phone: row.phone?.trim() || undefined,
-    address: row.address,
-    // Consent starts empty; only the lead can grant it via the public link.
-    marketingConsent: [],
-    consentToken: generateHexToken(CONSENT_TOKEN_BYTES),
-    comment: row.comment,
-    ownerIds: row.ownerIds?.length ? await cleanOwnerIds(ctx, row.ownerIds) : [userId],
-    companyId,
-    isRedFlagged: row.isRedFlagged ?? false,
-    lifecycleStage,
-    customProperties: plan.customProperties,
-    ...createAuditFields(userId),
-  });
-  await logAudit({
+  const leadId = await createLeadRecord(
     ctx,
-    userId,
-    entityType: 'lead',
-    entityId: leadId,
-    action: 'create',
-    metadata: { source: 'import' },
-  });
-  await insertLifecycleHistory(
-    ctx,
-    leadId,
-    { from: undefined, to: lifecycleStage },
-    { source: 'import', changedBy: userId },
-  );
-  await dispatchWorkflowTrigger(
-    ctx,
-    leadId,
-    { type: 'lead_created' },
+    { source: 'import', userId },
+    {
+      firstName: row.firstName.trim(),
+      lastName: row.lastName.trim(),
+      email,
+      phone: row.phone?.trim() || undefined,
+      address: row.address,
+      comment: row.comment,
+      ownerIds: row.ownerIds?.length ? await cleanOwnerIds(ctx, row.ownerIds) : [userId],
+      companyId,
+      isRedFlagged: row.isRedFlagged,
+      lifecycleStage,
+      customProperties: plan.customProperties,
+    },
     { workflows: caches.activeWorkflows },
   );
   if (listId) await addLeadToList(ctx, listId, leadId, userId, caches.activeWorkflows);

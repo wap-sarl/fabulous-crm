@@ -2,6 +2,7 @@ import type { DealImportRow } from '@crm/lib/backend';
 import { isValidEmail } from '@crm/lib/shared';
 import { numberOrUndefined } from './parseCsv';
 import { type ImportFieldDef, parseDateCell, parseOwners } from './fields';
+import { currencyCodeSchema, follows } from '@crm/lib/backend';
 
 export const DEAL_FIELDS_GROUP = 'Champs de la transaction';
 
@@ -34,7 +35,9 @@ export const DEAL_FIELDS: readonly ImportFieldDef<DealImportRow>[] = [
     aliases: ['devise', 'monnaie'],
     parse: (raw) => {
       const code = raw.trim().toUpperCase();
-      return /^[A-Z]{3}$/.test(code) ? { value: code } : { error: `devise invalide « ${raw} »` };
+      return follows(currencyCodeSchema, code)
+        ? { value: code }
+        : { error: `devise invalide « ${raw} »` };
     },
     apply: (row, value) => {
       row.currency = value as string;

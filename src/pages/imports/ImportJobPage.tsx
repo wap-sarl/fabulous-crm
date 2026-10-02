@@ -24,7 +24,7 @@ import { usePageTitle } from '../../layouts/DashboardShell';
 import { downloadText, errorRowsCsv } from '../../features/imports/lib/errorCsv';
 import { describeImportError, describeJobError } from '../../features/imports/lib/errorLabels';
 import { IMPORT_SPECS } from '../../features/imports/lib/registry';
-import { JOB_STATUS_LABEL, JOB_STATUS_TONE } from './importStatus';
+import { JOB_STATUS_LABEL, JOB_STATUS_TONE } from '../../features/imports/lib/importStatus';
 import { Stat } from '../../features/imports/components/Stat';
 import { RowList } from '../../features/imports/components/RowList';
 import { dateTimeFormat, numberFormat } from '@crm/lib/format';

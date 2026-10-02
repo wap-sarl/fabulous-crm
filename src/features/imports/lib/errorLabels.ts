@@ -48,8 +48,9 @@ export function describeJobError(error: string): string {
       typeof parsed === 'object' &&
       typeof (parsed as { code?: unknown }).code === 'string'
     ) {
-      const code = (parsed as { code: string }).code;
-      return describeError(new ConvexError(parsed as Value), describeImportError(code));
+      const { code, reason } = parsed as { code: string; reason?: unknown };
+      const text = typeof reason === 'string' ? `${code}: ${reason}` : code;
+      return describeError(new ConvexError(parsed as Value), describeImportError(text));
     }
   } catch {
     // Not JSON: a plain message.

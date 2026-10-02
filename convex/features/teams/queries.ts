@@ -1,13 +1,22 @@
+import { type Infer, v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
 import { isNotDeleted } from '../../lib/shared/db';
 
 /** Live teams with their members' names, for the settings screen and pickers. */
+const teamRow = v.object({
+  _id: v.id('teams'),
+  name: v.string(),
+  memberIds: v.array(v.id('users')),
+  members: v.array(v.object({ _id: v.id('users'), name: v.string() })),
+});
+
 export const listTeams = employeeQuery({
   args: {},
+  returns: v.array(teamRow),
   handler: async (ctx) => {
     const teams = (await ctx.db.query('teams').collect()).filter(isNotDeleted);
     const names = new Map<string, string>();
-    const out = [];
+    const out: Infer<typeof teamRow>[] = [];
     for (const team of teams) {
       const members = [];
       for (const id of team.memberIds) {

@@ -129,6 +129,34 @@ async function lookupSirene(digits: string): Promise<RegistrationLookupResult> {
 
 export const lookupRegistration = employeeAction({
   args: { country: v.string(), value: v.string() },
+  returns: v.union(
+    v.object({
+      status: v.literal('found'),
+      data: v.object({
+        siren: v.string(),
+        siret: v.union(v.string(), v.null()),
+        denomination: v.union(v.string(), v.null()),
+        nom: v.union(v.string(), v.null()),
+        prenom: v.union(v.string(), v.null()),
+        etatAdministratif: v.union(v.literal('A'), v.literal('C'), v.literal('F'), v.null()),
+        dateCreation: v.union(v.string(), v.null()),
+        activitePrincipale: v.union(v.string(), v.null()),
+        address: v.union(
+          v.object({
+            numeroVoie: v.union(v.string(), v.null()),
+            typeVoie: v.union(v.string(), v.null()),
+            libelleVoie: v.union(v.string(), v.null()),
+            codePostal: v.union(v.string(), v.null()),
+            libelleCommune: v.union(v.string(), v.null()),
+          }),
+          v.null(),
+        ),
+      }),
+    }),
+    v.object({ status: v.literal('not_found'), message: v.string() }),
+    v.object({ status: v.literal('unsupported'), message: v.string() }),
+    v.object({ status: v.literal('error'), message: v.string() }),
+  ),
   handler: async (ctx, { country, value }): Promise<RegistrationLookupResult> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!(await enforceRateLimit(ctx, 'registryVerify', identity?.subject ?? 'anonymous'))) {
@@ -161,6 +189,19 @@ export type VatLookupResult =
 
 export const lookupVat = employeeAction({
   args: { country: v.string(), value: v.string() },
+  returns: v.union(
+    v.object({
+      status: v.literal('found'),
+      data: v.object({
+        vatNumber: v.string(),
+        name: v.union(v.string(), v.null()),
+        address: v.union(v.string(), v.null()),
+      }),
+    }),
+    v.object({ status: v.literal('not_found'), message: v.string() }),
+    v.object({ status: v.literal('unsupported'), message: v.string() }),
+    v.object({ status: v.literal('error'), message: v.string() }),
+  ),
   handler: async (ctx, { country, value }): Promise<VatLookupResult> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!(await enforceRateLimit(ctx, 'registryVerify', identity?.subject ?? 'anonymous'))) {

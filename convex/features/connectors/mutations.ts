@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { employeeMutation } from '../../_lib/auth';
@@ -16,9 +17,10 @@ import { randomToken, sha256Base64Url } from '../../lib/security/crypto';
 /** Starts a connection: a one-time signed state and a PKCE challenge, and the provider's consent URL to go to. */
 export const startConnection = employeeMutation({
   args: { provider: connectorProviderValidator },
+  returns: v.object({ url: v.string() }),
   handler: async (ctx, { provider }) => {
     const clientId = resolveClientId(await ctx.db.query('appConfig').first(), provider);
-    if (!clientId) throw new Error('connector_not_configured');
+    if (!clientId) throw refusal('connector_not_configured');
     const now = Date.now();
     const nonce = randomToken();
     const codeVerifier = randomToken(48);
@@ -124,7 +126,7 @@ export const disconnect = employeeMutation({
       .query('connectorAccounts')
       .withIndex('by_user_provider', (q) => q.eq('userId', ctx.userId).eq('provider', provider))
       .unique();
-    if (!account) throw new Error('connector_account_not_found');
+    if (!account) throw refusal('connector_account_not_found');
     await ctx.db.patch(account._id, { status: 'revoking', updatedAt: Date.now() });
     await ctx.scheduler.runAfter(0, internal.features.connectors.actions.revokeAndRemove, {
       accountId: account._id,

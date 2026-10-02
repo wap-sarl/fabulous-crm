@@ -1,3 +1,4 @@
+import { refusal } from '../../_lib/refusal';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
@@ -286,7 +287,7 @@ export function initialComment(
 // Keys derived from the deployment's auth secret, one per purpose, as the OAuth state does without a shared key.
 async function hmacKey(purpose: string): Promise<CryptoKey> {
   const secret = process.env.BETTER_AUTH_SECRET;
-  if (!secret) throw new Error('form_secret_missing');
+  if (!secret) throw refusal('form_secret_missing');
   return await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(`${purpose}:${secret}`),

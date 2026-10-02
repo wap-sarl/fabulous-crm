@@ -1,3 +1,4 @@
+import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import { settingsMutation, employeeMutation } from '../../_lib/auth';
@@ -21,7 +22,7 @@ import {
   logAudit,
   updateAuditFields,
 } from '../../lib/audit/log';
-import { filterUndefined, isNotDeleted } from '../../lib/shared/db';
+import { isNotDeleted } from '../../lib/shared/db';
 import { stageTotals, statusTotals } from '../../lib/deals/aggregates';
 import {
   createDealRecord,
@@ -40,7 +41,7 @@ function normalizeStages(stages: PipelineStage[]): PipelineStage[] {
     tagsRequired: s.tags?.length && s.tagsRequired ? true : undefined,
   }));
   const error = validatePipelineStages(normalized);
-  if (error) throw new Error(error);
+  if (error) throw refusalFrom(error, 'invalid_pipeline_stages');
   return normalized;
 }
 
@@ -50,13 +51,14 @@ function checkTransitions(
   transitions: PipelineTransition[] | undefined,
 ): PipelineTransition[] | undefined {
   const error = validatePipelineTransitions(stages, transitions);
-  if (error) throw new Error(error);
+  if (error) throw refusalFrom(error, 'invalid_pipeline_transitions');
   return normalizeTransitions(stages, transitions);
 }
 
 /** Idempotent: creates the stock pipeline when the instance has none. */
 export const ensureDefaultPipeline = employeeMutation({
   args: {},
+  returns: v.id('pipelines'),
   handler: async (ctx) => await ensureDefault(ctx, ctx.userId),
 });
 
@@ -67,9 +69,10 @@ export const createPipeline = settingsMutation({
     transitions: v.optional(v.array(pipelineTransitionValidator)),
     isDefault: v.optional(v.boolean()),
   },
+  returns: v.id('pipelines'),
   handler: async (ctx, args) => {
     const name = args.name.trim();
-    if (!name) throw new Error('pipeline_name_required');
+    if (!name) throw refusal('pipeline_name_required');
     const stages = normalizeStages(args.stages);
     const transitions = checkTransitions(stages, args.transitions);
     const others = (await ctx.db.query('pipelines').collect()).filter(isNotDeleted);
@@ -107,12 +110,13 @@ export const updatePipeline = settingsMutation({
     layout: v.optional(v.union(pipelineLayoutValidator, v.null())),
     isDefault: v.optional(v.boolean()),
   },
+  returns: v.id('pipelines'),
   handler: async (ctx, args) => {
     const pipeline = await loadPipeline(ctx, args.pipelineId);
     const updates: Partial<Doc<'pipelines'>> = {};
     if (args.name !== undefined) {
       const name = args.name.trim();
-      if (!name) throw new Error('pipeline_name_required');
+      if (!name) throw refusal('pipeline_name_required');
       updates.name = name;
     }
     if (args.stages !== undefined) {
@@ -121,7 +125,7 @@ export const updatePipeline = settingsMutation({
       for (const stage of pipeline.stages) {
         if (kept.has(stage.key)) continue;
         if ((await stageTotals(ctx, pipeline._id, stage.key)).count > 0) {
-          throw new Error('pipeline_stage_in_use');
+          throw refusal('pipeline_stage_in_use');
         }
       }
       updates.stages = stages;
@@ -150,16 +154,9 @@ export const updatePipeline = settingsMutation({
       }
       updates.isDefault = true;
     }
-    const changes = computeChanges(pipeline, filterUndefined(updates));
-    // `computeChanges` ignores undefined values, so a cleared graph (stored as an absent field) is tracked here.
-    const graphChanged =
-      ('transitions' in updates &&
-        JSON.stringify(updates.transitions ?? null) !==
-          JSON.stringify(pipeline.transitions ?? null)) ||
-      ('layout' in updates &&
-        JSON.stringify(updates.layout ?? null) !== JSON.stringify(pipeline.layout ?? null));
+    const changes = computeChanges(pipeline, updates);
     await ctx.db.patch(pipeline._id, { ...updates, ...updateAuditFields(ctx.userId) });
-    if (changes || graphChanged) {
+    if (changes) {
       await logAudit({
         ctx,
         userId: ctx.userId,
@@ -176,11 +173,12 @@ export const updatePipeline = settingsMutation({
 /** Soft-delete an empty pipeline (no live deal in any status). */
 export const deletePipeline = settingsMutation({
   args: { pipelineId: v.id('pipelines') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const pipeline = await loadPipeline(ctx, args.pipelineId);
     for (const status of ['open', 'won', 'lost'] as const) {
       if ((await statusTotals(ctx, pipeline._id, status)).count > 0) {
-        throw new Error('pipeline_in_use');
+        throw refusal('pipeline_in_use');
       }
     }
     await ctx.db.patch(pipeline._id, {
@@ -195,6 +193,7 @@ export const deletePipeline = settingsMutation({
       entityId: pipeline._id,
       action: 'delete',
     });
+    return null;
   },
 });
 
@@ -217,6 +216,7 @@ export const createDeal = employeeMutation({
     stageTags: v.optional(v.array(v.string())),
     stageComment: v.optional(v.string()),
   },
+  returns: v.id('deals'),
   handler: async (ctx, args) => {
     await validateDealFields(ctx, args);
     return await createDealRecord(
@@ -246,10 +246,11 @@ export const updateDeal = employeeMutation({
     expectedCloseDate: v.optional(v.union(v.string(), v.null())),
     amount: v.optional(v.union(v.number(), v.null())),
   },
+  returns: v.id('deals'),
   handler: async (ctx, args) => {
     const { dealId, customProperties, ...rest } = args;
     const deal = await ctx.db.get(dealId);
-    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+    if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
     const nonNull = Object.fromEntries(
       Object.entries(rest).filter(([, value]) => value !== null),
     ) as Parameters<typeof validateDealFields>[1];
@@ -258,7 +259,7 @@ export const updateDeal = employeeMutation({
     const updates: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(rest)) {
       if (value === undefined) continue;
-      // null → remove the field; `filterUndefined` keeps null so patch clears it.
+      // null → remove the field: patching undefined clears it.
       updates[key] = value === null ? undefined : value;
     }
     if (typeof updates.title === 'string') updates.title = updates.title.trim();
@@ -270,7 +271,7 @@ export const updateDeal = employeeMutation({
       );
     }
 
-    const changes = computeChanges(deal, filterUndefined(updates));
+    const changes = computeChanges(deal, updates);
     await ctx.db.patch(dealId, { ...updates, ...updateAuditFields(ctx.userId) });
     if (changes) {
       await logAudit({
@@ -294,9 +295,10 @@ export const moveDealStage = employeeMutation({
     tags: v.optional(v.array(v.string())),
     comment: v.optional(v.string()),
   },
+  returns: v.union(v.literal('unchanged'), v.literal('moved')),
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
-    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+    if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
     const move = await moveDealToStage(
       ctx,
       deal,
@@ -304,19 +306,20 @@ export const moveDealStage = employeeMutation({
       { source: 'manual', changedBy: ctx.userId },
       { tags: args.tags, comment: args.comment },
     );
-    if (move.kind === 'unknown_stage') throw new Error('unknown_stage');
-    if (move.kind === 'unknown_tag') throw new Error('unknown_stage_tag');
-    if (move.kind === 'tag_required') throw new Error('stage_tag_required');
-    if (move.kind === 'forbidden') throw new Error('deal_transition_forbidden');
+    if (move.kind === 'unknown_stage') throw refusal('unknown_stage');
+    if (move.kind === 'unknown_tag') throw refusal('unknown_stage_tag');
+    if (move.kind === 'tag_required') throw refusal('stage_tag_required');
+    if (move.kind === 'forbidden') throw refusal('deal_transition_forbidden');
     return move.kind;
   },
 });
 
 export const deleteDeal = employeeMutation({
   args: { dealId: v.id('deals') },
+  returns: v.null(),
   handler: async (ctx, args) => {
     const deal = await ctx.db.get(args.dealId);
-    if (!deal || !isNotDeleted(deal)) throw new Error('deal_not_found');
+    if (!deal || !isNotDeleted(deal)) throw refusal('deal_not_found');
     await ctx.db.patch(args.dealId, { deletedAt: Date.now(), ...updateAuditFields(ctx.userId) });
     await logAudit({
       ctx,
@@ -325,5 +328,6 @@ export const deleteDeal = employeeMutation({
       entityId: args.dealId,
       action: 'delete',
     });
+    return null;
   },
 });

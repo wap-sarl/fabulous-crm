@@ -1,7 +1,7 @@
 import { internal } from '../../../_generated/api';
 import { evalAdvancedFilter } from '../../leads/matching';
 import { loadLeadFilterExtras } from '../../leads/tableFilters';
-import { delayMs } from '../rules';
+import { delayMs } from '../../../_lib/validators/workflowSteps';
 import { advanceRun, logStep, type NodeOf, type StepContext } from '../runs';
 
 export async function branchStep(

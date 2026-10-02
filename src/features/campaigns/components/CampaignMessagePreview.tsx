@@ -45,10 +45,10 @@ export function CampaignMessagePreview({
       <div className={cn('flex flex-col gap-2', className)}>
         {sms ? (
           <div className="flex items-end gap-2">
-            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[#EFEBFE] text-[#6A4BF0]">
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-violet-soft text-violet">
               <MessageSquare className="size-3.5" />
             </span>
-            <div className="max-w-[420px] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-[#EFEBFE] px-3.5 py-2.5 text-[13px] leading-relaxed text-ink">
+            <div className="max-w-[420px] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-violet-soft px-3.5 py-2.5 text-[13px] leading-relaxed text-ink">
               {sms}
             </div>
           </div>

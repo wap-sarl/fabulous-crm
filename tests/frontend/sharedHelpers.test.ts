@@ -4,7 +4,8 @@ import {
   digitIndexToFormattedIndex,
   formatGrouped,
 } from '../../src/design-system/components/inputs/grouped-digits';
-import { errorCode, errorLabel } from '../../src/lib/errors';
+import { ConvexError } from 'convex/values';
+import { describeError, errorCode, errorLabel, errorText } from '../../src/lib/errors';
 import { dateFormat } from '../../src/lib/format';
 import { keyFromLabel } from '../../src/lib/keys';
 import { slugOf } from '../../convex/_lib/text';
@@ -68,5 +69,29 @@ describe('the helpers the screens share', () => {
       'une_etape_au_nom_vraimen',
     );
     expect(keyFromLabel('…', new Set(['etape']), 'etape')).toBe('etape_2');
+  });
+
+  test('a refusal is read by its code, its reason and its sentence, as production delivers it', () => {
+    // In production the message of an error is « Server Error »: only the data of a refusal arrives.
+    const refused = (data: Record<string, string>) =>
+      Object.assign(new ConvexError(data), { message: 'Server Error' });
+    expect(errorText(refused({ code: 'deal_not_found' }))).toBe('deal_not_found');
+    expect(errorText(refused({ code: 'invalid_deal', reason: 'amount' }))).toBe(
+      'invalid_deal: amount',
+    );
+    expect(errorText(new Error('Uncaught Error: boom'))).toBe('Uncaught Error: boom');
+    expect(errorText('text')).toBe('text');
+
+    expect(errorCode(refused({ code: 'deal_not_found' }), LABELS)).toBe('deal_not_found');
+    expect(errorLabel(refused({ code: 'deal_not_found' }), LABELS, 'Échec.')).toBe(
+      'Transaction introuvable.',
+    );
+    // A code the screen has no sentence for: the sentence the refusal brings, else the fallback.
+    const worded = refused({ code: 'workflow_pause_first', message: 'Mettez en pause.' });
+    expect(errorLabel(worded, LABELS, 'Échec.')).toBe('Mettez en pause.');
+    expect(describeError(worded, 'Échec.')).toBe('Mettez en pause.');
+    expect(errorLabel(refused({ code: 'other' }), LABELS, 'Échec.')).toBe('Échec.');
+    expect(describeError(refused({ code: 'other' }), 'Échec.')).toBe('Échec.');
+    expect(describeError(new Error('boom'), 'Échec.')).toBe('Échec.');
   });
 });

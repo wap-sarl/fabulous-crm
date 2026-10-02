@@ -1,3 +1,4 @@
+import { refusalText } from '../../../_lib/refusal';
 import { createDealRecord, latestOpenDealOfLead, moveDealToStage } from '../../deals/records';
 import { renderPlaceholders } from '../../email/brevo';
 import { leadParams } from '../params';
@@ -26,7 +27,7 @@ export async function createDealStep(
     await logStep(ctx, run, node, 'success', { detail: `transaction ${dealId}` });
   } catch (e) {
     await logStep(ctx, run, node, 'skipped', {
-      detail: e instanceof Error ? e.message : 'pipeline introuvable',
+      detail: refusalText(e, 'pipeline introuvable'),
     });
   }
   await advanceRun(ctx, run, workflow, node.next);

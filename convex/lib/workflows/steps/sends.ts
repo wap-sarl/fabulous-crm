@@ -1,3 +1,4 @@
+import { type Infer, v } from 'convex/values';
 import { internal } from '../../../_generated/api';
 import type { Doc } from '../../../_generated/dataModel';
 import type { QueryCtx } from '../../../_generated/server';
@@ -7,11 +8,25 @@ import { leadParams } from '../params';
 import { advanceRun, logStep, type NodeOf, type StepContext } from '../runs';
 
 /** What `runWorkflowActionStep` needs to perform one async step. */
-export type ActionStepContext =
-  | { kind: 'email'; to: string; subject: string; htmlBody: string; params: Record<string, string> }
-  | { kind: 'sms'; phone: string; smsBody: string; params: Record<string, string> }
-  | { kind: 'webhook'; url: string; payload: Record<string, unknown> }
-  | null;
+export const actionStepContextValidator = v.union(
+  v.object({
+    kind: v.literal('email'),
+    to: v.string(),
+    subject: v.string(),
+    htmlBody: v.string(),
+    params: v.record(v.string(), v.string()),
+  }),
+  v.object({
+    kind: v.literal('sms'),
+    phone: v.string(),
+    smsBody: v.string(),
+    params: v.record(v.string(), v.string()),
+  }),
+  // The body of a webhook is what the receiver reads: it is not ours to bound.
+  v.object({ kind: v.literal('webhook'), url: v.string(), payload: v.record(v.string(), v.any()) }),
+  v.null(),
+);
+export type ActionStepContext = Infer<typeof actionStepContextValidator>;
 
 /** The step stays pending and the run on its node until `completeActionStep` advances it. */
 async function startAction({ ctx, run }: StepContext, node: WorkflowNode): Promise<void> {
