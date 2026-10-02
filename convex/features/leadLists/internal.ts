@@ -1,8 +1,12 @@
 import { v } from 'convex/values';
+import { internalQuery } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { loadActiveWorkflows } from '../../lib/workflows/dispatch';
 import { evalAdvancedFilter } from '../../lib/leads/matching';
-import { criteriaUsesRelativeDates } from '../../_lib/validators/leadLists';
+import {
+  criteriaUsesRelativeDates,
+  DEFAULT_MAX_DYNAMIC_LISTS,
+} from '../../_lib/validators/leadLists';
 import { startDynamicListRecalc, syncDynamicMembership } from '../../lib/leadLists/dynamic';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { internal } from '../../_generated/api';
@@ -10,6 +14,20 @@ import { DAY_MS } from '../../_lib/time';
 
 const RECALC_BATCH = 100;
 const DRIFT_RECALC_MS = DAY_MS;
+
+/** The cap of dynamic lists and how much of it is used. An internal query because the cap is the deployment's: it counts the lists the caller cannot see, and gives back numbers only. */
+export const dynamicListLimits = internalQuery({
+  args: {},
+  returns: v.object({ maxDynamicLists: v.number(), dynamicCount: v.number() }),
+  handler: async (ctx) => {
+    const lists = await ctx.db.query('leadLists').collect();
+    const cfg = await ctx.db.query('appConfig').first();
+    return {
+      maxDynamicLists: cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS,
+      dynamicCount: lists.filter((l) => l.kind === 'dynamic').length,
+    };
+  },
+});
 
 export const recalcDynamicListPage = internalMutation({
   args: { listId: v.id('leadLists'), stamp: v.number(), cursor: v.optional(v.string()) },

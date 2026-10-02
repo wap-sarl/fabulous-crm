@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { employeeQuery } from '../../_lib/auth';
 import { leadListMemberCounts } from '../../lib/leadLists/members';
-import { dynamicListLimits } from '../../lib/leadLists/dynamic';
+import { internal } from '../../_generated/api';
 
 /** Member counts come from the aggregate: the junction table grows as leads × lists, and scanning it would hit Convex's read limit (#14). */
 export const listLeadLists = employeeQuery({
@@ -60,5 +60,6 @@ export const listLeadLists = employeeQuery({
 export const getListLimits = employeeQuery({
   args: {},
   returns: v.object({ maxDynamicLists: v.number(), dynamicCount: v.number() }),
-  handler: (ctx) => dynamicListLimits(ctx),
+  handler: (ctx): Promise<{ maxDynamicLists: number; dynamicCount: number }> =>
+    ctx.runQuery(internal.features.leadLists.internal.dynamicListLimits, {}),
 });

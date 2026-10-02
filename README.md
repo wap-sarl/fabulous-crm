@@ -383,10 +383,10 @@ Les règles que le code suit, chacune gardée par un test :
   (`convex/lib/leads/records.ts`) : la ligne, son entrée au journal, la
   première ligne de son historique de statut, puis les workflows
   (`tests/backend/leadCreation.test.ts`).
-- **Ce que le déploiement compte (un plafond) se lit avec `ctx.unscopedDb`**,
-  en lecture seule et hors des règles de visibilité ; les lignes rendues à
-  l'appelant passent toujours par `ctx.db`
-  (`tests/backend/dynamicListCap.test.ts`).
+- **Une query ou une mutation ne lit que par son `ctx.db`**, soumis aux règles
+  de visibilité de l'appelant. Ce que le déploiement compte (un plafond) est
+  une query interne qui ne rend que des nombres ; chacune est listée, avec sa
+  raison, dans `tests/backend/layering.test.ts`.
 - **Une page ou une fonctionnalité peint avec les jetons du thème**
   (`src/design-system/theme.css`), jamais avec une couleur écrite à la main
   (`tests/frontend/colourTokens.test.ts`).

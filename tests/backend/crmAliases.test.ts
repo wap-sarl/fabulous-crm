@@ -25,6 +25,9 @@ const SPLIT: [string, Module, Module[]][] = [
   ['actions', oldActions, [campaignActions]],
 ];
 
+/** Written after the split: no caller knows them at an old path. */
+const BORN_AFTER = ['dynamicListLimits'];
+
 describe('the paths of before the split of features/crm', () => {
   test.each(SPLIT)(
     '%s: every function answers at its old path, the very same function',
@@ -33,7 +36,9 @@ describe('the paths of before the split of features/crm', () => {
         typeof value === 'function' &&
         ('isQuery' in value || 'isMutation' in value || 'isAction' in value);
       const moved = parts.flatMap((part) =>
-        Object.entries(part).filter(([, value]) => isFunction(value)),
+        Object.entries(part).filter(
+          ([name, value]) => isFunction(value) && !BORN_AFTER.includes(name),
+        ),
       );
       expect(moved.length).toBeGreaterThan(0);
       for (const [name, fn] of moved) expect(old[name], name).toBe(fn);

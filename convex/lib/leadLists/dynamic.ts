@@ -1,7 +1,6 @@
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
-import type { MutationCtx, QueryCtx } from '../../_generated/server';
-import { DEFAULT_MAX_DYNAMIC_LISTS } from '../../_lib/validators/leadLists';
+import type { MutationCtx } from '../../_generated/server';
 import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
 import { evalAdvancedFilter } from '../leads/matching';
 import { dispatchWorkflowTrigger } from '../workflows/dispatch';
@@ -15,18 +14,6 @@ export type DynamicList = Doc<'leadLists'> & { criteria: LeadAdvancedFilter };
 export async function loadDynamicLists(ctx: MutationCtx): Promise<DynamicList[]> {
   const lists = await ctx.db.query('leadLists').collect();
   return lists.filter((l): l is DynamicList => l.kind === 'dynamic' && l.criteria !== undefined);
-}
-
-/** The cap and how much of it is used; the cap is the deployment's, so the count takes the lists the caller cannot see. */
-export async function dynamicListLimits(ctx: {
-  unscopedDb: QueryCtx['db'];
-}): Promise<{ maxDynamicLists: number; dynamicCount: number }> {
-  const lists = await ctx.unscopedDb.query('leadLists').collect();
-  const cfg = await ctx.unscopedDb.query('appConfig').first();
-  return {
-    maxDynamicLists: cfg?.lists?.maxDynamicLists ?? DEFAULT_MAX_DYNAMIC_LISTS,
-    dynamicCount: lists.filter((l) => l.kind === 'dynamic').length,
-  };
 }
 
 /** Whether a lead belongs in a dynamic list right now. Deleted leads never do. */
