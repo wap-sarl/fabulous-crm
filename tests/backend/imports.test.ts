@@ -547,9 +547,9 @@ describe('advanced import', () => {
       role,
     });
     const asSupport = asIdentity(t, support.identity);
-    await expect(upload(asSupport, 'company', [{ data: { name: 'X' } }])).rejects.toThrow(
-      /Unauthorized: companies/,
-    );
+    await expect(upload(asSupport, 'company', [{ data: { name: 'X' } }])).rejects.toMatchObject({
+      data: { code: 'forbidden', reason: 'companies' },
+    });
     await expect(
       upload(asSupport, 'lead', [{ data: { firstName: 'A', lastName: 'B' } }]),
     ).resolves.toBeDefined();
@@ -629,13 +629,13 @@ describe('advanced import', () => {
     });
     await expect(
       asSupport.mutation(api.features.imports.mutations.launchJob, { jobId }),
-    ).rejects.toThrow(/Unauthorized: leads/);
-    await expect(asSupport.query(api.features.imports.queries.getJob, { jobId })).rejects.toThrow(
-      /Unauthorized: leads/,
-    );
+    ).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'leads' } });
+    await expect(
+      asSupport.query(api.features.imports.queries.getJob, { jobId }),
+    ).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'leads' } });
     await expect(
       asSupport.mutation(api.features.imports.mutations.resumeJob, { jobId }),
-    ).rejects.toThrow(/Unauthorized: leads/);
+    ).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'leads' } });
     expect((await job(t, jobId))?.status).toBe('simulated');
     expect(await t.run((ctx) => ctx.db.query('leads').collect())).toEqual([]);
     // Back with the module, the job goes on.

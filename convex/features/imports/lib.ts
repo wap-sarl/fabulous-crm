@@ -15,7 +15,10 @@ const MODULE_OF_ENTITY: Record<ImportEntity, AccessModule> = {
 
 export function requireImportAccess(visibility: Visibility, entity: ImportEntity): void {
   if (visibility.access[MODULE_OF_ENTITY[entity]] === 'none') {
-    throw new Error(`Unauthorized: ${MODULE_OF_ENTITY[entity]}`);
+    throw refusal('forbidden', {
+      reason: MODULE_OF_ENTITY[entity],
+      message: 'Votre rôle ne donne pas accès à ce module.',
+    });
   }
 }
 

@@ -125,7 +125,12 @@ export const exportContactData = employeeAction({
           leadId,
         })
       : null;
-    if (!access) throw new Error('Unauthorized: settings access');
+    if (!access) {
+      throw refusal('forbidden', {
+        reason: 'settings',
+        message: 'Cette action demande l’accès aux paramètres.',
+      });
+    }
     // Out of the role's perimeter reads like a contact that does not exist, as everywhere else.
     if (!access.visible) throw refusal('lead_not_found');
     const archive: ContactArchive | null = await ctx.runQuery(

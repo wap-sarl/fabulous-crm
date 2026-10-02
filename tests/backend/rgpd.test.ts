@@ -253,7 +253,7 @@ describe('RGPD rights', () => {
     const { ada } = await seedWorld(ctx);
     await expect(
       asMember.action(api.features.rgpd.actions.exportContactData, { leadId: ada }),
-    ).rejects.toThrow(/settings access/);
+    ).rejects.toMatchObject({ data: { code: 'forbidden', reason: 'settings' } });
     const { archive, requestId } = await as.action(api.features.rgpd.actions.exportContactData, {
       leadId: ada,
     });

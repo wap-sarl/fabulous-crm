@@ -287,7 +287,9 @@ describe('who reads the rows of a job', () => {
       userId: nina.userId,
       role: key,
     });
-    await expect(rowsOf(asNina, jobId, 'error')).rejects.toThrow('Unauthorized: leads');
+    await expect(rowsOf(asNina, jobId, 'error')).rejects.toMatchObject({
+      data: { code: 'forbidden', reason: 'leads' },
+    });
     expect(await t.run((ctx) => ctx.db.get(jobId))).not.toBeNull();
   });
 });
