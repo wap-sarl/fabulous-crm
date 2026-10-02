@@ -293,6 +293,64 @@ describe('workflows: pause and resume', () => {
   });
 });
 
+describe('workflows: rules tightened after a workflow was activated', () => {
+  test('the active and paused workflows the activation would refuse are listed; they keep running, and cannot be resumed once paused', async () => {
+    const w = await setup();
+    // As an older version left them: valid when activated, at fault under the rules of today.
+    const longWait = await workflowIn(w, 'active');
+    const emptyMail = await workflowIn(w, 'paused');
+    const fine = await workflowIn(w, 'active');
+    const gone = await workflowIn(w, 'active');
+    const draftAtFault = await workflowIn(w, 'draft');
+    await w.t.run(async (ctx) => {
+      await ctx.db.patch(longWait, {
+        name: 'Longue attente',
+        nodes: [{ id: 'n1', type: 'wait', amount: 90 * 24 + 1, unit: 'hours' }],
+      });
+      const mail = {
+        id: 'n1',
+        type: 'send_email' as const,
+        subject: 'Bonjour',
+        htmlBody: '<p></p>',
+      };
+      await ctx.db.patch(emptyMail, { name: 'Message vide', nodes: [mail] });
+      await ctx.db.patch(gone, { nodes: [mail], deletedAt: NOW });
+      await ctx.db.patch(draftAtFault, { nodes: [mail] });
+    });
+
+    expect(await w.t.query(internal.features.workflows.internal.listWorkflowsToFix, {})).toEqual([
+      {
+        workflowId: longWait,
+        name: 'Longue attente',
+        status: 'active',
+        issue: 'Étape « Attendre » : durée maximale 90 jours.',
+      },
+      {
+        workflowId: emptyMail,
+        name: 'Message vide',
+        status: 'paused',
+        issue: 'Étape « Envoyer un e-mail » : le contenu est requis.',
+      },
+    ]);
+    expect((await get(w, fine)).status).toBe('active');
+
+    await expect(
+      w.as.mutation(fn.setWorkflowStatus, { workflowId: emptyMail, status: 'active' }),
+    ).rejects.toMatchObject({
+      data: {
+        code: 'workflow_graph_invalid',
+        message: 'Étape « Envoyer un e-mail » : le contenu est requis.',
+      },
+    });
+    // The one at fault and active is left running; pausing it is what makes the fix compulsory.
+    expect((await get(w, longWait)).status).toBe('active');
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId: longWait, status: 'paused' });
+    await expect(
+      w.as.mutation(fn.setWorkflowStatus, { workflowId: longWait, status: 'active' }),
+    ).rejects.toMatchObject({ data: { code: 'workflow_graph_invalid' } });
+  });
+});
+
 describe('workflows: the end of a run before its path', () => {
   test('deleting a workflow needs a pause, cancels its runs with their wake, and keeps the finished ones', async () => {
     const w = await setup();

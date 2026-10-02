@@ -225,6 +225,7 @@ import type * as lib_tracking_script from "../lib/tracking/script.js";
 import type * as lib_tracking_views from "../lib/tracking/views.js";
 import type * as lib_users_owners from "../lib/users/owners.js";
 import type * as lib_users_serialize from "../lib/users/serialize.js";
+import type * as lib_workflows_activation from "../lib/workflows/activation.js";
 import type * as lib_workflows_dispatch from "../lib/workflows/dispatch.js";
 import type * as lib_workflows_params from "../lib/workflows/params.js";
 import type * as lib_workflows_rules from "../lib/workflows/rules.js";
@@ -465,6 +466,7 @@ declare const fullApi: ApiFromModules<{
   "lib/tracking/views": typeof lib_tracking_views;
   "lib/users/owners": typeof lib_users_owners;
   "lib/users/serialize": typeof lib_users_serialize;
+  "lib/workflows/activation": typeof lib_workflows_activation;
   "lib/workflows/dispatch": typeof lib_workflows_dispatch;
   "lib/workflows/params": typeof lib_workflows_params;
   "lib/workflows/rules": typeof lib_workflows_rules;

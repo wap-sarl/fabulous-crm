@@ -13,9 +13,8 @@ import {
 import { isNotDeleted } from '../../lib/shared/db';
 import { leadAdvancedFilterValidator } from '../../_lib/validators/filters';
 import { workflowNodeValidator, workflowTriggerValidator } from '../../_lib/validators/workflows';
-import { lightValidateGraph, validateWorkflowGraph } from '../../lib/workflows/rules';
-import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
-import { loadPropertyDefinitions } from '../../lib/properties/definitions';
+import { lightValidateGraph } from '../../lib/workflows/rules';
+import { activationIssue } from '../../lib/workflows/activation';
 import { enrollLead } from '../../lib/workflows/dispatch';
 import { stopRun } from '../../lib/workflows/runs';
 
@@ -144,26 +143,7 @@ export const setWorkflowStatus = employeeMutation({
     if (workflow.status === args.status) return null;
 
     if (args.status === 'active') {
-      const defs = await loadPropertyDefinitions(ctx, 'lead');
-      const defsById = new Map(defs.map((d) => [d._id as string, d]));
-      const lists = await ctx.db.query('leadLists').collect();
-      const listIds = new Set<string>(lists.map((l) => l._id as string));
-      const lifecycle = await loadLifecycleConfig(ctx);
-      const stageKeys = new Set(lifecycle.stages.map((s) => s.key));
-      const pipelines = new Map(
-        (await ctx.db.query('pipelines').collect())
-          .filter(isNotDeleted)
-          .map((p) => [p._id as string, p]),
-      );
-      const error = validateWorkflowGraph(
-        workflow.nodes,
-        workflow.startNodeId,
-        defsById,
-        listIds,
-        stageKeys,
-        pipelines,
-        workflow.trigger,
-      );
+      const error = await activationIssue(ctx, workflow);
       if (error) throw refusal('workflow_graph_invalid', { message: error });
     }
 

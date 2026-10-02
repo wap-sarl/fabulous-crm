@@ -737,6 +737,18 @@ docker run -d -p 8099:80 -e VITE_CONVEX_URL=https://<deployment>.convex.cloud wa
 Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
 (cache immutable sur `/assets`, no-cache sur le HTML et `env.js`, fallback SPA).
 
+### Après une mise à jour
+
+- `bunx convex run features/workflows/internal:listWorkflowsToFix --prod`
+  liste les workflows actifs ou en pause que l'activation refuserait avec les
+  règles de la version déployée. Un workflow en faute continue de tourner,
+  mais une fois mis en pause il ne se réactive plus avant d'être corrigé :
+  mieux vaut le corriger avant.
+- Chaque fonction Convex vérifie à l'exécution ce qu'elle rend (`returns`).
+  Après un déploiement, une `ReturnsValidationError` dans les logs
+  (`bunx convex logs --prod`) désigne une fonction qui rend un champ que son
+  validator ne déclare pas.
+
 ### Déploiement local via Docker (build + run)
 
 Procédure complète pour lancer l'image en local et arriver jusqu'à l'assistant

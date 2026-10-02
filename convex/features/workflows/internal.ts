@@ -7,7 +7,11 @@ import { logAudit } from '../../lib/audit/log';
 import { isNotDeleted } from '../../lib/shared/db';
 import { evalAdvancedFilter } from '../../lib/leads/matching';
 import { loadLeadFilterExtras } from '../../lib/leads/tableFilters';
-import { workflowStepOutcomeValidator } from '../../_lib/validators/workflows';
+import {
+  workflowStatusValidator,
+  workflowStepOutcomeValidator,
+} from '../../_lib/validators/workflows';
+import { activationIssue } from '../../lib/workflows/activation';
 import { MAX_ENROLLMENTS_PER_LEAD_PER_DAY, MAX_STEPS_PER_RUN } from '../../lib/workflows/rules';
 import { enrollLead } from '../../lib/workflows/dispatch';
 import { advanceRun, endRun, type StepContext, stopRun } from '../../lib/workflows/runs';
@@ -296,5 +300,34 @@ export const reenrollBatch = internalMutation({
       },
     });
     return { isDone: true, continueCursor: page.continueCursor };
+  },
+});
+
+/** The active and paused workflows the activation would refuse as they are: run it after an upgrade that tightens the rules, since a workflow at fault keeps running but cannot be resumed once paused. */
+export const listWorkflowsToFix = internalQuery({
+  args: {},
+  returns: v.array(
+    v.object({
+      workflowId: v.id('workflows'),
+      name: v.string(),
+      status: workflowStatusValidator,
+      issue: v.string(),
+    }),
+  ),
+  handler: async (ctx) => {
+    const toFix = [];
+    for (const workflow of await ctx.db.query('workflows').collect()) {
+      if (!isNotDeleted(workflow) || workflow.status === 'draft') continue;
+      const issue = await activationIssue(ctx, workflow);
+      if (issue) {
+        toFix.push({
+          workflowId: workflow._id,
+          name: workflow.name,
+          status: workflow.status,
+          issue,
+        });
+      }
+    }
+    return toFix;
   },
 });
