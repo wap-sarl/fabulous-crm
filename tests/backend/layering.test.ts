@@ -67,11 +67,29 @@ describe('the row-level rules', () => {
     for (const line of run) expect(PAST_THE_RULES).toHaveProperty([line.split(' -> ')[1]]);
   });
 
-  test('the context of an employee function holds no database but the scoped one', () => {
+  test('what the wrappers hand to a function is listed by name: the session, the visibility, and `db`, the scoped one', () => {
     const auth = readFileSync(join(ROOT, '_lib/auth.ts'), 'utf8');
-    const handed = [...auth.matchAll(/\b(\w+): (?:ctx\.db|scoped(?:Reader|Writer)\([^)]*\))/g)].map(
+    // Every object the file returns, by its keys: a helper around `ctx.db` under a new name shows here whatever it is called.
+    const returned = [...auth.matchAll(/return \{([^{}]*)\}/g)].map((m) =>
+      m[1]
+        .replace(/\([^()]*\)/g, '')
+        .split(',')
+        .map((entry) => entry.split(':')[0].trim())
+        .filter(Boolean),
+    );
+    expect(returned).toEqual([
+      ['userId', 'user'],
+      ['...session', 'visibility', 'db'],
+      ['...session', 'visibility'],
+      ['...session', 'db'],
+      ['...session', 'visibility', 'db'],
+      ['...session', 'db'],
+      [],
+    ]);
+    expect(auth.match(/\breturn\b(?! (?:null|session);)/g)).toHaveLength(returned.length);
+    const scoped = [...auth.matchAll(/\bdb: (\w+)\(ctx, (?:session\.)?visibility\)/g)].map(
       (m) => m[1],
     );
-    expect(handed).toEqual(['db', 'db', 'db', 'db']);
+    expect(scoped).toEqual(['scopedReader', 'scopedReader', 'scopedWriter', 'scopedWriter']);
   });
 });
