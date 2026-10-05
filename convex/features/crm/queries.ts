@@ -7,7 +7,6 @@ export {
   listLeadNotes,
   countLeadsByLifecycleStage,
   listLifecycleHistory,
-  listMatchingLeadIds,
 } from '../leads/queries';
 export { listLeadLists, getListLimits } from '../leadLists/queries';
 export {

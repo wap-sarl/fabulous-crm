@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
-import { useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
+import { useAuthPaginatedQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { LeadFilters } from './useLeadFilters';
+import { useMatchingLeadCount } from './useMatchingLeadCount';
 
 const PAGE_SIZE = 30;
 
@@ -70,10 +71,7 @@ export function useLeadsPaginated(filters: LeadFilters) {
   };
 }
 
-/** Every lead matching the current filter, for the live recipient preview of a campaign; the sort is irrelevant here and dropped. */
+/** How many leads match the current filter, for the recipient preview of a campaign. */
 export function useMatchingLeads(filters: LeadFilters) {
-  const { sortField, sortDirection, ...rest } = toQueryArgs(filters);
-  void sortField;
-  void sortDirection;
-  return useAuthQuery(api.features.leads.queries.listMatchingLeadIds, rest);
+  return useMatchingLeadCount(toFilterArgs(filters));
 }

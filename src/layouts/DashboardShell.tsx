@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Spinner } from '@crm/design-system';
 import { DashboardLayout, useAuth } from '@crm/widgets';
 import type { RoleAccess } from '@crm/lib/backend';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
@@ -46,7 +47,16 @@ export function DashboardShell() {
       userEmail={user?.email}
       onLogout={logout}
     >
-      <Outlet />
+      {/* The shell stays while the page of the route is being loaded. */}
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-24">
+            <Spinner size="lg" />
+          </div>
+        }
+      >
+        <Outlet />
+      </Suspense>
     </DashboardLayout>
   );
   return Guard ? <Guard>{shell}</Guard> : shell;

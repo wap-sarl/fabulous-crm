@@ -1,3 +1,4 @@
+import { type ComponentType, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import {
   ErrorNotFoundPage,
@@ -10,122 +11,157 @@ import {
   LoginPage,
   ContinuePage,
 } from '@crm/widgets';
-import { Toaster } from '@crm/design-system';
+import { Spinner, Toaster } from '@crm/design-system';
 import { DashboardShell } from './layouts/DashboardShell';
-import { LeadsPage } from './pages/leads/LeadsPage';
-import { LeadDetailPage } from './pages/leads/LeadDetailPage';
-import { CampaignsPage } from './pages/campaigns/CampaignsPage';
-import { CampaignCreatePage } from './pages/campaigns/CampaignCreatePage';
-import { CampaignDetailPage } from './pages/campaigns/CampaignDetailPage';
-import { WorkflowsPage } from './pages/workflows/WorkflowsPage';
-import { WorkflowEditorPage } from './pages/workflows/WorkflowEditorPage';
-import { WorkflowDetailPage } from './pages/workflows/WorkflowDetailPage';
-import { ConsentPage } from './pages/consent/ConsentPage';
-import { DesignSystemPage } from './pages/design-system/DesignSystemPage';
-import { SetupWizardPage } from './pages/setup/SetupWizardPage';
-import { TeamPage } from './pages/settings/TeamPage';
-import { BrandingPage } from './pages/settings/BrandingPage';
-import { EmailPage } from './pages/settings/EmailPage';
-import { PropertiesPage } from './pages/settings/PropertiesPage';
-import { DuplicatesPage } from './pages/leads/DuplicatesPage';
-import { ImportPage } from './pages/imports/ImportPage';
-import { ImportJobPage } from './pages/imports/ImportJobPage';
-import { TrackingPage } from './pages/settings/TrackingPage';
-import { FilesPage } from './pages/settings/FilesPage';
-import { RetentionPage } from './pages/settings/RetentionPage';
-import { RolesPage } from './pages/settings/RolesPage';
 import { RequireModule } from './features/access/components/RequireModule';
-import { LeadListsPage } from './pages/settings/LeadListsPage';
-import { LifecyclePage } from './pages/settings/LifecyclePage';
-import { ScoringPage } from './pages/settings/ScoringPage';
-import { ApiKeysPage } from './pages/settings/ApiKeysPage';
-import { IntegrationsPage } from './pages/settings/IntegrationsPage';
-import { FormsPage } from './pages/settings/FormsPage';
-import { CompaniesPage } from './pages/companies/CompaniesPage';
-import { CompanyDetailPage } from './pages/companies/CompanyDetailPage';
-import { DealsPage } from './pages/deals/DealsPage';
-import { DealDetailPage } from './pages/deals/DealDetailPage';
-import { PipelinesPage } from './pages/settings/PipelinesPage';
-import { TasksPage } from './pages/tasks/TasksPage';
 import { extensions } from './extensions';
+
+/** A page is loaded when its route is first opened: the first screen carries the shell and nothing of the pages it does not show. */
+const page = <Name extends string>(load: () => Promise<Record<Name, ComponentType>>, name: Name) =>
+  lazy(() => load().then((module) => ({ default: module[name] })));
+
+const LeadsPage = page(() => import('./pages/leads/LeadsPage'), 'LeadsPage');
+const LeadDetailPage = page(() => import('./pages/leads/LeadDetailPage'), 'LeadDetailPage');
+const CampaignsPage = page(() => import('./pages/campaigns/CampaignsPage'), 'CampaignsPage');
+const CampaignCreatePage = page(
+  () => import('./pages/campaigns/CampaignCreatePage'),
+  'CampaignCreatePage',
+);
+const CampaignDetailPage = page(
+  () => import('./pages/campaigns/CampaignDetailPage'),
+  'CampaignDetailPage',
+);
+const WorkflowsPage = page(() => import('./pages/workflows/WorkflowsPage'), 'WorkflowsPage');
+const WorkflowEditorPage = page(
+  () => import('./pages/workflows/WorkflowEditorPage'),
+  'WorkflowEditorPage',
+);
+const WorkflowDetailPage = page(
+  () => import('./pages/workflows/WorkflowDetailPage'),
+  'WorkflowDetailPage',
+);
+const ConsentPage = page(() => import('./pages/consent/ConsentPage'), 'ConsentPage');
+const DesignSystemPage = page(
+  () => import('./pages/design-system/DesignSystemPage'),
+  'DesignSystemPage',
+);
+const SetupWizardPage = page(() => import('./pages/setup/SetupWizardPage'), 'SetupWizardPage');
+const TeamPage = page(() => import('./pages/settings/TeamPage'), 'TeamPage');
+const BrandingPage = page(() => import('./pages/settings/BrandingPage'), 'BrandingPage');
+const EmailPage = page(() => import('./pages/settings/EmailPage'), 'EmailPage');
+const PropertiesPage = page(() => import('./pages/settings/PropertiesPage'), 'PropertiesPage');
+const DuplicatesPage = page(() => import('./pages/leads/DuplicatesPage'), 'DuplicatesPage');
+const ImportPage = page(() => import('./pages/imports/ImportPage'), 'ImportPage');
+const ImportJobPage = page(() => import('./pages/imports/ImportJobPage'), 'ImportJobPage');
+const TrackingPage = page(() => import('./pages/settings/TrackingPage'), 'TrackingPage');
+const FilesPage = page(() => import('./pages/settings/FilesPage'), 'FilesPage');
+const RetentionPage = page(() => import('./pages/settings/RetentionPage'), 'RetentionPage');
+const RolesPage = page(() => import('./pages/settings/RolesPage'), 'RolesPage');
+const LeadListsPage = page(() => import('./pages/settings/LeadListsPage'), 'LeadListsPage');
+const LifecyclePage = page(() => import('./pages/settings/LifecyclePage'), 'LifecyclePage');
+const ScoringPage = page(() => import('./pages/settings/ScoringPage'), 'ScoringPage');
+const ApiKeysPage = page(() => import('./pages/settings/ApiKeysPage'), 'ApiKeysPage');
+const IntegrationsPage = page(
+  () => import('./pages/settings/IntegrationsPage'),
+  'IntegrationsPage',
+);
+const FormsPage = page(() => import('./pages/settings/FormsPage'), 'FormsPage');
+const CompaniesPage = page(() => import('./pages/companies/CompaniesPage'), 'CompaniesPage');
+const CompanyDetailPage = page(
+  () => import('./pages/companies/CompanyDetailPage'),
+  'CompanyDetailPage',
+);
+const DealsPage = page(() => import('./pages/deals/DealsPage'), 'DealsPage');
+const DealDetailPage = page(() => import('./pages/deals/DealDetailPage'), 'DealDetailPage');
+const PipelinesPage = page(() => import('./pages/settings/PipelinesPage'), 'PipelinesPage');
+const TasksPage = page(() => import('./pages/tasks/TasksPage'), 'TasksPage');
 
 function NotFoundPage() {
   const navigate = useNavigate();
   return <ErrorNotFoundPage onGoHome={() => navigate('/leads')} onGoBack={() => navigate(-1)} />;
 }
 
+/** Shown while a page outside the shell (setup, consent) is being loaded. */
+const pageLoading = (
+  <div className="flex min-h-screen items-center justify-center">
+    <Spinner size="lg" />
+  </div>
+);
+
 function AppRoutes() {
   return (
-    <Routes>
-      {/* The setup gate wraps every route: a fresh deployment is sent to /setup before anything else, a configured one is kept off it. */}
-      <Route element={<SetupGate />}>
-        {/* First-run configuration wizard */}
-        <Route path="/setup" element={<SetupWizardPage />} />
+    <Suspense fallback={pageLoading}>
+      <Routes>
+        {/* The setup gate wraps every route: a fresh deployment is sent to /setup before anything else, a configured one is kept off it. */}
+        <Route element={<SetupGate />}>
+          {/* First-run configuration wizard */}
+          <Route path="/setup" element={<SetupWizardPage />} />
 
-        {/* Public, unauthenticated RGPD consent page (token in URL) */}
-        <Route path="/consent/:token" element={<ConsentPage />} />
+          {/* Public, unauthenticated RGPD consent page (token in URL) */}
+          <Route path="/consent/:token" element={<ConsentPage />} />
 
-        <Route
-          path="/login"
-          element={
-            <PublicRoute redirectTo="/leads">
-              <LoginPage
-                homePath="/leads"
-                title="CRM"
-                subtitle="Connectez-vous à votre espace CRM"
-              />
-            </PublicRoute>
-          }
-        />
-        <Route path="/auth/continue" element={<ContinuePage homePath="/leads" />} />
+          <Route
+            path="/login"
+            element={
+              <PublicRoute redirectTo="/leads">
+                <LoginPage
+                  homePath="/leads"
+                  title="CRM"
+                  subtitle="Connectez-vous à votre espace CRM"
+                />
+              </PublicRoute>
+            }
+          />
+          <Route path="/auth/continue" element={<ContinuePage homePath="/leads" />} />
 
-        <Route element={<ProtectedRoute />}>
-          <Route element={<DashboardShell />}>
-            <Route path="/" element={<Navigate to="/leads" replace />} />
-            <Route element={<RequireModule />}>
-              <Route path="/leads" element={<LeadsPage />} />
-              <Route path="/leads/duplicates" element={<DuplicatesPage />} />
-              <Route path="/import" element={<ImportPage />} />
-              <Route path="/import/:jobId" element={<ImportJobPage />} />
-              <Route path="/leads/:leadId" element={<LeadDetailPage />} />
-              <Route path="/companies" element={<CompaniesPage />} />
-              <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
-              <Route path="/deals" element={<DealsPage />} />
-              <Route path="/deals/:dealId" element={<DealDetailPage />} />
-              <Route path="/tasks" element={<TasksPage />} />
-              <Route path="/campaigns" element={<CampaignsPage />} />
-              <Route path="/campaigns/new" element={<CampaignCreatePage />} />
-              <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
-              <Route path="/workflows" element={<WorkflowsPage />} />
-              <Route path="/workflows/new" element={<WorkflowEditorPage />} />
-              <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />
-              <Route path="/workflows/:workflowId/edit" element={<WorkflowEditorPage />} />
+          <Route element={<ProtectedRoute />}>
+            <Route element={<DashboardShell />}>
+              <Route path="/" element={<Navigate to="/leads" replace />} />
+              <Route element={<RequireModule />}>
+                <Route path="/leads" element={<LeadsPage />} />
+                <Route path="/leads/duplicates" element={<DuplicatesPage />} />
+                <Route path="/import" element={<ImportPage />} />
+                <Route path="/import/:jobId" element={<ImportJobPage />} />
+                <Route path="/leads/:leadId" element={<LeadDetailPage />} />
+                <Route path="/companies" element={<CompaniesPage />} />
+                <Route path="/companies/:companyId" element={<CompanyDetailPage />} />
+                <Route path="/deals" element={<DealsPage />} />
+                <Route path="/deals/:dealId" element={<DealDetailPage />} />
+                <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/campaigns" element={<CampaignsPage />} />
+                <Route path="/campaigns/new" element={<CampaignCreatePage />} />
+                <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
+                <Route path="/workflows" element={<WorkflowsPage />} />
+                <Route path="/workflows/new" element={<WorkflowEditorPage />} />
+                <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />
+                <Route path="/workflows/:workflowId/edit" element={<WorkflowEditorPage />} />
+              </Route>
+              <Route path="/settings/team" element={<TeamPage />} />
+              <Route path="/settings/branding" element={<BrandingPage />} />
+              <Route path="/settings/email" element={<EmailPage />} />
+              <Route path="/settings/properties" element={<PropertiesPage />} />
+              <Route path="/settings/lists" element={<LeadListsPage />} />
+              <Route path="/settings/lifecycle" element={<LifecyclePage />} />
+              <Route path="/settings/scoring" element={<ScoringPage />} />
+              <Route path="/settings/api" element={<ApiKeysPage />} />
+              <Route path="/settings/integrations" element={<IntegrationsPage />} />
+              <Route path="/settings/forms" element={<FormsPage />} />
+              <Route path="/settings/pipelines" element={<PipelinesPage />} />
+              <Route path="/settings/files" element={<FilesPage />} />
+              <Route path="/settings/retention" element={<RetentionPage />} />
+              <Route path="/settings/tracking" element={<TrackingPage />} />
+              <Route path="/settings/roles" element={<RolesPage />} />
+              <Route path="/design-system" element={<DesignSystemPage />} />
+              {extensions.routes.map((route) => (
+                <Route key={route.path} path={route.path} element={route.element} />
+              ))}
             </Route>
-            <Route path="/settings/team" element={<TeamPage />} />
-            <Route path="/settings/branding" element={<BrandingPage />} />
-            <Route path="/settings/email" element={<EmailPage />} />
-            <Route path="/settings/properties" element={<PropertiesPage />} />
-            <Route path="/settings/lists" element={<LeadListsPage />} />
-            <Route path="/settings/lifecycle" element={<LifecyclePage />} />
-            <Route path="/settings/scoring" element={<ScoringPage />} />
-            <Route path="/settings/api" element={<ApiKeysPage />} />
-            <Route path="/settings/integrations" element={<IntegrationsPage />} />
-            <Route path="/settings/forms" element={<FormsPage />} />
-            <Route path="/settings/pipelines" element={<PipelinesPage />} />
-            <Route path="/settings/files" element={<FilesPage />} />
-            <Route path="/settings/retention" element={<RetentionPage />} />
-            <Route path="/settings/tracking" element={<TrackingPage />} />
-            <Route path="/settings/roles" element={<RolesPage />} />
-            <Route path="/design-system" element={<DesignSystemPage />} />
-            {extensions.routes.map((route) => (
-              <Route key={route.path} path={route.path} element={route.element} />
-            ))}
           </Route>
-        </Route>
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Route>
-    </Routes>
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </Suspense>
   );
 }
 

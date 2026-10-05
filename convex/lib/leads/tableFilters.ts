@@ -40,24 +40,7 @@ export type LeadFilters = {
   advancedListMembers?: Map<string, Set<string>>;
 };
 
-/** The leads belonging to any of the lists (OR); undefined when no list filter is active, so the matcher skips the check. */
-export async function loadListMemberIds(
-  ctx: QueryCtx,
-  listIds: Id<'leadLists'>[] | undefined,
-): Promise<Set<string> | undefined> {
-  if (!listIds || listIds.length === 0) return undefined;
-  const ids = new Set<string>();
-  for (const listId of listIds) {
-    const members = await ctx.db
-      .query('leadListMembers')
-      .withIndex('by_list_lead', (q) => q.eq('listId', listId))
-      .collect();
-    for (const member of members) ids.add(member.leadId);
-  }
-  return ids;
-}
-
-/** For batches: point-reads membership of the given leads only, bounded by page size × filtered lists, where whole lists are unbounded. */
+/** Membership of the given leads only, by point reads: bounded by page size × filtered lists, where a whole list is not. */
 export async function loadListMemberIdsForLeads(
   ctx: QueryCtx | MutationCtx,
   listIds: Id<'leadLists'>[] | undefined,
@@ -65,46 +48,45 @@ export async function loadListMemberIdsForLeads(
 ): Promise<Set<string> | undefined> {
   if (!listIds || listIds.length === 0) return undefined;
   const ids = new Set<string>();
-  for (const leadId of leadIds) {
-    for (const listId of listIds) {
-      const member = await ctx.db
-        .query('leadListMembers')
-        .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
-        .first();
-      if (member) {
-        ids.add(leadId);
-        break;
+  // The leads are looked up together; for one lead, the lists one after the other, as the first that holds it settles it.
+  await Promise.all(
+    leadIds.map(async (leadId) => {
+      for (const listId of listIds) {
+        if (await isListMember(ctx, listId, leadId)) {
+          ids.add(leadId);
+          return;
+        }
       }
-    }
-  }
+    }),
+  );
   return ids;
 }
+
+const isListMember = async (
+  ctx: QueryCtx | MutationCtx,
+  listId: Id<'leadLists'>,
+  leadId: Id<'leads'>,
+): Promise<boolean> =>
+  (await ctx.db
+    .query('leadListMembers')
+    .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
+    .first()) !== null;
 
 export async function loadAdvancedListMembers(
   ctx: QueryCtx | MutationCtx,
   filter: LeadAdvancedFilter | undefined,
-  leadIds?: Id<'leads'>[],
+  leadIds: Id<'leads'>[],
 ): Promise<Map<string, Set<string>> | undefined> {
   const listIds = advancedFilterListIds(filter) as Id<'leadLists'>[];
   if (listIds.length === 0) return undefined;
   const members = new Map<string, Set<string>>(listIds.map((id) => [id, new Set()]));
-  for (const listId of listIds) {
-    if (leadIds) {
-      for (const leadId of leadIds) {
-        const member = await ctx.db
-          .query('leadListMembers')
-          .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
-          .first();
-        if (member) members.get(listId)?.add(leadId);
-      }
-    } else {
-      const rows = await ctx.db
-        .query('leadListMembers')
-        .withIndex('by_list_lead', (q) => q.eq('listId', listId))
-        .collect();
-      for (const row of rows) members.get(listId)?.add(row.leadId);
-    }
-  }
+  await Promise.all(
+    listIds.flatMap((listId) =>
+      leadIds.map(async (leadId) => {
+        if (await isListMember(ctx, listId, leadId)) members.get(listId)?.add(leadId);
+      }),
+    ),
+  );
   return members;
 }
 

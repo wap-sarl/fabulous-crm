@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
-import { asIdentity, createTestConvex, seedEmployee } from './helpers';
+import { asIdentity, createTestConvex, matchingLeads, seedEmployee } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -93,7 +93,7 @@ describe('lead search (by_searchText index)', () => {
       email: 'helene@example.com',
     });
 
-    const result = await as.query(api.features.leads.queries.listMatchingLeadIds, {
+    const result = await matchingLeads(as, {
       search: 'helene',
     });
     expect(result.leadIds).toEqual([leadId]);

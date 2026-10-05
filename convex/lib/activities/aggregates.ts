@@ -1,7 +1,8 @@
 import { TableAggregate } from '@convex-dev/aggregate';
 import { components } from '../../_generated/api';
 import type { DataModel, Doc, Id } from '../../_generated/dataModel';
-import type { QueryCtx } from '../../_generated/server';
+import type { MutationCtx, QueryCtx } from '../../_generated/server';
+import { whenMoved } from '../shared/aggregates';
 import { activityDueKey, type ActivityStatus } from '../../_lib/validators/activities';
 
 const ownerNamespace = (
@@ -13,28 +14,38 @@ const ownerNamespace = (
 const teamNamespace = (teamId: Id<'teams'> | undefined, status: ActivityStatus, deleted: boolean) =>
   `${teamId ?? 'none'}|${status}|${deleted ? 'deleted' : 'live'}`;
 
-export const activitiesByOwner = new TableAggregate<{
-  Namespace: string;
-  Key: number;
-  DataModel: DataModel;
-  TableName: 'activities';
-}>(components.activitiesByOwner, {
+const activitiesByOwnerPlace = {
   namespace: (doc: Doc<'activities'>) =>
     ownerNamespace(doc.ownerId, doc.status, doc.deletedAt != null),
   sortKey: activityDueKey,
-});
-
-/** Same shape per team: the « Mon équipe » buckets of the tasks assigned to a team. */
-export const activitiesByTeam = new TableAggregate<{
+};
+const activitiesByOwner = new TableAggregate<{
   Namespace: string;
   Key: number;
   DataModel: DataModel;
   TableName: 'activities';
-}>(components.activitiesByTeam, {
+}>(components.activitiesByOwner, activitiesByOwnerPlace);
+export const activitiesByOwnerTrigger = whenMoved(
+  activitiesByOwner.idempotentTrigger<MutationCtx>(),
+  activitiesByOwnerPlace,
+);
+
+/** Same shape per team: the « Mon équipe » buckets of the tasks assigned to a team. */
+const activitiesByTeamPlace = {
   namespace: (doc: Doc<'activities'>) =>
     teamNamespace(doc.teamId, doc.status, doc.deletedAt != null),
   sortKey: activityDueKey,
-});
+};
+const activitiesByTeam = new TableAggregate<{
+  Namespace: string;
+  Key: number;
+  DataModel: DataModel;
+  TableName: 'activities';
+}>(components.activitiesByTeam, activitiesByTeamPlace);
+export const activitiesByTeamTrigger = whenMoved(
+  activitiesByTeam.idempotentTrigger<MutationCtx>(),
+  activitiesByTeamPlace,
+);
 
 /** Live activities assigned to `teamId` in `status` whose due key is in [from, to). */
 export async function countTeamActivitiesDue(

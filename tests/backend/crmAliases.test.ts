@@ -26,7 +26,7 @@ const SPLIT: [string, Module, Module[]][] = [
 ];
 
 /** Written after the split: no caller knows them at an old path. */
-const BORN_AFTER = ['dynamicListLimits'];
+const BORN_AFTER = ['dynamicListLimits', 'matchingLeadsPage'];
 
 describe('the paths of before the split of features/crm', () => {
   test.each(SPLIT)(

@@ -1,9 +1,9 @@
 import { TableAggregate } from '@convex-dev/aggregate';
 import { components } from '../../_generated/api';
 import type { DataModel, Doc, Id } from '../../_generated/dataModel';
-import type { QueryCtx } from '../../_generated/server';
+import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import type { DealStatus } from '../../_lib/validators/deals';
-import { LIVE_BOUNDS } from '../shared/aggregates';
+import { LIVE_BOUNDS, whenMoved } from '../shared/aggregates';
 
 const aliveness = (doc: Doc<'deals'>): 0 | 1 => (doc.deletedAt != null ? 1 : 0);
 const amount = (doc: Doc<'deals'>): number => doc.amount ?? 0;
@@ -13,50 +13,78 @@ const stageNamespace = (pipelineId: Id<'pipelines'>, stageKey: string) =>
 const statusNamespace = (pipelineId: Id<'pipelines'>, status: DealStatus) =>
   `${pipelineId}|${status}`;
 
-export const dealsByStage = new TableAggregate<{
+const dealsByStagePlace = {
+  namespace: (doc: Doc<'deals'>) => stageNamespace(doc.pipelineId, doc.stageKey),
+  sortKey: aliveness,
+  sumValue: amount,
+};
+const dealsByStage = new TableAggregate<{
   Namespace: string;
   Key: 0 | 1;
   DataModel: DataModel;
   TableName: 'deals';
-}>(components.dealsByStage, {
-  namespace: (doc) => stageNamespace(doc.pipelineId, doc.stageKey),
-  sortKey: aliveness,
-  sumValue: amount,
-});
+}>(components.dealsByStage, dealsByStagePlace);
+export const dealsByStageTrigger = whenMoved(
+  dealsByStage.idempotentTrigger<MutationCtx>(),
+  dealsByStagePlace,
+);
 
-export const dealsByPipelineStatus = new TableAggregate<{
+const dealsByPipelineStatusPlace = {
+  namespace: (doc: Doc<'deals'>) => statusNamespace(doc.pipelineId, doc.status),
+  sortKey: aliveness,
+  sumValue: amount,
+};
+const dealsByPipelineStatus = new TableAggregate<{
   Namespace: string;
   Key: 0 | 1;
   DataModel: DataModel;
   TableName: 'deals';
-}>(components.dealsByPipelineStatus, {
-  namespace: (doc) => statusNamespace(doc.pipelineId, doc.status),
-  sortKey: aliveness,
-  sumValue: amount,
-});
+}>(components.dealsByPipelineStatus, dealsByPipelineStatusPlace);
+export const dealsByPipelineStatusTrigger = whenMoved(
+  dealsByPipelineStatus.idempotentTrigger<MutationCtx>(),
+  dealsByPipelineStatusPlace,
+);
 
 /** Per primary owner, as leadsByOwner: a board scoped to own or team sums its owners' namespaces instead of reading the global aggregates. */
-export const dealsByOwnerStage = new TableAggregate<{
+const dealsByOwnerStagePlace = {
+  namespace: (doc: Doc<'deals'>) => doc.ownerIds[0] ?? null,
+  sortKey: (doc: Doc<'deals'>): [0 | 1, string, string] => [
+    aliveness(doc),
+    doc.pipelineId,
+    doc.stageKey,
+  ],
+  sumValue: amount,
+};
+const dealsByOwnerStage = new TableAggregate<{
   Namespace: Id<'users'> | null;
   Key: [0 | 1, string, string];
   DataModel: DataModel;
   TableName: 'deals';
-}>(components.dealsByOwnerStage, {
-  namespace: (doc) => doc.ownerIds[0] ?? null,
-  sortKey: (doc) => [aliveness(doc), doc.pipelineId, doc.stageKey],
-  sumValue: amount,
-});
+}>(components.dealsByOwnerStage, dealsByOwnerStagePlace);
+export const dealsByOwnerStageTrigger = whenMoved(
+  dealsByOwnerStage.idempotentTrigger<MutationCtx>(),
+  dealsByOwnerStagePlace,
+);
 
-export const dealsByOwnerStatus = new TableAggregate<{
+const dealsByOwnerStatusPlace = {
+  namespace: (doc: Doc<'deals'>) => doc.ownerIds[0] ?? null,
+  sortKey: (doc: Doc<'deals'>): [0 | 1, string, DealStatus] => [
+    aliveness(doc),
+    doc.pipelineId,
+    doc.status,
+  ],
+  sumValue: amount,
+};
+const dealsByOwnerStatus = new TableAggregate<{
   Namespace: Id<'users'> | null;
   Key: [0 | 1, string, DealStatus];
   DataModel: DataModel;
   TableName: 'deals';
-}>(components.dealsByOwnerStatus, {
-  namespace: (doc) => doc.ownerIds[0] ?? null,
-  sortKey: (doc) => [aliveness(doc), doc.pipelineId, doc.status],
-  sumValue: amount,
-});
+}>(components.dealsByOwnerStatus, dealsByOwnerStatusPlace);
+export const dealsByOwnerStatusTrigger = whenMoved(
+  dealsByOwnerStatus.idempotentTrigger<MutationCtx>(),
+  dealsByOwnerStatusPlace,
+);
 
 export type DealTotals = { count: number; amount: number };
 

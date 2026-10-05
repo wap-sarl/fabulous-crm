@@ -106,7 +106,7 @@ export function CampaignCreatePage() {
       toast.error('Le nom de la campagne est requis.');
       return;
     }
-    if (!matching || matching.leadIds.length === 0) {
+    if (!matching || matching.total === 0) {
       toast.error('Aucun lead ne correspond au filtre.');
       return;
     }

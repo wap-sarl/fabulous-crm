@@ -3,7 +3,7 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { accessWarnings, uniformAccess } from '../../convex/_lib/validators/access';
 import { DEFAULT_ROLES, roleKeyOf } from '../../convex/_lib/validators/roles';
-import { asIdentity, createTestConvex, seedEmployee } from './helpers';
+import { asIdentity, createTestConvex, matchingLeads, seedEmployee } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -380,7 +380,7 @@ describe('access levels', () => {
 
   test('a campaign only reaches the leads its creator can see', async () => {
     const { t, as, leads } = await setup();
-    const resolved = await as.sam.query(api.features.leads.queries.listMatchingLeadIds, {});
+    const resolved = await matchingLeads(as.sam, {});
     expect(resolved.leadIds.sort()).toEqual([leads.sam, leads.shared, leads.pool].sort());
     void t;
   });

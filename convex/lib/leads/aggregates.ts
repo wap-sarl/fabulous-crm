@@ -1,29 +1,40 @@
 import { TableAggregate } from '@convex-dev/aggregate';
 import { components } from '../../_generated/api';
 import type { DataModel, Doc, Id } from '../../_generated/dataModel';
-import type { QueryCtx } from '../../_generated/server';
+import type { MutationCtx, QueryCtx } from '../../_generated/server';
+import { whenMoved } from '../shared/aggregates';
 
 const aliveness = (doc: Doc<'leads'>): 0 | 1 => (doc.deletedAt != null ? 1 : 0);
 
-export const leadsByOwner = new TableAggregate<{
+const leadsByOwnerPlace = {
+  namespace: (doc: Doc<'leads'>) => doc.ownerIds[0] ?? null,
+  sortKey: (doc: Doc<'leads'>): [0 | 1, string] => [aliveness(doc), doc.lifecycleStage ?? ''],
+};
+const leadsByOwner = new TableAggregate<{
   Namespace: Id<'users'> | null;
   Key: [0 | 1, string];
   DataModel: DataModel;
   TableName: 'leads';
-}>(components.leadsByOwner, {
-  namespace: (doc) => doc.ownerIds[0] ?? null,
-  sortKey: (doc) => [aliveness(doc), doc.lifecycleStage ?? ''],
-});
+}>(components.leadsByOwner, leadsByOwnerPlace);
+export const leadsByOwnerTrigger = whenMoved(
+  leadsByOwner.idempotentTrigger<MutationCtx>(),
+  leadsByOwnerPlace,
+);
 
+const leadsByLifecyclePlace = {
+  namespace: (doc: Doc<'leads'>) => doc.lifecycleStage ?? null,
+  sortKey: aliveness,
+};
 export const leadsByLifecycle = new TableAggregate<{
   Namespace: string | null;
   Key: 0 | 1;
   DataModel: DataModel;
   TableName: 'leads';
-}>(components.leadsByLifecycle, {
-  namespace: (doc) => doc.lifecycleStage ?? null,
-  sortKey: aliveness,
-});
+}>(components.leadsByLifecycle, leadsByLifecyclePlace);
+export const leadsByLifecycleTrigger = whenMoved(
+  leadsByLifecycle.idempotentTrigger<MutationCtx>(),
+  leadsByLifecyclePlace,
+);
 
 export async function countLiveLeadsByLifecycleStage(
   ctx: QueryCtx,

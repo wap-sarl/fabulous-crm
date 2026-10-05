@@ -5,9 +5,10 @@ import type { Id } from '../../convex/_generated/dataModel';
 import {
   asIdentity,
   createTestConvex,
+  matchingLeads,
+  type SeededEmployee,
   seedEmployee,
   seedLead,
-  type SeededEmployee,
   type T,
 } from './helpers';
 
@@ -58,7 +59,7 @@ const emailConsentFilter = {
   },
 };
 
-describe('recipient resolution by consent (listMatchingLeadIds)', () => {
+describe('recipient resolution by consent (matchingLeadsPage)', () => {
   test('the marketing consent rule excludes non-consenting leads', async () => {
     const { t, emp } = await setup();
     const as = asIdentity(t, emp.identity);
@@ -78,15 +79,12 @@ describe('recipient resolution by consent (listMatchingLeadIds)', () => {
       channels: ['email'],
     });
 
-    const result = await as.query(
-      api.features.leads.queries.listMatchingLeadIds,
-      emailConsentFilter,
-    );
+    const result = await matchingLeads(as, emailConsentFilter);
     expect(result.leadIds).toContain(consenting);
     expect(result.leadIds).not.toContain(notConsenting);
 
     // Transactional sends use no consent rule: both leads match.
-    const unfiltered = await as.query(api.features.leads.queries.listMatchingLeadIds, {});
+    const unfiltered = await matchingLeads(as, {});
     expect(unfiltered.leadIds).toContain(consenting);
     expect(unfiltered.leadIds).toContain(notConsenting);
   });

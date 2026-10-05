@@ -204,6 +204,15 @@ rolls the caller back. Keep them cheap; they run on every call.
   is not covered by tests (there is no frontend harness); its decisions are two pure functions,
   which are.
 
+### Modules act when called
+
+The production build drops a module whose exports nothing uses (`treeshake.moduleSideEffects`
+in `vite.config.mts`), for every file under `src/` and `convex/`, the overlay's included. The
+development server does not, so the difference only shows in a build. A module that does its
+work when imported (it registers something, it patches a global) must either export what it
+does and be called from `src/extensions.tsx`, or have its path added to the exceptions of that
+option, as `src/lib/countryInputs/` is.
+
 ## What an overlay builds on
 
 Besides the three files it replaces, an overlay imports from the core and calls some of its

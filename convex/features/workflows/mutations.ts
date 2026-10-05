@@ -16,7 +16,7 @@ import { workflowNodeValidator, workflowTriggerValidator } from '../../_lib/vali
 import { lightValidateGraph } from '../../lib/workflows/rules';
 import { activationIssue } from '../../lib/workflows/activation';
 import { enrollLead } from '../../lib/workflows/dispatch';
-import { stopRun } from '../../lib/workflows/runs';
+import { kickParkedRuns, stopActiveRuns, stopRun } from '../../lib/workflows/runs';
 
 /** Every employee manages workflows, as for campaigns; a structural edit requires a pause, so the engine never reads a graph that changes under a run. */
 
@@ -150,20 +150,11 @@ export const setWorkflowStatus = employeeMutation({
     await ctx.db.patch(args.workflowId, { status: args.status, ...updateAuditFields(ctx.userId) });
 
     if (args.status === 'active' && workflow.status === 'paused') {
-      const parked = await ctx.db
-        .query('workflowRuns')
-        .withIndex('by_workflow_status', (q) =>
-          q.eq('workflowId', args.workflowId).eq('status', 'active'),
-        )
-        .collect();
-      const now = Date.now();
-      for (const run of parked) {
-        // A future wake keeps its scheduled call, the rest needs a kick; a duplicate kick is a no-op thanks to the guards of executeStep.
-        if (!run.currentNodeId) continue;
-        if (run.wakeAt !== undefined && run.wakeAt > now) continue;
-        await ctx.scheduler.runAfter(0, internal.features.workflows.internal.executeStep, {
-          runId: run._id,
-          nodeId: run.currentNodeId,
+      const cursor = await kickParkedRuns(ctx, args.workflowId, null);
+      if (cursor !== null) {
+        await ctx.scheduler.runAfter(0, internal.features.workflows.internal.resumeParkedRuns, {
+          workflowId: args.workflowId,
+          cursor,
         });
       }
     }
@@ -192,14 +183,12 @@ export const deleteWorkflow = employeeMutation({
       });
     }
 
-    const activeRuns = await ctx.db
-      .query('workflowRuns')
-      .withIndex('by_workflow_status', (q) =>
-        q.eq('workflowId', args.workflowId).eq('status', 'active'),
-      )
-      .collect();
     // The counter is settled once below, for all of them.
-    for (const run of activeRuns) await stopRun(ctx, run, null);
+    if (await stopActiveRuns(ctx, args.workflowId)) {
+      await ctx.scheduler.runAfter(0, internal.features.workflows.internal.stopRemainingRuns, {
+        workflowId: args.workflowId,
+      });
+    }
 
     await ctx.db.patch(args.workflowId, {
       deletedAt: Date.now(),

@@ -3,7 +3,9 @@ import type { MutationCtx } from '../../_generated/server';
 import { type AuditActor, createAuditFields, logAudit } from '../audit/log';
 import { generateHexToken } from '../security/crypto';
 import { dispatchWorkflowTrigger } from '../workflows/dispatch';
+import { dedupeKeys } from '../duplicates/detection';
 import { insertLifecycleHistory } from './lifecycle';
+import { leadSearchText } from './search';
 import { type LeadSignalKind, stampLeadSignal } from './signals';
 
 const CONSENT_TOKEN_BYTES = 24;
@@ -55,8 +57,12 @@ export async function createLeadRecord(
   opts: { workflows?: Doc<'workflows'>[]; signal?: { kind: LeadSignalKind; at: number } } = {},
 ): Promise<Id<'leads'>> {
   const { actor, metadata } = signatureOf(by);
+  const company = fields.companyId ? await ctx.db.get(fields.companyId) : null;
   const leadId = await ctx.db.insert('leads', {
     ...fields,
+    // What the trigger would add in a second write: with it here, the contact is written once.
+    searchText: leadSearchText(fields, company?.name),
+    dedupe: dedupeKeys(fields),
     // Consent starts empty unless the person gave it on the form that creates them; after that only they change it, through the public link.
     marketingConsent: fields.marketingConsent ?? [],
     consentToken: generateHexToken(CONSENT_TOKEN_BYTES),

@@ -14,10 +14,13 @@ import { DAY_MS } from '../../_lib/time';
 
 /** The dispatch runs inline in the host mutation's transaction but never throws into it: an automation failure must not break a lead edit. */
 
-/** The active, non-deleted workflows. Tiny table — read in full like leadLists. */
+/** The active, non-deleted workflows; read by index, as every lead event comes here and a draft holds its whole graph. */
 export async function loadActiveWorkflows(ctx: MutationCtx): Promise<Doc<'workflows'>[]> {
-  const all = await ctx.db.query('workflows').collect();
-  return all.filter((w) => isNotDeleted(w) && w.status === 'active');
+  const active = await ctx.db
+    .query('workflows')
+    .withIndex('by_status', (q) => q.eq('status', 'active'))
+    .collect();
+  return active.filter(isNotDeleted);
 }
 
 /** Assumes every enrollment check already passed: the callers own the rules. */
