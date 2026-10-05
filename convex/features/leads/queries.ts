@@ -26,21 +26,20 @@ const sortFieldValidator = v.union(
 );
 const sortDirectionValidator = v.union(v.literal('asc'), v.literal('desc'));
 
+/** Each company of the page is read once, and all of them together. */
 async function withCompanyNames(ctx: QueryCtx, page: Doc<'leads'>[]) {
-  const names = new Map<string, string | null>();
-  const out: (Doc<'leads'> & { companyName: string | null })[] = [];
-  for (const lead of page) {
-    let companyName: string | null = null;
-    if (lead.companyId) {
-      if (!names.has(lead.companyId)) {
-        const company = await ctx.db.get(lead.companyId);
-        names.set(lead.companyId, company && isNotDeleted(company) ? company.name : null);
-      }
-      companyName = names.get(lead.companyId) ?? null;
-    }
-    out.push({ ...lead, companyName });
-  }
-  return out;
+  const companyIds = [...new Set(page.flatMap((lead) => (lead.companyId ? [lead.companyId] : [])))];
+  const companies = await Promise.all(companyIds.map((id) => ctx.db.get(id)));
+  const names = new Map(
+    companyIds.map((id, i) => {
+      const company = companies[i];
+      return [id, company && isNotDeleted(company) ? company.name : null];
+    }),
+  );
+  return page.map((lead) => ({
+    ...lead,
+    companyName: lead.companyId ? (names.get(lead.companyId) ?? null) : null,
+  }));
 }
 
 export const listLeadsPaginated = employeeQuery({

@@ -23,24 +23,21 @@ export const listLeadLists = employeeQuery({
   handler: async (ctx) => {
     const lists = await ctx.db.query('leadLists').order('desc').collect();
 
-    const counts = new Map<string, number>();
-    for (const list of lists) {
-      counts.set(
-        list._id,
-        await leadListMemberCounts.count(ctx, { namespace: list._id, bounds: {} }),
-      );
-    }
-
-    const creatorNames = new Map<string, string | null>();
-    for (const list of lists) {
-      if (list.createdBy && !creatorNames.has(list.createdBy)) {
-        const creator = await ctx.db.get(list.createdBy);
-        creatorNames.set(
-          list.createdBy,
-          creator ? `${creator.firstName} ${creator.lastName}` : null,
-        );
-      }
-    }
+    // The counts and the creators are read together, each creator once.
+    const creatorIds = [...new Set(lists.flatMap((l) => (l.createdBy ? [l.createdBy] : [])))];
+    const [memberCounts, creators] = await Promise.all([
+      Promise.all(
+        lists.map((list) => leadListMemberCounts.count(ctx, { namespace: list._id, bounds: {} })),
+      ),
+      Promise.all(creatorIds.map((id) => ctx.db.get(id))),
+    ]);
+    const counts = new Map(lists.map((list, i) => [list._id as string, memberCounts[i]]));
+    const creatorNames = new Map(
+      creatorIds.map((id, i) => {
+        const creator = creators[i];
+        return [id as string, creator ? `${creator.firstName} ${creator.lastName}` : null];
+      }),
+    );
 
     return lists.map((list) => ({
       _id: list._id,

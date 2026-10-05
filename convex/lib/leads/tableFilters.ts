@@ -48,20 +48,29 @@ export async function loadListMemberIdsForLeads(
 ): Promise<Set<string> | undefined> {
   if (!listIds || listIds.length === 0) return undefined;
   const ids = new Set<string>();
-  for (const leadId of leadIds) {
-    for (const listId of listIds) {
-      const member = await ctx.db
-        .query('leadListMembers')
-        .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
-        .first();
-      if (member) {
-        ids.add(leadId);
-        break;
+  // The leads are looked up together; for one lead, the lists one after the other, as the first that holds it settles it.
+  await Promise.all(
+    leadIds.map(async (leadId) => {
+      for (const listId of listIds) {
+        if (await isListMember(ctx, listId, leadId)) {
+          ids.add(leadId);
+          return;
+        }
       }
-    }
-  }
+    }),
+  );
   return ids;
 }
+
+const isListMember = async (
+  ctx: QueryCtx | MutationCtx,
+  listId: Id<'leadLists'>,
+  leadId: Id<'leads'>,
+): Promise<boolean> =>
+  (await ctx.db
+    .query('leadListMembers')
+    .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
+    .first()) !== null;
 
 export async function loadAdvancedListMembers(
   ctx: QueryCtx | MutationCtx,
@@ -71,15 +80,13 @@ export async function loadAdvancedListMembers(
   const listIds = advancedFilterListIds(filter) as Id<'leadLists'>[];
   if (listIds.length === 0) return undefined;
   const members = new Map<string, Set<string>>(listIds.map((id) => [id, new Set()]));
-  for (const listId of listIds) {
-    for (const leadId of leadIds) {
-      const member = await ctx.db
-        .query('leadListMembers')
-        .withIndex('by_list_lead', (q) => q.eq('listId', listId).eq('leadId', leadId))
-        .first();
-      if (member) members.get(listId)?.add(leadId);
-    }
-  }
+  await Promise.all(
+    listIds.flatMap((listId) =>
+      leadIds.map(async (leadId) => {
+        if (await isListMember(ctx, listId, leadId)) members.get(listId)?.add(leadId);
+      }),
+    ),
+  );
   return members;
 }
 

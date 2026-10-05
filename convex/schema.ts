@@ -295,7 +295,6 @@ const tables = {
 
   auditLogs: defineTable(auditLogValidator)
     .index('by_entity', ['entityType', 'entityId'])
-    .index('by_user', ['userId'])
     .index('by_timestamp', ['timestamp']),
 
   leads: defineTable(leadValidator)
@@ -399,9 +398,7 @@ const tables = {
   // Public capture forms (settings-managed). Few rows, read in full.
   forms: defineTable(formValidator).index('by_deletedAt', ['deletedAt']),
 
-  formSubmissions: defineTable(formSubmissionValidator)
-    .index('by_form', ['formId'])
-    .index('by_lead', ['leadId']),
+  formSubmissions: defineTable(formSubmissionValidator).index('by_lead', ['leadId']),
 
   // Browser identity for progressive profiling (see formVisitorTokenValidator).
   formVisitorTokens: defineTable(formVisitorTokenValidator)
