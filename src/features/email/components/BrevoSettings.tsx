@@ -52,7 +52,7 @@ export function BrevoSettings({ draft, email, isSmtp, set }: BrevoSettingsProps)
             value={draft.brevoSmsSender}
             maxLength={11}
             onChange={(e) => set('brevoSmsSender', e.target.value)}
-            placeholder="ex. WAP-CRM (11 caractères max)"
+            placeholder="ex. FabulousCRM (11 caractères max)"
           />
         </div>
       </Card>

@@ -176,7 +176,7 @@ export function EmailManager() {
               id="sender-name"
               value={draft.senderName}
               onChange={(e) => set('senderName', e.target.value)}
-              placeholder="ex. WAP CRM"
+              placeholder="ex. Fabulous CRM"
             />
           </div>
           <div className="space-y-1.5">

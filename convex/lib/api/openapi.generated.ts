@@ -2,7 +2,7 @@
 export const openapiDocument: Record<string, unknown> = {
   openapi: '3.1.0',
   info: {
-    title: 'WAP CRM public API',
+    title: 'Fabulous CRM public API',
     version: '1.0',
     summary:
       'Server-to-server access to contacts, companies, deals, activities, lists and properties.',

@@ -199,7 +199,7 @@ async function handle(ctx: ActionCtx, request: Request, method: Method): Promise
 const DOCS_CACHE = 'public, max-age=300';
 
 // Swagger UI from the CDN, pointed at the served spec; the Authorize button takes the user's own key.
-const SWAGGER_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WAP CRM API</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script><script>window.ui=SwaggerUIBundle({url:'/api/v1/openapi.json',dom_id:'#swagger-ui',persistAuthorization:true,tryItOutEnabled:true,displayRequestDuration:true});</script></body></html>`;
+const SWAGGER_HTML = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Fabulous CRM API</title><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css"></head><body><div id="swagger-ui"></div><script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script><script>window.ui=SwaggerUIBundle({url:'/api/v1/openapi.json',dom_id:'#swagger-ui',persistAuthorization:true,tryItOutEnabled:true,displayRequestDuration:true});</script></body></html>`;
 
 /** The spec with `servers` pointing at this deployment. */
 function openapiFor(request: Request): Record<string, unknown> {

@@ -1,4 +1,4 @@
-# Instructions pour Claude — WAP CRM
+# Instructions pour Claude — Fabulous CRM
 
 Lire `README.md` : structure du projet, workflow dev (conteneur `wap-crm-dev`),
 scripts, seeds, et le tableau complet des variables d'environnement (frontend
