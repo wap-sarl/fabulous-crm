@@ -7,6 +7,7 @@ import { Spinner, toast } from '@crm/design-system';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
 import { useLeadLists } from '../../features/leads/hooks/useLeadLists';
+import { useMatchingLeadCount } from '../../features/leads/hooks/useMatchingLeadCount';
 import { useLifecycleConfig } from '../../features/leads/hooks/useLifecycleConfig';
 import { usePipelines } from '../../features/deals/hooks/usePipelines';
 import { useWorkflowDraft, subtreeIds } from '../../features/workflows/hooks/useWorkflowDraft';
@@ -53,9 +54,8 @@ export function WorkflowEditorPage() {
   const [submitting, setSubmitting] = useState(false);
   const [saveChoiceOpen, setSaveChoiceOpen] = useState(false);
 
-  // Matching-lead count for the save dialog (criteria evaluated live).
-  const matching = useAuthQuery(
-    api.features.leads.queries.listMatchingLeadIds,
+  // Matching-lead count for the save dialog, counted when it opens.
+  const matching = useMatchingLeadCount(
     saveChoiceOpen ? { advancedFilter: draft.enrollmentCriteria } : 'skip',
   );
 

@@ -14,7 +14,6 @@ import { normalizeSearchText } from '../../lib/leads/search';
 import {
   leadFilterArgs,
   loadAdvancedListMembers,
-  loadListMemberIds,
   loadListMemberIdsForLeads,
   matchesLeadFilters,
 } from '../../lib/leads/tableFilters';
@@ -342,27 +341,30 @@ export const listLifecycleHistory = employeeQuery({
   },
 });
 
-/** Every lead matching a filter, read in one collect without pagination: fine for a few thousand leads only. */
-export const listMatchingLeadIds = employeeQuery({
-  args: { ...leadFilterArgs },
+const MATCHING_PAGE = 500;
+
+/** One page of the leads matching a filter, and what it counts; the caller follows `cursor` until it is null, so that no call reads the whole table and none is rerun at every write of a lead. */
+export const matchingLeadsPage = employeeQuery({
+  args: { ...leadFilterArgs, cursor: v.union(v.string(), v.null()) },
   returns: v.object({
     leadIds: v.array(v.id('leads')),
-    total: v.number(),
     withEmail: v.number(),
     withPhone: v.number(),
+    cursor: v.union(v.string(), v.null()),
   }),
-  handler: async (ctx, args) => {
-    const listMemberIds = await loadListMemberIds(ctx, args.listIds);
-    const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter);
-    const all = await ctx.db.query('leads').collect();
-    const matching = all.filter((lead) =>
-      matchesLeadFilters(lead, { ...args, listMemberIds, advancedListMembers }),
+  handler: async (ctx, { cursor, ...filters }) => {
+    const page = await ctx.db.query('leads').paginate({ cursor, numItems: MATCHING_PAGE });
+    const pageIds = page.page.map((lead) => lead._id);
+    const listMemberIds = await loadListMemberIdsForLeads(ctx, filters.listIds, pageIds);
+    const advancedListMembers = await loadAdvancedListMembers(ctx, filters.advancedFilter, pageIds);
+    const matching = page.page.filter((lead) =>
+      matchesLeadFilters(lead, { ...filters, listMemberIds, advancedListMembers }),
     );
     return {
       leadIds: matching.map((lead) => lead._id),
-      total: matching.length,
       withEmail: matching.filter((lead) => !!lead.email).length,
       withPhone: matching.filter((lead) => !!lead.phone).length,
+      cursor: page.isDone ? null : page.continueCursor,
     };
   },
 });

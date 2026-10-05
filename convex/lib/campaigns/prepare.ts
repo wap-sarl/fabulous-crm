@@ -58,7 +58,7 @@ export async function prepareBatch(
     .query('leads')
     .paginate({ cursor: args.cursor ?? null, numItems: args.batchSize ?? PREP_BATCH });
 
-  // List membership is resolved per page with indexed point reads: loading the full member set (loadListMemberIds) is unbounded on large lists.
+  // List membership is resolved per page with indexed point reads: a full member set is unbounded on large lists.
   const pageIds = page.page.map((lead) => lead._id);
   const listMemberIds = await loadListMemberIdsForLeads(ctx, args.filter.listIds, pageIds);
   const advancedListMembers = await loadAdvancedListMembers(

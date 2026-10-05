@@ -2,13 +2,13 @@
 import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { jest } from 'bun:test';
-import type { WithoutSystemFields } from 'convex/server';
+import type { FunctionArgs, FunctionReturnType, WithoutSystemFields } from 'convex/server';
 import { convexTest, type TestConvex } from 'convex-test';
 import aggregateSchema from '../../node_modules/@convex-dev/aggregate/dist/component/schema';
 import betterAuthSchema from '../../node_modules/@convex-dev/better-auth/dist/component/schema';
 import migrationsSchema from '../../node_modules/@convex-dev/migrations/dist/component/schema';
 import rateLimiterSchema from '../../node_modules/@convex-dev/rate-limiter/dist/component/schema';
-import { components } from '../../convex/_generated/api';
+import { api, components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import { leadSearchText } from '../../convex/lib/leads/search';
 import schema from '../../convex/schema';
@@ -204,4 +204,26 @@ export async function seedLead(
     } as Doc<'leads'>;
     return await ctx.db.insert('leads', { ...doc, searchText: leadSearchText(doc) });
   });
+}
+
+/** Every lead matching a filter, gathered as the interface does it: page after page until the cursor ends. */
+export async function matchingLeads(
+  as: ReturnType<typeof asIdentity>,
+  filters: Omit<FunctionArgs<typeof api.features.leads.queries.matchingLeadsPage>, 'cursor'> = {},
+) {
+  const found = { leadIds: [] as Id<'leads'>[], total: 0, withEmail: 0, withPhone: 0, pages: 0 };
+  let cursor: string | null = null;
+  do {
+    const page: FunctionReturnType<typeof api.features.leads.queries.matchingLeadsPage> =
+      await as.query(api.features.leads.queries.matchingLeadsPage, { ...filters, cursor });
+    found.leadIds.push(...page.leadIds);
+    found.total += page.leadIds.length;
+    found.withEmail += page.withEmail;
+    found.withPhone += page.withPhone;
+    found.pages++;
+    // A cursor that never ends is a failure, not a test that never ends.
+    if (found.pages > 100) throw new Error('matchingLeadsPage: the cursor does not end');
+    cursor = page.cursor;
+  } while (cursor !== null);
+  return found;
 }

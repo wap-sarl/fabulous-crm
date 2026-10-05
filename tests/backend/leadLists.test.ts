@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { asIdentity, createTestConvex, seedEmployee } from './helpers';
+import { asIdentity, createTestConvex, matchingLeads, seedEmployee } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -98,11 +98,11 @@ describe('advanced-filter list membership', () => {
     await as.mutation(api.features.leads.mutations.importLeads, { rows: rows('Anna'), listId });
     await as.mutation(api.features.leads.mutations.importLeads, { rows: rows('Bruno') });
 
-    const members = await as.query(api.features.leads.queries.listMatchingLeadIds, {
+    const members = await matchingLeads(as, {
       advancedFilter: membershipFilter(listId, 'equals'),
     });
     expect(members.total).toBe(1);
-    const outsiders = await as.query(api.features.leads.queries.listMatchingLeadIds, {
+    const outsiders = await matchingLeads(as, {
       advancedFilter: membershipFilter(listId, 'notEquals'),
     });
     expect(outsiders.total).toBe(1);
@@ -112,11 +112,11 @@ describe('advanced-filter list membership', () => {
       listId,
       deleteLeads: false,
     });
-    const after = await as.query(api.features.leads.queries.listMatchingLeadIds, {
+    const after = await matchingLeads(as, {
       advancedFilter: membershipFilter(listId, 'equals'),
     });
     expect(after.total).toBe(0);
-    const afterNot = await as.query(api.features.leads.queries.listMatchingLeadIds, {
+    const afterNot = await matchingLeads(as, {
       advancedFilter: membershipFilter(listId, 'notEquals'),
     });
     expect(afterNot.total).toBe(2);
