@@ -22,6 +22,7 @@ import {
 } from '../../convex/lib/api/dtos';
 import { appOrigins } from '../../convex/lib/config/appUrl';
 import { logAudit } from '../../convex/lib/audit/log';
+import { redirectUri, signState } from '../../convex/lib/connectors/oauth';
 import {
   decryptSecret,
   encryptSecret,
@@ -71,6 +72,8 @@ const VALUES = {
   toPublicDeal,
   appOrigins,
   logAudit,
+  redirectUri,
+  signState,
   decryptSecret,
   encryptSecret,
   generateHexToken,
