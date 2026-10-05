@@ -387,6 +387,16 @@ Les règles que le code suit, chacune gardée par un test :
   de visibilité de l'appelant. Ce que le déploiement compte (un plafond) est
   une query interne qui ne rend que des nombres ; chacune est listée, avec sa
   raison, dans `tests/backend/layering.test.ts`.
+- **Une query ne lit une table entière, ou toute une plage d'index, que là où
+  c'est petit par nature**, et le dit : chaque `.collect()` est listé avec sa
+  raison dans `tests/backend/collects.test.ts`, ainsi que les quelques lectures
+  qui grandissent encore avec l'usage (campagnes, options d'entreprises).
+- **Une écriture de contact ne coûte que ce qu'elle change**
+  (`tests/backend/writeCost.test.ts`) : un contact est écrit une fois à sa
+  création, un agrégat n'est touché que si la ligne y change de place, et les
+  déclencheurs ne lisent que les listes dynamiques et les workflows actifs.
+- **Chaque page se charge à la demande** (`src/app.tsx`) ; le build échoue si
+  un fichier dépasse 500 kB (`vite.config.mts`).
 - **Une page ou une fonctionnalité peint avec les jetons du thème**
   (`src/design-system/theme.css`), jamais avec une couleur écrite à la main
   (`tests/frontend/colourTokens.test.ts`).
