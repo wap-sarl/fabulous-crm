@@ -395,6 +395,9 @@ Les règles que le code suit, chacune gardée par un test :
   (`tests/backend/writeCost.test.ts`) : un contact est écrit une fois à sa
   création, un agrégat n'est touché que si la ligne y change de place, et les
   déclencheurs ne lisent que les listes dynamiques et les workflows actifs.
+  Conséquence : une ligne écrite hors des mutations (tableau de bord Convex,
+  `convex import`) n'entre dans les compteurs qu'à sa prochaine écriture qui
+  la déplace (propriétaire, statut, entreprise, stade, montant, suppression).
 - **Chaque page se charge à la demande** (`src/app.tsx`) ; le build échoue si
   un fichier dépasse 500 kB (`vite.config.mts`).
 - **Une page ou une fonctionnalité peint avec les jetons du thème**
