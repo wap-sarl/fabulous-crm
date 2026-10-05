@@ -64,7 +64,7 @@ export const registerBrevoEmailWebhook = internalAction({
     const endpoint = `${siteUrl}/webhooks/brevo/email`;
     const body = JSON.stringify({
       type: 'transactional',
-      description: 'WAP CRM — événements e-mail campagnes',
+      description: 'Fabulous CRM — événements e-mail campagnes',
       // The secret goes in a header, never in the URL, where it would sit in proxy logs and in Brevo's webhook listing.
       url: endpoint,
       headers: [{ key: 'x-webhook-secret', value: secret }],
@@ -129,7 +129,7 @@ export const registerBrevoSmsWebhook = internalAction({
     const body = JSON.stringify({
       type: 'transactional',
       channel: 'sms',
-      description: 'WAP CRM — événements SMS entrants (STOP, réponses)',
+      description: 'Fabulous CRM — événements SMS entrants (STOP, réponses)',
       // An account-level registration can carry a header: only the per-message webUrl (sendCampaignBatch) is stuck with a query secret.
       url: endpoint,
       headers: [{ key: 'x-webhook-secret', value: secret }],

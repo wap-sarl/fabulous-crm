@@ -40,7 +40,7 @@ const BREVO_EMAIL_EVENT_TYPE: Record<string, CampaignEventType> = {
 
 /** Minimal French page for tracked-link responses (no-redirect thanks / 404). */
 function htmlResponse(message: string, status: number): Response {
-  const body = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>WAP CRM</title></head><body style="margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#f8fafc;color:#0f172a"><p style="font-size:1.125rem;padding:0 1.5rem;text-align:center">${message}</p></body></html>`;
+  const body = `<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Fabulous CRM</title></head><body style="margin:0;display:flex;min-height:100vh;align-items:center;justify-content:center;font-family:system-ui,sans-serif;background:#f8fafc;color:#0f172a"><p style="font-size:1.125rem;padding:0 1.5rem;text-align:center">${message}</p></body></html>`;
   return new Response(body, {
     status,
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
