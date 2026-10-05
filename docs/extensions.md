@@ -185,9 +185,11 @@ rolls the caller back. Keep them cheap; they run on every call.
 `src/extensions.tsx` exports `extensions: FrontendExtensions`:
 
 - `routes`: mounted inside the authenticated shell (`DashboardShell`), after the built-in pages.
-- `navItems`: appended to the sidebar and filtered like the built-in items: `requires: 'settings'`
-  hides an entry from users without the settings switch; a path under a module follows the
-  role's access to that module.
+  A route whose path is under `/settings/` is shown inside the settings page, beside its tabs.
+- `navItems`: filtered like the built-in items: `requires: 'settings'` hides an entry from users
+  without the settings switch; a path under a module follows the role's access to that module.
+  An item whose path is under `/settings/` becomes a tab of the settings page, in a group of the
+  overlay's own after the core's; the others are appended to the sidebar.
 - `ShellGuard`: a component wrapping the shell; render `children` to show the app, or
   something else (a billing page, a maintenance notice) to replace it.
 - `describeRefusal`: optional; turns one of the overlay's refusal codes (with the ConvexError

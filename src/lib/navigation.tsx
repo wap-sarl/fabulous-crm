@@ -14,6 +14,7 @@ import {
   Milestone,
   Palette,
   Radar,
+  Settings,
   Upload,
   Paperclip,
   Plug,
@@ -24,17 +25,14 @@ import {
   Workflow,
 } from 'lucide-react';
 import type { NavItem } from '@crm/widgets';
+import { SETTINGS_ROOT, type TabGroup } from './settingsTabs';
 
 /** A sidebar entry; module pages derive their access check from the path, settings pages declare it. */
 export interface ShellNavItem extends NavItem {
   requires?: 'settings';
 }
 
-const settings = (item: NavItem): ShellNavItem => ({
-  ...item,
-  position: 'bottom',
-  requires: 'settings',
-});
+const settings = (item: NavItem): ShellNavItem => ({ ...item, requires: 'settings' });
 
 export const NAV_ITEMS: ShellNavItem[] = [
   { label: 'Leads', icon: <Users />, path: '/leads' },
@@ -55,21 +53,47 @@ export const NAV_ITEMS: ShellNavItem[] = [
     : []),
   // Imports are for every employee, on the modules the role may write to.
   { label: 'Importer', icon: <Upload />, path: '/import', position: 'bottom' },
-  // Lists are available to every employee; the other settings screens need the role's `settings` switch.
-  { label: 'Listes', icon: <ListChecks />, path: '/settings/lists', position: 'bottom' },
-  // Connecting one's own account is for every employee; the page shows the OAuth apps to admins only.
-  { label: 'Intégrations', icon: <Plug />, path: '/settings/integrations', position: 'bottom' },
-  settings({ label: 'Équipe', icon: <UsersRound />, path: '/settings/team' }),
-  settings({ label: 'Rôles et accès', icon: <ShieldCheck />, path: '/settings/roles' }),
-  settings({ label: 'Apparence', icon: <Palette />, path: '/settings/branding' }),
-  settings({ label: 'E-mail & SMS', icon: <Mail />, path: '/settings/email' }),
-  settings({ label: 'Propriétés', icon: <SlidersHorizontal />, path: '/settings/properties' }),
-  settings({ label: 'Statuts', icon: <Milestone />, path: '/settings/lifecycle' }),
-  settings({ label: 'Scoring', icon: <Gauge />, path: '/settings/scoring' }),
-  settings({ label: 'Formulaires', icon: <ClipboardList />, path: '/settings/forms' }),
-  settings({ label: 'Suivi web', icon: <Radar />, path: '/settings/tracking' }),
-  settings({ label: 'Clés d’API', icon: <KeyRound />, path: '/settings/api' }),
-  settings({ label: 'Pipelines', icon: <KanbanSquare />, path: '/settings/pipelines' }),
-  settings({ label: 'Fichiers', icon: <Paperclip />, path: '/settings/files' }),
-  settings({ label: 'Conservation', icon: <Hourglass />, path: '/settings/retention' }),
+  // One entry for every setting: the page shows the tabs the role may see, and two of them are for every employee.
+  { label: 'Paramètres', icon: <Settings />, path: SETTINGS_ROOT, position: 'bottom' },
+];
+
+/** The tabs of the settings page, in the order they are shown; each keeps the address it had as a sidebar entry. */
+export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
+  {
+    name: 'Organisation',
+    tabs: [
+      settings({ label: 'Apparence', icon: <Palette />, path: '/settings/branding' }),
+      settings({ label: 'Équipe', icon: <UsersRound />, path: '/settings/team' }),
+      settings({ label: 'Rôles et accès', icon: <ShieldCheck />, path: '/settings/roles' }),
+    ],
+  },
+  {
+    name: 'Données',
+    tabs: [
+      settings({ label: 'Propriétés', icon: <SlidersHorizontal />, path: '/settings/properties' }),
+      settings({ label: 'Statuts', icon: <Milestone />, path: '/settings/lifecycle' }),
+      settings({ label: 'Pipelines', icon: <KanbanSquare />, path: '/settings/pipelines' }),
+      settings({ label: 'Scoring', icon: <Gauge />, path: '/settings/scoring' }),
+      // Lists are available to every employee.
+      { label: 'Listes', icon: <ListChecks />, path: '/settings/lists' },
+    ],
+  },
+  {
+    name: 'Canaux',
+    tabs: [
+      settings({ label: 'E-mail & SMS', icon: <Mail />, path: '/settings/email' }),
+      settings({ label: 'Formulaires', icon: <ClipboardList />, path: '/settings/forms' }),
+      settings({ label: 'Suivi web', icon: <Radar />, path: '/settings/tracking' }),
+    ],
+  },
+  {
+    name: 'Connexions et conformité',
+    tabs: [
+      // Connecting one's own account is for every employee; the page shows the OAuth apps to admins only.
+      { label: 'Intégrations', icon: <Plug />, path: '/settings/integrations' },
+      settings({ label: 'Clés d’API', icon: <KeyRound />, path: '/settings/api' }),
+      settings({ label: 'Fichiers', icon: <Paperclip />, path: '/settings/files' }),
+      settings({ label: 'Conservation', icon: <Hourglass />, path: '/settings/retention' }),
+    ],
+  },
 ];
