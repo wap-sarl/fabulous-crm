@@ -93,6 +93,43 @@ export async function endRun(
   }
 }
 
+/** How many runs one transaction resumes or stops; the rest follows in a scheduled one. */
+const RUN_BATCH = 200;
+
+const activeRunsOf = (ctx: MutationCtx, workflowId: Id<'workflows'>) =>
+  ctx.db
+    .query('workflowRuns')
+    .withIndex('by_workflow_status', (q) => q.eq('workflowId', workflowId).eq('status', 'active'));
+
+/** Kicks a batch of the runs a pause parked and gives the cursor of the next, null after the last; a future wake keeps its scheduled call, and a duplicate kick is a no-op thanks to the guards of executeStep. */
+export async function kickParkedRuns(
+  ctx: MutationCtx,
+  workflowId: Id<'workflows'>,
+  cursor: string | null,
+): Promise<string | null> {
+  const page = await activeRunsOf(ctx, workflowId).paginate({ cursor, numItems: RUN_BATCH });
+  const now = Date.now();
+  for (const run of page.page) {
+    if (!run.currentNodeId) continue;
+    if (run.wakeAt !== undefined && run.wakeAt > now) continue;
+    await ctx.scheduler.runAfter(0, internal.features.workflows.internal.executeStep, {
+      runId: run._id,
+      nodeId: run.currentNodeId,
+    });
+  }
+  return page.isDone ? null : page.continueCursor;
+}
+
+/** Stops a batch of the runs of a workflow that is being deleted, and says whether some are left; the counter of the workflow is settled by the caller, once. */
+export async function stopActiveRuns(
+  ctx: MutationCtx,
+  workflowId: Id<'workflows'>,
+): Promise<boolean> {
+  const runs = await activeRunsOf(ctx, workflowId).take(RUN_BATCH);
+  for (const run of runs) await stopRun(ctx, run, null);
+  return runs.length === RUN_BATCH;
+}
+
 /** Stop a run a person or a re-enrollment cancels: the wake it sleeps on is cancelled with it. */
 export async function stopRun(
   ctx: MutationCtx,

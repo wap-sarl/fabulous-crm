@@ -14,7 +14,14 @@ import {
 import { activationIssue } from '../../lib/workflows/activation';
 import { MAX_ENROLLMENTS_PER_LEAD_PER_DAY, MAX_STEPS_PER_RUN } from '../../lib/workflows/rules';
 import { enrollLead } from '../../lib/workflows/dispatch';
-import { advanceRun, endRun, type StepContext, stopRun } from '../../lib/workflows/runs';
+import {
+  advanceRun,
+  endRun,
+  kickParkedRuns,
+  type StepContext,
+  stopActiveRuns,
+  stopRun,
+} from '../../lib/workflows/runs';
 import { createDealStep, updateDealStageStep } from '../../lib/workflows/steps/deals';
 import { branchStep, waitStep } from '../../lib/workflows/steps/flow';
 import { setLifecycleStageStep, updatePropertyStep } from '../../lib/workflows/steps/lead';
@@ -300,6 +307,38 @@ export const reenrollBatch = internalMutation({
       },
     });
     return { isDone: true, continueCursor: page.continueCursor };
+  },
+});
+
+/** The rest of a resume, a batch per transaction; a workflow paused or deleted meanwhile keeps the rest parked. */
+export const resumeParkedRuns = internalMutation({
+  args: { workflowId: v.id('workflows'), cursor: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const workflow = await ctx.db.get(args.workflowId);
+    if (!workflow || !isNotDeleted(workflow) || workflow.status !== 'active') return null;
+    const cursor = await kickParkedRuns(ctx, args.workflowId, args.cursor);
+    if (cursor !== null) {
+      await ctx.scheduler.runAfter(0, internal.features.workflows.internal.resumeParkedRuns, {
+        workflowId: args.workflowId,
+        cursor,
+      });
+    }
+    return null;
+  },
+});
+
+/** The rest of the runs of a deleted workflow, a batch per transaction. */
+export const stopRemainingRuns = internalMutation({
+  args: { workflowId: v.id('workflows') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (await stopActiveRuns(ctx, args.workflowId)) {
+      await ctx.scheduler.runAfter(0, internal.features.workflows.internal.stopRemainingRuns, {
+        workflowId: args.workflowId,
+      });
+    }
+    return null;
   },
 });
 

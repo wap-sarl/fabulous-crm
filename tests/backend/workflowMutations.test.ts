@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { WorkflowNode } from '../../convex/_lib/validators/workflows';
+import { countDb } from '../support/dbCounter';
 import { asIdentity, createTestConvex, pinClock, seedEmployee, type T } from './helpers';
 
 const NOW = Date.UTC(2026, 9, 1, 9, 0, 0);
@@ -444,6 +445,126 @@ describe('workflows: the end of a run before its path', () => {
       activeCount: 2,
       bulkReenroll: { status: 'done', matched: 2, enrolled: 2, cancelled: 1, skipped: 0 },
     });
+  });
+});
+
+describe('workflows: more runs than one transaction takes', () => {
+  /** `count` runs of one lead, parked on the first step, as a pause leaves them; every third sleeps on a wake. */
+  async function insertRuns(w: World, workflowId: Id<'workflows'>, count: number) {
+    const leadId = await createLead(w);
+    return await w.t.run(async (ctx) => {
+      const ids: Id<'workflowRuns'>[] = [];
+      for (let i = 0; i < count; i++) {
+        const runId = await ctx.db.insert('workflowRuns', {
+          workflowId,
+          leadId,
+          status: 'active',
+          triggerType: 'manual',
+          enrolledAt: NOW,
+          currentNodeId: 'n1',
+          stepCount: 0,
+        });
+        if (i % 3 === 0) {
+          const scheduledFnId = await ctx.scheduler.runAt(
+            NOW + HOUR_MS,
+            internal.features.workflows.internal.executeStep,
+            { runId, nodeId: 'n1' },
+          );
+          await ctx.db.patch(runId, { wakeAt: NOW + HOUR_MS, scheduledFnId });
+        }
+        ids.push(runId);
+      }
+      await ctx.db.patch(workflowId, { activeCount: count, enrolledCount: count });
+      return ids;
+    });
+  }
+  const runsOf = (w: World, workflowId: Id<'workflows'>) =>
+    w.t.run(async (ctx) =>
+      (await ctx.db.query('workflowRuns').collect()).filter((r) => r.workflowId === workflowId),
+    );
+  /** The calls of an internal function of the workflows that were scheduled, with what each was given. */
+  const scheduled = (w: World, name: string) =>
+    w.t.run(async (ctx) =>
+      (await ctx.db.system.query('_scheduled_functions').collect())
+        .filter((job) => job.name.endsWith(name))
+        .map((job) => job.args[0] as unknown as { workflowId: Id<'workflows'>; cursor: string }),
+    );
+  const stopped = (runs: Doc<'workflowRuns'>[]) =>
+    runs.filter(
+      (r) => r.status === 'cancelled' && !r.currentNodeId && !r.wakeAt && !r.scheduledFnId,
+    );
+  const rest = internal.features.workflows.internal;
+
+  // The scheduled calls are made here by hand, one after the other, as the scheduler makes them.
+  test('deleting a workflow stops a batch of its runs at once, and schedules the rest batch by batch', async () => {
+    const w = await setup();
+    const workflowId = await workflowIn(w, 'paused');
+    await insertRuns(w, workflowId, 450);
+
+    const cost = await countDb(() => w.as.mutation(fn.deleteWorkflow, { workflowId }));
+    // Each run of the batch is read, then read again by the write that stops it.
+    expect(cost.reads.workflowRuns).toBe(400);
+    expect(await get(w, workflowId)).toMatchObject({ deletedAt: NOW, activeCount: 0 });
+    expect(stopped(await runsOf(w, workflowId))).toHaveLength(200);
+    expect(await scheduled(w, 'stopRemainingRuns')).toMatchObject([{ workflowId }]);
+
+    await w.t.mutation(rest.stopRemainingRuns, { workflowId });
+    expect(stopped(await runsOf(w, workflowId))).toHaveLength(400);
+    expect(await scheduled(w, 'stopRemainingRuns')).toHaveLength(2);
+
+    // The last batch is not full: nothing is scheduled after it.
+    await w.t.mutation(rest.stopRemainingRuns, { workflowId });
+    expect(stopped(await runsOf(w, workflowId))).toHaveLength(450);
+    expect(await scheduled(w, 'stopRemainingRuns')).toHaveLength(2);
+    expect((await get(w, workflowId)).activeCount).toBe(0);
+  });
+
+  test('a resume kicks a batch of the parked runs at once, and schedules the rest batch by batch', async () => {
+    const w = await setup();
+    const workflowId = await workflowIn(w, 'paused');
+    await insertRuns(w, workflowId, 450);
+    // A run that sleeps keeps its wake and gets no kick: 150 wakes before, and a kick for each of the others after.
+    const kicks = async () => (await scheduled(w, 'executeStep')).length - 150;
+
+    const cost = await countDb(() =>
+      w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'active' }),
+    );
+    expect(cost.reads.workflowRuns).toBe(200);
+    expect(await kicks()).toBe(133);
+    const [second] = await scheduled(w, 'resumeParkedRuns');
+    expect(second.workflowId).toBe(workflowId);
+    expect(typeof second.cursor).toBe('string');
+
+    await w.t.mutation(rest.resumeParkedRuns, second);
+    expect(await kicks()).toBe(266);
+    const [, third] = await scheduled(w, 'resumeParkedRuns');
+    expect(third.cursor).not.toBe(second.cursor);
+
+    // The last batch ends the chain; every parked run had its kick, once.
+    await w.t.mutation(rest.resumeParkedRuns, third);
+    expect(await kicks()).toBe(300);
+    expect(await scheduled(w, 'resumeParkedRuns')).toHaveLength(2);
+    const kicked = (await scheduled(w, 'executeStep')) as unknown as { runId: string }[];
+    expect(new Set(kicked.map((job) => job.runId)).size).toBe(450);
+  });
+
+  test('a workflow paused again, or deleted, before the rest is resumed keeps the rest parked', async () => {
+    const w = await setup();
+    const workflowId = await workflowIn(w, 'paused');
+    await insertRuns(w, workflowId, 450);
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'active' });
+    const [second] = await scheduled(w, 'resumeParkedRuns');
+    const calls = async () => (await scheduled(w, 'executeStep')).length;
+    const before = await calls();
+
+    await w.as.mutation(fn.setWorkflowStatus, { workflowId, status: 'paused' });
+    await w.t.mutation(rest.resumeParkedRuns, second);
+    expect(await calls()).toBe(before);
+    expect(await scheduled(w, 'resumeParkedRuns')).toHaveLength(1);
+
+    await w.t.run((ctx) => ctx.db.patch(workflowId, { status: 'active', deletedAt: NOW }));
+    await w.t.mutation(rest.resumeParkedRuns, second);
+    expect(await calls()).toBe(before);
   });
 });
 
