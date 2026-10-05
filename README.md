@@ -743,8 +743,8 @@ Le backend se déploie séparément : `bunx convex deploy` (+ `convex env set`
 sur le déploiement de prod). Le frontend est une image Docker autonome :
 
 ```bash
-docker build -t wap-crm .
-docker run -d -p 8099:80 -e VITE_CONVEX_URL=https://<deployment>.convex.cloud wap-crm
+docker build -t fabulous-crm .
+docker run -d -p 8099:80 -e VITE_CONVEX_URL=https://<deployment>.convex.cloud fabulous-crm
 ```
 
 Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`

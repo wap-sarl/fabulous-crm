@@ -22,6 +22,7 @@ export function parseApiBearer(header: string | null): { keyId: string; secret: 
 
 /** Salted SHA-256 of an API key secret, hex. The salt only hardens leaked rows. */
 export async function hashApiKeySecret(secret: string): Promise<string> {
+  // The old name of the product, on purpose: another salt would make every key issued fail to verify.
   const salt = process.env.API_KEY_HASH_SALT ?? 'wap-crm-api';
   const digest = await crypto.subtle.digest(
     'SHA-256',
