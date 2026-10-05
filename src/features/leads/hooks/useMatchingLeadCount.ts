@@ -18,7 +18,7 @@ export function useMatchingLeadCount(
   // The filter as text: the object is a new one at every render.
   const key = filters === 'skip' || !isAuthenticated ? null : JSON.stringify(filters);
   const [state, setState] = useState<{ key: string; count: MatchingLeadCount } | null>(null);
-  const [failure, setFailure] = useState<unknown>(null);
+  const [failure, setFailure] = useState<{ key: string; error: unknown } | null>(null);
 
   useEffect(() => {
     if (key === null) return;
@@ -32,7 +32,7 @@ export function useMatchingLeadCount(
         if (count) setState({ key, count });
       },
       (error) => {
-        if (!cancelled) setFailure(error);
+        if (!cancelled) setFailure({ key, error });
       },
     );
     return () => {
@@ -40,7 +40,7 @@ export function useMatchingLeadCount(
     };
   }, [convex, key]);
 
-  // As a live query does: a failure is the page's, not a count that never comes.
-  if (failure) throw failure;
+  // As a live query does, a failure is the page's, not a count that never comes; it is that of its filter only, so another filter counts again.
+  if (failure && failure.key === key) throw failure.error;
   return state && state.key === key ? state.count : undefined;
 }
