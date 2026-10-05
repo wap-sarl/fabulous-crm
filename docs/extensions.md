@@ -9,6 +9,7 @@ tables; everything else in the repository stays untouched.
 | `convex/extensions.ts` | yes | backend hooks, exported as `extensions` |
 | `convex/extensionsSchema.ts` | yes | extra tables merged into `defineSchema` |
 | `src/extensions.tsx` | yes | extra routes, nav items and a shell guard for the SPA |
+| `tests/support/overlayRules.ts` | yes | the overlay's entries in the lists of two guard tests |
 | `convex/lib/extensions/types.ts` | no | the backend contract and its no-op defaults |
 | `src/lib/extensionTypes.ts` | no | the frontend contract |
 
@@ -215,13 +216,20 @@ option, as `src/lib/countryInputs/` is.
 
 ## What an overlay builds on
 
-Besides the three files it replaces, an overlay imports from the core and calls some of its
+Besides the files it replaces, an overlay imports from the core and calls some of its
 functions by path. Two test files list those names, so that the core knows what it must not
 rename or remove without saying so:
 
 - `tests/backend/extensionSurface.test.ts`: the backend values and types, and the Convex
   functions with the path they are called at.
 - `tests/frontend/extensionSurface.test.ts`: the components, hooks and types of the SPA.
+
+The assembled tree runs the core's suite, guard tests included, over the overlay's code too: an
+overlay's functions declare `args` and `returns`, its refusals are thrown with `refusal(code)`,
+its files hold 400 lines. Two guards keep a list an overlay has to add to, with a reason for
+each entry: the reads of a whole table (`collects.test.ts`) and the queries a query or a
+mutation runs (`layering.test.ts`). The overlay replaces `tests/support/overlayRules.ts`, empty
+in the core, with its own entries.
 
 A name that moves fails the core's typecheck or that suite before it breaks an overlay, and the
 unused-code report (`bun run unused`) counts the names as used. An overlay that starts building

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { overlayRules } from '../support/overlayRules';
 
 const ROOT = join(import.meta.dir, '../../convex');
 
@@ -60,11 +61,15 @@ describe('the row-level rules', () => {
           (m) => `${file} -> ${m[1]}`,
         ),
       );
-    expect(run.sort()).toEqual([
+    // An overlay lists its own, with its reasons, in the file it replaces; a reason that excuses nothing is removed.
+    const ofOverlay = Object.keys(overlayRules.queriesRun);
+    expect(ofOverlay.filter((line) => !run.includes(line))).toEqual([]);
+    const ofCore = run.filter((line) => !ofOverlay.includes(line));
+    expect(ofCore.sort()).toEqual([
       'features/leadLists/mutations.ts -> internal.features.leadLists.internal.dynamicListLimits',
       'features/leadLists/queries.ts -> internal.features.leadLists.internal.dynamicListLimits',
     ]);
-    for (const line of run) expect(PAST_THE_RULES).toHaveProperty([line.split(' -> ')[1]]);
+    for (const line of ofCore) expect(PAST_THE_RULES).toHaveProperty([line.split(' -> ')[1]]);
   });
 
   test('what the wrappers hand to a function is listed by name: the session, the visibility, and `db`, the scoped one', () => {

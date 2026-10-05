@@ -1,6 +1,7 @@
 import { expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { overlayRules } from '../support/overlayRules';
 
 const ROOT = join(import.meta.dir, '../../convex');
 
@@ -77,7 +78,7 @@ function collectsOf(file: string): string[] {
 
 test('a query reads a whole table or a whole index range only where that is small, and says why', () => {
   const read = sourcesOf('.').flatMap((file) => collectsOf(file).map((what) => ({ file, what })));
-  const allowed = { ...SMALL, ...BOUNDED, ...KNOWN_UNBOUNDED };
+  const allowed = { ...SMALL, ...BOUNDED, ...KNOWN_UNBOUNDED, ...overlayRules.smallReads };
   expect(read.filter(({ what }) => !(what in allowed)).map((r) => `${r.file}: ${r.what}`)).toEqual(
     [],
   );
