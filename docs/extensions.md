@@ -224,12 +224,26 @@ rename or remove without saying so:
   functions with the path they are called at.
 - `tests/frontend/extensionSurface.test.ts`: the components, hooks and types of the SPA.
 
-The assembled tree runs the core's suite, guard tests included, over the overlay's code too: an
-overlay's functions declare `args` and `returns`, its refusals are thrown with `refusal(code)`,
-its files hold 400 lines. Two guards keep a list an overlay has to add to, with a reason for
-each entry: the reads of a whole table (`collects.test.ts`) and the queries a query or a
-mutation runs (`layering.test.ts`). The overlay replaces `tests/support/overlayRules.ts`, empty
-in the core, with its own entries.
+The assembled tree runs the core's suite, guard tests included, over the overlay's code too.
+
+Two guards keep a list an overlay has to add to, with a reason for each entry: the reads of a
+whole table (`collects.test.ts`) and the queries a query or a mutation runs (`layering.test.ts`).
+The overlay replaces `tests/support/overlayRules.ts`, empty in the core, with its own entries.
+An overlay has reads of its own tables and actions that read through a query; nothing it could
+write differently would make those entries unnecessary.
+
+The four other guards give an overlay no exception, on purpose: each is a rule new code can
+always follow, and the exceptions the core lists are for what it could not change.
+
+| Guard | What an overlay does |
+|---|---|
+| `returnValidators.test.ts` | every function declares `args` and `returns`; a handler that passes on what a provider sent declares the fields it reads, or `v.any()` for the rest |
+| `refusals.test.ts` | a code is thrown with `refusal(code)`, never as `new Error('code')` |
+| `fileSize.test.ts` | a file holds 400 lines; a longer one is split |
+| `colourTokens.test.ts` | a page paints with the tokens of the theme; the guard reads `src/pages` and `src/features`, so a page an overlay keeps elsewhere is not read: the rule is the same |
+
+An overlay that meets a case one of these cannot fit asks for the seam to grow, as for any other
+change of the contract; it does not edit the core's test.
 
 A name that moves fails the core's typecheck or that suite before it breaks an overlay, and the
 unused-code report (`bun run unused`) counts the names as used. An overlay that starts building
