@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { overlayRules } from '../support/overlayRules';
 
 const ROOT = join(import.meta.dir, '../../convex');
 
@@ -50,6 +51,11 @@ const PAST_THE_RULES: Record<string, string> = {
     'the cap of dynamic lists is the deployment’s: it counts the lists the caller cannot see, and returns two numbers',
 };
 
+const CORE_QUERIES_RUN = [
+  'features/leadLists/mutations.ts -> internal.features.leadLists.internal.dynamicListLimits',
+  'features/leadLists/queries.ts -> internal.features.leadLists.internal.dynamicListLimits',
+];
+
 describe('the row-level rules', () => {
   test('a query or a mutation reads through its own database; what it runs past the rules is listed, with the reason', () => {
     const run = filesOf(ROOT)
@@ -60,11 +66,15 @@ describe('the row-level rules', () => {
           (m) => `${file} -> ${m[1]}`,
         ),
       );
-    expect(run.sort()).toEqual([
-      'features/leadLists/mutations.ts -> internal.features.leadLists.internal.dynamicListLimits',
-      'features/leadLists/queries.ts -> internal.features.leadLists.internal.dynamicListLimits',
-    ]);
-    for (const line of run) expect(PAST_THE_RULES).toHaveProperty([line.split(' -> ')[1]]);
+    // An overlay lists its own, with its reasons, in the file it replaces; a reason that excuses nothing is removed.
+    const ofOverlay = Object.keys(overlayRules.queriesRun);
+    expect(ofOverlay.filter((line) => !run.includes(line))).toEqual([]);
+    // The core's own are listed here and nowhere else: an overlay cannot take one of them over, and each of its entries says why.
+    expect(ofOverlay.filter((line) => CORE_QUERIES_RUN.includes(line))).toEqual([]);
+    expect(Object.values(overlayRules.queriesRun).filter((reason) => !reason.trim())).toEqual([]);
+    const ofCore = run.filter((line) => !ofOverlay.includes(line));
+    expect(ofCore.sort()).toEqual(CORE_QUERIES_RUN);
+    for (const line of ofCore) expect(PAST_THE_RULES).toHaveProperty([line.split(' -> ')[1]]);
   });
 
   test('what the wrappers hand to a function is listed by name: the session, the visibility, and `db`, the scoped one', () => {

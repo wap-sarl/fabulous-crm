@@ -34,7 +34,7 @@ import {
 } from '../../src/widgets';
 import { DecorativeSquares, LargeErrorCode } from '../../src/widgets/pages/ErrorPageShared';
 
-// What an overlay builds on besides the three files it replaces (docs/extensions.md): a name that moves breaks it, so it breaks here first.
+// What an overlay builds on besides the files it replaces (docs/extensions.md): a name that moves breaks it, so it breaks here first.
 
 /** The types an overlay names. */
 export type FrontendTypes = [StatusTone, FrontendExtensions, LoginMethods, Refusal];

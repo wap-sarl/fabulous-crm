@@ -11,6 +11,7 @@ import {
   type QueryCtx,
 } from '../../convex/_generated/server';
 import { employeeQuery, settingsMutation, settingsQuery } from '../../convex/_lib/auth';
+import { refusal } from '../../convex/_lib/refusal';
 import { ADMIN_ROLE_KEY } from '../../convex/_lib/validators/roles';
 import { createAuth } from '../../convex/auth';
 import {
@@ -37,9 +38,9 @@ import { leadsByLifecycle } from '../../convex/lib/leads/aggregates';
 import { loadLifecycleConfig } from '../../convex/lib/leads/lifecycle';
 import { checkRateLimit, clientIpOf, consumeRateLimit } from '../../convex/lib/security/rateLimits';
 import { ensureDefaultRoles } from '../../convex/lib/roles/access';
-import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
+import { asIdentity, createTestConvex, runDue, seedEmployee, seedLead, type T } from './helpers';
 
-// What an overlay builds on besides the three files it replaces (docs/extensions.md): a name that moves breaks it, so it breaks here first.
+// What an overlay builds on besides the files it replaces (docs/extensions.md): a name that moves breaks it, so it breaks here first.
 
 /** The types an overlay names. */
 export type BackendTypes = [
@@ -61,6 +62,7 @@ const VALUES = {
   employeeQuery,
   settingsMutation,
   settingsQuery,
+  refusal,
   ADMIN_ROLE_KEY,
   createAuth,
   toPublicActivity,
@@ -83,6 +85,7 @@ const VALUES = {
   ensureDefaultRoles,
   asIdentity,
   createTestConvex,
+  runDue,
   seedEmployee,
   seedLead,
 };
