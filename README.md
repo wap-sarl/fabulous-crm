@@ -325,7 +325,6 @@ convex/              Backend Convex
   extensions.ts      Points d'accroche (voir Extensions)
   _lib/              Le socle : constructeurs de fonctions (auth, triggers) et validators du schéma
   features/<nom>/    Une fonctionnalité : queries, mutations, actions, internal
-  features/crm/      Les chemins d'avant le découpage en leads, leadLists, campaigns et consent, gardés une version
   lib/<domaine>/     Le code partagé d'un domaine (leads, email, security, extensions…), sans fonction Convex
   seed/, setup/      Premier employé, assistant de configuration initiale
 src/
