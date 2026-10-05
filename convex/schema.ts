@@ -364,7 +364,7 @@ const tables = {
   ]),
 
   // Named lead groupings (typically CSV imports). Few rows, read in full.
-  leadLists: defineTable(leadListValidator),
+  leadLists: defineTable(leadListValidator).index('by_kind', ['kind']),
 
   // Lead ↔ list junction: `by_list_lead` serves both the membership checks and, as a prefix on listId, the scans of a list.
   leadListMembers: defineTable(leadListMemberValidator)
@@ -443,7 +443,8 @@ const tables = {
 
   // Append-only lifecycle transitions: `by_lead` serves the lead page timeline, in _creationTime order.
   lifecycleStageHistory: defineTable(lifecycleStageHistoryValidator).index('by_lead', ['leadId']),
-  workflows: defineTable(workflowValidator),
+  // `by_status` serves the dispatch of every lead event: only the workflows that run are read.
+  workflows: defineTable(workflowValidator).index('by_status', ['status']),
 
   // One row per enrollment: `by_workflow_lead` serves the re-enrollment, active-run and daily-cap checks, `by_workflow_status` the resume on activation and the active counts.
   workflowRuns: defineTable(workflowRunValidator)

@@ -10,10 +10,13 @@ import type { LeadChange } from '../leads/change';
 /** A dynamic list always carries criteria (enforced at creation/update). */
 export type DynamicList = Doc<'leadLists'> & { criteria: LeadAdvancedFilter };
 
-/** All dynamic lists. Tiny table (capped by maxDynamicLists) — read in full. */
+/** All dynamic lists, at most `maxDynamicLists` of them; read by index, as the lists kept from imports are many and every lead write comes here. */
 export async function loadDynamicLists(ctx: MutationCtx): Promise<DynamicList[]> {
-  const lists = await ctx.db.query('leadLists').collect();
-  return lists.filter((l): l is DynamicList => l.kind === 'dynamic' && l.criteria !== undefined);
+  const lists = await ctx.db
+    .query('leadLists')
+    .withIndex('by_kind', (q) => q.eq('kind', 'dynamic'))
+    .collect();
+  return lists.filter((l): l is DynamicList => l.criteria !== undefined);
 }
 
 /** Whether a lead belongs in a dynamic list right now. Deleted leads never do. */

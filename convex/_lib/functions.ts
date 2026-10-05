@@ -5,16 +5,20 @@ import {
   internalMutation as rawInternalMutation,
   mutation as rawMutation,
 } from '../_generated/server';
-import { activitiesByOwner, activitiesByTeam } from '../lib/activities/aggregates';
-import { companiesByOwner, companiesTotal, leadsByCompany } from '../lib/companies/aggregates';
+import { activitiesByOwnerTrigger, activitiesByTeamTrigger } from '../lib/activities/aggregates';
+import {
+  companiesByOwnerTrigger,
+  companiesTotalTrigger,
+  leadsByCompanyTrigger,
+} from '../lib/companies/aggregates';
 import { companySearchText } from '../lib/companies/search';
 import {
-  dealsByOwnerStage,
-  dealsByOwnerStatus,
-  dealsByPipelineStatus,
-  dealsByStage,
+  dealsByOwnerStageTrigger,
+  dealsByOwnerStatusTrigger,
+  dealsByPipelineStatusTrigger,
+  dealsByStageTrigger,
 } from '../lib/deals/aggregates';
-import { leadsByLifecycle, leadsByOwner } from '../lib/leads/aggregates';
+import { leadsByLifecycleTrigger, leadsByOwnerTrigger } from '../lib/leads/aggregates';
 import type { LeadDedupe } from './validators/duplicates';
 import { dedupeKeys } from '../lib/duplicates/detection';
 import { syncLeadDynamicLists } from '../lib/leadLists/dynamic';
@@ -30,18 +34,18 @@ const sameDedupe = (a: LeadDedupe | undefined, b: LeadDedupe): boolean =>
   a.phone === b.phone &&
   a.block === b.block &&
   a.postal === b.postal;
-// idempotentTrigger, not trigger: a patch must not throw on a row the aggregate never saw (inserted outside the wrapper, e.g. test seeds).
-triggers.register('leads', leadsByOwner.idempotentTrigger());
-triggers.register('leads', leadsByLifecycle.idempotentTrigger());
-triggers.register('leads', leadsByCompany.idempotentTrigger());
-triggers.register('companies', companiesTotal.idempotentTrigger());
-triggers.register('deals', dealsByStage.idempotentTrigger());
-triggers.register('deals', dealsByPipelineStatus.idempotentTrigger());
-triggers.register('activities', activitiesByOwner.idempotentTrigger());
-triggers.register('activities', activitiesByTeam.idempotentTrigger());
-triggers.register('companies', companiesByOwner.idempotentTrigger());
-triggers.register('deals', dealsByOwnerStage.idempotentTrigger());
-triggers.register('deals', dealsByOwnerStatus.idempotentTrigger());
+// Each is an idempotentTrigger, not a trigger: a patch must not throw on a row the aggregate never saw (inserted outside the wrapper, e.g. test seeds).
+triggers.register('leads', leadsByOwnerTrigger);
+triggers.register('leads', leadsByLifecycleTrigger);
+triggers.register('leads', leadsByCompanyTrigger);
+triggers.register('companies', companiesTotalTrigger);
+triggers.register('deals', dealsByStageTrigger);
+triggers.register('deals', dealsByPipelineStatusTrigger);
+triggers.register('activities', activitiesByOwnerTrigger);
+triggers.register('activities', activitiesByTeamTrigger);
+triggers.register('companies', companiesByOwnerTrigger);
+triggers.register('deals', dealsByOwnerStageTrigger);
+triggers.register('deals', dealsByOwnerStatusTrigger);
 triggers.register('leads', async (ctx, change) => {
   if (change.operation === 'delete') return;
   const company = change.newDoc.companyId ? await ctx.db.get(change.newDoc.companyId) : null;
