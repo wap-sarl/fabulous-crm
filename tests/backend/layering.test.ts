@@ -41,9 +41,27 @@ describe('the layers of the backend', () => {
   });
 });
 
-/** The files whose functions have no database of their own (actions, HTTP routes, the sign-in hooks): running a query is how they read. */
-const WITHOUT_DATABASE =
-  /(^|\/)(actions|routes)\.ts$|^auth\.ts$|^_lib\/auth\.ts$|^lib\/api\/routeTable\.ts$/;
+/** The files whose helpers are only called without a database of their own (HTTP routes, the sign-in hooks): running a query is how they read. */
+const WITHOUT_DATABASE = /(^|\/)routes\.ts$|^auth\.ts$|^_lib\/auth\.ts$|^lib\/api\/routeTable\.ts$/;
+
+/** The queries a file runs from anything but an action: a call is the action's when the declaration it sits in is one (`export const send = internalAction({`). */
+function queriesRunOutsideActions(source: string): string[] {
+  const lines = source.split('\n');
+  return lines.flatMap((line, at) => {
+    const reference = /\brunQuery\(\s*([\w.]+)/.exec(line)?.[1];
+    // A call broken over two lines names its query on the next one.
+    const named =
+      reference ??
+      (/\brunQuery\(\s*$/.test(line) ? lines[at + 1]?.trim().replace(/,$/, '') : undefined);
+    if (!named) return [];
+    const declaration = lines
+      .slice(0, at + 1)
+      .reverse()
+      .find((above) => /^(export )?(const|function|async function) /.test(above));
+    const builder = /^(?:export )?const \w+ = (\w+)\(/.exec(declaration ?? '')?.[1];
+    return builder && /action$/i.test(builder) ? [] : [named];
+  });
+}
 
 /** The internal queries a query or a mutation may run, each with the reason it reads past the caller's row-level rules. */
 const PAST_THE_RULES: Record<string, string> = {
@@ -57,13 +75,47 @@ const CORE_QUERIES_RUN = [
 ];
 
 describe('the row-level rules', () => {
+  test('a query run from an action is the action’s; from a query, a mutation or a helper it is counted', () => {
+    const source = [
+      'export const send = internalAction({',
+      '  handler: async (ctx) => {',
+      '    await ctx.runQuery(internal.a.fromAnAction, {});',
+      '  },',
+      '});',
+      'export const list = employeeQuery({',
+      '  handler: (ctx) => ctx.runQuery(internal.a.fromAQuery, {}),',
+      '});',
+      'export const save = internalMutation({',
+      '  handler: async (ctx) => {',
+      '    await ctx.runQuery(',
+      '      fromAMutationRef,',
+      '      {},',
+      '    );',
+      '  },',
+      '});',
+      'async function helper(ctx: Ctx) {',
+      '  return await ctx.runQuery(internal.a.fromAHelper, {});',
+      '}',
+      'export const hooks = {',
+      '  check: (ctx: Ctx) => ctx.runQuery(fromAHookRef, {}),',
+      '};',
+      'export const page = httpAction(async (ctx) => ctx.runQuery(internal.a.fromAnHttpAction, {}));',
+    ].join('\n');
+    expect(queriesRunOutsideActions(source)).toEqual([
+      'internal.a.fromAQuery',
+      'fromAMutationRef',
+      'internal.a.fromAHelper',
+      'fromAHookRef',
+    ]);
+  });
+
   test('a query or a mutation reads through its own database; what it runs past the rules is listed, with the reason', () => {
     const run = filesOf(ROOT)
       .map((file) => file.slice(ROOT.length + 1))
       .filter((file) => !file.startsWith('_generated/') && !WITHOUT_DATABASE.test(file))
       .flatMap((file) =>
-        [...readFileSync(join(ROOT, file), 'utf8').matchAll(/\brunQuery\(\s*([\w.]+)/g)].map(
-          (m) => `${file} -> ${m[1]}`,
+        queriesRunOutsideActions(readFileSync(join(ROOT, file), 'utf8')).map(
+          (reference) => `${file} -> ${reference}`,
         ),
       );
     // An overlay lists its own, with its reasons, in the file it replaces; a reason that excuses nothing is removed.

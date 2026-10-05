@@ -15,8 +15,9 @@ describe('import error labels', () => {
     expect(describeJobError(JSON.stringify({ code: 'unknown_stage' }))).toBe(
       'Étape inconnue dans ce pipeline',
     );
-    expect(describeJobError(JSON.stringify({ code: 'quota_exceeded', limit: 8 }))).toBe(
-      'quota_exceeded',
+    // A code neither the importer nor an overlay words.
+    expect(describeJobError(JSON.stringify({ code: 'not_a_known_code', limit: 8 }))).toBe(
+      'not_a_known_code',
     );
     expect(describeJobError('boom')).toBe('boom');
   });
