@@ -40,7 +40,8 @@ export function ImportPage() {
   const customDefs = usePropertyDefinitions(spec.propertyEntity);
   const mappings = useAuthQuery(api.features.imports.queries.listMappings, { entity }) ?? [];
   const jobs = useAuthQuery(api.features.imports.queries.listJobs, {}) ?? [];
-  const allLists = useLeadLists();
+  // Only contacts go to a list.
+  const allLists = useLeadLists(entity === 'lead');
   const lists = allLists.filter((l) => l.kind !== 'dynamic');
 
   const [fileName, setFileName] = useState<string | null>(null);

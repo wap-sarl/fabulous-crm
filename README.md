@@ -404,6 +404,21 @@ Les règles que le code suit, chacune gardée par un test :
   la déplace (propriétaire, statut, entreprise, stade, montant, suppression).
 - **Chaque page se charge à la demande** (`src/app.tsx`) ; le build échoue si
   un fichier dépasse 500 kB (`vite.config.mts`).
+- **Une page n'ouvre que les requêtes vivantes qu'elle montre** : une
+  boîte de dialogue fermée n'en ouvre pas (`useEmployees(open)`), et les
+  options d'un champ sont chargées par son contrôle, quand il s'affiche
+  (`LeadListMultiSelect`, `CompanyMultiPicker`).
+- **Une ligne de grande liste est mémoïsée** (`memo`) et ne reçoit que des
+  props stables (`useCallback`, `useMemo`) : une case cochée, une boîte de
+  dialogue ouverte ou un compteur qui bouge ne re-rend pas la liste. Une
+  requête vivante rend de nouveaux objets à chaque mise à jour : là où les
+  mises à jour sont fréquentes (page d'une campagne), la ligne compare ce
+  que l'objet contient (`src/lib/sameRow.ts`). La valeur d'un contexte est
+  mémoïsée, et ce qui change souvent a son propre contexte (la sélection du
+  canevas des workflows).
+- **Une liste modifiable n'est pas indexée par position** : une règle de
+  filtre garde sa clé à travers ses modifications
+  (`src/features/filters/lib/rowKeys.ts`).
 - **Une page ou une fonctionnalité peint avec les jetons du thème**
   (`src/design-system/theme.css`), jamais avec une couleur écrite à la main
   (`tests/frontend/colourTokens.test.ts`).

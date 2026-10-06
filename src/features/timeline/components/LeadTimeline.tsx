@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useAuthPaginatedQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
@@ -11,8 +11,8 @@ import { TimelineEventItem } from './TimelineEventItem';
 const PAGE_SIZE = 25;
 const SKELETON_ROWS = ['s1', 's2', 's3', 's4', 's5'];
 
-/** « Historique » card of the lead page: every source merged, newest first. */
-export function LeadTimeline({ leadId }: { leadId: Id<'leads'> }) {
+/** « Historique » card of the lead page: every source merged, newest first. Memoised on the lead: a dialog of the page that opens does not re-render it. */
+export const LeadTimeline = memo(function LeadTimeline({ leadId }: { leadId: Id<'leads'> }) {
   const [filter, setFilter] = useState('all');
   const kinds = TIMELINE_FILTERS.find((f) => f.value === filter)?.kinds ?? [];
   const lifecycle = useLifecycleConfig();
@@ -77,4 +77,4 @@ export function LeadTimeline({ leadId }: { leadId: Id<'leads'> }) {
       ) : null}
     </Card>
   );
-}
+});

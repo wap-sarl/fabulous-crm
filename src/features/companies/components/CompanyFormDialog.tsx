@@ -62,7 +62,7 @@ export function CompanyFormDialog({
   const isEdit = !!company;
   const { createCompany, updateCompany } = useCompanyActions();
   const definitions = usePropertyDefinitions('company');
-  const { employees } = useEmployees();
+  const { employees, isLoading: employeesLoading } = useEmployees(open);
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
@@ -349,7 +349,10 @@ export function CompanyFormDialog({
             items={employees.map((e) => ({ value: e._id, label: `${e.firstName} ${e.lastName}` }))}
             value={form.ownerIds}
             onValueChange={(v) => setField('ownerIds', v)}
-            placeholder="Aucun"
+            // The list arrives once the form is open: until then the field says so, not « Aucun » over owners it cannot name yet.
+            placeholder={employeesLoading ? 'Chargement…' : 'Aucun'}
+            isLoading={employeesLoading}
+            disabled={employeesLoading}
             modal
             className="w-full"
           />

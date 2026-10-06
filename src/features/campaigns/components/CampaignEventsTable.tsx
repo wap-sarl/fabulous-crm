@@ -1,10 +1,10 @@
+import { memo } from 'react';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
 import { useAuthPaginatedQuery } from '@crm/widgets';
 import {
   Button,
   Spinner,
-  StatusBadge,
   Table,
   TableBody,
   TableCell,
@@ -12,13 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from '@crm/design-system';
-import { EVENT_TYPE_LABEL, EVENT_TYPE_TONE } from '../../../lib/constants';
-import { dateTimeFormat } from '@crm/lib/format';
+import { CampaignEventRow } from './CampaignEventRow';
 
 const PAGE_SIZE = 30;
 
-/** The log of a campaign's delivery and engagement events, newest first, each with who it reached; a row opens the recipient's preview, as in the recipients table. */
-export function CampaignEventsTable({
+/** The log of a campaign's delivery and engagement events, newest first, each with who it reached; a row opens the recipient's preview, as in the recipients table. Memoised: the counters that move and the preview that opens leave its rows alone. */
+export const CampaignEventsTable = memo(function CampaignEventsTable({
   campaignId,
   onSelectSend,
 }: {
@@ -56,31 +55,9 @@ export function CampaignEventsTable({
               </TableCell>
             </TableRow>
           ) : (
-            results.map((event) => {
-              const { recipient } = event;
-              return (
-                <TableRow
-                  key={event._id}
-                  className="cursor-pointer"
-                  onClick={() => onSelectSend(event.sendId)}
-                >
-                  <TableCell className="whitespace-nowrap pl-4 font-mono text-[12.5px] text-soft">
-                    {dateTimeFormat.format(event.eventAt)}
-                  </TableCell>
-                  <TableCell className="text-[13px] font-medium text-ink">
-                    {recipient.name || recipient.contact || '—'}
-                  </TableCell>
-                  <TableCell>
-                    <StatusBadge tone={EVENT_TYPE_TONE[event.type]}>
-                      {EVENT_TYPE_LABEL[event.type]}
-                    </StatusBadge>
-                  </TableCell>
-                  <TableCell className="max-w-[280px] truncate pr-4 text-xs text-faint">
-                    {event.linkLabel ?? event.url ?? event.reason ?? ''}
-                  </TableCell>
-                </TableRow>
-              );
-            })
+            results.map((event) => (
+              <CampaignEventRow key={event._id} event={event} onSelectSend={onSelectSend} />
+            ))
           )}
         </TableBody>
       </Table>
@@ -93,4 +70,4 @@ export function CampaignEventsTable({
       )}
     </div>
   );
-}
+});

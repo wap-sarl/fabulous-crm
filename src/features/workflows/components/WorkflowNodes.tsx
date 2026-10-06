@@ -5,7 +5,7 @@ import { countActiveRules } from '../../filters/lib/advancedFilter';
 import { nodeSummary, STEP_TYPE_META, triggerLabel } from '../lib/constants';
 import { NODE_W, NODE_H, ADD_SIZE } from '../lib/layout';
 import type { AddNodeData, StepNodeData, TriggerNodeData } from '../lib/layout';
-import { useCanvasHandlers } from './canvasContext';
+import { useCanvasHandlers, useCanvasSelection } from './canvasContext';
 
 /** Invisible connection points — edges are engine-drawn, never user-made. */
 function HiddenHandles() {
@@ -30,7 +30,7 @@ const cardClass = (selected: boolean, invalid: boolean) =>
 
 export function TriggerNode({ data }: NodeProps) {
   const { trigger, criteriaCount } = data as unknown as TriggerNodeData;
-  const { selectedId } = useCanvasHandlers();
+  const selectedId = useCanvasSelection();
   return (
     <div
       style={{ width: NODE_W, height: NODE_H }}
@@ -60,12 +60,13 @@ export function TriggerNode({ data }: NodeProps) {
 export function StepNode({ data }: NodeProps) {
   const { node, invalid } = data as unknown as StepNodeData;
   const handlers = useCanvasHandlers();
+  const selectedId = useCanvasSelection();
   const meta = STEP_TYPE_META.get(node.type);
   const Icon = meta?.icon;
   return (
     <div
       style={{ width: NODE_W, height: NODE_H }}
-      className={cn(cardClass(handlers.selectedId === node.id, invalid), 'group')}
+      className={cn(cardClass(selectedId === node.id, invalid), 'group')}
       data-testid="workflow-step-node"
     >
       <div className="flex items-center justify-between gap-2">

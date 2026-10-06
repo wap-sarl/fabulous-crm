@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
@@ -21,7 +22,11 @@ interface LeadLifecycleCardProps {
   currentStage: string | undefined;
 }
 
-export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardProps) {
+// Memoised on the lead and its stage: a dialog of the page that opens does not re-render it.
+export const LeadLifecycleCard = memo(function LeadLifecycleCard({
+  leadId,
+  currentStage,
+}: LeadLifecycleCardProps) {
   const lifecycle = useLifecycleConfig();
   const history = useAuthQuery(api.features.leads.queries.listLifecycleHistory, { leadId });
   const currentIndex = lifecycle.indexOf(currentStage);
@@ -92,4 +97,4 @@ export function LeadLifecycleCard({ leadId, currentStage }: LeadLifecycleCardPro
       )}
     </Card>
   );
-}
+});

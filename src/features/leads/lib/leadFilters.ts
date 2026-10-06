@@ -23,16 +23,10 @@ export const LEAD_FILTER_FIELDS: StandardFieldSpec<LeadStandardField>[] = [
   { field: 'companyId', label: 'Entreprise', type: 'company' },
 ];
 
-/** Live options the full catalog needs: the lead lists. */
-export interface LeadCatalogOptions {
-  lists?: { _id: string; name: string }[];
-}
-
 const BEHAVIOUR = 'Comportement';
 
 /** Every lead column the advanced filter offers, behavioural signals included. */
-function leadFilterFields(opts: LeadCatalogOptions = {}): StandardFieldSpec<LeadStandardField>[] {
-  const lists = (opts.lists ?? []).map((l) => ({ value: l._id, label: l.name }));
+function leadFilterFields(): StandardFieldSpec<LeadStandardField>[] {
   return [
     ...LEAD_FILTER_FIELDS,
     { field: 'createdAt', label: 'Date de création', type: 'timestamp' },
@@ -62,7 +56,8 @@ function leadFilterFields(opts: LeadCatalogOptions = {}): StandardFieldSpec<Lead
     { field: 'lastPageViewAt', label: 'A visité une page', type: 'timestamp', group: BEHAVIOUR },
     { field: 'pageViewCount', label: 'Pages vues (nombre)', type: 'number', group: BEHAVIOUR },
     { field: 'visitedPages', label: 'Pages visitées (chemin)', type: 'pages', group: BEHAVIOUR },
-    { field: 'listIds', label: 'Listes', type: 'list', options: lists, group: BEHAVIOUR },
+    // Its value control loads the lists itself, when a rule on them is shown.
+    { field: 'listIds', label: 'Listes', type: 'list', group: BEHAVIOUR },
   ];
 }
 
@@ -73,9 +68,8 @@ export const LEAD_FIELD_LABEL: Record<LeadStandardField, string> = Object.fromEn
 /** The lead catalog for the builder: built-in columns + the lead definitions. */
 export function leadFieldCatalog(
   definitions: PropertyDefinitionRow[],
-  opts: LeadCatalogOptions = {},
 ): FieldCatalog<LeadStandardField> {
-  return { standard: leadFilterFields(opts), definitions };
+  return { standard: leadFilterFields(), definitions };
 }
 
 /** The `marketingConsent` value auto-seeded for a given campaign channel. */

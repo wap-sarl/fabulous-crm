@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import type { FilterCombinator, FilterGroup, FilterRule } from '@crm/lib/backend';
 import type { FieldCatalog } from '../lib/advancedFilter';
 import { COMBINATOR_ITEMS } from '../lib/combinatorItems';
+import { keyOf } from '../lib/rowKeys';
 import { RuleRow } from './RuleRow';
 
 interface GroupBlockProps<F extends string> {
@@ -52,8 +53,7 @@ export function GroupBlock<F extends string>({
 
       {group.rules.map((rule, ri) => (
         <RuleRow
-          // biome-ignore lint/suspicious/noArrayIndexKey: a rule has no identity but its place, and its row holds no state of its own
-          key={ri}
+          key={keyOf(rule)}
           rule={rule}
           catalog={catalog}
           canRemove={group.rules.length > 1}

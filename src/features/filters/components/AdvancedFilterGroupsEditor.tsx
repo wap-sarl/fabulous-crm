@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react';
 import type { AdvancedFilter, FilterGroup, FilterRule } from '@crm/lib/backend';
 import { emptyGroup, emptyRule, type FieldCatalog } from '../lib/advancedFilter';
 import { COMBINATOR_ITEMS } from '../lib/combinatorItems';
+import { inheritKey, keyOf } from '../lib/rowKeys';
 import { GroupBlock } from './GroupBlock';
 
 interface GroupsEditorProps<F extends string> {
@@ -18,9 +19,15 @@ export function AdvancedFilterGroupsEditor<F extends string>({
   catalog,
 }: GroupsEditorProps<F>) {
   const setGroup = (gi: number, updater: (g: FilterGroup<F>) => FilterGroup<F>) =>
-    onChange({ ...value, groups: value.groups.map((g, i) => (i === gi ? updater(g) : g)) });
+    onChange({
+      ...value,
+      groups: value.groups.map((g, i) => (i === gi ? inheritKey(g, updater(g)) : g)),
+    });
   const setRule = (gi: number, ri: number, next: FilterRule<F>) =>
-    setGroup(gi, (g) => ({ ...g, rules: g.rules.map((r, i) => (i === ri ? next : r)) }));
+    setGroup(gi, (g) => ({
+      ...g,
+      rules: g.rules.map((r, i) => (i === ri ? inheritKey(r, next) : r)),
+    }));
 
   const addRule = (gi: number) =>
     setGroup(gi, (g) => ({ ...g, rules: [...g.rules, emptyRule(catalog.standard)] }));
@@ -34,8 +41,7 @@ export function AdvancedFilterGroupsEditor<F extends string>({
   return (
     <>
       {value.groups.map((group, gi) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: a group has no identity but its place, and its rows hold no state of their own
-        <Fragment key={gi}>
+        <Fragment key={keyOf(group)}>
           {gi > 0 && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-faint">Entre les groupes</span>

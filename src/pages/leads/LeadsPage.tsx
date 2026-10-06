@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
@@ -44,13 +44,17 @@ export function LeadsPage() {
 
   const leads = results ?? [];
 
-  const toggleSelect = (id: Id<'leads'>) =>
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  // The handlers the rows receive keep their identity: a memoised row re-renders only when its own lead or tick changes.
+  const toggleSelect = useCallback(
+    (id: Id<'leads'>) =>
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id);
+        else next.add(id);
+        return next;
+      }),
+    [],
+  );
 
   const toggleSelectAll = () =>
     setSelectedIds((prev) => {
@@ -64,10 +68,11 @@ export function LeadsPage() {
     setFormOpen(true);
   };
 
-  const openEdit = (lead: LeadRow) => {
+  const openEdit = useCallback((lead: LeadRow) => {
     setEditingLead(lead);
     setFormOpen(true);
-  };
+  }, []);
+  const openLead = useCallback((lead: LeadRow) => navigate(`/leads/${lead._id}`), [navigate]);
 
   // What the confirmation dialog is about: one lead, or the whole selection.
   const [pendingDelete, setPendingDelete] = useState<LeadRow | 'selection' | null>(null);
@@ -90,7 +95,7 @@ export function LeadsPage() {
       setPendingDelete(null);
     }
   };
-  const handleDelete = (lead: LeadRow) => setPendingDelete(lead);
+  const handleDelete = useCallback((lead: LeadRow) => setPendingDelete(lead), []);
   const handleBulkDelete = () => {
     if (selectedIds.size > 0) setPendingDelete('selection');
   };
@@ -173,7 +178,7 @@ export function LeadsPage() {
           onSort={toggleSort}
           onEdit={openEdit}
           onDelete={handleDelete}
-          onOpen={(lead) => navigate(`/leads/${lead._id}`)}
+          onOpen={openLead}
         />
 
         {hasMore && (
