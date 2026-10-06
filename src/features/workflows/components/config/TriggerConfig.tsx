@@ -22,6 +22,7 @@ import type {
   WorkflowTrigger,
 } from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
+import { CampaignPicker } from '../../../campaigns/components/CampaignPicker';
 import { AdvancedFilterGroupsEditor } from '../../../filters/components/AdvancedFilterGroupsEditor';
 import { countActiveRules, emptyAdvancedFilter } from '../../../filters/lib/advancedFilter';
 import { LEAD_FILTER_FIELDS } from '../../../leads/lib/leadFilters';
@@ -57,7 +58,6 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
   const lists = useLeadLists();
   const leadCatalog = useLeadFieldCatalog(definitions);
   const { pipelines, byId: pipelineById } = usePipelines();
-  const campaigns = useAuthQuery(api.features.campaigns.queries.listCampaigns, {}) ?? [];
   const forms = useAuthQuery(api.features.forms.queries.listFormOptions, {}) ?? [];
   const { trigger } = value;
 
@@ -68,17 +68,13 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
 
   const setTrigger = (next: WorkflowTrigger) => onChange({ ...value, trigger: next });
 
-  const campaignItems = useMemo(() => {
-    const wanted =
-      trigger?.type === 'campaign_email_event'
-        ? 'email'
-        : trigger?.type === 'campaign_sms_event'
-          ? 'sms'
-          : null;
-    return campaigns
-      .filter((c) => wanted === null || (c.channel ?? 'email') === wanted)
-      .map((c) => ({ value: c._id as string, label: c.name }));
-  }, [campaigns, trigger?.type]);
+  // An e-mail event names an e-mail campaign, a text message event a text message one; a link click any.
+  const campaignChannel =
+    trigger?.type === 'campaign_email_event'
+      ? 'email'
+      : trigger?.type === 'campaign_sms_event'
+        ? 'sms'
+        : undefined;
 
   const fieldItems = useMemo(
     () => [
@@ -217,24 +213,14 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
         trigger?.type === 'tracked_link_click') && (
         <div className="space-y-1.5">
           <Label>Campagne concernée</Label>
-          <Select
-            value={(trigger.campaignId as string | undefined) ?? ANY}
-            onValueChange={(v) =>
-              setTrigger({ ...trigger, campaignId: v === ANY ? undefined : (v as never) })
+          <CampaignPicker
+            value={trigger.campaignId ?? ''}
+            onChange={(campaignId) =>
+              setTrigger({ ...trigger, campaignId: campaignId || undefined })
             }
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ANY}>Toutes les campagnes</SelectItem>
-              {campaignItems.map((c) => (
-                <SelectItem key={c.value} value={c.value}>
-                  {c.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            channel={campaignChannel}
+            placeholder="Toutes les campagnes"
+          />
         </div>
       )}
 

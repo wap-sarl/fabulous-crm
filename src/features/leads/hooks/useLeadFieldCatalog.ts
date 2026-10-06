@@ -1,15 +1,10 @@
 import { useMemo } from 'react';
-import { useCompanyOptions } from '../../companies/hooks/useCompanyOptions';
 import type { PropertyDefinitionRow } from '../../properties/types';
 import { leadFieldCatalog } from '../lib/leadFilters';
 import { useLeadLists } from './useLeadLists';
 
-/** The full lead filter catalog, with live company and list options loaded. */
+/** The full lead filter catalog, with the live list options loaded; companies are searched by their field as one types. */
 export function useLeadFieldCatalog(definitions: PropertyDefinitionRow[]) {
-  const companies = useCompanyOptions();
   const lists = useLeadLists();
-  return useMemo(
-    () => leadFieldCatalog(definitions, { companies, lists }),
-    [definitions, companies, lists],
-  );
+  return useMemo(() => leadFieldCatalog(definitions, { lists }), [definitions, lists]);
 }

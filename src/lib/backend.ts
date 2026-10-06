@@ -9,6 +9,7 @@ export type {
   CampaignSendStatus,
   CampaignTrackedLink,
   CampaignEventType,
+  CampaignStats,
   TrackedLinkStandardField,
 } from '../../convex/_lib/validators/crm';
 export type {

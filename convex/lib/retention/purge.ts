@@ -135,12 +135,14 @@ export async function purgePage(
         .take(limit),
     );
   }
-  // The tracked links of a closed campaign redirect until the campaign's retention is over; campaigns are few.
+  // The tracked links of a closed campaign redirect until the campaign's retention is over; a campaign whose links are gone is marked and leaves the range, so each page walks only what is left to do.
   for (const status of ['sent', 'failed'] as const) {
     const closed = await ctx.db
       .query('campaigns')
-      .withIndex('by_status_updatedAt', (q) => q.eq('status', status).lt('updatedAt', eventCutoff))
-      .collect();
+      .withIndex('by_status_linksPurgedAt_updatedAt', (q) =>
+        q.eq('status', status).eq('linksPurgedAt', undefined).lt('updatedAt', eventCutoff),
+      )
+      .take(PURGE_ENTITY_PAGE);
     for (const campaign of closed) {
       if (state.budget <= 0) {
         state.moreLeft = true;
@@ -152,7 +154,11 @@ export async function purgePage(
           .withIndex('by_campaign', (q) => q.eq('campaignId', campaign._id))
           .take(limit),
       );
+      if (state.moreLeft) break;
+      await ctx.db.patch(campaign._id, { linksPurgedAt: at });
+      state.budget -= 1;
     }
+    if (closed.length >= PURGE_ENTITY_PAGE) state.moreLeft = true;
   }
   // An invitation without an expiry sorts below any number in the index and stays.
   await purgeAged(ctx, state, 'invitations', (limit) =>

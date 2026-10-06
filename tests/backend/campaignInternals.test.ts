@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { WorkflowTrigger } from '../../convex/_lib/validators/workflows';
@@ -206,10 +206,10 @@ describe('campaign sends: the drain', () => {
     await w.t.mutation(fn.markCampaignComplete, { campaignId: none });
   });
 
-  test('failing what is pending leaves the rest alone and counts once', async () => {
+  test('failing what is pending leaves the rest alone, counts once, and completes the campaign', async () => {
     const w = await setup();
     const leadId = await createLead(w);
-    const campaignId = await insertCampaign(w, { failedCount: 1 });
+    const campaignId = await insertCampaign(w, { sentCount: 1, failedCount: 1 });
     const pending = [
       await insertSend(w, campaignId, leadId),
       await insertSend(w, campaignId, leadId),
@@ -218,16 +218,214 @@ describe('campaign sends: the drain', () => {
 
     expect(await w.t.mutation(fn.failPendingSends, { campaignId, error: 'no_provider' })).toEqual({
       failed: 2,
+      isDone: true,
     });
     for (const id of pending) {
       expect(await get(w, id)).toMatchObject({ status: 'failed', error: 'no_provider' });
     }
     expect((await get(w, sent)).status).toBe('sent');
-    expect((await get(w, campaignId)).failedCount).toBe(3);
+    expect(await get(w, campaignId)).toMatchObject({ failedCount: 3, status: 'sent' });
     expect(await w.t.mutation(fn.failPendingSends, { campaignId, error: 'again' })).toEqual({
       failed: 0,
+      isDone: true,
     });
     expect((await get(w, campaignId)).failedCount).toBe(3);
+    expect(await jobsNamed(w, 'failPendingSends')).toEqual([]);
+  });
+
+  test('more pending sends than a batch takes are failed by the next batch, scheduled with the same words', async () => {
+    const w = await setup();
+    const leadId = await createLead(w);
+    const campaignId = await insertCampaign(w);
+    for (let i = 0; i < 3; i++) await insertSend(w, campaignId, leadId);
+    const args = { campaignId, error: 'no_provider', batchSize: 2 };
+
+    expect(await w.t.mutation(fn.failPendingSends, args)).toEqual({ failed: 2, isDone: false });
+    expect(await jobsNamed(w, 'failPendingSends')).toEqual([args]);
+    expect(await get(w, campaignId)).toMatchObject({ failedCount: 2, status: 'sending' });
+
+    expect(await w.t.mutation(fn.failPendingSends, args)).toEqual({ failed: 1, isDone: true });
+    expect(await jobsNamed(w, 'failPendingSends')).toHaveLength(1);
+    // Nothing left, and the campaign ends failed: nothing had left.
+    expect(await get(w, campaignId)).toMatchObject({ failedCount: 3, status: 'failed' });
+  });
+});
+
+describe('campaign sends: the resend of all', () => {
+  const link = {
+    key: 'oui',
+    label: 'Oui',
+    target: { kind: 'standard' as const, field: 'comment' as const },
+    value: 'intéressé',
+    redirectUrl: 'https://example.com/merci',
+  };
+  const saved: Record<string, string | undefined> = {};
+  beforeEach(() => {
+    // A Brevo key makes the e-mail provider configured, and tracked links need their base: a resend checks both.
+    for (const [name, value] of [
+      ['BREVO_API_KEY', 'test-brevo-key'],
+      ['CONVEX_SITE_URL', 'https://site.example'],
+    ]) {
+      saved[name] = process.env[name];
+      process.env[name] = value;
+    }
+  });
+  afterEach(() => {
+    for (const [name, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+  });
+
+  /** A sent campaign of four: one delivered and opened, one failed, one skipped who has an address since, one skipped who still has none. */
+  async function sentCampaign(w: World) {
+    const opened = await createLead(w);
+    const missed = await createLead(w);
+    const reachable = await createLead(w);
+    const unreachable = await createLead(w, { email: undefined });
+    const campaignId = await insertCampaign(w, {
+      status: 'sent',
+      trackedLinks: [link],
+      totalCount: 4,
+      sentCount: 1,
+      failedCount: 3,
+      failureReason: 'quota_exceeded',
+      linksPurgedAt: NOW - 1,
+    });
+    const sends = {
+      opened: await insertSend(w, campaignId, opened, {
+        status: 'sent',
+        email: 'a@example.com',
+        brevoMessageId: 'm-1',
+        sentAt: NOW - 1,
+        openedAt: NOW,
+      }),
+      missed: await insertSend(w, campaignId, missed, {
+        status: 'failed',
+        email: 'b@example.com',
+        error: 'refused',
+        sentAt: NOW - 1,
+      }),
+      reachable: await insertSend(w, campaignId, reachable, { status: 'skipped_no_email' }),
+      unreachable: await insertSend(w, campaignId, unreachable, { status: 'skipped_no_email' }),
+    };
+    return { campaignId, sends };
+  }
+  const resendAll = (w: World, campaignId: Id<'campaigns'>) =>
+    w.as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, { campaignId });
+
+  test('the sends are re-queued page by page, the drain follows the last page, and the campaign reads preparing meanwhile', async () => {
+    const w = await setup();
+    const { campaignId, sends } = await sentCampaign(w);
+
+    expect(await resendAll(w, campaignId)).toBeNull();
+    expect(await get(w, campaignId)).toMatchObject({
+      status: 'preparing',
+      sentCount: 0,
+      failedCount: 0,
+      totalCount: 4,
+    });
+    expect((await get(w, campaignId)).failureReason).toBeUndefined();
+    // Links come back with the sends: the purge will see the campaign again.
+    expect((await get(w, campaignId)).linksPurgedAt).toBeUndefined();
+    expect(await jobsNamed(w, 'resendCampaignBatch')).toEqual([{ campaignId }]);
+    // Nothing is re-queued by the mutation itself.
+    expect((await get(w, sends.opened)).status).toBe('sent');
+
+    const first = await w.t.mutation(fn.resendCampaignBatch, { campaignId, batchSize: 3 });
+    expect(first.isDone).toBe(false);
+    expect(await jobsNamed(w, 'resendCampaignBatch')).toEqual([
+      { campaignId },
+      { campaignId, cursor: first.continueCursor, resent: 3, batchSize: 3 },
+    ]);
+    expect(await get(w, campaignId)).toMatchObject({ status: 'preparing', failedCount: 0 });
+    expect(await jobsNamed(w, 'actions:sendCampaignBatch')).toEqual([]);
+    // What the first send had earned is forgotten; the skipped one got an address, a contact and a token.
+    expect(await get(w, sends.opened)).toMatchObject({ status: 'pending', email: 'a@example.com' });
+    expect((await get(w, sends.opened)).openedAt).toBeUndefined();
+    expect((await get(w, sends.opened)).sentAt).toBeUndefined();
+    expect((await get(w, sends.missed)).error).toBeUndefined();
+    const reachable = await get(w, sends.reachable);
+    expect(reachable).toMatchObject({
+      status: 'pending',
+      email: `jean${leadNumber - 1}@example.com`,
+    });
+    expect(reachable.params.oui).toMatch(/^https:\/\/site\.example\/l\/[0-9a-f]{16}$/);
+    const tokens = await w.t.run((ctx) => ctx.db.query('campaignLinkTokens').collect());
+    expect(tokens.map((t) => t.sendId)).toEqual([sends.reachable]);
+
+    const last = await w.t.mutation(fn.resendCampaignBatch, {
+      campaignId,
+      cursor: first.continueCursor ?? undefined,
+      resent: 3,
+      batchSize: 3,
+    });
+    expect(last.isDone).toBe(true);
+    expect((await get(w, sends.unreachable)).status).toBe('skipped_no_email');
+    expect(await get(w, campaignId)).toMatchObject({
+      status: 'sending',
+      sentCount: 0,
+      failedCount: 1,
+      updatedAt: NOW,
+    });
+    expect(await jobsNamed(w, 'failPendingSends')).toEqual([]);
+    expect(await jobsNamed(w, 'actions:sendCampaignBatch')).toEqual([{ campaignId }]);
+    expect(await jobsNamed(w, 'resendCampaignBatch')).toHaveLength(2);
+    // The counters followed the three re-queued sends; the seeded one that stayed skipped never changed, so they never saw it.
+    expect((await get(w, campaignId)).stats).toMatchObject({
+      pending: 3,
+      opened: 0,
+      sentByHour: {},
+    });
+    const audits = await w.t.run((ctx) => ctx.db.query('auditLogs').collect());
+    expect(audits.at(-1)).toMatchObject({
+      entityType: 'campaign',
+      entityId: campaignId,
+      metadata: { event: 'resend_all', count: 4 },
+    });
+  });
+
+  test('a campaign with nobody to reach ends sent without a drain; one that is deleted, or being sent, stops the chain', async () => {
+    const w = await setup();
+    const nobody = await createLead(w, { email: undefined });
+    const campaignId = await insertCampaign(w, { status: 'failed', totalCount: 1, failedCount: 1 });
+    await insertSend(w, campaignId, nobody, { status: 'skipped_no_email' });
+    await resendAll(w, campaignId);
+    expect(await w.t.mutation(fn.resendCampaignBatch, { campaignId })).toEqual({
+      isDone: true,
+      continueCursor: expect.any(String),
+    });
+    expect(await get(w, campaignId)).toMatchObject({ status: 'sent', failedCount: 1 });
+    expect(await jobsNamed(w, 'actions:sendCampaignBatch')).toEqual([]);
+
+    const sending = await insertCampaign(w, { status: 'sending', totalCount: 1 });
+    expect(await w.t.mutation(fn.resendCampaignBatch, { campaignId: sending })).toEqual({
+      isDone: true,
+      continueCursor: null,
+    });
+    await w.t.run((ctx) => ctx.db.delete(sending));
+    expect(await w.t.mutation(fn.resendCampaignBatch, { campaignId: sending })).toEqual({
+      isDone: true,
+      continueCursor: null,
+    });
+  });
+
+  test('a resend is refused while one runs, and does nothing to a campaign without recipients', async () => {
+    const w = await setup();
+    const { campaignId, sends } = await sentCampaign(w);
+    await resendAll(w, campaignId);
+    await expect(resendAll(w, campaignId)).rejects.toThrow(/campaign_sending/);
+    await expect(
+      w.as.mutation(api.features.campaigns.mutations.retryCampaignSend, {
+        campaignId,
+        sendId: sends.missed,
+      }),
+    ).rejects.toThrow(/campaign_sending/);
+
+    const empty = await insertCampaign(w, { status: 'sent' });
+    expect(await resendAll(w, empty)).toBeNull();
+    expect(await get(w, empty)).toMatchObject({ status: 'sent' });
+    expect(await jobsNamed(w, 'resendCampaignBatch')).toHaveLength(1);
   });
 });
 
@@ -613,7 +811,7 @@ describe('campaign preparation: tracked links', () => {
     expect(await jobsNamed(w, 'prepareCampaignBatch')).toEqual([
       { campaignId, filter, cursor: first.continueCursor, batchSize: 2 },
     ]);
-    expect(await jobsNamed(w, 'sendCampaignBatch')).toEqual([]);
+    expect(await jobsNamed(w, 'actions:sendCampaignBatch')).toEqual([]);
     expect(await get(w, campaignId)).toMatchObject({ status: 'preparing', totalCount: 2 });
 
     const last = await w.t.mutation(fn.prepareCampaignBatch, {
@@ -624,7 +822,7 @@ describe('campaign preparation: tracked links', () => {
     });
     expect(last.isDone).toBe(true);
     expect(await jobsNamed(w, 'prepareCampaignBatch')).toHaveLength(1);
-    expect(await jobsNamed(w, 'sendCampaignBatch')).toEqual([{ campaignId }]);
+    expect(await jobsNamed(w, 'actions:sendCampaignBatch')).toEqual([{ campaignId }]);
     expect(await get(w, campaignId)).toMatchObject({ status: 'sending', totalCount: 3 });
 
     const nobody = await insertCampaign(w, { status: 'preparing' });
@@ -633,7 +831,7 @@ describe('campaign preparation: tracked links', () => {
       filter: { isRedFlagged: true },
     });
     expect(await get(w, nobody)).toMatchObject({ status: 'sent', totalCount: 0 });
-    expect(await jobsNamed(w, 'sendCampaignBatch')).toHaveLength(1);
+    expect(await jobsNamed(w, 'actions:sendCampaignBatch')).toHaveLength(1);
   });
 
   test('a click on a value the contact already has is logged and noted, and changes nothing', async () => {

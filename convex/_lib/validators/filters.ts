@@ -150,7 +150,7 @@ export type LeadAdvancedFilter = AdvancedFilter<LeadStandardField>;
 export type CompanyAdvancedFilter = AdvancedFilter<CompanyStandardField>;
 export type DealAdvancedFilter = AdvancedFilter<DealStandardField>;
 
-/** Decides which operators and which value input the builder shows; `select` also covers radio and every standard field whose values come from a fixed list (deal status, stage, country). */
+/** Decides which operators and which value input the builder shows; `select` also covers radio and every standard field whose values come from a fixed list (deal status, stage, country); `company` is a choice among companies searched as one types. */
 export type FilterFieldType =
   | 'text'
   | 'number'
@@ -158,6 +158,7 @@ export type FilterFieldType =
   | 'date'
   | 'timestamp'
   | 'select'
+  | 'company'
   | 'checkbox'
   | 'boolean'
   | 'lifecycle'
@@ -189,6 +190,7 @@ export function operatorsForType(type: FilterFieldType): FilterOperator[] {
     case 'timestamp':
       return ['inLastDays', 'moreThanDaysAgo', 'gt', 'lt', 'between', 'isEmpty', 'isNotEmpty'];
     case 'select':
+    case 'company':
       return ['equals', 'notEquals', 'isEmpty', 'isNotEmpty'];
     case 'checkbox':
       return ['contains', 'isEmpty', 'isNotEmpty'];

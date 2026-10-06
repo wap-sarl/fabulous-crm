@@ -1,16 +1,21 @@
 import { campaignChannelValidator } from '../../_lib/validators/crm';
 import { messageTypeValidator } from '../../_lib/validators/crm';
 import { v } from 'convex/values';
-import { internalQuery } from '../../_generated/server';
+import { internal } from '../../_generated/api';
+import type { Id } from '../../_generated/dataModel';
+import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { campaignEventTypeValidator, campaignSendStatusValidator } from '../../_lib/validators/crm';
 import { recordEmailEvent, recordSmsEvent } from '../../lib/campaigns/events';
 import { clickTrackedLink } from '../../lib/campaigns/links';
 import { prepareBatch } from '../../lib/campaigns/prepare';
+import { resendBatch } from '../../lib/campaigns/resend';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
 
 const BATCH_SIZE = 50;
+// Failing a send is one patch: 200 per transaction keeps the chain short and far below the write limit.
+const FAIL_BATCH = 200;
 
 /** Load the campaign template id plus the next batch of pending sends. */
 export const getPendingSends = internalQuery({
@@ -151,6 +156,20 @@ export const prepareCampaignBatch = internalMutation({
   handler: (ctx, args) => prepareBatch(ctx, args),
 });
 
+/** One page of the sends of a campaign re-queued for a resend; it schedules the next page, then the drain. */
+export const resendCampaignBatch = internalMutation({
+  args: {
+    campaignId: v.id('campaigns'),
+    cursor: v.optional(v.string()),
+    // Sends re-queued by the pages before, so the last one knows whether there is anything to drain.
+    resent: v.optional(v.number()),
+    // Tests only: a small page exercises the chain; production keeps the batch of lib/campaigns/resend.ts.
+    batchSize: v.optional(v.number()),
+  },
+  returns: v.object({ isDone: v.boolean(), continueCursor: v.union(v.string(), v.null()) }),
+  handler: (ctx, args) => resendBatch(ctx, args),
+});
+
 /** Behind the public GET /l/<token> route, so no authenticated user. */
 export const handleTrackedLinkClick = internalMutation({
   // `grantHash`: the hash of the one-time value the route may put in the landing URL (named tracking).
@@ -163,44 +182,59 @@ export const handleTrackedLinkClick = internalMutation({
   handler: (ctx, args) => clickTrackedLink(ctx, args),
 });
 
+/** A campaign with no pending send left ends sent when something left, failed otherwise. */
+async function completeCampaign(ctx: MutationCtx, campaignId: Id<'campaigns'>): Promise<void> {
+  const campaign = await ctx.db.get(campaignId);
+  if (!campaign) return;
+  await ctx.db.patch(campaignId, {
+    status: campaign.sentCount > 0 ? 'sent' : 'failed',
+    updatedAt: Date.now(),
+  });
+}
+
 /** Finalize a campaign once no pending sends remain. */
 export const markCampaignComplete = internalMutation({
   args: { campaignId: v.id('campaigns') },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) return null;
-    await ctx.db.patch(args.campaignId, {
-      status: campaign.sentCount > 0 ? 'sent' : 'failed',
-      updatedAt: Date.now(),
-    });
+    await completeCampaign(ctx, args.campaignId);
     return null;
   },
 });
 
-/** When the send path cannot proceed (no usable provider, a fatal error mid-drain): the pending sends are failed so they show in the UI and can be retried. */
+/** When the send path cannot proceed (no usable provider, a fatal error mid-drain): the pending sends are failed, a batch at a time, so they show in the UI and can be retried; the campaign is completed with the last batch. */
 export const failPendingSends = internalMutation({
-  args: { campaignId: v.id('campaigns'), error: v.string() },
-  returns: v.object({ failed: v.number() }),
+  args: {
+    campaignId: v.id('campaigns'),
+    error: v.string(),
+    // Tests only: a small batch exercises the chain.
+    batchSize: v.optional(v.number()),
+  },
+  returns: v.object({ failed: v.number(), isDone: v.boolean() }),
   handler: async (ctx, args) => {
+    const limit = args.batchSize ?? FAIL_BATCH;
     const pending = await ctx.db
       .query('campaignSends')
       .withIndex('by_campaign_status', (q) =>
         q.eq('campaignId', args.campaignId).eq('status', 'pending'),
       )
-      .collect();
-    if (pending.length === 0) return { failed: 0 };
-
+      .take(limit);
     for (const send of pending) {
       await ctx.db.patch(send._id, { status: 'failed', error: args.error });
     }
     const campaign = await ctx.db.get(args.campaignId);
-    if (campaign) {
+    if (campaign && pending.length > 0) {
       await ctx.db.patch(args.campaignId, {
         failedCount: campaign.failedCount + pending.length,
         updatedAt: Date.now(),
       });
     }
-    return { failed: pending.length };
+    // A full batch may leave more behind: the next one is scheduled, the campaign completes with the last.
+    if (pending.length >= limit) {
+      await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.failPendingSends, args);
+      return { failed: pending.length, isDone: false };
+    }
+    await completeCampaign(ctx, args.campaignId);
+    return { failed: pending.length, isDone: true };
   },
 });

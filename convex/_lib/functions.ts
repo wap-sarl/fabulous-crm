@@ -11,6 +11,7 @@ import {
   companiesTotalTrigger,
   leadsByCompanyTrigger,
 } from '../lib/companies/aggregates';
+import { campaignStatsTrigger } from '../lib/campaigns/stats';
 import { companySearchText } from '../lib/companies/search';
 import {
   dealsByOwnerStageTrigger,
@@ -58,6 +59,7 @@ triggers.register('leads', async (ctx, change) => {
 });
 triggers.register('leads', syncLeadScore);
 triggers.register('leads', syncLeadDynamicLists);
+triggers.register('campaignSends', campaignStatsTrigger);
 triggers.register('companies', async (ctx, change) => {
   if (change.operation === 'delete') return;
   const expected = companySearchText(change.newDoc);

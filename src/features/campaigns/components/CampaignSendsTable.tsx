@@ -1,5 +1,9 @@
-import type { Doc, Id } from '@crm/lib/backend';
+import { api } from '@crm/lib/backend';
+import type { Id } from '@crm/lib/backend';
+import { useAuthPaginatedQuery } from '@crm/widgets';
 import {
+  Button,
+  Spinner,
   StatusBadge,
   Table,
   TableBody,
@@ -13,22 +17,35 @@ import { SEND_STATUS_LABEL, SEND_STATUS_TONE, formatSendError } from '../../../l
 import { dateTimeFormat } from '@crm/lib/format';
 import { sendLeadName } from '../lib/sends';
 
-/** The recipients of a campaign, one row per send; a row opens the recipient's preview, and a settled send can be sent again. */
+const PAGE_SIZE = 50;
+
+/** The recipients of a campaign, one row per send, by pages; a row opens the recipient's preview, and a settled send can be sent again. */
 export function CampaignSendsTable({
-  sends,
+  campaignId,
   isSms,
   canRetry,
   retrying,
   handleRetrySend,
   setSelectedSendId,
 }: {
-  sends: Doc<'campaignSends'>[];
+  campaignId: Id<'campaigns'>;
   isSms: boolean;
   canRetry: boolean;
   retrying: boolean;
   handleRetrySend: (sendId: Id<'campaignSends'>) => Promise<void>;
   setSelectedSendId: (sendId: Id<'campaignSends'>) => void;
 }) {
+  const {
+    results: sends,
+    status,
+    loadMore,
+  } = useAuthPaginatedQuery(
+    api.features.campaigns.queries.listCampaignSends,
+    { campaignId },
+    { initialNumItems: PAGE_SIZE },
+  );
+  const columns = isSms ? 7 : 8;
+
   return (
     <div className="rounded-xl border bg-card shadow-card">
       <Table>
@@ -45,6 +62,19 @@ export function CampaignSendsTable({
           </TableRow>
         </TableHeader>
         <TableBody>
+          {status === 'LoadingFirstPage' ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={columns} className="py-8 text-center">
+                <Spinner />
+              </TableCell>
+            </TableRow>
+          ) : sends.length === 0 ? (
+            <TableRow className="hover:bg-transparent">
+              <TableCell colSpan={columns} className="py-8 text-center text-[13px] text-faint">
+                Aucun destinataire.
+              </TableCell>
+            </TableRow>
+          ) : null}
           {sends.map((s) => {
             const name = sendLeadName(s.params);
             return (
@@ -117,6 +147,13 @@ export function CampaignSendsTable({
           })}
         </TableBody>
       </Table>
+      {status === 'CanLoadMore' && (
+        <div className="flex justify-center border-t py-2">
+          <Button variant="ghost" onClick={() => loadMore(PAGE_SIZE)}>
+            Charger plus
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

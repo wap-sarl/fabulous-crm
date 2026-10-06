@@ -294,11 +294,14 @@ describe('access levels', () => {
     expect((await as.nina.query(api.features.companies.queries.countCompanies, {})).total).toBe(1);
     expect((await as.sam.query(api.features.companies.queries.countCompanies, {})).total).toBe(2);
 
-    const campaigns = await as.nina.query(api.features.campaigns.queries.listCampaigns, {});
-    expect(campaigns.map((c) => c._id)).toEqual([]);
-    expect(
-      (await as.sam.query(api.features.campaigns.queries.listCampaigns, {})).map((c) => c._id),
-    ).toEqual([samCampaign]);
+    const campaignIds = (who: ReturnType<typeof asIdentity>) =>
+      who
+        .query(api.features.campaigns.queries.listCampaigns, {
+          paginationOpts: { numItems: 10, cursor: null },
+        })
+        .then((r) => r.page.map((c) => c._id));
+    expect(await campaignIds(as.nina)).toEqual([]);
+    expect(await campaignIds(as.sam)).toEqual([samCampaign]);
     const workflows = await as.marc.query(api.features.workflows.queries.listWorkflows, {});
     expect(workflows.map((w) => w._id)).toEqual([ninaWorkflow]);
     expect((await as.sam.query(api.features.workflows.queries.listWorkflows, {})).length).toBe(0);

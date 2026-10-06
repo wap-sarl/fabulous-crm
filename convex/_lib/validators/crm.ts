@@ -119,6 +119,29 @@ export const campaignTrackedLinkValidator = v.object({
 
 export type CampaignTrackedLink = Infer<typeof campaignTrackedLinkValidator>;
 
+/** The figures of a campaign page that are one per send: each counts the sends carrying the stamp of its name, `pending` and `skipped` those in that status. */
+export const CAMPAIGN_STAT_KEYS = [
+  'pending',
+  'skipped',
+  'delivered',
+  'opened',
+  'clicked',
+  'replied',
+  'unsubscribed',
+  'bounced',
+] as const;
+export type CampaignStatKey = (typeof CAMPAIGN_STAT_KEYS)[number];
+
+/** Kept by the campaignSends trigger (lib/campaigns/stats.ts) from what the sends say, so the page reads the campaign alone; `sentByHour` buckets `sentAt` by hour start (epoch ms, as a string) for the chart. */
+export const campaignStatsValidator = v.object({
+  ...(Object.fromEntries(CAMPAIGN_STAT_KEYS.map((key) => [key, v.number()])) as Record<
+    CampaignStatKey,
+    ReturnType<typeof v.number>
+  >),
+  sentByHour: v.record(v.string(), v.number()),
+});
+export type CampaignStats = Infer<typeof campaignStatsValidator>;
+
 export const campaignValidator = v.object({
   ...logsValidator.fields,
   ...softDeleteValidator.fields,
@@ -144,6 +167,10 @@ export const campaignValidator = v.object({
   totalCount: v.number(),
   sentCount: v.number(),
   failedCount: v.number(),
+  // Absent on a campaign written before the counters existed, until `migrations:backfillCampaignStats` ran.
+  stats: v.optional(campaignStatsValidator),
+  // When the purge dropped the tracked links of this closed campaign; it leaves the purge's range with it, and comes back on a resend.
+  linksPurgedAt: v.optional(v.number()),
 });
 
 export type Campaign = Infer<typeof campaignValidator>;

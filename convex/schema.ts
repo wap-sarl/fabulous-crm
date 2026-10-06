@@ -407,8 +407,10 @@ const tables = {
 
   campaigns: defineTable(campaignValidator)
     .index('by_status', ['status'])
-    // Closed campaigns past their retention, for the purge of their tracked links.
-    .index('by_status_updatedAt', ['status', 'updatedAt']),
+    // Closed campaigns past their retention whose tracked links are still there, for the purge: a campaign leaves the range once they are gone.
+    .index('by_status_linksPurgedAt_updatedAt', ['status', 'linksPurgedAt', 'updatedAt'])
+    // The list and the pickers search a name as one types.
+    .searchIndex('by_name', { searchField: 'name', filterFields: ['status'] }),
 
   campaignSends: defineTable(campaignSendValidator)
     .index('by_campaign', ['campaignId'])

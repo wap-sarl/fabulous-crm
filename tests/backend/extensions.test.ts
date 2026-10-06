@@ -212,6 +212,7 @@ describe('extension seam', () => {
       });
       expect((await t.run((ctx) => ctx.db.get(campaignId)))?.status).toBe('sending');
 
+      // A resend of all asks first as a preparation of every recipient, charged nothing yet.
       expect(seen).toEqual([
         'create:1',
         'create:1',
@@ -219,9 +220,59 @@ describe('extension seam', () => {
         'create:1',
         'prepared:1',
         'resend:1',
-        'resend:1',
+        'preparing:1',
         'resend:1',
       ]);
+
+      // A resend of all is asked page by page with the running count, and as the resend on the last page with the exact one; refused there, the campaign fails and what was re-queued is failed with the code.
+      for (const n of [2, 3]) {
+        await as.mutation(api.features.leads.mutations.createLead, {
+          firstName: `R${n}`,
+          lastName: 'Page',
+          email: `r${n}@example.com`,
+        });
+      }
+      const resent = await create();
+      await prepare(resent);
+      await t.run((ctx) => ctx.db.patch(resent, { status: 'sent', sentCount: 3 }));
+      seen.length = 0;
+      setExtensionsForTests({
+        beforeSend: async (_ctx, info) => {
+          seen.push(info.source === 'campaign' ? `${info.stage}:${info.count}` : 'workflow');
+          if (info.source === 'campaign' && info.stage === 'resend') throw new Error('too_many');
+        },
+      });
+      await as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, {
+        campaignId: resent,
+      });
+      const pages = internal.features.campaigns.internal.resendCampaignBatch;
+      const page = await t.mutation(pages, { campaignId: resent, batchSize: 2 });
+      await t.mutation(pages, {
+        campaignId: resent,
+        cursor: page.continueCursor ?? undefined,
+        resent: 2,
+        batchSize: 2,
+      });
+      expect(seen).toEqual(['preparing:3', 'preparing:2', 'resend:3']);
+      expect(await t.run((ctx) => ctx.db.get(resent))).toMatchObject({
+        status: 'sending',
+        failureReason: 'too_many',
+      });
+      await t.mutation(internal.features.campaigns.internal.failPendingSends, {
+        campaignId: resent,
+        error: 'Renvoi refusé (too_many).',
+      });
+      expect(await t.run((ctx) => ctx.db.get(resent))).toMatchObject({
+        status: 'failed',
+        failureReason: 'too_many',
+        failedCount: 3,
+      });
+      const after = (await t.run((ctx) => ctx.db.query('campaignSends').collect())).filter(
+        (row) => row.campaignId === resent,
+      );
+      expect(after.map((row) => [row.status, row.error])).toEqual(
+        Array(3).fill(['failed', 'Renvoi refusé (too_many).']),
+      );
 
       // Large campaigns are gated page by page with the running count: a refusal stops within one page and never reaches the drain.
       for (const n of [2, 3, 4]) {

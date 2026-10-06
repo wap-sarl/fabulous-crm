@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { CampaignStatus } from '@crm/lib/backend';
-import { useAuthQuery } from '@crm/widgets';
+import { useAuthPaginatedQuery } from '@crm/widgets';
+import { useDebouncedValue } from '@crm/design-system/hooks/useDebouncedValue';
 import {
   Button,
   Input,
@@ -22,38 +23,31 @@ import {
 } from '../../lib/constants';
 import { dateFormat, numberFormat } from '@crm/lib/format';
 
+const PAGE_SIZE = 24;
+
+/** The campaigns by pages, newest first; the name is searched and the status filtered by the backend, so a page never hides a match. */
 export function CampaignsPage() {
   usePageTitle('Campagnes');
   const navigate = useNavigate();
-  const campaigns = useAuthQuery(api.features.campaigns.queries.listCampaigns, {});
-
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | CampaignStatus>('all');
-
-  const filtered = useMemo(() => {
-    if (!campaigns) return [];
-    const q = search.trim().toLowerCase();
-    return campaigns.filter(
-      (c) =>
-        (statusFilter === 'all' || c.status === statusFilter) &&
-        (q === '' || c.name.toLowerCase().includes(q)),
-    );
-  }, [campaigns, search, statusFilter]);
-
-  const statusCounts = useMemo(() => {
-    const counts: Partial<Record<'all' | CampaignStatus, number>> = { all: campaigns?.length ?? 0 };
-    for (const c of campaigns ?? []) {
-      counts[c.status] = (counts[c.status] ?? 0) + 1;
-    }
-    return counts;
-  }, [campaigns]);
+  const term = useDebouncedValue(search.trim(), 250);
+  const {
+    results: filtered,
+    status,
+    loadMore,
+  } = useAuthPaginatedQuery(
+    api.features.campaigns.queries.listCampaigns,
+    { search: term || undefined, status: statusFilter === 'all' ? undefined : statusFilter },
+    { initialNumItems: PAGE_SIZE },
+  );
 
   return (
     <div className="flex flex-col">
       <PageHeader
         className="px-5 sm:px-7"
         title="Campagnes"
-        subtitle={campaigns ? `${campaigns.length} campagne(s)` : 'Chargement…'}
+        subtitle="E-mail et SMS, de la plus récente à la plus ancienne"
         actions={
           <Button onClick={() => navigate('/campaigns/new')} data-testid="new-campaign">
             <Plus className="h-4 w-4" />
@@ -77,19 +71,15 @@ export function CampaignsPage() {
           <SegmentedControl
             aria-label="Filtrer par statut"
             items={[
-              { value: 'all', label: 'Toutes', count: statusCounts.all },
-              ...CAMPAIGN_STATUSES.map((s) => ({
-                value: s.value as string,
-                label: s.label,
-                count: statusCounts[s.value] ?? 0,
-              })),
+              { value: 'all', label: 'Toutes' },
+              ...CAMPAIGN_STATUSES.map((s) => ({ value: s.value as string, label: s.label })),
             ]}
             value={statusFilter}
             onChange={(v) => setStatusFilter(v as 'all' | CampaignStatus)}
           />
         </div>
 
-        {campaigns === undefined ? (
+        {status === 'LoadingFirstPage' ? (
           <div className="flex justify-center py-12">
             <Spinner size="lg" />
           </div>
@@ -163,6 +153,13 @@ export function CampaignsPage() {
                 </button>
               );
             })}
+          </div>
+        )}
+        {status === 'CanLoadMore' && (
+          <div className="flex justify-center">
+            <Button variant="ghost" onClick={() => loadMore(PAGE_SIZE)}>
+              Charger plus
+            </Button>
           </div>
         )}
       </div>

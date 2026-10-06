@@ -211,15 +211,12 @@ export const sendCampaignBatch = internalAction({
           ? 'SMS campaign but no Brevo API key configured — cannot send'
           : 'Email provider not configured — cannot send campaign',
       );
-      // Every pending send is failed, not left in `pending`: the failure shows, and can be retried once the provider is fixed.
+      // Every pending send is failed, not left in `pending`: the failure shows, and can be retried once the provider is fixed; the campaign completes with the last batch.
       await ctx.runMutation(internal.features.campaigns.internal.failPendingSends, {
         campaignId: args.campaignId,
         error: isSms
           ? 'Compte Brevo non configuré — envoi SMS impossible.'
           : "Fournisseur d'e-mail non configuré — envoi impossible.",
-      });
-      await ctx.runMutation(internal.features.campaigns.internal.markCampaignComplete, {
-        campaignId: args.campaignId,
       });
       return null;
     }
@@ -362,9 +359,6 @@ export const sendCampaignBatch = internalAction({
       await ctx.runMutation(internal.features.campaigns.internal.failPendingSends, {
         campaignId: args.campaignId,
         error: "Erreur lors de l'envoi — réessayez.",
-      });
-      await ctx.runMutation(internal.features.campaigns.internal.markCampaignComplete, {
-        campaignId: args.campaignId,
       });
       return null;
     } finally {

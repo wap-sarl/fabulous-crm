@@ -1,30 +1,24 @@
 import { follows, httpUrlSchema, positiveIntSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
-import type { MutationCtx } from '../../_generated/server';
 import type { Doc } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
-import { consentOrigin } from '../../lib/config/appUrl';
-import { buildSendParams } from '../../lib/campaigns/params';
+import { loadResendContext, requeueSend, requireLinkBase } from '../../lib/campaigns/resend';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
 import {
   resolveEmailProvider,
   resolveBrevo,
   isEmailProviderConfigured,
 } from '../../lib/email/provider';
-import { toBrevoRecipient } from '../../lib/sms/brevo';
-import { loadPropertyDefsById, type PropertyDefinitionDoc } from '../../lib/properties/definitions';
+import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import {
   campaignChannelValidator,
   campaignTrackedLinkValidator,
   messageTypeValidator,
-  type CampaignTrackedLink,
 } from '../../_lib/validators/crm';
 import { validateLeadTargetValue } from '../../lib/leads/targets';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
-import { loadLifecycleConfig } from '../../lib/leads/lifecycle';
-import type { LifecycleConfig } from '../../_lib/validators/lifecycle';
 import { requireSendAllowed } from '../../lib/extensions/gates';
 
 const SMS_PROVIDER_REQUIRED = 'Les campagnes SMS nécessitent un compte Brevo configuré.';
@@ -211,71 +205,6 @@ async function assertChannelDeliverable(
   }
 }
 
-/** Shared context for (re-)materializing a campaign's sends on resend. */
-async function loadResendContext(ctx: MutationCtx, campaign: Doc<'campaigns'>) {
-  const trackedLinks = campaign.trackedLinks ?? [];
-  const linkBase = process.env.CONVEX_SITE_URL;
-  if (trackedLinks.length > 0 && !linkBase) throw refusal('link_base_missing');
-  return {
-    isSms: (campaign.channel ?? 'email') === 'sms',
-    trackedLinks,
-    defsById: await loadPropertyDefsById(ctx, 'lead'),
-    consentBase: consentOrigin(),
-    linkBase,
-    lifecycle: await loadLifecycleConfig(ctx),
-  };
-}
-
-/** Sent and failed rows keep their contact and tokens, skipped rows never had any and get fresh ones; false when the lead still has no contact. */
-async function requeueSend(
-  ctx: MutationCtx,
-  send: Doc<'campaignSends'>,
-  remat: {
-    isSms: boolean;
-    trackedLinks: CampaignTrackedLink[];
-    defsById: Map<string, PropertyDefinitionDoc>;
-    consentBase: string;
-    linkBase: string | undefined;
-    lifecycle: LifecycleConfig;
-  },
-): Promise<boolean> {
-  // Clear the previous send's outcome + engagement so stats reflect the new send.
-  const reset = {
-    status: 'pending' as const,
-    error: undefined,
-    brevoMessageId: undefined,
-    openedAt: undefined,
-    clickedAt: undefined,
-    sentAt: undefined,
-  };
-  if (send.status === 'skipped_no_email' || send.status === 'skipped_no_phone') {
-    const lead = await ctx.db.get(send.leadId);
-    const contact =
-      lead && lead.deletedAt == null ? (remat.isSms ? lead.phone : lead.email) : undefined;
-    if (!lead || !contact) return false;
-    const { params, tokens } = buildSendParams(lead, remat);
-    await ctx.db.patch(send._id, {
-      ...reset,
-      email: remat.isSms ? undefined : contact,
-      phone: remat.isSms ? contact : undefined,
-      smsRecipient: remat.isSms ? (toBrevoRecipient(contact) ?? undefined) : undefined,
-      params,
-    });
-    for (const { linkKey, token } of tokens) {
-      await ctx.db.insert('campaignLinkTokens', {
-        token,
-        campaignId: send.campaignId,
-        sendId: send._id,
-        leadId: lead._id,
-        linkKey,
-      });
-    }
-  } else {
-    await ctx.db.patch(send._id, reset);
-  }
-  return true;
-}
-
 /** Resends one recipient whatever its status, except `pending`: that row is already queued. */
 export const retryCampaignSend = employeeMutation({
   args: { campaignId: v.id('campaigns'), sendId: v.id('campaignSends') },
@@ -287,8 +216,10 @@ export const retryCampaignSend = employeeMutation({
 
     const campaign = await ctx.db.get(args.campaignId);
     if (!campaign) throw refusal('campaign_not_found');
-    // A drain is already running; its own loop will process pending rows.
-    if (campaign.status === 'sending') throw refusal('campaign_sending');
+    // A drain or a resend is already running; its own loop will process pending rows.
+    if (campaign.status === 'sending' || campaign.status === 'preparing') {
+      throw refusal('campaign_sending');
+    }
 
     const cfg = await ctx.db.query('appConfig').first();
     await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
@@ -325,45 +256,38 @@ export const retryCampaignSend = employeeMutation({
   },
 });
 
-/** Resends to every deliverable recipient, those who already received it included; counters are reset because the drain tallies them again. */
+/** Resends to every recipient, those who already received it included: the sends are re-queued in scheduled batches, the drain follows, and the campaign reads `preparing` meanwhile. The gate is asked here as a preparation with every recipient, so an exhausted allowance refuses at once; the batches ask with what they re-queue, the last one as the resend. */
 export const resendAllCampaignSends = employeeMutation({
   args: { campaignId: v.id('campaigns') },
-  returns: v.object({ resent: v.number() }),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const campaign = await ctx.db.get(args.campaignId);
     if (!campaign) throw refusal('campaign_not_found');
-    if (campaign.status === 'sending') throw refusal('campaign_sending');
+    if (campaign.status === 'sending' || campaign.status === 'preparing') {
+      throw refusal('campaign_sending');
+    }
+    if (campaign.totalCount === 0) return null;
 
     const cfg = await ctx.db.query('appConfig').first();
     await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
-
-    const remat = await loadResendContext(ctx, campaign);
-    const sends = await ctx.db
-      .query('campaignSends')
-      .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
-      .collect();
-
-    let resent = 0;
-    let stillSkipped = 0;
-    for (const send of sends) {
-      if (await requeueSend(ctx, send, remat)) resent++;
-      else stillSkipped++;
-    }
-    if (resent === 0) return { resent: 0 };
+    requireLinkBase(campaign);
     await requireSendAllowed(ctx, {
       source: 'campaign',
       channel: campaign.channel ?? 'email',
-      count: resent,
-      stage: 'resend',
+      count: campaign.totalCount,
+      stage: 'preparing',
     });
 
+    // Counters reset: the batches count the skipped again, the drain what leaves. Links come back with the sends, so the purge sees the campaign again.
     await ctx.db.patch(args.campaignId, {
       sentCount: 0,
-      failedCount: stillSkipped,
-      status: 'sending',
+      failedCount: 0,
+      status: 'preparing',
+      failureReason: undefined,
+      linksPurgedAt: undefined,
       ...updateAuditFields(ctx.userId),
     });
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.actions.sendCampaignBatch, {
+    await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.resendCampaignBatch, {
       campaignId: args.campaignId,
     });
 
@@ -373,9 +297,8 @@ export const resendAllCampaignSends = employeeMutation({
       entityType: 'campaign',
       entityId: args.campaignId,
       action: 'update',
-      metadata: { event: 'resend_all', count: resent },
+      metadata: { event: 'resend_all', count: campaign.totalCount },
     });
-
-    return { resent };
+    return null;
   },
 });

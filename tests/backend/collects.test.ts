@@ -45,16 +45,6 @@ const BOUNDED: Record<string, string> = {
     'the helper of the timeline: a page read again, bounded by the page before',
 };
 
-/** Reads that grow with the use of the product and are not bounded yet: each needs its screen redesigned (counters, pages), which is not a cleanup. Nothing is added here. */
-const KNOWN_UNBOUNDED: Record<string, string> = {
-  campaigns: 'the list of campaigns shows them all',
-  'campaigns.by_status_updatedAt': 'the purge walks the closed campaigns past their retention',
-  'campaignSends.by_campaign':
-    'the page of a campaign counts and lists every send; a resend requeues them all',
-  'campaignSends.by_campaign_status': 'failing the pending sends of a campaign takes them all',
-  'companies.by_name': 'the company options of the lead filters hold every company',
-};
-
 function sourcesOf(dir: string): string[] {
   return readdirSync(join(ROOT, dir), { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
@@ -78,7 +68,7 @@ function collectsOf(file: string): string[] {
 
 test('a query reads a whole table or a whole index range only where that is small, and says why', () => {
   const read = sourcesOf('.').flatMap((file) => collectsOf(file).map((what) => ({ file, what })));
-  const ofCore = { ...SMALL, ...BOUNDED, ...KNOWN_UNBOUNDED };
+  const ofCore = { ...SMALL, ...BOUNDED };
   // An overlay adds its own reads: it cannot take over an entry of the core, and each of its entries says why.
   expect(Object.keys(overlayRules.smallReads).filter((what) => what in ofCore)).toEqual([]);
   const allowed = { ...ofCore, ...overlayRules.smallReads };
@@ -89,18 +79,4 @@ test('a query reads a whole table or a whole index range only where that is smal
   // A reason that no longer excuses anything is removed with the read it excused.
   const used = new Set(read.map((r) => r.what));
   expect(Object.keys(allowed).filter((what) => !used.has(what))).toEqual([]);
-});
-
-test('the reads that are not bounded yet are these, and their number only goes down', () => {
-  const unbounded = sourcesOf('.')
-    .flatMap(collectsOf)
-    .filter((what) => what in KNOWN_UNBOUNDED);
-  expect(unbounded.sort()).toEqual([
-    'campaignSends.by_campaign',
-    'campaignSends.by_campaign',
-    'campaignSends.by_campaign_status',
-    'campaigns',
-    'campaigns.by_status_updatedAt',
-    'companies.by_name',
-  ]);
 });

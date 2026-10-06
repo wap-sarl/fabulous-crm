@@ -8,8 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@crm/design-system';
-import type { FilterFieldType, FilterRange, FilterRule } from '@crm/lib/backend';
+import type { FilterFieldType, FilterRange, FilterRule, Id } from '@crm/lib/backend';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
+import { CompanyMultiPicker } from '../../companies/components/CompanyMultiPicker';
 import { useLifecycleConfig } from '../../leads/hooks/useLifecycleConfig';
 
 interface RuleValueInputProps<F extends string> {
@@ -160,6 +161,16 @@ export function RuleValueInput<F extends string>({
     case 'checkbox':
     case 'list':
       return multi(options);
+
+    case 'company':
+      return (
+        <CompanyMultiPicker
+          value={asArray as Id<'companies'>[]}
+          onChange={(v) => setValue(v.length > 0 ? v : undefined)}
+          modal
+          className="w-full"
+        />
+      );
 
     // text / email → free text
     default:

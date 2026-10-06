@@ -751,6 +751,11 @@ Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
 
 ### Après une mise à jour
 
+- `bunx convex run migrations:backfillCampaignStats --prod` une fois, à la
+  première version qui tient les compteurs d'une campagne sur la campagne
+  (en attente, ignorés, ouverts, cliqués…) : il les recalcule depuis les envois
+  des campagnes existantes. À lancer quand aucune campagne n'est en cours
+  d'envoi, un envoi modifié entre ses deux passes serait compté deux fois.
 - `bunx convex run features/workflows/internal:listWorkflowsToFix --prod`
   liste les workflows actifs ou en pause que l'activation refuserait avec les
   règles de la version déployée. Un workflow en faute continue de tourner,
