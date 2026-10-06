@@ -86,19 +86,28 @@ describe('the settings page', () => {
       ['Abonnement', ['/settings/billing']],
       ['Développeurs', ['/settings/webhooks']],
     ]);
-    // A group is not the core's: the overlay keeps its own, after them.
-    const sameName = [{ ...billing, group: 'Organisation' }];
-    expect(paths(visibleTabGroups(SETTINGS_GROUPS, sameName, true)).map(([name]) => name)).toEqual([
+    // An entry naming a group of the core joins it, after the core's tabs; a group is never shown twice.
+    const sameName = [
+      { ...billing, group: 'Données' },
+      { ...webhooks, group: 'Développeurs' },
+    ];
+    const joined = paths(visibleTabGroups(SETTINGS_GROUPS, sameName, true));
+    expect(joined.map(([name]) => name)).toEqual([
       'Organisation',
       'Données',
       'Canaux',
       'Connexions et conformité',
-      'Organisation',
+      'Développeurs',
     ]);
-    expect(paths(visibleTabGroups(SETTINGS_GROUPS, overlay, false)).at(-1)).toEqual([
-      OVERLAY_GROUP,
-      ['/settings/billing'],
+    expect(joined[1][1]).toEqual([
+      '/settings/properties',
+      '/settings/lifecycle',
+      '/settings/pipelines',
+      '/settings/scoring',
+      '/settings/lists',
+      '/settings/billing',
     ]);
+    expect(SETTINGS_GROUPS[1].tabs.map((tab) => tab.path)).not.toContain('/settings/billing');
     expect(sidebarEntries(overlay)).toEqual([reports]);
     // `/settings` alone is the page, not a tab of it.
     expect(sidebarEntries([{ ...reports, path: '/settings' }])).toHaveLength(1);

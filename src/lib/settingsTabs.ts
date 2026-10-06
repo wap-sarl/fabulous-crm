@@ -21,20 +21,23 @@ export const isSettingsPath = (path: string): boolean => path.startsWith(`${SETT
 const maySee = (entry: PlacedEntry, hasSettings: boolean): boolean =>
   entry.requires !== 'settings' || hasSettings;
 
-/** The tabs a person sees: the groups of the core, then the overlay's settings entries in the groups they name, in the order they first name them; a group left empty is dropped. */
+/** The tabs a person sees: the groups of the core, then the overlay's settings entries in the groups they name, in the order they first name them; an entry naming a group of the core joins it, after the core's tabs. A group left empty is dropped. */
 export function visibleTabGroups<Entry extends PlacedEntry>(
   groups: TabGroup<Entry>[],
   overlayEntries: Entry[],
   hasSettings: boolean,
 ): TabGroup<Entry>[] {
-  const overlay: TabGroup<Entry>[] = [];
+  const all: TabGroup<Entry>[] = groups.map((group) => ({ ...group, tabs: [...group.tabs] }));
   for (const entry of overlayEntries.filter((e) => isSettingsPath(e.path))) {
     const name = entry.group ?? OVERLAY_GROUP;
-    const group = overlay.find((g) => g.name === name) ?? { name, tabs: [] };
-    if (!group.tabs.length) overlay.push(group);
+    let group = all.find((g) => g.name === name);
+    if (!group) {
+      group = { name, tabs: [] };
+      all.push(group);
+    }
     group.tabs.push(entry);
   }
-  return [...groups, ...overlay]
+  return all
     .map((group) => ({ ...group, tabs: group.tabs.filter((tab) => maySee(tab, hasSettings)) }))
     .filter((group) => group.tabs.length > 0);
 }
