@@ -13,6 +13,8 @@ import {
 } from '@crm/widgets';
 import { Spinner, Toaster } from '@crm/design-system';
 import { DashboardShell } from './layouts/DashboardShell';
+import { SettingsLayout } from './layouts/SettingsLayout';
+import { isSettingsPath, SETTINGS_ROOT } from './lib/settingsTabs';
 import { RequireModule } from './features/access/components/RequireModule';
 import { extensions } from './extensions';
 
@@ -81,6 +83,9 @@ function NotFoundPage() {
   return <ErrorNotFoundPage onGoHome={() => navigate('/leads')} onGoBack={() => navigate(-1)} />;
 }
 
+/** A route of an overlay under `/settings/` is shown inside the settings page, with its tab. */
+const inSettings = (route: { path: string }) => isSettingsPath(route.path);
+
 /** Shown while a page outside the shell (setup, consent) is being loaded. */
 const pageLoading = (
   <div className="flex min-h-screen items-center justify-center">
@@ -136,25 +141,33 @@ function AppRoutes() {
                 <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />
                 <Route path="/workflows/:workflowId/edit" element={<WorkflowEditorPage />} />
               </Route>
-              <Route path="/settings/team" element={<TeamPage />} />
-              <Route path="/settings/branding" element={<BrandingPage />} />
-              <Route path="/settings/email" element={<EmailPage />} />
-              <Route path="/settings/properties" element={<PropertiesPage />} />
-              <Route path="/settings/lists" element={<LeadListsPage />} />
-              <Route path="/settings/lifecycle" element={<LifecyclePage />} />
-              <Route path="/settings/scoring" element={<ScoringPage />} />
-              <Route path="/settings/api" element={<ApiKeysPage />} />
-              <Route path="/settings/integrations" element={<IntegrationsPage />} />
-              <Route path="/settings/forms" element={<FormsPage />} />
-              <Route path="/settings/pipelines" element={<PipelinesPage />} />
-              <Route path="/settings/files" element={<FilesPage />} />
-              <Route path="/settings/retention" element={<RetentionPage />} />
-              <Route path="/settings/tracking" element={<TrackingPage />} />
-              <Route path="/settings/roles" element={<RolesPage />} />
+              {/* Every setting is a tab of one page; a tab keeps the address it had. */}
+              <Route path={SETTINGS_ROOT} element={<SettingsLayout />}>
+                <Route path="/settings/team" element={<TeamPage />} />
+                <Route path="/settings/branding" element={<BrandingPage />} />
+                <Route path="/settings/email" element={<EmailPage />} />
+                <Route path="/settings/properties" element={<PropertiesPage />} />
+                <Route path="/settings/lists" element={<LeadListsPage />} />
+                <Route path="/settings/lifecycle" element={<LifecyclePage />} />
+                <Route path="/settings/scoring" element={<ScoringPage />} />
+                <Route path="/settings/api" element={<ApiKeysPage />} />
+                <Route path="/settings/integrations" element={<IntegrationsPage />} />
+                <Route path="/settings/forms" element={<FormsPage />} />
+                <Route path="/settings/pipelines" element={<PipelinesPage />} />
+                <Route path="/settings/files" element={<FilesPage />} />
+                <Route path="/settings/retention" element={<RetentionPage />} />
+                <Route path="/settings/tracking" element={<TrackingPage />} />
+                <Route path="/settings/roles" element={<RolesPage />} />
+                {extensions.routes.filter(inSettings).map((route) => (
+                  <Route key={route.path} path={route.path} element={route.element} />
+                ))}
+              </Route>
               <Route path="/design-system" element={<DesignSystemPage />} />
-              {extensions.routes.map((route) => (
-                <Route key={route.path} path={route.path} element={route.element} />
-              ))}
+              {extensions.routes
+                .filter((route) => !inSettings(route))
+                .map((route) => (
+                  <Route key={route.path} path={route.path} element={route.element} />
+                ))}
             </Route>
           </Route>
 

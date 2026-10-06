@@ -6,6 +6,7 @@ import type { RoleAccess } from '@crm/lib/backend';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
 import { extensions } from '../extensions';
 import { NAV_ITEMS, type ShellNavItem } from '../lib/navigation';
+import { sidebarEntries } from '../lib/settingsTabs';
 
 /** Declarative: a page sets the document title by calling this hook. */
 export function usePageTitle(title: string) {
@@ -32,8 +33,8 @@ export function DashboardShell() {
   // Highlight the top-level nav item even on nested/detail routes
   const currentPath = `/${location.pathname.split('/')[1] ?? ''}`;
 
-  // One list for everyone, built-in and overlay items alike; visibility is per item.
-  const navItems = [...NAV_ITEMS, ...extensions.navItems].filter((item) =>
+  // One list for everyone, built-in and overlay items alike; visibility is per item. An overlay's settings entries are tabs of the settings page.
+  const navItems = [...NAV_ITEMS, ...sidebarEntries(extensions.navItems)].filter((item) =>
     canSee(item, user?.access),
   );
 

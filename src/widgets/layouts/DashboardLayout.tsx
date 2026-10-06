@@ -43,9 +43,22 @@ function NavItemButton({
   const active = currentPath === item.path;
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => {
+      <a
+        href={item.path}
+        aria-current={active ? 'page' : undefined}
+        onClick={(event) => {
+          // A plain click stays in the app; a modified one (new tab, new window) is the browser's.
+          if (
+            event.defaultPrevented ||
+            event.button !== 0 ||
+            event.metaKey ||
+            event.ctrlKey ||
+            event.shiftKey ||
+            event.altKey
+          ) {
+            return;
+          }
+          event.preventDefault();
           onNavigate(item.path);
           onItemClick?.();
         }}
@@ -58,7 +71,7 @@ function NavItemButton({
       >
         {item.icon}
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
-      </button>
+      </a>
     </li>
   );
 }
