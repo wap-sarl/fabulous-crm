@@ -1,5 +1,5 @@
 import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { cn, Spinner } from '@crm/design-system';
 import { useAuth } from '@crm/widgets';
 import { extensions } from '../extensions';
@@ -8,7 +8,6 @@ import { activeTabPath, SETTINGS_ROOT, visibleTabGroups } from '../lib/settingsT
 
 /** The settings page: the tabs the role may see on the left, the tab's own page on the right. */
 export function SettingsLayout() {
-  const navigate = useNavigate();
   const { pathname } = useLocation();
   const { user } = useAuth();
   const hasSettings = !!user?.access.settings;
@@ -45,10 +44,13 @@ export function SettingsLayout() {
       );
       return tab;
     };
-    place()?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    // The tabs are a column on a wide screen and a row on a narrow one: the marker follows.
+    const tab = place();
+    tab?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // The tabs are a column on a wide screen and a row on a narrow one, and a label widens when its font arrives: the marker follows the list and the tab.
     const observer = new ResizeObserver(place);
     observer.observe(tabList);
+    if (tab) observer.observe(tab);
+    document.fonts?.ready.then(place);
     return () => observer.disconnect();
   }, [active]);
 
@@ -64,7 +66,8 @@ export function SettingsLayout() {
         aria-label="Paramètres"
         className="shrink-0 border-b border-border bg-card lg:sticky lg:top-0 lg:h-screen lg:w-[248px] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r"
       >
-        <h1 className="px-6 pt-6 pb-2 text-lg font-bold text-ink lg:pt-8">Paramètres</h1>
+        {/* Not a heading: each tab's page has the one h1. */}
+        <p className="px-6 pt-6 pb-2 text-lg font-bold text-ink lg:pt-8">Paramètres</p>
         <div
           ref={list}
           className="relative flex gap-1 overflow-x-auto px-4 pb-3 lg:flex-col lg:gap-0 lg:overflow-visible lg:pb-8"
@@ -88,12 +91,11 @@ export function SettingsLayout() {
                 {group.name}
               </div>
               {group.tabs.map((tab) => (
-                <button
+                <Link
                   key={tab.path}
-                  type="button"
+                  to={tab.path}
                   data-tab={tab.path}
                   aria-current={tab.path === active ? 'page' : undefined}
-                  onClick={() => navigate(tab.path)}
                   className={cn(
                     'relative flex shrink-0 cursor-pointer items-center gap-[11px] whitespace-nowrap rounded-[9px] px-2.5 py-2 text-left text-sm font-semibold transition-colors [&_svg]:size-[18px] [&_svg]:shrink-0',
                     tab.path === active ? 'text-primary-strong' : 'text-soft hover:text-ink',
@@ -101,7 +103,7 @@ export function SettingsLayout() {
                 >
                   {tab.icon}
                   <span>{tab.label}</span>
-                </button>
+                </Link>
               ))}
             </div>
           ))}

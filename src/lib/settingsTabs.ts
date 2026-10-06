@@ -2,6 +2,7 @@
 export interface PlacedEntry {
   path: string;
   requires?: 'settings';
+  group?: string;
 }
 
 export interface TabGroup<Entry> {
@@ -11,7 +12,7 @@ export interface TabGroup<Entry> {
 
 export const SETTINGS_ROOT = '/settings';
 
-/** The group an overlay's settings entries are shown in. */
+/** The group of an overlay's settings entries that name none. */
 export const OVERLAY_GROUP = 'Autres';
 
 export const isSettingsPath = (path: string): boolean => path.startsWith(`${SETTINGS_ROOT}/`);
@@ -20,14 +21,20 @@ export const isSettingsPath = (path: string): boolean => path.startsWith(`${SETT
 const maySee = (entry: PlacedEntry, hasSettings: boolean): boolean =>
   entry.requires !== 'settings' || hasSettings;
 
-/** The tabs a person sees: the groups of the core, then the overlay's settings entries in a group of their own; a group left empty is dropped. */
+/** The tabs a person sees: the groups of the core, then the overlay's settings entries in the groups they name, in the order they first name them; a group left empty is dropped. */
 export function visibleTabGroups<Entry extends PlacedEntry>(
   groups: TabGroup<Entry>[],
   overlayEntries: Entry[],
   hasSettings: boolean,
 ): TabGroup<Entry>[] {
-  const overlay = overlayEntries.filter((entry) => isSettingsPath(entry.path));
-  return [...groups, { name: OVERLAY_GROUP, tabs: overlay }]
+  const overlay: TabGroup<Entry>[] = [];
+  for (const entry of overlayEntries.filter((e) => isSettingsPath(e.path))) {
+    const name = entry.group ?? OVERLAY_GROUP;
+    const group = overlay.find((g) => g.name === name) ?? { name, tabs: [] };
+    if (!group.tabs.length) overlay.push(group);
+    group.tabs.push(entry);
+  }
+  return [...groups, ...overlay]
     .map((group) => ({ ...group, tabs: group.tabs.filter((tab) => maySee(tab, hasSettings)) }))
     .filter((group) => group.tabs.length > 0);
 }

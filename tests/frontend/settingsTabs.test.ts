@@ -71,11 +71,29 @@ describe('the settings page', () => {
     expect(new Set(tabs).size).toBe(tabs.length);
   });
 
-  test('an overlay’s settings entries are tabs of their own group, under the same right; its others stay in the sidebar', () => {
+  test('an overlay’s settings entries are tabs of the groups they name, under the same right; its others stay in the sidebar', () => {
     const overlay = [billing, webhooks, reports];
     expect(paths(visibleTabGroups(SETTINGS_GROUPS, overlay, true)).at(-1)).toEqual([
       OVERLAY_GROUP,
       ['/settings/billing', '/settings/webhooks'],
+    ]);
+    const named = [
+      { ...billing, group: 'Abonnement' },
+      { ...webhooks, group: 'Développeurs' },
+      { ...reports },
+    ];
+    expect(paths(visibleTabGroups(SETTINGS_GROUPS, named, true)).slice(4)).toEqual([
+      ['Abonnement', ['/settings/billing']],
+      ['Développeurs', ['/settings/webhooks']],
+    ]);
+    // A group is not the core's: the overlay keeps its own, after them.
+    const sameName = [{ ...billing, group: 'Organisation' }];
+    expect(paths(visibleTabGroups(SETTINGS_GROUPS, sameName, true)).map(([name]) => name)).toEqual([
+      'Organisation',
+      'Données',
+      'Canaux',
+      'Connexions et conformité',
+      'Organisation',
     ]);
     expect(paths(visibleTabGroups(SETTINGS_GROUPS, overlay, false)).at(-1)).toEqual([
       OVERLAY_GROUP,

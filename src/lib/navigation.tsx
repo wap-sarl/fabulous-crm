@@ -30,6 +30,8 @@ import { SETTINGS_ROOT, type TabGroup } from './settingsTabs';
 /** A sidebar entry; module pages derive their access check from the path, settings pages declare it. */
 export interface ShellNavItem extends NavItem {
   requires?: 'settings';
+  /** The group of the settings page an entry under /settings/ is shown in; an overlay names its own, or takes the default. */
+  group?: string;
 }
 
 const settings = (item: NavItem): ShellNavItem => ({ ...item, requires: 'settings' });
