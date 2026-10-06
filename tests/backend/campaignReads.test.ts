@@ -91,6 +91,8 @@ describe('a campaign read with its sends', () => {
 
     expect(await w.as.query(campaigns.getCampaign, { campaignId: gone })).toBeNull();
     expect(await w.as.query(campaigns.getCampaign, { campaignId: deleted })).toBeNull();
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId: gone })).toBeNull();
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId: deleted })).toBeNull();
   });
 
   test('an e-mail written in the CRM is shown with its counts, its counters and its message as authored; its sends come by pages', async () => {
@@ -106,7 +108,6 @@ describe('a campaign read with its sends', () => {
       totalCount: 3,
       sentCount: 1,
       failedCount: 2,
-      stats: { ...zeroStats, opened: 1, clicked: 1, sentByHour: { [String(NOW)]: 2 } },
       updatedBy: w.userId,
     });
     const sent = await insertSend(w, campaignId, leadId, {
@@ -142,8 +143,24 @@ describe('a campaign read with its sends', () => {
       createdBy: w.userId,
       updatedBy: w.userId,
     });
-    // The counters as stored: the sends are not read to make them.
-    expect(result?.stats).toEqual({
+    // The counters as stored, their rows summed: the sends are not read to make them.
+    const insertShard = (shard: number, stats: Partial<typeof zeroStats>) =>
+      w.t.run((ctx) =>
+        ctx.db.insert('campaignStatShards', {
+          campaignId,
+          shard,
+          stats: { ...zeroStats, ...stats },
+        }),
+      );
+    await insertShard(0, { opened: 2, sentByHour: { [String(NOW)]: 3 } });
+    // A row holds changes and may be below zero; a sum below zero, which no count leaves, reads zero.
+    await insertShard(9, {
+      opened: -1,
+      clicked: 1,
+      bounced: -2,
+      sentByHour: { [String(NOW)]: -1, [String(NOW + 3_600_000)]: -1 },
+    });
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId })).toEqual({
       ...zeroStats,
       opened: 1,
       clicked: 1,
@@ -191,7 +208,7 @@ describe('a campaign read with its sends', () => {
 
     const result = await w.as.query(campaigns.getCampaign, { campaignId });
     expect(result?.campaign.brevoTemplateId).toBe(42);
-    expect(result?.stats).toEqual(zeroStats);
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId })).toEqual(zeroStats);
     expect(result?.messagePreview).toEqual({ channel: 'email', templateId: 42 });
   });
 

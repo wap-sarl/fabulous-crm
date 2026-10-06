@@ -27,10 +27,15 @@ export function CampaignDetailPage() {
     api.features.campaigns.queries.getCampaign,
     campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
   );
+  // Apart from the campaign: a provider event changes the counters only.
+  const stats = useAuthQuery(
+    api.features.campaigns.queries.getCampaignStats,
+    campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
+  );
   const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
 
-  if (data === undefined) {
+  if (data === undefined || stats === undefined) {
     return (
       <div className="flex justify-center py-12">
         <Spinner size="lg" />
@@ -38,11 +43,11 @@ export function CampaignDetailPage() {
     );
   }
 
-  if (data === null) {
+  if (data === null || stats === null) {
     return <p className="p-7 text-faint">Campagne introuvable.</p>;
   }
 
-  const { campaign, stats } = data;
+  const { campaign } = data;
   const series = buildSendSeries(stats.sentByHour);
   const isSms = campaign.channel === 'sms';
   // Resend can only run when the campaign is settled (not mid-preparation/drain).

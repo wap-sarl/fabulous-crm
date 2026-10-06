@@ -2,7 +2,7 @@ import { Migrations } from '@convex-dev/migrations';
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import type { AppConfig } from './_lib/validators/appConfig';
-import { addSend, emptyStats } from './lib/campaigns/stats';
+import { startStatsCount } from './lib/campaigns/stats';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from './lib/security/crypto';
 
 // Online migrations (@convex-dev/migrations): `bunx convex run migrations:run '{"fn":"migrations:<name>"}'`.
@@ -90,22 +90,12 @@ export const rotateConnectorTokens = migrations.define({
   }),
 });
 
-/** The counters of the campaigns written before they existed: every campaign reset, then every send counted. Run `backfillCampaignStats` while no campaign is being sent: a send changing between the two passes would count twice. */
-export const resetCampaignStats = migrations.define({
+/** The campaigns older than the counters get theirs: each one not counted yet starts its count, which goes on in scheduled pages (`startStatsCount`). */
+export const countCampaignStats = migrations.define({
   table: 'campaigns',
-  migrateOne: () => ({ stats: emptyStats() }),
-});
-
-export const countCampaignSends = migrations.define({
-  table: 'campaignSends',
-  migrateOne: async (ctx, send) => {
-    const campaign = await ctx.db.get(send.campaignId);
-    if (!campaign) return;
-    await ctx.db.patch(campaign._id, { stats: addSend(campaign.stats ?? emptyStats(), send, 1) });
+  migrateOne: async (ctx, campaign) => {
+    if (campaign.statsCountedThrough === undefined) await startStatsCount(ctx, campaign._id);
   },
 });
 
-export const backfillCampaignStats = migrations.runner([
-  internal.migrations.resetCampaignStats,
-  internal.migrations.countCampaignSends,
-]);
+export const backfillCampaignStats = migrations.runner(internal.migrations.countCampaignStats);

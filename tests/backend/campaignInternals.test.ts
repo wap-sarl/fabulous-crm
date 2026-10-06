@@ -3,6 +3,7 @@ import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { WorkflowTrigger } from '../../convex/_lib/validators/workflows';
 import { LINK_GRANT_MS } from '../../convex/_lib/validators/tracking';
+import { readCampaignStats } from '../../convex/lib/campaigns/stats';
 import {
   asIdentity,
   createTestConvex,
@@ -291,6 +292,7 @@ describe('campaign sends: the resend of all', () => {
       failedCount: 3,
       failureReason: 'quota_exceeded',
       linksPurgedAt: NOW - 1,
+      statsCountedThrough: 'all',
     });
     const sends = {
       opened: await insertSend(w, campaignId, opened, {
@@ -372,7 +374,7 @@ describe('campaign sends: the resend of all', () => {
     expect(await jobsNamed(w, 'actions:sendCampaignBatch')).toEqual([{ campaignId }]);
     expect(await jobsNamed(w, 'resendCampaignBatch')).toHaveLength(2);
     // The counters followed the three re-queued sends; the seeded one that stayed skipped never changed, so they never saw it.
-    expect((await get(w, campaignId)).stats).toMatchObject({
+    expect(await w.t.run((ctx) => readCampaignStats(ctx, campaignId))).toMatchObject({
       pending: 3,
       opened: 0,
       sentByHour: {},

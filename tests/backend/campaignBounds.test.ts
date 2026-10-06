@@ -41,6 +41,7 @@ describe('a campaign of fifty thousand recipients', () => {
         totalCount: RECIPIENTS,
         sentCount: RECIPIENTS,
         failedCount: 0,
+        statsCountedThrough: 'all',
         updatedAt: NOW,
         createdBy: emp.userId,
       });
@@ -58,11 +59,16 @@ describe('a campaign of fifty thousand recipients', () => {
     });
     const sendsRead = (count: { reads: Record<string, number> }) => count.reads.campaignSends ?? 0;
 
-    // The page: the campaign and its counters, then a page of sends and one of events.
+    // The page: the campaign, its counters from their rows, then a page of sends and one of events.
     const opened = await countDb(() =>
       as.query(api.features.campaigns.queries.getCampaign, { campaignId }),
     );
     expect(sendsRead(opened)).toBe(0);
+    const counters = () =>
+      countDb(() => as.query(api.features.campaigns.queries.getCampaignStats, { campaignId }));
+    const before = await counters();
+    expect(sendsRead(before)).toBe(0);
+    expect(before.reads.campaignStatShards).toBeUndefined();
     const listed = await countDb(() =>
       as.query(api.features.campaigns.queries.listCampaignSends, {
         campaignId,
@@ -79,11 +85,16 @@ describe('a campaign of fifty thousand recipients', () => {
     const batch = await countDb(() =>
       t.mutation(internal.features.campaigns.internal.resendCampaignBatch, { campaignId }),
     );
-    // A page of 200: each send is read once for the page, once more by its patch and once by the trigger; the campaign follows every send.
+    // A page of 200: each send is read once for the page, once more by its patch and once by the trigger; the counters follow every send on their own rows, the campaign is written once.
     expect(sendsRead(batch)).toBeLessThanOrEqual(3 * 200);
     expect(batch.writes.campaignSends).toBe(200);
     expect(batch.reads.campaigns).toBeLessThanOrEqual(3 * 200 + 2);
-    expect(batch.writes.campaigns).toBeLessThanOrEqual(201);
+    expect(batch.writes.campaigns).toBe(1);
+    // Two hundred changes, all on the one row the transaction picked: it meets the provider events of that row only.
+    expect(batch.writes.campaignStatShards).toBe(200);
+    const afterBatch = await counters();
+    expect(sendsRead(afterBatch)).toBe(0);
+    expect(afterBatch.reads.campaignStatShards).toBe(1);
 
     // Fail what is pending: a batch, and the next one scheduled.
     await t.run((ctx) => ctx.db.patch(campaignId, { status: 'sending' }));
@@ -101,5 +112,13 @@ describe('a campaign of fifty thousand recipients', () => {
       ),
     );
     expect(jobs.map((job) => job.args[0])).toEqual([{ campaignId, error: 'no_provider' }]);
+
+    // Counting the campaign again: a page of 500 sends and the one after, which says where it stops; one row and the mark written.
+    await t.mutation(internal.features.campaigns.internal.recountCampaignStats, { campaignId });
+    const page = await countDb(() =>
+      t.mutation(internal.features.campaigns.internal.countCampaignStatsPage, { campaignId }),
+    );
+    expect(sendsRead(page)).toBe(501);
+    expect(page.writes).toEqual({ campaignStatShards: 1, campaigns: 1 });
   }, 120_000);
 });

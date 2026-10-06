@@ -178,6 +178,7 @@ export const createCampaign = employeeMutation({
       totalCount: 0,
       sentCount: 0,
       failedCount: 0,
+      statsCountedThrough: 'all',
       ...createAuditFields(ctx.userId),
     });
 

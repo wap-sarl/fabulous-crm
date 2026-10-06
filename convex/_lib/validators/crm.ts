@@ -132,7 +132,7 @@ export const CAMPAIGN_STAT_KEYS = [
 ] as const;
 export type CampaignStatKey = (typeof CAMPAIGN_STAT_KEYS)[number];
 
-/** Kept by the campaignSends trigger (lib/campaigns/stats.ts) from what the sends say, so the page reads the campaign alone; `sentByHour` buckets `sentAt` by hour start (epoch ms, as a string) for the chart. */
+/** What the sends of a campaign add up to, kept by the campaignSends trigger (lib/campaigns/stats.ts) so the page reads no send; `sentByHour` buckets `sentAt` by hour start (epoch ms, as a string) for the chart. */
 export const campaignStatsValidator = v.object({
   ...(Object.fromEntries(CAMPAIGN_STAT_KEYS.map((key) => [key, v.number()])) as Record<
     CampaignStatKey,
@@ -141,6 +141,13 @@ export const campaignStatsValidator = v.object({
   sentByHour: v.record(v.string(), v.number()),
 });
 export type CampaignStats = Infer<typeof campaignStatsValidator>;
+
+/** One of the rows the counters of a campaign are spread over, so that concurrent provider events do not all write one document; a row holds changes, not totals, and may go below zero. */
+export const campaignStatShardValidator = v.object({
+  campaignId: v.id('campaigns'),
+  shard: v.number(),
+  stats: campaignStatsValidator,
+});
 
 export const campaignValidator = v.object({
   ...logsValidator.fields,
@@ -167,8 +174,8 @@ export const campaignValidator = v.object({
   totalCount: v.number(),
   sentCount: v.number(),
   failedCount: v.number(),
-  // Absent on a campaign written before the counters existed, until `migrations:backfillCampaignStats` ran.
-  stats: v.optional(campaignStatsValidator),
+  // Which sends the counters hold: 'all', or those created up to that time while a count runs; absent on a campaign older than the counters, which the trigger leaves alone until it is counted.
+  statsCountedThrough: v.optional(v.union(v.literal('all'), v.number())),
   // When the purge dropped the tracked links of this closed campaign; it leaves the purge's range with it, and comes back on a resend.
   linksPurgedAt: v.optional(v.number()),
 });

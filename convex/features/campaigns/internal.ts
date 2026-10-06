@@ -5,11 +5,13 @@ import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
 import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
+import { refusal } from '../../_lib/refusal';
 import { campaignEventTypeValidator, campaignSendStatusValidator } from '../../_lib/validators/crm';
 import { recordEmailEvent, recordSmsEvent } from '../../lib/campaigns/events';
 import { clickTrackedLink } from '../../lib/campaigns/links';
 import { prepareBatch } from '../../lib/campaigns/prepare';
 import { resendBatch } from '../../lib/campaigns/resend';
+import { countStatsPage, startStatsCount } from '../../lib/campaigns/stats';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
 
@@ -237,4 +239,26 @@ export const failPendingSends = internalMutation({
     await completeCampaign(ctx, args.campaignId);
     return { failed: pending.length, isDone: true };
   },
+});
+
+/** The counters of one campaign counted again from its sends, for one that looks off: `bunx convex run features/campaigns/internal:recountCampaignStats '{"campaignId":"…"}'`, at any time and as often as wanted. */
+export const recountCampaignStats = internalMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (!(await ctx.db.get(args.campaignId))) throw refusal('campaign_not_found');
+    await startStatsCount(ctx, args.campaignId);
+    return null;
+  },
+});
+
+/** One page of a count; it schedules the next. */
+export const countCampaignStatsPage = internalMutation({
+  args: {
+    campaignId: v.id('campaigns'),
+    // Tests only: a small page exercises the chain; production keeps the page of lib/campaigns/stats.ts.
+    pageSize: v.optional(v.number()),
+  },
+  returns: v.object({ isDone: v.boolean() }),
+  handler: (ctx, args) => countStatsPage(ctx, args),
 });

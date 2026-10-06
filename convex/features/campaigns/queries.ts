@@ -11,7 +11,7 @@ import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
-import { emptyStats } from '../../lib/campaigns/stats';
+import { readCampaignStats } from '../../lib/campaigns/stats';
 import { renderPlaceholders, wrapEmailHtml } from '../../lib/email/brevo';
 
 /** What the list shows of a campaign: its counts, never its content. */
@@ -129,13 +129,12 @@ function buildMessagePreview(campaign: Doc<'campaigns'>, params: Record<string, 
   };
 }
 
-/** The campaign and its counters, nothing per send: the sends and the events come by pages. A campaign older than the counters has zeros until the backfill ran. */
+/** The campaign and its message, nothing per send: the counters, the sends and the events have their own queries, so a provider event does not run this one again. */
 export const getCampaign = employeeQuery({
   args: { campaignId: v.id('campaigns') },
   returns: v.union(
     v.object({
       campaign: docOf('campaigns'),
-      stats: campaignStatsValidator,
       messagePreview: v.union(
         v.object({ channel: v.literal('sms'), sms: v.optional(v.string()) }),
         v.object({ channel: v.literal('email'), templateId: v.number() }),
@@ -153,7 +152,18 @@ export const getCampaign = employeeQuery({
     if (!campaign || !isNotDeleted(campaign)) return null;
     // The message "as authored" — placeholders left visible (empty params).
     const messagePreview = buildMessagePreview(campaign, {});
-    return { campaign, stats: campaign.stats ?? emptyStats(), messagePreview };
+    return { campaign, messagePreview };
+  },
+});
+
+/** The counters of a campaign, read from their own rows: a provider event runs this small query again, not the page's. A campaign older than the counters has zeros until `migrations:backfillCampaignStats` counted it. */
+export const getCampaignStats = employeeQuery({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.union(campaignStatsValidator, v.null()),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || !isNotDeleted(campaign)) return null;
+    return await readCampaignStats(ctx, args.campaignId);
   },
 });
 

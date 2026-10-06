@@ -7,6 +7,7 @@ import {
   leadValidator,
   campaignValidator,
   campaignSendValidator,
+  campaignStatShardValidator,
   campaignLinkTokenValidator,
   campaignEventValidator,
   leadNoteValidator,
@@ -411,6 +412,12 @@ const tables = {
     .index('by_status_linksPurgedAt_updatedAt', ['status', 'linksPurgedAt', 'updatedAt'])
     // The list and the pickers search a name as one types.
     .searchIndex('by_name', { searchField: 'name', filterFields: ['status'] }),
+
+  // The counters of a campaign, summed over its rows on read.
+  campaignStatShards: defineTable(campaignStatShardValidator).index('by_campaign_shard', [
+    'campaignId',
+    'shard',
+  ]),
 
   campaignSends: defineTable(campaignSendValidator)
     .index('by_campaign', ['campaignId'])
