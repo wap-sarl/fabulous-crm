@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useAuthQuery } from '@crm/widgets';
-import { api, follows, nonNegativeSchema } from '@crm/lib/backend';
+import { follows, nonNegativeSchema } from '@crm/lib/backend';
 import type { DealRow, Doc, Id, PropertyValue } from '@crm/lib/backend';
 import { DEFAULT_CURRENCY, defaultPipelineStage, stageRequiresTag } from '@crm/lib/backend';
 import {
@@ -28,6 +27,7 @@ import { useDealActions } from '../hooks/useDealActions';
 import { usePipelines } from '../hooks/usePipelines';
 import { DEAL_ERROR_MESSAGES, dealErrorMessage } from '../lib/errors';
 import type { DealFormDialogProps } from '../types';
+import { CampaignPicker } from '../../campaigns/components/CampaignPicker';
 import { LeadPicker } from './LeadPicker';
 import { describeError } from '@crm/lib/errors';
 
@@ -45,8 +45,6 @@ interface FormState {
   sourceCampaignId: string;
   customProperties: Record<string, PropertyValue>;
 }
-
-const NONE = '__none__';
 
 function initialForm(
   deal: DealRow | undefined,
@@ -96,7 +94,6 @@ export function DealFormBody({
   const { pipelines, defaultPipeline, byId } = usePipelines();
   const { employees } = useEmployees();
   const definitions = usePropertyDefinitions('deal');
-  const campaigns = useAuthQuery(api.features.campaigns.queries.listCampaigns, {}) ?? [];
   const [form, setForm] = useState<FormState>(() =>
     initialForm(
       deal,
@@ -326,22 +323,12 @@ export function DealFormBody({
 
         <div className="space-y-1 sm:col-span-2">
           <Label>Campagne d’origine</Label>
-          <Select
-            value={form.sourceCampaignId || NONE}
-            onValueChange={(v) => set('sourceCampaignId', v === NONE ? '' : v)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={NONE}>Aucune</SelectItem>
-              {campaigns.map((c) => (
-                <SelectItem key={c._id} value={c._id}>
-                  {c.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <CampaignPicker
+            value={form.sourceCampaignId as Id<'campaigns'> | ''}
+            onChange={(campaignId) => set('sourceCampaignId', campaignId)}
+            placeholder="Aucune"
+            modal
+          />
           <HelperText>
             Rattache la transaction à la campagne qui l’a générée (attribution).
           </HelperText>

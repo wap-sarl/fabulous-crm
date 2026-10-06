@@ -13,6 +13,7 @@ import {
 import { purgePage } from '../../convex/lib/retention/purge';
 import { DAY_MS } from '../../convex/_lib/time';
 import { insertListMember } from '../../convex/lib/leadLists/members';
+import { countDb } from '../support/dbCounter';
 import {
   asIdentity,
   createTestConvex,
@@ -579,6 +580,35 @@ describe('retention purge', () => {
     // The safety-net recount ran after the purge: the list carries a later stamp.
     const list = await t.run((ctx) => ctx.db.get(listId));
     expect(list?.lastRecalcAt ?? 0).toBeGreaterThan(stampBefore);
+  });
+
+  test('the closed campaigns are walked a page at a time; one whose links are gone is marked and read no more', async () => {
+    const { t } = await setup();
+    const leadId = await seedLead(t, { email: 'ada@example.com' });
+    const closed: Id<'campaigns'>[] = [];
+    for (let i = 0; i < PURGE_ENTITY_PAGE + 5; i += 1) {
+      const id = await campaign(t, 'sent', daysAgo(400 + i));
+      await sendWith(t, id, leadId, NOW);
+      closed.push(id);
+    }
+    const policy = { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 };
+    const pageOf = () => countDb(() => t.run(async (ctx) => purgePage(ctx, policy, NOW)));
+
+    // One page: the twenty oldest, their links gone, each marked, and more left.
+    let page = await pageOf();
+    expect(page.reads.campaigns).toBeLessThanOrEqual(PURGE_ENTITY_PAGE);
+    expect(await count(t, 'campaignLinkTokens')).toBe(5);
+    const marked = (await t.run((ctx) => ctx.db.query('campaigns').collect())).filter(
+      (c) => c.linksPurgedAt !== undefined,
+    );
+    expect(marked.map((c) => c._id).sort()).toEqual(closed.slice(5).sort());
+    expect(marked.every((c) => c.linksPurgedAt === NOW)).toBe(true);
+    // The next page: the five left, and the twenty marked are not read again.
+    page = await pageOf();
+    expect(page.reads.campaigns).toBeLessThanOrEqual(5);
+    expect(await count(t, 'campaignLinkTokens')).toBe(0);
+    page = await pageOf();
+    expect(page.reads.campaigns ?? 0).toBe(0);
   });
 
   test('one page never writes more than its budget, whatever the local caps add up to', async () => {

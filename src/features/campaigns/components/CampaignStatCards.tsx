@@ -1,4 +1,4 @@
-import type { Doc } from '@crm/lib/backend';
+import type { CampaignStats, Doc } from '@crm/lib/backend';
 import { StatCard } from '@crm/design-system';
 import {
   AlertTriangle,
@@ -17,28 +17,28 @@ import {
 } from 'lucide-react';
 import { dateFormat, numberFormat } from '@crm/lib/format';
 
-/** The counters of a campaign: recipients, sends, failures, and the engagement its channel can track. */
+/** The counters of a campaign: recipients, sends, failures, and the engagement its channel can track, as the campaign keeps them. */
 export function CampaignStatCards({
   campaign,
-  sends,
+  stats,
   isSms,
   isSmtp,
-  skippedCount,
-  deliveredCount,
 }: {
   campaign: Doc<'campaigns'>;
-  sends: Doc<'campaignSends'>[];
+  stats: CampaignStats;
   isSms: boolean;
   isSmtp: boolean;
-  skippedCount: number;
-  deliveredCount: number;
 }) {
-  const pendingCount = sends.filter((s) => s.status === 'pending').length;
-  const openedCount = sends.filter((s) => s.openedAt !== undefined).length;
-  const clickedCount = sends.filter((s) => s.clickedAt !== undefined).length;
-  const repliedCount = sends.filter((s) => s.repliedAt !== undefined).length;
-  const unsubscribedCount = sends.filter((s) => s.unsubscribedAt !== undefined).length;
-  const bouncedCount = sends.filter((s) => s.bouncedAt !== undefined).length;
+  const {
+    pending: pendingCount,
+    skipped: skippedCount,
+    delivered: deliveredCount,
+    opened: openedCount,
+    clicked: clickedCount,
+    replied: repliedCount,
+    unsubscribed: unsubscribedCount,
+    bounced: bouncedCount,
+  } = stats;
   const pctOfSent = (n: number) => (campaign.sentCount > 0 ? (n / campaign.sentCount) * 100 : 0);
   const sendRate = campaign.totalCount > 0 ? (campaign.sentCount / campaign.totalCount) * 100 : 0;
   const failRate = campaign.totalCount > 0 ? (campaign.failedCount / campaign.totalCount) * 100 : 0;

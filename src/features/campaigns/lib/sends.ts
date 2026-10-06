@@ -8,11 +8,14 @@ export function sendLeadName(params: Record<string, string>): string {
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
 
-/** Bucket sentAt timestamps by hour (or by day when the span exceeds 48h). */
-export function buildSendSeries(sentAts: number[]): { label: string; value: number }[] {
-  if (sentAts.length === 0) return [];
-  const min = Math.min(...sentAts);
-  const max = Math.max(...sentAts);
+/** The sends over time from the hourly buckets the campaign keeps, gathered by day when they span more than 48h. */
+export function buildSendSeries(
+  sentByHour: Record<string, number>,
+): { label: string; value: number }[] {
+  const hours = Object.entries(sentByHour).map(([hour, count]) => [Number(hour), count] as const);
+  if (hours.length === 0) return [];
+  const min = Math.min(...hours.map(([hour]) => hour));
+  const max = Math.max(...hours.map(([hour]) => hour));
   const bucketSize = max - min > 2 * DAY ? DAY : HOUR;
   const labelFormat =
     bucketSize === DAY
@@ -20,9 +23,9 @@ export function buildSendSeries(sentAts: number[]): { label: string; value: numb
       : new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
   const buckets = new Map<number, number>();
-  for (const t of sentAts) {
-    const bucket = Math.floor(t / bucketSize) * bucketSize;
-    buckets.set(bucket, (buckets.get(bucket) ?? 0) + 1);
+  for (const [hour, count] of hours) {
+    const bucket = Math.floor(hour / bucketSize) * bucketSize;
+    buckets.set(bucket, (buckets.get(bucket) ?? 0) + count);
   }
   return [...buckets.entries()]
     .sort(([a], [b]) => a - b)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
@@ -14,7 +14,7 @@ import { CampaignSendsTable } from '../../features/campaigns/components/Campaign
 import { CampaignStatCards } from '../../features/campaigns/components/CampaignStatCards';
 import { RecipientPreviewSheet } from '../../features/campaigns/components/RecipientPreviewSheet';
 import { retryErrorMessage } from '../../features/campaigns/lib/retryErrors';
-import { buildSendSeries, sendLeadName } from '../../features/campaigns/lib/sends';
+import { buildSendSeries } from '../../features/campaigns/lib/sends';
 import { numberFormat } from '@crm/lib/format';
 
 export function CampaignDetailPage() {
@@ -27,26 +27,15 @@ export function CampaignDetailPage() {
     api.features.campaigns.queries.getCampaign,
     campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
   );
+  // Apart from the campaign: a provider event changes the counters only.
+  const stats = useAuthQuery(
+    api.features.campaigns.queries.getCampaignStats,
+    campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
+  );
   const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
 
-  const sends = useMemo(() => data?.sends ?? [], [data]);
-  const series = useMemo(
-    () => buildSendSeries(sends.map((s) => s.sentAt).filter((t): t is number => !!t)),
-    [sends],
-  );
-  const recipientBySendId = useMemo(
-    () =>
-      new Map(
-        sends.map((s) => [
-          s._id,
-          { name: sendLeadName(s.params), contact: s.email ?? s.phone ?? '' },
-        ]),
-      ),
-    [sends],
-  );
-
-  if (data === undefined) {
+  if (data === undefined || stats === undefined) {
     return (
       <div className="flex justify-center py-12">
         <Spinner size="lg" />
@@ -54,11 +43,12 @@ export function CampaignDetailPage() {
     );
   }
 
-  if (data === null) {
+  if (data === null || stats === null) {
     return <p className="p-7 text-faint">Campagne introuvable.</p>;
   }
 
   const { campaign } = data;
+  const series = buildSendSeries(stats.sentByHour);
   const isSms = campaign.channel === 'sms';
   // Resend can only run when the campaign is settled (not mid-preparation/drain).
   const canRetry = campaign.status !== 'sending' && campaign.status !== 'preparing';
@@ -85,8 +75,8 @@ export function CampaignDetailPage() {
       return;
     setRetrying(true);
     try {
-      const res = await resendAll({ campaignId: campaign._id });
-      toast.success(`${res?.resent ?? 0} envoi(s) relancé(s).`);
+      await resendAll({ campaignId: campaign._id });
+      toast.success('Renvoi lancé : les destinataires sont remis en file.');
     } catch (err) {
       toast.error(retryErrorMessage(err));
     } finally {
@@ -95,11 +85,6 @@ export function CampaignDetailPage() {
   };
   // Over SMTP there is no provider tracking: only the self-hosted tracked-link clicks are recorded.
   const isSmtp = !isSms && campaign.emailProvider === 'smtp';
-
-  const skippedStatus = isSms ? 'skipped_no_phone' : 'skipped_no_email';
-  const skippedCount = sends.filter((s) => s.status === skippedStatus).length;
-  // SMS-only delivery lifecycle (from Brevo SMS webhook events).
-  const deliveredCount = sends.filter((s) => s.deliveredAt !== undefined).length;
 
   return (
     <div className="flex flex-col">
@@ -115,7 +100,7 @@ export function CampaignDetailPage() {
         {campaign.status === 'preparing' && (
           <p className="rounded-lg border border-info/40 bg-info/10 px-4 py-2 text-xs text-info">
             Préparation des destinataires en cours — {numberFormat.format(campaign.totalCount)}{' '}
-            destinataire(s) traité(s). L'envoi démarrera automatiquement à la fin de la préparation.
+            destinataire(s). L'envoi démarrera automatiquement à la fin de la préparation.
           </p>
         )}
         {isSmtp && (
@@ -124,22 +109,15 @@ export function CampaignDetailPage() {
             n'est pas disponible. Seuls les clics sur les liens de suivi sont enregistrés.
           </p>
         )}
-        <CampaignStatCards
-          campaign={campaign}
-          sends={sends}
-          isSms={isSms}
-          isSmtp={isSmtp}
-          skippedCount={skippedCount}
-          deliveredCount={deliveredCount}
-        />
+        <CampaignStatCards campaign={campaign} stats={stats} isSms={isSms} isSmtp={isSmtp} />
 
         {series.length > 0 && <CampaignSendsChart series={series} />}
 
         <CampaignSendFunnel
           campaign={campaign}
           isSms={isSms}
-          skippedCount={skippedCount}
-          deliveredCount={deliveredCount}
+          skippedCount={stats.skipped}
+          deliveredCount={stats.delivered}
         />
 
         <Card className="p-5">
@@ -149,15 +127,11 @@ export function CampaignDetailPage() {
 
         <section className="flex flex-col gap-3">
           <h2 className="text-[15px] font-bold text-ink">Événements</h2>
-          <CampaignEventsTable
-            campaignId={campaign._id}
-            recipientBySendId={recipientBySendId}
-            onSelectSend={setSelectedSendId}
-          />
+          <CampaignEventsTable campaignId={campaign._id} onSelectSend={setSelectedSendId} />
         </section>
 
         <CampaignSendsTable
-          sends={sends}
+          campaignId={campaign._id}
           isSms={isSms}
           canRetry={canRetry}
           retrying={retrying}

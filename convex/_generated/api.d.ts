@@ -161,6 +161,8 @@ import type * as lib_campaigns_events from "../lib/campaigns/events.js";
 import type * as lib_campaigns_links from "../lib/campaigns/links.js";
 import type * as lib_campaigns_params from "../lib/campaigns/params.js";
 import type * as lib_campaigns_prepare from "../lib/campaigns/prepare.js";
+import type * as lib_campaigns_resend from "../lib/campaigns/resend.js";
+import type * as lib_campaigns_stats from "../lib/campaigns/stats.js";
 import type * as lib_companies_aggregates from "../lib/companies/aggregates.js";
 import type * as lib_companies_domains from "../lib/companies/domains.js";
 import type * as lib_companies_lookup from "../lib/companies/lookup.js";
@@ -398,6 +400,8 @@ declare const fullApi: ApiFromModules<{
   "lib/campaigns/links": typeof lib_campaigns_links;
   "lib/campaigns/params": typeof lib_campaigns_params;
   "lib/campaigns/prepare": typeof lib_campaigns_prepare;
+  "lib/campaigns/resend": typeof lib_campaigns_resend;
+  "lib/campaigns/stats": typeof lib_campaigns_stats;
   "lib/companies/aggregates": typeof lib_companies_aggregates;
   "lib/companies/domains": typeof lib_companies_domains;
   "lib/companies/lookup": typeof lib_companies_lookup;

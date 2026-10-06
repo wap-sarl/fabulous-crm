@@ -14,6 +14,17 @@ import {
 
 const NOW = Date.UTC(2026, 9, 1, 9, 0, 0);
 const campaigns = api.features.campaigns.queries;
+const zeroStats = {
+  pending: 0,
+  skipped: 0,
+  delivered: 0,
+  opened: 0,
+  clicked: 0,
+  replied: 0,
+  unsubscribed: 0,
+  bounced: 0,
+  sentByHour: {},
+};
 
 type World = { t: T; as: ReturnType<typeof asIdentity>; userId: Id<'users'> };
 
@@ -80,9 +91,11 @@ describe('a campaign read with its sends', () => {
 
     expect(await w.as.query(campaigns.getCampaign, { campaignId: gone })).toBeNull();
     expect(await w.as.query(campaigns.getCampaign, { campaignId: deleted })).toBeNull();
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId: gone })).toBeNull();
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId: deleted })).toBeNull();
   });
 
-  test('an e-mail written in the CRM is shown with its counts, its sends and its message as authored', async () => {
+  test('an e-mail written in the CRM is shown with its counts, its counters and its message as authored; its sends come by pages', async () => {
     const w = await setup();
     const leadId = await seedLead(w.t, { email: 'ada@example.com' });
     const campaignId = await insertCampaign(w, {
@@ -130,12 +143,39 @@ describe('a campaign read with its sends', () => {
       createdBy: w.userId,
       updatedBy: w.userId,
     });
-    expect(result?.sends.map((s) => [s._id, s.status])).toEqual([
+    // The counters as stored, their rows summed: the sends are not read to make them.
+    const insertShard = (shard: number, stats: Partial<typeof zeroStats>) =>
+      w.t.run((ctx) =>
+        ctx.db.insert('campaignStatShards', {
+          campaignId,
+          shard,
+          stats: { ...zeroStats, ...stats },
+        }),
+      );
+    await insertShard(0, { opened: 2, sentByHour: { [String(NOW)]: 3 } });
+    // A row holds changes and may be below zero; a sum below zero, which no count leaves, reads zero.
+    await insertShard(9, {
+      opened: -1,
+      clicked: 1,
+      bounced: -2,
+      sentByHour: { [String(NOW)]: -1, [String(NOW + 3_600_000)]: -1 },
+    });
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId })).toEqual({
+      ...zeroStats,
+      opened: 1,
+      clicked: 1,
+      sentByHour: { [String(NOW)]: 2 },
+    });
+    const sends = await w.as.query(campaigns.listCampaignSends, {
+      campaignId,
+      paginationOpts: { numItems: 2, cursor: null },
+    });
+    expect(sends.page.map((s) => [s._id, s.status])).toEqual([
       [sent, 'sent'],
       [failed, 'failed'],
-      [skipped, 'skipped_no_email'],
     ]);
-    expect(result?.sends[0]).toMatchObject({
+    expect(sends.isDone).toBe(false);
+    expect(sends.page[0]).toMatchObject({
       campaignId,
       leadId,
       email: 'ada@example.com',
@@ -145,7 +185,13 @@ describe('a campaign read with its sends', () => {
       openedAt: NOW + 1,
       clickedAt: NOW + 2,
     });
-    expect(result?.sends[1].error).toBe('mailbox unavailable');
+    expect(sends.page[1].error).toBe('mailbox unavailable');
+    const rest = await w.as.query(campaigns.listCampaignSends, {
+      campaignId,
+      paginationOpts: { numItems: 2, cursor: sends.continueCursor },
+    });
+    expect(rest.page.map((s) => [s._id, s.status])).toEqual([[skipped, 'skipped_no_email']]);
+    expect(rest.isDone).toBe(true);
     // Nobody in particular reads it: the placeholders stay as they were written.
     expect(result?.messagePreview).toEqual({
       channel: 'email',
@@ -156,13 +202,13 @@ describe('a campaign read with its sends', () => {
     });
   });
 
-  test('an e-mail from a Brevo template shows the number of the template, and nothing of its content', async () => {
+  test('an e-mail from a Brevo template shows the number of the template, and nothing of its content; a campaign older than the counters reads zeros', async () => {
     const w = await setup();
     const campaignId = await insertCampaign(w, { brevoTemplateId: 42, messageType: 'marketing' });
 
     const result = await w.as.query(campaigns.getCampaign, { campaignId });
     expect(result?.campaign.brevoTemplateId).toBe(42);
-    expect(result?.sends).toEqual([]);
+    expect(await w.as.query(campaigns.getCampaignStats, { campaignId })).toEqual(zeroStats);
     expect(result?.messagePreview).toEqual({ channel: 'email', templateId: 42 });
   });
 
@@ -190,8 +236,12 @@ describe('a campaign read with its sends', () => {
 
     const result = await w.as.query(campaigns.getCampaign, { campaignId });
     expect(result?.campaign).toMatchObject({ channel: 'sms', messageType: 'transactional' });
-    expect(result?.sends).toHaveLength(1);
-    expect(result?.sends[0]).toMatchObject({
+    const sends = await w.as.query(campaigns.listCampaignSends, {
+      campaignId,
+      paginationOpts: { numItems: 10, cursor: null },
+    });
+    expect(sends.page).toHaveLength(1);
+    expect(sends.page[0]).toMatchObject({
       _id: sendId,
       phone: '+33612345678',
       smsRecipient: '33612345678',
@@ -223,6 +273,109 @@ describe('a campaign read with its sends', () => {
   });
 });
 
+describe('the list of campaigns', () => {
+  const list = (
+    w: World,
+    args: {
+      status?: Doc<'campaigns'>['status'];
+      search?: string;
+      numItems?: number;
+      cursor?: string | null;
+    } = {},
+  ) =>
+    w.as.query(campaigns.listCampaigns, {
+      status: args.status,
+      search: args.search,
+      paginationOpts: { numItems: args.numItems ?? 10, cursor: args.cursor ?? null },
+    });
+
+  test('the campaigns come newest first, by pages, with their counts and nothing of their content', async () => {
+    const w = await setup();
+    // Dropped from its page, which runs short of it.
+    await insertCampaign(w, { name: 'Effacée', deletedAt: NOW });
+    const first = await insertCampaign(w, {
+      name: 'Première',
+      htmlBody: '<p>lourd</p>',
+      totalCount: 3,
+      sentCount: 2,
+      failedCount: 1,
+    });
+    const second = await insertCampaign(w, { name: 'Deuxième', channel: 'sms', status: 'draft' });
+    const third = await insertCampaign(w, { name: 'Troisième' });
+
+    const page = await list(w, { numItems: 2 });
+    expect(page.page).toEqual([
+      expect.objectContaining({ _id: third, name: 'Troisième', status: 'sent' }),
+      expect.objectContaining({ _id: second, channel: 'sms', status: 'draft' }),
+    ]);
+    expect(page.isDone).toBe(false);
+    const rest = await list(w, { numItems: 2, cursor: page.continueCursor });
+    expect(rest.page).toEqual([
+      {
+        _id: first,
+        _creationTime: expect.any(Number),
+        name: 'Première',
+        channel: 'email',
+        status: 'sent',
+        totalCount: 3,
+        sentCount: 2,
+        failedCount: 1,
+      },
+    ]);
+    expect(rest.isDone).toBe(true);
+  });
+
+  test('a status narrows the pages, a typed name finds the campaigns called so, together or not', async () => {
+    const w = await setup();
+    const relance = await insertCampaign(w, { name: 'Relance printemps', status: 'sent' });
+    const brouillon = await insertCampaign(w, { name: 'Relance été', status: 'draft' });
+    await insertCampaign(w, { name: 'Bienvenue', status: 'sent' });
+    await insertCampaign(w, { name: 'Relance effacée', status: 'draft', deletedAt: NOW });
+
+    expect((await list(w, { status: 'draft' })).page.map((c) => c._id)).toEqual([brouillon]);
+    expect((await list(w, { search: 'relance' })).page.map((c) => c._id)).toEqual(
+      expect.arrayContaining([relance, brouillon]),
+    );
+    expect((await list(w, { search: 'relance' })).page).toHaveLength(2);
+    expect((await list(w, { search: 'relance', status: 'sent' })).page.map((c) => c._id)).toEqual([
+      relance,
+    ]);
+    expect((await list(w, { search: 'nulle part' })).page).toEqual([]);
+  });
+
+  test('a picker gets ten choices at most, by name, on one channel, the chosen one kept whatever the search', async () => {
+    const w = await setup();
+    const sms = await insertCampaign(w, { name: 'Alerte SMS', channel: 'sms' });
+    const legacy = await insertCampaign(w, { name: 'Alerte ancienne', channel: undefined });
+    const ids: Id<'campaigns'>[] = [];
+    for (let i = 0; i < 12; i++) ids.push(await insertCampaign(w, { name: `Lettre ${i}` }));
+    const gone = await insertCampaign(w, { name: 'Alerte effacée', deletedAt: NOW });
+    const search = (args: {
+      search?: string;
+      channel?: 'email' | 'sms';
+      selected?: Id<'campaigns'>;
+    }) => w.as.query(campaigns.searchCampaigns, args);
+
+    const recent = await search({});
+    expect(recent).toHaveLength(10);
+    expect(recent[0]).toEqual({ _id: ids[11], name: 'Lettre 11', channel: 'email' });
+    expect((await search({ search: 'alerte' })).map((c) => c._id)).toEqual(
+      expect.arrayContaining([sms, legacy]),
+    );
+    expect((await search({ search: 'alerte' })).map((c) => c._id)).not.toContain(gone);
+    // A campaign written before channels is an e-mail one.
+    expect((await search({ search: 'alerte', channel: 'email' })).map((c) => c._id)).toEqual([
+      legacy,
+    ]);
+    expect((await search({ search: 'alerte', channel: 'sms' })).map((c) => c._id)).toEqual([sms]);
+    const kept = (await search({ search: 'lettre', selected: sms })).map((c) => c._id);
+    expect(kept[0]).toBe(sms);
+    expect(kept).toHaveLength(11);
+    expect(ids).toEqual(expect.arrayContaining(kept.slice(1)));
+    expect((await search({ selected: gone })).map((c) => c._id)).not.toContain(gone);
+  });
+});
+
 describe('the events of a campaign', () => {
   test('a campaign nothing happened to has an empty page', async () => {
     const w = await setup();
@@ -236,11 +389,14 @@ describe('the events of a campaign', () => {
     expect(result.isDone).toBe(true);
   });
 
-  test('the events come most recent first, each with what its kind carries, without those of another campaign', async () => {
+  test('the events come most recent first, each with what its kind carries and who it reached, without those of another campaign', async () => {
     const w = await setup();
     const leadId = await seedLead(w.t, {});
     const campaignId = await insertCampaign(w);
-    const sendId = await insertSend(w, campaignId, leadId);
+    const sendId = await insertSend(w, campaignId, leadId, {
+      email: 'ada@example.com',
+      params: { firstName: 'Ada', lastName: 'Lovelace' },
+    });
     const send = { campaignId, sendId, leadId };
     await insertEvent(w, send, 'delivered', NOW + 1);
     await insertEvent(w, send, 'opened', NOW + 2);
@@ -273,7 +429,20 @@ describe('the events of a campaign', () => {
       leadId,
       linkKey: 'oui',
       linkLabel: 'Oui',
+      recipient: { name: 'Ada Lovelace', contact: 'ada@example.com' },
     });
+    // A send with no merge values is shown by its address; one that is gone by nothing.
+    const bare = await insertSend(w, campaignId, leadId, { phone: '+33612345678' });
+    await insertEvent(w, { campaignId, sendId: bare, leadId }, 'delivered', NOW + 8);
+    await w.t.run((ctx) => ctx.db.delete(sendId));
+    const again = await w.as.query(campaigns.listCampaignEvents, {
+      campaignId,
+      paginationOpts: { numItems: 2, cursor: null },
+    });
+    expect(again.page.map((e) => e.recipient)).toEqual([
+      { name: '', contact: '+33612345678' },
+      { name: '', contact: '' },
+    ]);
   });
 
   test('a page ends where the next one starts, until the last', async () => {

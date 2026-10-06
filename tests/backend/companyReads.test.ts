@@ -37,28 +37,36 @@ const systemRow = (t: T, companyId: Id<'companies'>, metadata?: unknown) =>
   );
 
 describe('company options', () => {
-  test('an instance without company offers no option', async () => {
-    const { as } = await setup();
-    expect(await as.query(api.features.companies.queries.listCompanyOptions, {})).toEqual([]);
+  test('no id, or ids nothing answers to, give no option', async () => {
+    const { t, as } = await setup();
+    const gone = await as.mutation(api.features.companies.mutations.createCompany, {
+      name: 'Partie',
+    });
+    await t.run((ctx) => ctx.db.delete(gone));
+    expect(await as.query(api.features.companies.queries.listCompanyOptions, { ids: [] })).toEqual(
+      [],
+    );
+    expect(
+      await as.query(api.features.companies.queries.listCompanyOptions, { ids: [gone] }),
+    ).toEqual([]);
   });
 
-  test('the options are the live companies in name order, reduced to id and name', async () => {
-    const { as, emp } = await setup();
+  test('the options are the named companies, live ones only, each once, reduced to id and name', async () => {
+    const { as } = await setup();
     const create = (fields: { name: string; domain?: string; sector?: string }) =>
       as.mutation(api.features.companies.mutations.createCompany, fields);
     const novalux = await create({ name: 'Novalux', domain: 'novalux.example', sector: 'Énergie' });
     const brume = await create({ name: 'Atelier Brume' });
     const meridia = await create({ name: 'Meridia Conseil' });
-    await as.mutation(api.features.companies.mutations.updateCompany, {
-      companyId: brume,
-      ownerIds: [emp.userId],
-      headcount: 12,
-    });
     await as.mutation(api.features.companies.mutations.deleteCompany, { companyId: meridia });
 
-    expect(await as.query(api.features.companies.queries.listCompanyOptions, {})).toEqual([
-      { _id: brume, name: 'Atelier Brume' },
+    expect(
+      await as.query(api.features.companies.queries.listCompanyOptions, {
+        ids: [novalux, meridia, brume, novalux],
+      }),
+    ).toEqual([
       { _id: novalux, name: 'Novalux' },
+      { _id: brume, name: 'Atelier Brume' },
     ]);
   });
 });

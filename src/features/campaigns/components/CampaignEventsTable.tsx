@@ -17,15 +17,12 @@ import { dateTimeFormat } from '@crm/lib/format';
 
 const PAGE_SIZE = 30;
 
-/** The log of a campaign's delivery and engagement events, newest first; a row opens the recipient's preview, as in the recipients table. */
+/** The log of a campaign's delivery and engagement events, newest first, each with who it reached; a row opens the recipient's preview, as in the recipients table. */
 export function CampaignEventsTable({
   campaignId,
-  recipientBySendId,
   onSelectSend,
 }: {
   campaignId: Id<'campaigns'>;
-  /** Send id → display name/contact, derived from the already-loaded sends. */
-  recipientBySendId: Map<Id<'campaignSends'>, { name: string; contact: string }>;
   onSelectSend: (sendId: Id<'campaignSends'>) => void;
 }) {
   const { results, status, loadMore } = useAuthPaginatedQuery(
@@ -60,7 +57,7 @@ export function CampaignEventsTable({
             </TableRow>
           ) : (
             results.map((event) => {
-              const recipient = recipientBySendId.get(event.sendId);
+              const { recipient } = event;
               return (
                 <TableRow
                   key={event._id}
@@ -71,7 +68,7 @@ export function CampaignEventsTable({
                     {dateTimeFormat.format(event.eventAt)}
                   </TableCell>
                   <TableCell className="text-[13px] font-medium text-ink">
-                    {recipient?.name || recipient?.contact || '—'}
+                    {recipient.name || recipient.contact || '—'}
                   </TableCell>
                   <TableCell>
                     <StatusBadge tone={EVENT_TYPE_TONE[event.type]}>

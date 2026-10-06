@@ -24,6 +24,8 @@ interface MultiSelectProps {
   items: MultiSelectItem[];
   value: string[];
   onValueChange: (value: string[]) => void;
+  /** Given, the search is the caller's: the items are shown as they come, not narrowed by their label. */
+  onSearch?: (search: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   emptyText?: string;
@@ -38,6 +40,7 @@ function MultiSelect({
   items,
   value,
   onValueChange,
+  onSearch,
   placeholder = 'Sélectionner...',
   searchPlaceholder = 'Rechercher...',
   emptyText = 'Aucun résultat.',
@@ -116,7 +119,10 @@ function MultiSelect({
           <CommandInput
             placeholder={searchPlaceholder}
             value={searchValue}
-            onValueChange={setSearchValue}
+            onValueChange={(v) => {
+              setSearchValue(v);
+              onSearch?.(v);
+            }}
           />
           <CommandList>
             {isLoading ? (
@@ -128,7 +134,11 @@ function MultiSelect({
                 <CommandEmpty>{emptyText}</CommandEmpty>
                 <CommandGroup>
                   {items
-                    .filter((item) => item.label.toLowerCase().includes(searchValue.toLowerCase()))
+                    .filter(
+                      (item) =>
+                        onSearch !== undefined ||
+                        item.label.toLowerCase().includes(searchValue.toLowerCase()),
+                    )
                     .map((item) => (
                       <CommandItem
                         key={item.value}

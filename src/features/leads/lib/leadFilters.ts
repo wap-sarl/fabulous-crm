@@ -19,12 +19,12 @@ export const LEAD_FILTER_FIELDS: StandardFieldSpec<LeadStandardField>[] = [
     type: 'checkbox',
     options: CONSENT_CHANNELS.map((c) => ({ value: c.value, label: c.label })),
   },
-  { field: 'companyId', label: 'Entreprise', type: 'select' },
+  // Searched as one types: the companies are never all loaded.
+  { field: 'companyId', label: 'Entreprise', type: 'company' },
 ];
 
-/** Live options the full catalog needs: companies and lead lists. */
+/** Live options the full catalog needs: the lead lists. */
 export interface LeadCatalogOptions {
-  companies?: { _id: string; name: string }[];
   lists?: { _id: string; name: string }[];
 }
 
@@ -32,10 +32,9 @@ const BEHAVIOUR = 'Comportement';
 
 /** Every lead column the advanced filter offers, behavioural signals included. */
 function leadFilterFields(opts: LeadCatalogOptions = {}): StandardFieldSpec<LeadStandardField>[] {
-  const companies = (opts.companies ?? []).map((c) => ({ value: c._id, label: c.name }));
   const lists = (opts.lists ?? []).map((l) => ({ value: l._id, label: l.name }));
   return [
-    ...LEAD_FILTER_FIELDS.map((f) => (f.field === 'companyId' ? { ...f, options: companies } : f)),
+    ...LEAD_FILTER_FIELDS,
     { field: 'createdAt', label: 'Date de création', type: 'timestamp' },
     { field: 'leadScore', label: 'Score', type: 'number' },
     { field: 'lastActivityAt', label: 'Dernière activité', type: 'timestamp', group: BEHAVIOUR },

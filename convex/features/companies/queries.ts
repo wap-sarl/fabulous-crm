@@ -107,12 +107,17 @@ export const countCompanies = employeeQuery({
 });
 
 /** Live companies as filter options (id + name), name order — feeds the « Entreprise » field. */
+/** The names of the companies a filter already names, for its chips: one read per id, a deleted or unknown one left out. */
 export const listCompanyOptions = employeeQuery({
-  args: {},
+  args: { ids: v.array(v.id('companies')) },
   returns: v.array(v.object({ _id: v.id('companies'), name: v.string() })),
-  handler: async (ctx) => {
-    const rows = await ctx.db.query('companies').withIndex('by_name').order('asc').collect();
-    return rows.filter(isNotDeleted).map((c) => ({ _id: c._id, name: c.name }));
+  handler: async (ctx, args) => {
+    const options = [];
+    for (const id of new Set(args.ids)) {
+      const company = await ctx.db.get(id);
+      if (company && isNotDeleted(company)) options.push({ _id: company._id, name: company.name });
+    }
+    return options;
   },
 });
 

@@ -388,8 +388,13 @@ Les règles que le code suit, chacune gardée par un test :
   raison, dans `tests/backend/layering.test.ts`.
 - **Une query ne lit une table entière, ou toute une plage d'index, que là où
   c'est petit par nature**, et le dit : chaque `.collect()` est listé avec sa
-  raison dans `tests/backend/collects.test.ts`, ainsi que les quelques lectures
-  qui grandissent encore avec l'usage (campagnes, options d'entreprises).
+  raison dans `tests/backend/collects.test.ts` ; plus aucune lecture connue ne
+  grandit avec l'usage.
+- **Les compteurs d'une campagne vivent hors de la campagne**
+  (`campaignStatShards`, seize lignes sommées à la lecture,
+  `convex/lib/campaigns/stats.ts`) : un événement du fournisseur écrit une de
+  ces lignes, jamais le document de la campagne, et un lot (envoi, renvoi)
+  n'en écrit qu'une par transaction (`tests/backend/campaignStats.test.ts`).
 - **Une écriture de contact ne coûte que ce qu'elle change**
   (`tests/backend/writeCost.test.ts`) : un contact est écrit une fois à sa
   création, un agrégat n'est touché que si la ligne y change de place, et les
@@ -751,6 +756,16 @@ Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
 
 ### Après une mise à jour
 
+- `bunx convex run migrations:backfillCampaignStats --prod` une fois, à la
+  première version qui tient les compteurs d'une campagne (en attente, ignorés,
+  ouverts, cliqués…) : chaque campagne antérieure est comptée depuis ses
+  envois, par pages planifiées (environ 500 envois par page). À lancer à tout
+  moment, campagne en cours d'envoi et événements du fournisseur compris : un
+  envoi qui change pendant le comptage n'est compté qu'une fois. Jusque-là,
+  une campagne antérieure affiche des zéros.
+- Si les compteurs d'une campagne semblent faux :
+  `bunx convex run features/campaigns/internal:recountCampaignStats '{"campaignId":"<id>"}' --prod`
+  la recompte depuis ses envois, à tout moment et autant de fois que voulu.
 - `bunx convex run features/workflows/internal:listWorkflowsToFix --prod`
   liste les workflows actifs ou en pause que l'activation refuserait avec les
   règles de la version déployée. Un workflow en faute continue de tourner,
