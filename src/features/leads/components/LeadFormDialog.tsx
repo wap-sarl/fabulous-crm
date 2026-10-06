@@ -56,7 +56,7 @@ type DomainMatch = { _id: Id<'companies'>; name: string };
 export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
   const isEdit = !!lead;
   const convex = useConvex();
-  const { employees } = useEmployees(open);
+  const { employees, isLoading: employeesLoading } = useEmployees(open);
   const { createLead, updateLead } = useLeadActions();
   const propertyDefinitions = usePropertyDefinitions('lead');
   const lifecycle = useLifecycleConfig();
@@ -280,7 +280,10 @@ export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps
               }))}
               value={form.ownerIds}
               onValueChange={(v) => setField('ownerIds', v)}
-              placeholder="Non assigné"
+              // The list arrives once the form is open: until then the field says so, not « Non assigné » over owners it cannot name yet.
+              placeholder={employeesLoading ? 'Chargement…' : 'Non assigné'}
+              isLoading={employeesLoading}
+              disabled={employeesLoading}
               modal
               className="w-full"
             />
