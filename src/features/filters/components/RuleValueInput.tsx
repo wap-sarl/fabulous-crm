@@ -11,6 +11,7 @@ import {
 import type { FilterFieldType, FilterRange, FilterRule, Id } from '@crm/lib/backend';
 import { useEmployees } from '../../../lib/hooks/useEmployees';
 import { CompanyMultiPicker } from '../../companies/components/CompanyMultiPicker';
+import { LeadListMultiSelect } from '../../leadLists/components/LeadListMultiSelect';
 import { useLifecycleConfig } from '../../leads/hooks/useLifecycleConfig';
 
 interface RuleValueInputProps<F extends string> {
@@ -159,8 +160,17 @@ export function RuleValueInput<F extends string>({
 
     case 'select':
     case 'checkbox':
-    case 'list':
       return multi(options);
+
+    case 'list':
+      return (
+        <LeadListMultiSelect
+          value={asArray}
+          onChange={(v) => setValue(v.length > 0 ? v : undefined)}
+          modal
+          className="w-full"
+        />
+      );
 
     case 'company':
       return (

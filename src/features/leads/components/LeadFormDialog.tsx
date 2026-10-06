@@ -56,7 +56,7 @@ type DomainMatch = { _id: Id<'companies'>; name: string };
 export function LeadFormDialog({ open, onOpenChange, lead }: LeadFormDialogProps) {
   const isEdit = !!lead;
   const convex = useConvex();
-  const { employees } = useEmployees();
+  const { employees } = useEmployees(open);
   const { createLead, updateLead } = useLeadActions();
   const propertyDefinitions = usePropertyDefinitions('lead');
   const lifecycle = useLifecycleConfig();

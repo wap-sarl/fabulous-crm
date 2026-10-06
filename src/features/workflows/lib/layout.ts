@@ -32,7 +32,7 @@ const slotKey = (slot: InsertSlot): string =>
   'slot' in slot ? `${slot.parentId}:${slot.slot}` : 'trigger';
 
 export function layoutWorkflow(
-  draft: WorkflowDraft,
+  draft: Pick<WorkflowDraft, 'nodes' | 'startNodeId' | 'trigger'>,
   opts?: { invalidIds?: Set<string>; criteriaCount?: number },
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = [];

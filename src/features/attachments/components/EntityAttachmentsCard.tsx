@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { memo, useRef, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { AttachmentEntityType, AttachmentRow, TrashedAttachmentRow } from '@crm/lib/backend';
@@ -19,7 +19,11 @@ interface EntityAttachmentsCardProps {
 }
 
 /** The folder tree shown is the one an object store would show: a folder is only the path of its files. */
-export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachmentsCardProps) {
+// Memoised on the record: a dialog of the page that opens does not re-render the files.
+export const EntityAttachmentsCard = memo(function EntityAttachmentsCard({
+  entityType,
+  entityId,
+}: EntityAttachmentsCardProps) {
   const rows = useAuthQuery(api.features.attachments.queries.listAttachments, {
     entityType,
     entityId,
@@ -222,4 +226,4 @@ export function EntityAttachmentsCard({ entityType, entityId }: EntityAttachment
       />
     </Card>
   );
-}
+});

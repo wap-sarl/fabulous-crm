@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { ActivityRow } from '@crm/lib/backend';
@@ -15,8 +15,8 @@ import { CompleteActivityDialog } from './CompleteActivityDialog';
 import { LogCallDialog } from './LogCallDialog';
 import { dateTimeFormat } from '@crm/lib/format';
 
-/** One activity line: icon, title, due/completed date, outcome, complete/reopen. */
-export function ActivityListItem({
+/** One activity line: icon, title, due/completed date, outcome, complete/reopen. Memoised: a dialog of the card that opens leaves the lines alone, so its handlers must keep their identity. */
+export const ActivityListItem = memo(function ActivityListItem({
   activity,
   onComplete,
   onReopen,
@@ -99,15 +99,15 @@ export function ActivityListItem({
       </span>
     </li>
   );
-}
+});
 
 interface EntityActivitiesCardProps extends ActivityLinks {
   /** Show the "log a call" shortcut (leads and companies). */
   canLogCall?: boolean;
 }
 
-/** "Activités" card of a lead / company / transaction page. */
-export function EntityActivitiesCard({
+/** "Activités" card of a lead / company / transaction page. Memoised on the ids it is given: a dialog of the page that opens does not re-render it. */
+export const EntityActivitiesCard = memo(function EntityActivitiesCard({
   leadId,
   companyId,
   dealId,
@@ -123,13 +123,16 @@ export function EntityActivitiesCard({
   const [callOpen, setCallOpen] = useState(false);
   const [completing, setCompleting] = useState<ActivityRow | null>(null);
 
-  const reopen = async (activity: ActivityRow) => {
-    try {
-      await reopenActivity({ activityId: activity._id });
-    } catch (e) {
-      toast.error(activityErrorMessage(e, 'Échec.'));
-    }
-  };
+  const reopen = useCallback(
+    async (activity: ActivityRow) => {
+      try {
+        await reopenActivity({ activityId: activity._id });
+      } catch (e) {
+        toast.error(activityErrorMessage(e, 'Échec.'));
+      }
+    },
+    [reopenActivity],
+  );
 
   return (
     <Card className="p-5" data-testid="entity-activities-card">
@@ -179,4 +182,4 @@ export function EntityActivitiesCard({
       <CompleteActivityDialog activity={completing} onClose={() => setCompleting(null)} />
     </Card>
   );
-}
+});

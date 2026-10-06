@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
@@ -34,6 +34,23 @@ export function CampaignDetailPage() {
   );
   const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
+  // Stable for the memoised recipients table.
+  const handleRetrySend = useCallback(
+    async (sendId: Id<'campaignSends'>) => {
+      setRetrying(true);
+      try {
+        await retrySend({ campaignId: campaignId as Id<'campaigns'>, sendId });
+        toast.success('Renvoi relancé.');
+      } catch (err) {
+        toast.error(retryErrorMessage(err));
+      } finally {
+        setRetrying(false);
+      }
+    },
+    [retrySend, campaignId],
+  );
+  const sentByHour = stats?.sentByHour;
+  const series = useMemo(() => buildSendSeries(sentByHour ?? {}), [sentByHour]);
 
   if (data === undefined || stats === undefined) {
     return (
@@ -48,22 +65,9 @@ export function CampaignDetailPage() {
   }
 
   const { campaign } = data;
-  const series = buildSendSeries(stats.sentByHour);
   const isSms = campaign.channel === 'sms';
   // Resend can only run when the campaign is settled (not mid-preparation/drain).
   const canRetry = campaign.status !== 'sending' && campaign.status !== 'preparing';
-
-  const handleRetrySend = async (sendId: Id<'campaignSends'>) => {
-    setRetrying(true);
-    try {
-      await retrySend({ campaignId: campaign._id, sendId });
-      toast.success('Renvoi relancé.');
-    } catch (err) {
-      toast.error(retryErrorMessage(err));
-    } finally {
-      setRetrying(false);
-    }
-  };
 
   const handleResendAll = async () => {
     if (

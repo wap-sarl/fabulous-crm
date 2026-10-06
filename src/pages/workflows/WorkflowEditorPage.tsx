@@ -126,13 +126,40 @@ export function WorkflowEditorPage() {
     return null;
   }, [selectedId, draft]);
 
-  const requestRemove = (id: string) => {
-    const node = draft.nodes[id];
-    if (!node) return;
-    const dependents = node.type === 'branch' ? subtreeIds(draft.nodes, id).length - 1 : 0;
-    if (dependents > 0) setConfirmRemoveId(id);
-    else dispatch({ type: 'removeNode', id });
-  };
+  const steps = draft.nodes;
+  const requestRemove = useCallback(
+    (id: string) => {
+      const node = steps[id];
+      if (!node) return;
+      const dependents = node.type === 'branch' ? subtreeIds(steps, id).length - 1 : 0;
+      if (dependents > 0) setConfirmRemoveId(id);
+      else dispatch({ type: 'removeNode', id });
+    },
+    [steps, dispatch],
+  );
+  // The value of the canvas context: rebuilt only when one of its parts changes, or every node and edge would re-render at each keystroke in the name.
+  const canvasHandlers = useMemo(
+    () => ({
+      onSelect: setSelectedId,
+      onInsert: setPickerSlot,
+      onRemove: requestRemove,
+      listNameById,
+      definitionLabelById,
+      lifecycleStageLabelByKey,
+      pipelineNameById,
+      stageLabel,
+      readOnly,
+    }),
+    [
+      requestRemove,
+      listNameById,
+      definitionLabelById,
+      lifecycleStageLabelByKey,
+      pipelineNameById,
+      stageLabel,
+      readOnly,
+    ],
+  );
 
   /** Persist the draft; returns the workflow id, or null when blocked. */
   const save = async (): Promise<Id<'workflows'> | null> => {
@@ -270,18 +297,8 @@ export function WorkflowEditorPage() {
         draft={draft}
         invalidIds={invalidIds}
         className="min-h-0 flex-1"
-        handlers={{
-          selectedId,
-          onSelect: setSelectedId,
-          onInsert: setPickerSlot,
-          onRemove: requestRemove,
-          listNameById,
-          definitionLabelById,
-          lifecycleStageLabelByKey,
-          pipelineNameById,
-          stageLabel,
-          readOnly,
-        }}
+        selectedId={selectedId}
+        handlers={canvasHandlers}
       />
 
       <StepTypePicker

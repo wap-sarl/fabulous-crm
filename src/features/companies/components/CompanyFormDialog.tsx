@@ -62,7 +62,7 @@ export function CompanyFormDialog({
   const isEdit = !!company;
   const { createCompany, updateCompany } = useCompanyActions();
   const definitions = usePropertyDefinitions('company');
-  const { employees } = useEmployees();
+  const { employees } = useEmployees(open);
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [submitting, setSubmitting] = useState(false);

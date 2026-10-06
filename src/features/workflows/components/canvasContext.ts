@@ -3,7 +3,6 @@ import type { InsertSlot } from '../types';
 
 /** Passed through React context instead of node `data`, so the layout stays pure and serializable. */
 export interface CanvasHandlers {
-  selectedId: string | 'trigger' | null;
   onSelect: (id: string | 'trigger') => void;
   onInsert: (slot: InsertSlot) => void;
   onRemove: (id: string) => void;
@@ -16,6 +15,11 @@ export interface CanvasHandlers {
 }
 
 export const CanvasContext = createContext<CanvasHandlers | null>(null);
+
+/** The selection has its own context: choosing a step re-renders the step cards, not the edges, the « + » nodes nor React Flow's wrappers. */
+export const CanvasSelectionContext = createContext<string | 'trigger' | null>(null);
+
+export const useCanvasSelection = () => useContext(CanvasSelectionContext);
 
 export function useCanvasHandlers(): CanvasHandlers {
   const ctx = useContext(CanvasContext);

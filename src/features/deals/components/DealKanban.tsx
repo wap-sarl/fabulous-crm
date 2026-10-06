@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -32,7 +32,14 @@ interface DealKanbanProps {
   onMove: (deal: DealRow, stage: PipelineStage) => Promise<void>;
 }
 
-function DealCardBody({ deal, dragging }: { deal: DealRow; dragging?: boolean }) {
+// Memoised: a drag re-renders every card wrapper through the drag context, at its start, at each column crossed and at the drop; what the card shows is rendered once.
+const DealCardBody = memo(function DealCardBody({
+  deal,
+  dragging,
+}: {
+  deal: DealRow;
+  dragging?: boolean;
+}) {
   return (
     <div
       className={cn(
@@ -76,7 +83,7 @@ function DealCardBody({ deal, dragging }: { deal: DealRow; dragging?: boolean })
       </div>
     </div>
   );
-}
+});
 
 function DraggableCard({ deal, onOpen }: { deal: DealRow; onOpen: (deal: DealRow) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({

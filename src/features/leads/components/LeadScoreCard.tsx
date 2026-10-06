@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card } from '@crm/design-system';
 import { api } from '@crm/lib/backend';
 import { useAuthQuery } from '@crm/widgets';
@@ -8,7 +9,8 @@ interface LeadScoreCardProps {
   breakdown: Record<string, number> | undefined;
 }
 
-export function LeadScoreCard({ score, breakdown }: LeadScoreCardProps) {
+// Memoised on the score: a dialog of the page that opens does not re-render it.
+export const LeadScoreCard = memo(function LeadScoreCard({ score, breakdown }: LeadScoreCardProps) {
   const rules = useAuthQuery(api.features.scoring.queries.listScoringRules, {});
   const contributions = breakdown ?? {};
 
@@ -57,4 +59,4 @@ export function LeadScoreCard({ score, breakdown }: LeadScoreCardProps) {
       )}
     </Card>
   );
-}
+});

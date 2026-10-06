@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
@@ -14,7 +14,11 @@ interface EntityDealsCardProps {
 }
 
 /** "Transactions" card of a lead or company page: its deals + a create shortcut. */
-export function EntityDealsCard({ leadId, leadName }: EntityDealsCardProps) {
+// Memoised on what it is given: a dialog of the page that opens does not re-render it.
+export const EntityDealsCard = memo(function EntityDealsCard({
+  leadId,
+  leadName,
+}: EntityDealsCardProps) {
   const navigate = useNavigate();
   const deals = useAuthQuery(api.features.deals.queries.listDealsForEntity, { leadId });
   const [formOpen, setFormOpen] = useState(false);
@@ -66,4 +70,4 @@ export function EntityDealsCard({ leadId, leadName }: EntityDealsCardProps) {
       />
     </Card>
   );
-}
+});

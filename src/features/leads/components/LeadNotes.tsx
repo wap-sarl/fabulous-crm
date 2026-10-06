@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { api } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
 import { useAuthQuery, useAuthMutation } from '@crm/widgets';
@@ -26,7 +26,8 @@ type LeadNote = {
   updatedAt: number;
 };
 
-export function LeadNotes({ leadId }: { leadId: Id<'leads'> }) {
+// Memoised on the lead: a dialog of the page that opens does not re-render the notes.
+export const LeadNotes = memo(function LeadNotes({ leadId }: { leadId: Id<'leads'> }) {
   const notes = useAuthQuery(api.features.leads.queries.listLeadNotes, { leadId });
 
   const createNote = useAuthMutation(api.features.leads.mutations.createNote);
@@ -209,4 +210,4 @@ export function LeadNotes({ leadId }: { leadId: Id<'leads'> }) {
       )}
     </Card>
   );
-}
+});

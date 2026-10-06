@@ -58,8 +58,13 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
   const lists = useLeadLists();
   const leadCatalog = useLeadFieldCatalog(definitions);
   const { pipelines, byId: pipelineById } = usePipelines();
-  const forms = useAuthQuery(api.features.forms.queries.listFormOptions, {}) ?? [];
   const { trigger } = value;
+  // The forms are a choice of one trigger only.
+  const forms =
+    useAuthQuery(
+      api.features.forms.queries.listFormOptions,
+      trigger?.type === 'form_submitted' ? {} : 'skip',
+    ) ?? [];
 
   // The editor always needs a filter object; whether criteria are stored is decided by the parent on apply, from the active-rule count.
   const [criteriaDraft, setCriteriaDraft] = useState<LeadAdvancedFilter>(
