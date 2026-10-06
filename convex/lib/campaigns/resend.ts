@@ -51,7 +51,7 @@ export async function requeueSend(
   send: Doc<'campaignSends'>,
   remat: ResendContext,
 ): Promise<boolean> {
-  // Clear the previous send's outcome + engagement so stats reflect the new send.
+  // What the previous send earned goes, so the counters say what the new one does; a reply and an unsubscription are about the person and stay.
   const reset = {
     status: 'pending' as const,
     error: undefined,
@@ -59,6 +59,8 @@ export async function requeueSend(
     openedAt: undefined,
     clickedAt: undefined,
     sentAt: undefined,
+    deliveredAt: undefined,
+    bouncedAt: undefined,
   };
   if (send.status === 'skipped_no_email' || send.status === 'skipped_no_phone') {
     const lead = await ctx.db.get(send.leadId);

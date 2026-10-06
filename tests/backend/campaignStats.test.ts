@@ -248,6 +248,45 @@ describe('the counters of a campaign', () => {
     });
   });
 
+  test('a send queued again forgets its delivery and its bounce; the reply and the unsubscription are about the person and stay', async () => {
+    const w = await setup();
+    await seedLead(w.t, { phone: '+33612345678', marketingConsent: ['sms'] });
+    await seedLead(w.t, { phone: '+33612345679', marketingConsent: ['sms'] });
+    const campaignId = await insertCampaign(w, { channel: 'sms', smsBody: 'Bonjour' });
+    await w.t.mutation(fn.prepareCampaignBatch, { campaignId, filter: {} });
+    const [first, second] = await sendsOf(w, campaignId);
+    await w.t.mutation(fn.recordSendResults, {
+      campaignId,
+      results: [
+        { sendId: first._id, status: 'sent', brevoMessageId: 'sms-1' },
+        { sendId: second._id, status: 'sent', brevoMessageId: 'sms-2' },
+      ],
+    });
+    const report = (brevoMessageId: string, msgStatus: string, eventAt: number) =>
+      w.t.mutation(fn.handleSmsEvent, { brevoMessageId, msgStatus, eventAt });
+    await report('sms-1', 'delivered', NOW + 1);
+    await report('sms-1', 'replied', NOW + 2);
+    await report('sms-1', 'unsubscribed', NOW + 3);
+    await report('sms-2', 'hard_bounce', NOW + 4);
+
+    await w.t.run((ctx) => ctx.db.patch(campaignId, { status: 'preparing' }));
+    await w.t.mutation(fn.resendCampaignBatch, { campaignId });
+    for (const send of await sendsOf(w, campaignId)) {
+      expect(send).toMatchObject({ status: 'pending' });
+      expect(send.deliveredAt).toBeUndefined();
+      expect(send.bouncedAt).toBeUndefined();
+    }
+    // Never more delivered than sent: nothing has left yet.
+    expect(await expectCounted(w, campaignId)).toMatchObject({
+      pending: 2,
+      delivered: 0,
+      bounced: 0,
+      replied: 1,
+      unsubscribed: 1,
+      sentByHour: {},
+    });
+  });
+
   test('a provider event writes one row of the counters and never the campaign; the rows are sixteen at most, and only their sum is read', async () => {
     const w = await setup();
     const leadId = await seedLead(w.t, {});
