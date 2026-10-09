@@ -7,6 +7,7 @@ import {
 import { ConvexError } from 'convex/values';
 import { describeError, errorCode, errorLabel, errorText } from '../../src/lib/errors';
 import { dateFormat } from '../../src/lib/format';
+import { setFrontendExtensionsForTests } from '../../src/lib/frontendExtensions';
 import { keyFromLabel } from '../../src/lib/keys';
 import { slugOf } from '../../convex/_lib/text';
 
@@ -89,9 +90,19 @@ describe('the helpers the screens share', () => {
     // A code the screen has no sentence for: the sentence the refusal brings, else the fallback.
     const worded = refused({ code: 'workflow_pause_first', message: 'Mettez en pause.' });
     expect(errorLabel(worded, LABELS, 'Échec.')).toBe('Mettez en pause.');
-    expect(describeError(worded, 'Échec.')).toBe('Mettez en pause.');
     expect(errorLabel(refused({ code: 'other' }), LABELS, 'Échec.')).toBe('Échec.');
+    // A generic toast asks the overlay first: the core alone, said so, then an overlay that words one code.
+    setFrontendExtensionsForTests({});
+    expect(describeError(worded, 'Échec.')).toBe('Mettez en pause.');
     expect(describeError(refused({ code: 'other' }), 'Échec.')).toBe('Échec.');
     expect(describeError(new Error('boom'), 'Échec.')).toBe('Échec.');
+    setFrontendExtensionsForTests({
+      describeRefusal: ({ code }) => (code === 'other' ? 'Quota atteint.' : null),
+    });
+    expect(describeError(refused({ code: 'other' }), 'Échec.')).toBe('Quota atteint.');
+    expect(describeError(worded, 'Échec.')).toBe('Mettez en pause.');
+    expect(describeError(new Error('boom'), 'Échec.')).toBe('Échec.');
+    // A screen's own labels do not go through the overlay.
+    expect(errorLabel(refused({ code: 'other' }), LABELS, 'Échec.')).toBe('Échec.');
   });
 });

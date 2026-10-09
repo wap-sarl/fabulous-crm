@@ -468,7 +468,7 @@ bun run dev
 
 Tous les tests sont sous `tests/` (`backend/` avec `convex-test`, `frontend/`),
 aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
-(`bunfig.toml`), pose trois règles :
+(`bunfig.toml`), pose quatre règles :
 
 - **Aucun test ne sort de la machine** : une requête que le test n'a pas
   simulée est refusée et fait échouer le test qui l'a émise.
@@ -479,11 +479,24 @@ aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
   part tout seul. `runDue(t)` exécute ce qui est dû maintenant, `runAfter(t,
   ms)` avance puis exécute, `runAll(t)` exécute tout, `pinClock(date)` fixe la
   date de départ.
+- **Un test dit avec quelles extensions il tourne** : un overlay assemblé sur
+  le cœur lance cette même suite, avec les siennes. Un test qui décrit le
+  cœur seul le dit (`setFrontendExtensionsForTests({})` côté interface,
+  `setExtensionsForTests(defaultExtensions)` côté backend), un test qui
+  décrit un point d'extension le pose ; à la fin de chaque test, les deux
+  côtés retrouvent les extensions installées. Aucun test n'écrit sur
+  `src/extensions.tsx`.
 
 Les tests sont typés comme le reste (`tests/tsconfig.json`, dans
 `bun run typecheck`). La suite ne dépend pas de l'ordre : la CI la lance dans
 un ordre aléatoire (`bun test --randomize`, la graine est affichée pour
-rejouer un échec avec `--seed`).
+rejouer un échec avec `--seed`). Elle la lance une seconde fois avec un
+overlay de substitution (`bun run test:stand-in`) : `src/extensions.tsx`
+est remplacé par `tests/support/overlayStandIn.ts`, où chaque point
+d'extension est défini et répond à tout, et `convex/extensions.ts` par
+`tests/support/backendStandIn.ts`, qui répond là où une réponse se voit et
+ne refuse rien, comme l'overlay privé sans tenant configuré ; un test du
+cœur seul qui ne le dit pas échoue là, avant d'échouer chez un overlay.
 
 ### Bootstrap & connexion locale
 

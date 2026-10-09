@@ -1,5 +1,5 @@
 import { ConvexError } from 'convex/values';
-import { extensions } from '../extensions';
+import { frontendExtensions } from './frontendExtensions';
 import type { LoginMethods, Refusal } from './extensionTypes';
 
 /** The refusal behind an error, a code string, or a ConvexError with `{ code, ...data }`; null for anything else. */
@@ -55,7 +55,11 @@ export function errorLabel(
 /** The overlay's message for a refusal it owns, else the one the refusal brings, else `fallback`. Generic error toasts go through here. */
 export function describeError(error: unknown, fallback: string): string {
   const refusal = refusalOf(error);
-  return (refusal && extensions.describeRefusal?.(refusal)) || refusalMessage(error) || fallback;
+  return (
+    (refusal && frontendExtensions().describeRefusal?.(refusal)) ||
+    refusalMessage(error) ||
+    fallback
+  );
 }
 
 export const SIGN_IN_GENERIC_ERROR = 'Une erreur est survenue. Veuillez réessayer.';
@@ -64,7 +68,7 @@ export const SIGN_IN_GENERIC_ERROR = 'Une erreur est survenue. Veuillez réessay
 export function describeSignInError(err: { code?: string; message?: string } | null): string {
   // A refusal from the seam travels as the error's message, under Better Auth's own `code`.
   for (const code of [err?.message, err?.code]) {
-    const described = code ? extensions.describeRefusal?.({ code, data: {} }) : null;
+    const described = code ? frontendExtensions().describeRefusal?.({ code, data: {} }) : null;
     if (described) return described;
   }
   const code = err?.code ?? err?.message ?? '';
@@ -81,9 +85,10 @@ export function emailCodeForm(
   search: URLSearchParams,
 ): { shown: boolean; notice: string | null } {
   // An overlay decides from the config: until it arrives nothing is shown, rather than a form that may vanish.
-  if (!config) return { shown: !extensions.loginMethods, notice: null };
+  const { loginMethods } = frontendExtensions();
+  if (!config) return { shown: !loginMethods, notice: null };
   const decided: LoginMethods | null =
-    extensions.loginMethods?.(config as Record<string, unknown>, search) ?? null;
+    loginMethods?.(config as Record<string, unknown>, search) ?? null;
   // A method the deployment disabled stays disabled, whatever the overlay answers.
   const shown = config.auth.magicLink && decided?.emailCode !== false;
   return { shown, notice: shown ? (decided?.emailCodeNotice ?? null) : null };

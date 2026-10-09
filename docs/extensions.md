@@ -230,6 +230,21 @@ rename or remove without saying so:
 
 The assembled tree runs the core's suite, guard tests included, over the overlay's code too.
 
+That suite must hold with the overlay's extensions in place, in any order, so a test says
+which extensions it runs with. The core reads `src/extensions.tsx` in one place,
+`frontendExtensions()` of `src/lib/frontendExtensions.ts`, and
+`setFrontendExtensionsForTests(overrides)` sets what it returns for the rest of a test: the
+defaults plus `overrides`, so `{}` is the core alone, as `setExtensionsForTests` does for the
+backend hooks (`setExtensionsForTests(defaultExtensions)` is the core alone there: `null`
+puts back the installed hooks, the overlay's in an assembled tree). Every test ends with the
+installed extensions put back on both sides (`tests/setup.ts`). A test never writes on the
+exported `extensions` object: the next one would run without the overlay's hooks. The
+overlay's own tests may use the same seams, or call the functions of its files directly. The
+core checks itself with stand-ins for an overlay (`bun run test:stand-in`):
+`tests/support/overlayStandIn.ts` defines every frontend hook and answers everything;
+`tests/support/backendStandIn.ts` defines every backend hook, answers where an answer shows
+and refuses nothing, as the private overlay does with no tenant configured.
+
 Two guards keep a list an overlay has to add to, with a reason for each entry: the reads of a
 whole table (`collects.test.ts`) and the queries a query or a mutation runs (`layering.test.ts`).
 The overlay replaces `tests/support/overlayRules.ts`, empty in the core, with its own entries.

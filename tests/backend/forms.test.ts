@@ -7,7 +7,6 @@ import { asIdentity, createTestConvex, seedEmployee, type T, seedConfig } from '
 const NOW = Date.parse('2026-09-25T10:00:00Z');
 beforeEach(() => setSystemTime(new Date(NOW)));
 afterEach(() => {
-  setExtensionsForTests(null);
   setSystemTime();
 });
 /** The clock moves forward: a render stamp is signed, so a submission's age can only come from time passing. */
