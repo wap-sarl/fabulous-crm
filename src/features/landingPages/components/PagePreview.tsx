@@ -1,11 +1,20 @@
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
-import type { Id } from '@crm/lib/backend';
+import type { Id, LandingVariant } from '@crm/lib/backend';
 import { Spinner } from '@crm/design-system';
 
 /** The page as the public route serves it, what is saved, under the same policy, in a frame of its own; the form is drawn, not run, so nothing is sent from here. */
-export function PagePreview({ pageId }: { pageId: Id<'landingPages'> }) {
-  const html = useAuthQuery(api.features.landingPages.queries.previewLandingPage, { pageId });
+export function PagePreview({
+  pageId,
+  variant = 'a',
+}: {
+  pageId: Id<'landingPages'>;
+  variant?: LandingVariant;
+}) {
+  const html = useAuthQuery(api.features.landingPages.queries.previewLandingPage, {
+    pageId,
+    variant,
+  });
   if (html === undefined) return <Spinner size="sm" />;
   if (html === null) return <p className="text-sm text-faint">Page introuvable.</p>;
   return (

@@ -334,6 +334,7 @@ describe('landing pages: views and conversions', () => {
       days: [{ day: '2026-10-09', views: 2, submissions: 0 }],
       views: 2,
       submissions: 0,
+      test: null,
     });
 
     expect((await submitFrom(t, formId, pageId, 'ada@example.com')).status).toBe(200);

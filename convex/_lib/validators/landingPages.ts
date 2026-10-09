@@ -1,6 +1,6 @@
 import { type Infer, v } from 'convex/values';
 import { z } from 'zod';
-import { follows, httpsUrlSchema, httpUrlSchema } from './fields';
+import { boundedInt, follows, httpsUrlSchema, httpUrlSchema } from './fields';
 import { logsValidator, softDeleteValidator } from './shared';
 
 export const MAX_PAGE_SECTIONS = 20;
@@ -65,6 +65,29 @@ export const landingSeoValidator = v.object({
 
 export const landingStatusValidator = v.union(v.literal('draft'), v.literal('published'));
 
+/** The two versions of a page under test: A is the page itself, B the test's blocks. */
+export const landingVariantValidator = v.union(v.literal('a'), v.literal('b'));
+export type LandingVariant = Infer<typeof landingVariantValidator>;
+
+/** The share of visitors shown B, as a percentage, the rest seeing A. */
+export const testShareSchema = boundedInt(1, 99);
+
+/** An A/B test: B's blocks and the share of visitors who see them; a visitor always sees the same variant. Set or changed, it is a new test: its own id and start, and the comparison starts again. */
+const landingTestValidator = v.object({
+  id: v.string(),
+  startedAt: v.number(),
+  sections: v.array(landingSectionValidator),
+  share: v.number(),
+});
+export type LandingTest = Infer<typeof landingTestValidator>;
+
+/** What the editor sets: the test without what the server gives it. */
+export const landingTestInputValidator = v.object({
+  sections: v.array(landingSectionValidator),
+  share: v.number(),
+});
+export type LandingTestInput = Infer<typeof landingTestInputValidator>;
+
 export const landingPageValidator = v.object({
   ...logsValidator.fields,
   ...softDeleteValidator.fields,
@@ -76,12 +99,17 @@ export const landingPageValidator = v.object({
   sections: v.array(landingSectionValidator),
   // The form of the first form block, for the list and the submissions that come from the page.
   formId: v.optional(v.id('forms')),
+  abTest: v.optional(landingTestValidator),
 });
 
 /** The views and the submissions of a page, by UTC day, spread over rows so that a burst of visitors does not meet on one document. */
 export const landingPageStatsValidator = v.object({
   pageId: v.id('landingPages'),
   day: v.string(),
+  // The test the row was counted under, so that a test compares its own figures; absent outside a test.
+  test: v.optional(v.string()),
+  // Absent on rows older than the tests: counted as A.
+  variant: v.optional(landingVariantValidator),
   shard: v.number(),
   views: v.number(),
   submissions: v.number(),
@@ -151,6 +179,17 @@ export function validatePublishable(page: LandingPageInput): string | null {
   );
   if (leadsToForm && !hasForm) return 'page_form_required';
   return null;
+}
+
+/** B is a page of its own, with the same rules; its share is a whole percentage, neither variant left without visitors. */
+export function validateTestShape(page: LandingPageInput, test: LandingTestInput): string | null {
+  if (!follows(testShareSchema, test.share)) return 'page_invalid_share';
+  return validateLandingPageShape({ ...page, sections: test.sections });
+}
+
+/** The variant a visitor sees: B for the share of them its bucket falls in, the same bucket at every visit. */
+export function variantFor(test: LandingTest | undefined, bucket: number): LandingVariant {
+  return test && bucket < test.share ? 'b' : 'a';
 }
 
 /** The form a page's submissions are attributed to: that of its first form block. */

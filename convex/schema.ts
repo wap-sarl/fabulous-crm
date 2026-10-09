@@ -408,11 +408,10 @@ const tables = {
     .index('by_deletedAt', ['deletedAt']),
 
   // The counters of a page by day, summed on read (landingPageStatsValidator).
-  landingPageStats: defineTable(landingPageStatsValidator).index('by_page_day_shard', [
-    'pageId',
-    'day',
-    'shard',
-  ]),
+  landingPageStats: defineTable(landingPageStatsValidator)
+    .index('by_page_day_test_variant_shard', ['pageId', 'day', 'test', 'variant', 'shard'])
+    // A test reads its own rows and no other of the page.
+    .index('by_page_test_day', ['pageId', 'test', 'day']),
 
   // Browser identity for progressive profiling (see formVisitorTokenValidator).
   formVisitorTokens: defineTable(formVisitorTokenValidator)

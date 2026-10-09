@@ -18,6 +18,8 @@ const PAGE_ERRORS: Record<string, string> = {
   page_sections_required: 'Ajoutez au moins un bloc avant de publier.',
   page_form_required: 'Un bouton mène au formulaire : ajoutez un bloc formulaire.',
   page_not_found: 'Cette page n’existe plus.',
+  page_invalid_share: 'La part de la version B va de 1 à 99 %.',
+  page_no_test: 'Cette page n’a pas de test en cours.',
 };
 
 export const pageErrorMessage = (error: unknown) =>

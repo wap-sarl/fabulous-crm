@@ -28,12 +28,17 @@ export type {
   FormStandardField,
 } from '../../convex/_lib/validators/forms';
 export { FORM_STANDARD_FIELDS, formFieldKey } from '../../convex/_lib/validators/forms';
-export type { LandingSection, LandingSeo } from '../../convex/_lib/validators/landingPages';
+export type {
+  LandingSection,
+  LandingSeo,
+  LandingVariant,
+} from '../../convex/_lib/validators/landingPages';
 export {
   landingSlugSchema,
   MAX_PAGE_SECTIONS,
   MAX_SEO_DESCRIPTION,
   MAX_SEO_TITLE,
+  testShareSchema,
   validateLandingPageShape,
 } from '../../convex/_lib/validators/landingPages';
 export type { TimelineKind } from '../../convex/_lib/validators/timeline';
