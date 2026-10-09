@@ -37,7 +37,6 @@ beforeEach(() => {
   }) as typeof fetch;
 });
 afterEach(async () => {
-  setExtensionsForTests(null);
   globalThis.fetch = realFetch;
   for (const k of ENV) {
     if (saved[k] === undefined) delete process.env[k];

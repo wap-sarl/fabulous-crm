@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
+import { beforeEach, describe, expect, jest, test } from 'bun:test';
 import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { IMPORT_BATCH_SIZE } from '../../convex/_lib/validators/imports';
@@ -18,10 +18,6 @@ const NOW = Date.parse('2026-09-25T09:00:00Z');
 beforeEach(() => {
   pinClock(NOW);
 });
-afterEach(async () => {
-  setExtensionsForTests(null);
-});
-
 // Running timers moves the date: it goes back, for the seeded sessions.
 const settle = (t: T, backTo = NOW) => runAll(t, backTo);
 

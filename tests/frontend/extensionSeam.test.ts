@@ -79,7 +79,9 @@ describe('the frontend extensions a test runs with', () => {
 
   test('the core reads its extensions through the accessor: one file imports the one an overlay replaces', () => {
     const readers = sources('.').filter((file) =>
-      /from\s+['"](?:\.{1,2}\/)+extensions['"]/.test(readFileSync(join(SRC, file), 'utf8')),
+      /from\s+['"](?:(?:\.{1,2}\/)+|@crm\/)extensions(?:\.tsx)?['"]/.test(
+        readFileSync(join(SRC, file), 'utf8'),
+      ),
     );
     expect(readers).toEqual(['lib/frontendExtensions.ts']);
   });

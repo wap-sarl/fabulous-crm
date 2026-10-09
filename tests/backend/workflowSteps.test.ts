@@ -1,12 +1,10 @@
-import { afterEach, describe, expect, test } from 'bun:test';
+import { describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import type { WorkflowNode, WorkflowTrigger } from '../../convex/_lib/validators/workflows';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { insertListMember } from '../../convex/lib/leadLists/members';
 import { asIdentity, createTestConvex, pinClock, seedEmployee, type T } from './helpers';
-
-afterEach(() => setExtensionsForTests(null));
 
 const NOW = Date.UTC(2026, 8, 29, 10, 0, 0);
 const HOUR_MS = 60 * 60 * 1000;

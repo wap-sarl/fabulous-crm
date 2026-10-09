@@ -11,12 +11,18 @@ if (process.env.OVERLAY_STAND_IN) {
   mock.module(join(import.meta.dir, '../src/extensions.tsx'), () => ({
     extensions: overlayStandIn,
   }));
+  mock.module(
+    join(import.meta.dir, '../convex/extensions.ts'),
+    () => import('./support/backendStandIn'),
+  );
 }
 
 afterEach(async () => {
-  // Dynamic, after the stand-in is in place: every test starts from the installed extensions, whatever the one before it set.
+  // Dynamic, after the stand-ins are in place: every test starts from the installed extensions, whatever the one before it set.
   const { setFrontendExtensionsForTests } = await import('../src/lib/frontendExtensions');
+  const { setExtensionsForTests } = await import('../convex/extensions');
   setFrontendExtensionsForTests(null);
+  setExtensionsForTests(null);
   await endTest();
   jest.useRealTimers();
   const refused = takeRefused();

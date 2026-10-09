@@ -31,9 +31,7 @@ const daysAgo = (days: number) => NOW - days * DAY_MS;
 beforeEach(() => {
   pinClock(NOW);
 });
-afterEach(async () => {
-  setExtensionsForTests(null);
-});
+afterEach(async () => {});
 
 async function setup() {
   const t = createTestConvex();

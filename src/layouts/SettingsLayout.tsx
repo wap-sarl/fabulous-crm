@@ -12,6 +12,7 @@ export function SettingsLayout() {
   const { user } = useAuth();
   const hasSettings = !!user?.access.settings;
 
+  // The extensions are fixed for the life of the app: a test that switches them while this is mounted sees stale tabs, and that is fine.
   const groups = useMemo(
     () => visibleTabGroups(SETTINGS_GROUPS, frontendExtensions().navItems, hasSettings),
     [hasSettings],

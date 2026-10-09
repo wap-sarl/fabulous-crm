@@ -482,18 +482,21 @@ aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
 - **Un test dit avec quelles extensions il tourne** : un overlay assemblé sur
   le cœur lance cette même suite, avec les siennes. Un test qui décrit le
   cœur seul le dit (`setFrontendExtensionsForTests({})` côté interface,
-  `setExtensionsForTests(null)` côté backend), un test qui décrit un point
-  d'extension le pose ; à la fin de chaque test, l'interface retrouve les
-  extensions installées. Aucun test n'écrit sur `src/extensions.tsx`.
+  `setExtensionsForTests(defaultExtensions)` côté backend), un test qui
+  décrit un point d'extension le pose ; à la fin de chaque test, les deux
+  côtés retrouvent les extensions installées. Aucun test n'écrit sur
+  `src/extensions.tsx`.
 
 Les tests sont typés comme le reste (`tests/tsconfig.json`, dans
 `bun run typecheck`). La suite ne dépend pas de l'ordre : la CI la lance dans
 un ordre aléatoire (`bun test --randomize`, la graine est affichée pour
 rejouer un échec avec `--seed`). Elle la lance une seconde fois avec un
-overlay de substitution à la place de `src/extensions.tsx`
-(`bun run test:stand-in`, `tests/support/overlayStandIn.ts`) : chaque point
-d'extension y est défini et répond à tout, si bien qu'un test du cœur seul
-qui ne le dit pas échoue là, avant d'échouer chez un overlay.
+overlay de substitution (`bun run test:stand-in`) : `src/extensions.tsx`
+est remplacé par `tests/support/overlayStandIn.ts`, où chaque point
+d'extension est défini et répond à tout, et `convex/extensions.ts` par
+`tests/support/backendStandIn.ts`, qui répond là où une réponse se voit et
+ne refuse rien, comme l'overlay privé sans tenant configuré ; un test du
+cœur seul qui ne le dit pas échoue là, avant d'échouer chez un overlay.
 
 ### Bootstrap & connexion locale
 
