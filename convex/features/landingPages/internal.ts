@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 import { internalQuery } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { landingVariantValidator, variantFor } from '../../_lib/validators/landingPages';
-import { pageBySlug, renderContextOf } from '../../lib/landingPages/pages';
+import { pageById, pageBySlug, renderContextOf } from '../../lib/landingPages/pages';
 import { renderLandingPage, sectionsOf } from '../../lib/landingPages/render';
 import { countForPage } from '../../lib/landingPages/stats';
 
@@ -32,6 +32,13 @@ export const getPublishedPage = internalQuery({
       test: page.abTest?.id,
     };
   },
+});
+
+/** The slug of the live page an id names, what a visitor's bucket is drawn on; null for none: the submit route asks before drawing. */
+export const getPageSlug = internalQuery({
+  args: { page: v.string() },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => (await pageById(ctx, args.page))?.slug ?? null,
 });
 
 /** A visitor opened the page: one view, cookieless, on the variant shown. */

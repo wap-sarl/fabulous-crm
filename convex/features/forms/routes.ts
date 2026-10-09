@@ -5,6 +5,7 @@ import { FORM_EMBED_JS, formIframeHtml } from '../../lib/forms/embed';
 import { hashClientIp } from '../../lib/forms/submission';
 import { VISITOR_ID_RE } from '../../_lib/validators/tracking';
 import { clientIpOf, enforceRateLimit } from '../../lib/security/rateLimits';
+import { visitorBucket } from '../../lib/landingPages/pages';
 import { PUBLIC_CORS } from '../../lib/http/cors';
 
 const formJson = (body: unknown, status: number) =>
@@ -87,6 +88,13 @@ export function registerFormsRoutes(http: HttpRouter): void {
       if (!body || typeof body.values !== 'object' || body.values === null) {
         return formJson({ ok: false, code: 'invalid_body' }, 400);
       }
+      const userAgent = request.headers.get('user-agent') ?? undefined;
+      const page = typeof body.page === 'string' ? body.page : undefined;
+      // The bucket is drawn here, where the address is: the mutation gets a number, and no argument of it holds the address.
+      const slug =
+        page === undefined
+          ? null
+          : await ctx.runQuery(internal.features.landingPages.internal.getPageSlug, { page });
       const result = await ctx.runMutation(internal.features.forms.internal.submitForm, {
         formId,
         values: Object.fromEntries(
@@ -107,10 +115,10 @@ export function registerFormsRoutes(http: HttpRouter): void {
             ? body.trackingVisitor
             : undefined,
         visitorToken: typeof body.visitorToken === 'string' ? body.visitorToken : undefined,
-        page: typeof body.page === 'string' ? body.page : undefined,
-        ip,
+        page,
+        bucket: slug === null ? undefined : await visitorBucket(slug, ip, userAgent ?? ''),
         ipHash: await hashClientIp(ip),
-        userAgent: request.headers.get('user-agent') ?? undefined,
+        userAgent,
       });
       if (!result.ok) return formJson(result, result.code === 'not_found' ? 404 : 400);
       return formJson(result, 200);

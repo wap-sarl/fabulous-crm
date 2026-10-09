@@ -96,7 +96,7 @@ export async function statsOfPage(
   };
 }
 
-/** What each variant got under the test running: its rows from the day it started, the page's other rows left out. */
+/** What each variant got under the test running: its own rows from the day it started, none other of the page read. */
 export async function statsOfTest(
   ctx: Pick<QueryCtx, 'db'>,
   pageId: Id<'landingPages'>,
@@ -105,14 +105,15 @@ export async function statsOfTest(
   const since = dayOf(Math.max(test.startedAt, Date.now() - (TEST_DAYS_MAX - 1) * DAY_MS));
   const rows = await ctx.db
     .query('landingPageStats')
-    .withIndex('by_page_day_test_variant_shard', (q) => q.eq('pageId', pageId).gte('day', since))
-    .take(4 * STAT_SHARDS * (TEST_DAYS_MAX + 1));
+    .withIndex('by_page_test_day', (q) =>
+      q.eq('pageId', pageId).eq('test', test.id).gte('day', since),
+    )
+    .take(2 * STAT_SHARDS * (TEST_DAYS_MAX + 1));
   const variants: Record<LandingVariant, VariantStats> = {
     a: { views: 0, submissions: 0 },
     b: { views: 0, submissions: 0 },
   };
   for (const row of rows as Doc<'landingPageStats'>[]) {
-    if (row.test !== test.id) continue;
     const variant = variants[row.variant ?? 'a'];
     variant.views += row.views;
     variant.submissions += row.submissions;

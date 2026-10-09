@@ -68,20 +68,27 @@ export async function renderContextOf(ctx: QueryCtx | MutationCtx, sections: Lan
   };
 }
 
-/** The page a submission came from, when the embed names one that is published and holds the form, and the variant that browser was shown: drawn again from its address and browser, as the page was served, nothing taken from the body. */
+/** The live page an id names, published or not, as the embed names it; nothing for a deleted one or no page. */
+export async function pageById(
+  ctx: Pick<QueryCtx, 'db'>,
+  raw: string,
+): Promise<Doc<'landingPages'> | null> {
+  const pageId = ctx.db.normalizeId('landingPages', raw);
+  const page = pageId ? await ctx.db.get(pageId) : null;
+  return page && isNotDeleted(page) ? page : null;
+}
+
+/** The page a submission came from, when the embed names one that is published and holds the form, and the variant that browser was shown: its bucket drawn again by the route as the page was served, nothing taken from the body. */
 export async function pageOfSubmission(
   ctx: Pick<MutationCtx, 'db'>,
   formId: Id<'forms'>,
   raw: string | undefined,
-  visitor: { ip: string; userAgent: string },
+  bucket: number | undefined,
 ): Promise<{ pageId: Id<'landingPages'>; variant: LandingVariant; test?: string } | undefined> {
-  const pageId = raw ? ctx.db.normalizeId('landingPages', raw) : null;
-  const page = pageId ? await ctx.db.get(pageId) : null;
-  if (!page || !isNotDeleted(page) || page.status !== 'published') return undefined;
-  const variant = variantFor(
-    page.abTest,
-    await visitorBucket(page.slug, visitor.ip, visitor.userAgent),
-  );
+  if (raw === undefined || bucket === undefined) return undefined;
+  const page = await pageById(ctx, raw);
+  if (page?.status !== 'published') return undefined;
+  const variant = variantFor(page.abTest, bucket);
   const sections = variant === 'b' && page.abTest ? page.abTest.sections : page.sections;
   return sections.some((section) => section.type === 'form' && section.formId === formId)
     ? { pageId: page._id, variant, test: page.abTest?.id }

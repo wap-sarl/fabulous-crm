@@ -96,9 +96,9 @@ export const submitForm = internalMutation({
     visitorToken: v.optional(v.string()),
     // The tracking script's cookie id, to tie the browser's page views to the contact (named mode).
     trackingVisitor: v.optional(v.string()),
-    // The hosted page the form was on, as the embed says it; the variant shown is drawn again from the address and the browser, so the raw address comes along and is kept nowhere.
+    // The hosted page the form was on, as the embed says it, and the visitor's bucket on it (0–99) the route drew from the address and the browser: the variant shown, nothing taken from the body.
     page: v.optional(v.string()),
-    ip: v.string(),
+    bucket: v.optional(v.number()),
     ipHash: v.string(),
     userAgent: v.optional(v.string()),
   },
@@ -226,10 +226,7 @@ export const submitForm = internalMutation({
       if (value !== undefined) storedValues[field.key] = value;
     }
     // Only a published page that holds this form counts the submission: a page id in the body proves nothing by itself.
-    const from = await pageOfSubmission(ctx, form._id, args.page, {
-      ip: args.ip,
-      userAgent: args.userAgent ?? '',
-    });
+    const from = await pageOfSubmission(ctx, form._id, args.page, args.bucket);
     const landingPageId = from?.pageId;
     await ctx.db.insert('formSubmissions', {
       formId: form._id,
