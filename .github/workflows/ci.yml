@@ -43,6 +43,10 @@ jobs:
       - name: Test
         run: bun test --randomize
 
+      # The same suite with a stand-in for an overlay's frontend extensions: a test of the core alone that does not say so fails here.
+      - name: Test with an overlay stand-in
+        run: bun run test:stand-in
+
       - name: Build
         run: bun run build
 

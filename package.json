@@ -13,6 +13,7 @@
     "openapi": "bun run scripts/generate-openapi.ts",
     "test": "bun test",
     "test:watch": "bun test --watch",
+    "test:stand-in": "OVERLAY_STAND_IN=1 bun test --randomize",
     "lint": "biome check --error-on-warnings .",
     "unused": "KNIP_DISABLE_RAW_TRANSFER=1 knip",
     "format": "biome format --write ."

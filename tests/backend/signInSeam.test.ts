@@ -4,7 +4,7 @@ import { internal } from '../../convex/_generated/api';
 import { SIGN_IN_HOOK_FAILURE_ENTITY_ID } from '../../convex/auth';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { describeSignInError, emailCodeForm } from '../../src/lib/errors';
-import { extensions as frontend } from '../../src/extensions';
+import { setFrontendExtensionsForTests } from '../../src/lib/frontendExtensions';
 import { createTestConvex, runDue, seedEmployee, type T, seedConfig } from './helpers';
 
 const ENV = ['SITE_URL', 'CONVEX_SITE_URL', 'BETTER_AUTH_SECRET', 'DEV_WHITELIST_EMAILS'] as const;
@@ -38,8 +38,6 @@ beforeEach(() => {
 });
 afterEach(async () => {
   setExtensionsForTests(null);
-  frontend.describeRefusal = undefined;
-  frontend.loginMethods = undefined;
   globalThis.fetch = realFetch;
   for (const k of ENV) {
     if (saved[k] === undefined) delete process.env[k];
@@ -260,13 +258,17 @@ describe('login page seam', () => {
 
   test('loginMethods can take the e-mail code form away or put a notice on it, never bring back a method the deployment disabled', () => {
     const none = new URLSearchParams();
+    // The core alone, said so: the installed extensions may be an overlay's.
+    setFrontendExtensionsForTests({});
     expect(emailCodeForm(config, none)).toEqual({ shown: true, notice: null });
     // Without an overlay the form is there while the config loads, as before.
     expect(emailCodeForm(undefined, none)).toEqual({ shown: true, notice: null });
-    frontend.loginMethods = (publicConfig, search) =>
-      publicConfig.requireProvider && !search.has('code')
-        ? { emailCode: false, emailCodeNotice: 'never shown' }
-        : { emailCodeNotice: 'Réservé aux administrateurs.' };
+    setFrontendExtensionsForTests({
+      loginMethods: (publicConfig, search) =>
+        publicConfig.requireProvider && !search.has('code')
+          ? { emailCode: false, emailCodeNotice: 'never shown' }
+          : { emailCodeNotice: 'Réservé aux administrateurs.' },
+    });
     expect(emailCodeForm(config, none)).toEqual({ shown: false, notice: null });
     expect(emailCodeForm(config, new URLSearchParams('code'))).toEqual({
       shown: true,
@@ -277,18 +279,21 @@ describe('login page seam', () => {
       shown: false,
       notice: null,
     });
-    frontend.loginMethods = () => ({ emailCode: true });
+    setFrontendExtensionsForTests({ loginMethods: () => ({ emailCode: true }) });
     expect(emailCodeForm({ auth: { magicLink: false } }, none).shown).toBe(false);
   });
 
   test('a sign-in error is described by the overlay first, by the core otherwise', () => {
+    setFrontendExtensionsForTests({});
     expect(describeSignInError({ code: 'FORBIDDEN', message: 'not_invited' })).toMatch(
       /pas autorisée/,
     );
     expect(describeSignInError({ code: 'INVALID_OTP' })).toMatch(/Code incorrect/);
     expect(describeSignInError(null)).toMatch(/Une erreur est survenue/);
-    frontend.describeRefusal = ({ code }) =>
-      code === 'sign_in_code_refused' ? 'Utilisez la connexion de votre organisation.' : null;
+    setFrontendExtensionsForTests({
+      describeRefusal: ({ code }) =>
+        code === 'sign_in_code_refused' ? 'Utilisez la connexion de votre organisation.' : null,
+    });
     expect(describeSignInError({ code: 'FORBIDDEN', message: 'sign_in_code_refused' })).toBe(
       'Utilisez la connexion de votre organisation.',
     );

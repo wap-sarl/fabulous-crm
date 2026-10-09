@@ -2,7 +2,7 @@ import { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { cn, Spinner } from '@crm/design-system';
 import { useAuth } from '@crm/widgets';
-import { extensions } from '../extensions';
+import { frontendExtensions } from '../lib/frontendExtensions';
 import { SETTINGS_GROUPS } from '../lib/navigation';
 import { activeTabPath, SETTINGS_ROOT, visibleTabGroups } from '../lib/settingsTabs';
 
@@ -13,7 +13,7 @@ export function SettingsLayout() {
   const hasSettings = !!user?.access.settings;
 
   const groups = useMemo(
-    () => visibleTabGroups(SETTINGS_GROUPS, extensions.navItems, hasSettings),
+    () => visibleTabGroups(SETTINGS_GROUPS, frontendExtensions().navItems, hasSettings),
     [hasSettings],
   );
   const tabs = useMemo(() => groups.flatMap((group) => group.tabs), [groups]);

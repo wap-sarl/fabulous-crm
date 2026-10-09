@@ -16,7 +16,7 @@ import { DashboardShell } from './layouts/DashboardShell';
 import { SettingsLayout } from './layouts/SettingsLayout';
 import { isSettingsPath, SETTINGS_ROOT } from './lib/settingsTabs';
 import { RequireModule } from './features/access/components/RequireModule';
-import { extensions } from './extensions';
+import { frontendExtensions } from './lib/frontendExtensions';
 
 /** A page is loaded when its route is first opened: the first screen carries the shell and nothing of the pages it does not show. */
 const page = <Name extends string>(load: () => Promise<Record<Name, ComponentType>>, name: Name) =>
@@ -158,13 +158,15 @@ function AppRoutes() {
                 <Route path="/settings/retention" element={<RetentionPage />} />
                 <Route path="/settings/tracking" element={<TrackingPage />} />
                 <Route path="/settings/roles" element={<RolesPage />} />
-                {extensions.routes.filter(inSettings).map((route) => (
-                  <Route key={route.path} path={route.path} element={route.element} />
-                ))}
+                {frontendExtensions()
+                  .routes.filter(inSettings)
+                  .map((route) => (
+                    <Route key={route.path} path={route.path} element={route.element} />
+                  ))}
               </Route>
               <Route path="/design-system" element={<DesignSystemPage />} />
-              {extensions.routes
-                .filter((route) => !inSettings(route))
+              {frontendExtensions()
+                .routes.filter((route) => !inSettings(route))
                 .map((route) => (
                   <Route key={route.path} path={route.path} element={route.element} />
                 ))}

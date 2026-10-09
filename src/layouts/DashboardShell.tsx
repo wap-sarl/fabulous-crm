@@ -4,7 +4,7 @@ import { Spinner } from '@crm/design-system';
 import { DashboardLayout, useAuth } from '@crm/widgets';
 import type { RoleAccess } from '@crm/lib/backend';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
-import { extensions } from '../extensions';
+import { frontendExtensions } from '../lib/frontendExtensions';
 import { NAV_ITEMS, type ShellNavItem } from '../lib/navigation';
 import { sidebarEntries } from '../lib/settingsTabs';
 
@@ -34,11 +34,11 @@ export function DashboardShell() {
   const currentPath = `/${location.pathname.split('/')[1] ?? ''}`;
 
   // One list for everyone, built-in and overlay items alike; visibility is per item. An overlay's settings entries are tabs of the settings page.
-  const navItems = [...NAV_ITEMS, ...sidebarEntries(extensions.navItems)].filter((item) =>
+  const navItems = [...NAV_ITEMS, ...sidebarEntries(frontendExtensions().navItems)].filter((item) =>
     canSee(item, user?.access),
   );
 
-  const Guard = extensions.ShellGuard;
+  const Guard = frontendExtensions().ShellGuard;
   const shell = (
     <DashboardLayout
       navItems={navItems}
