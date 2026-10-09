@@ -260,7 +260,7 @@ describe('landing pages: the public page', () => {
     // The editor's HTML, as written.
     expect(html).toContain('<p>Trois raisons <strong>fortes</strong>.</p>');
     expect(html).toContain(
-      `<script src="${SITE}/forms/${formId}/embed.js" data-page="${pageId}" data-variant="a"></script>`,
+      `<script src="${SITE}/forms/${formId}/embed.js" data-page="${pageId}"></script>`,
     );
     expect(html).not.toContain('track.js');
     expect(html).not.toContain('<script>');
@@ -334,7 +334,7 @@ describe('landing pages: views and conversions', () => {
       days: [{ day: '2026-10-09', views: 2, submissions: 0 }],
       views: 2,
       submissions: 0,
-      variants: { a: { views: 2, submissions: 0 }, b: { views: 0, submissions: 0 } },
+      test: null,
     });
 
     expect((await submitFrom(t, formId, pageId, 'ada@example.com')).status).toBe(200);

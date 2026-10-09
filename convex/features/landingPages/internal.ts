@@ -15,6 +15,7 @@ export const getPublishedPage = internalQuery({
       html: v.string(),
       base: v.string(),
       variant: landingVariantValidator,
+      test: v.optional(v.string()),
     }),
     v.null(),
   ),
@@ -28,16 +29,23 @@ export const getPublishedPage = internalQuery({
       html: renderLandingPage(page, { ...context, variant }),
       base: context.base,
       variant,
+      test: page.abTest?.id,
     };
   },
 });
 
 /** A visitor opened the page: one view, cookieless, on the variant shown. */
 export const recordPageView = internalMutation({
-  args: { pageId: v.id('landingPages'), variant: landingVariantValidator },
+  args: {
+    pageId: v.id('landingPages'),
+    variant: landingVariantValidator,
+    test: v.optional(v.string()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (await ctx.db.get(args.pageId)) await countForPage(ctx, args.pageId, 'views', args.variant);
+    if (await ctx.db.get(args.pageId)) {
+      await countForPage(ctx, args.pageId, 'views', args.variant, args.test);
+    }
     return null;
   },
 });

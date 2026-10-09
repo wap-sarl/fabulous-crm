@@ -83,10 +83,10 @@ function renderSection(section: LandingSection, page: Doc<'landingPages'>, opts:
           section.heading ? `<h2>${esc(section.heading)}</h2>` : ''
         }<p class="lede">Le formulaire s’affiche ici sur la page publiée.</p></section>`;
       }
-      // The embed posts the page's id and the variant with a submission, so the page counts its conversions, by variant.
+      // The embed posts the page's id with a submission, so the page counts its conversions; the variant is drawn again server-side, from the same address and browser.
       return `<section class="form" id="form">${
         section.heading ? `<h2>${esc(section.heading)}</h2>` : ''
-      }<script src="${esc(opts.base)}/forms/${esc(section.formId)}/embed.js" data-page="${esc(page._id)}" data-variant="${opts.variant ?? 'a'}"></script></section>`;
+      }<script src="${esc(opts.base)}/forms/${esc(section.formId)}/embed.js" data-page="${esc(page._id)}"></script></section>`;
   }
 }
 

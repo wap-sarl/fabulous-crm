@@ -3,6 +3,7 @@ import { useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api, follows, testShareSchema } from '@crm/lib/backend';
 import type { Id, LandingSection } from '@crm/lib/backend';
 import { Button, Card, HelperText, Input, Label, Spinner, toast } from '@crm/design-system';
+import { dateFormat } from '@crm/lib/format';
 import { FlaskConical, Trophy } from 'lucide-react';
 import { numberFormat } from '@crm/lib/format';
 import { pageErrorMessage } from '../lib/errors';
@@ -14,9 +15,12 @@ interface AbTestPanelProps {
   pageId: Id<'landingPages'>;
   /** A's blocks, as saved: what B starts from. */
   sections: LandingSection[];
-  test: { sections: LandingSection[]; share: number } | undefined;
+  test: { sections: LandingSection[]; share: number; startedAt: number } | undefined;
   forms: FormOption[];
 }
+
+/** Below this many views per version, a difference is mostly chance. */
+const ENOUGH_VIEWS = 100;
 
 /** What a variant got, and its conversion. */
 function VariantStat({
@@ -45,7 +49,9 @@ export function AbTestPanel({ pageId, sections, test, forms }: AbTestPanelProps)
   const setTest = useAuthMutation(api.features.landingPages.mutations.setLandingPageTest);
   const chooseWinner = useAuthMutation(api.features.landingPages.mutations.chooseLandingPageWinner);
   const stats = useAuthQuery(api.features.landingPages.queries.getLandingPageStats, { pageId });
-  const [draft, setDraft] = useState(test);
+  const [draft, setDraft] = useState<{ sections: LandingSection[]; share: number } | undefined>(
+    test,
+  );
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -109,10 +115,15 @@ export function AbTestPanel({ pageId, sections, test, forms }: AbTestPanelProps)
             </Button>
             <Button
               disabled={busy || !dirty || !shareValid}
-              onClick={() => run(() => setTest({ pageId, test: draft }), 'Test enregistré.')}
+              onClick={() =>
+                run(
+                  () => setTest({ pageId, test: draft }),
+                  test ? 'Nouveau test enregistré : les compteurs repartent.' : 'Test enregistré.',
+                )
+              }
               data-testid="save-test"
             >
-              Enregistrer le test
+              {test ? 'Enregistrer comme nouveau test' : 'Enregistrer le test'}
             </Button>
           </div>
         </div>
@@ -129,14 +140,30 @@ export function AbTestPanel({ pageId, sections, test, forms }: AbTestPanelProps)
               setDirty(true);
             }}
           />
-          <HelperText>De 1 à 99 %. Un visiteur voit toujours la même version.</HelperText>
+          <HelperText>
+            De 1 à 99 %. Un visiteur voit toujours la même version, reconnue par son adresse et son
+            navigateur, sans rien stocker : une adresse qui change (réseau mobile, VPN) peut changer
+            de version, et un bureau derrière une seule adresse voit la même. Changer B ou la part
+            relance un test, aux compteurs à zéro.
+          </HelperText>
         </div>
         {stats === undefined ? (
           <Spinner size="sm" />
-        ) : stats ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <VariantStat label="Version A" {...stats.variants.a} />
-            <VariantStat label="Version B" {...stats.variants.b} />
+        ) : stats?.test ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-faint">
+              Depuis le {dateFormat.format(stats.test.startedAt)}, ce test seulement.
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <VariantStat label="Version A" {...stats.test.variants.a} />
+              <VariantStat label="Version B" {...stats.test.variants.b} />
+            </div>
+            {Math.min(stats.test.variants.a.views, stats.test.variants.b.views) < ENOUGH_VIEWS && (
+              <p className="text-xs text-warning">
+                Moins de {ENOUGH_VIEWS} vues sur une version : trop tôt pour conclure, l’écart tient
+                surtout au hasard.
+              </p>
+            )}
           </div>
         ) : null}
         {test && (

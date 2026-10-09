@@ -6,7 +6,7 @@ import {
   landingSectionValidator,
   landingSeoValidator,
   landingStatusValidator,
-  landingTestValidator,
+  landingTestInputValidator,
   landingVariantValidator,
   validateLandingPageShape,
   validatePublishable,
@@ -14,6 +14,7 @@ import {
 } from '../../_lib/validators/landingPages';
 import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
 import { requireFormsOf, requireSlugFree } from '../../lib/landingPages/pages';
+import { generateHexToken } from '../../lib/security/crypto';
 import { isNotDeleted } from '../../lib/shared/db';
 
 const pageInput = {
@@ -95,9 +96,13 @@ export const setLandingPageStatus = employeeMutation({
     if (!page || !isNotDeleted(page)) throw refusal('page_not_found');
     if (page.status === args.status) return null;
     if (args.status === 'published') {
-      const publishable = validatePublishable(page);
-      if (publishable) throw refusal(publishable);
-      await requireFormsOf(ctx, page.sections);
+      // B goes live with A: it must stand on its own too.
+      for (const sections of [page.sections, page.abTest?.sections ?? null]) {
+        if (!sections) continue;
+        const publishable = validatePublishable({ ...page, sections });
+        if (publishable) throw refusal(publishable);
+        await requireFormsOf(ctx, sections);
+      }
     }
     await ctx.db.patch(args.pageId, {
       status: args.status,
@@ -140,9 +145,9 @@ export const deleteLandingPage = employeeMutation({
   },
 });
 
-/** An A/B test on a page: B's blocks and the share of visitors who see them, or null to stop the test and keep A. B follows the page's rules, and must be publishable when the page is published. */
+/** An A/B test on a page: B's blocks and the share of visitors who see them, or null to stop the test and keep A. B follows the page's rules, and must be publishable when the page is published. Set, it is a new test, with its own figures: a B or a share changed mid-way would mix two tests. */
 export const setLandingPageTest = employeeMutation({
-  args: { pageId: v.id('landingPages'), test: v.union(landingTestValidator, v.null()) },
+  args: { pageId: v.id('landingPages'), test: v.union(landingTestInputValidator, v.null()) },
   returns: v.null(),
   handler: async (ctx, args) => {
     const page = await ctx.db.get(args.pageId);
@@ -157,7 +162,9 @@ export const setLandingPageTest = employeeMutation({
       await requireFormsOf(ctx, args.test.sections);
     }
     await ctx.db.patch(args.pageId, {
-      abTest: args.test ?? undefined,
+      abTest: args.test
+        ? { ...args.test, id: generateHexToken(8), startedAt: Date.now() }
+        : undefined,
       ...updateAuditFields(ctx.userId),
     });
     await logAudit({

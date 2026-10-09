@@ -6,7 +6,7 @@ import {
 } from '../../_lib/validators/landingPages';
 import { renderContextOf } from '../../lib/landingPages/pages';
 import { renderLandingPage, sectionsOf } from '../../lib/landingPages/render';
-import { statsOfPage } from '../../lib/landingPages/stats';
+import { statsOfPage, statsOfTest } from '../../lib/landingPages/stats';
 import { docOf } from '../../lib/shared/docs';
 import { isNotDeleted } from '../../lib/shared/db';
 
@@ -62,7 +62,7 @@ export const getLandingPage = employeeQuery({
 
 const variantStats = v.object({ views: v.number(), submissions: v.number() });
 
-/** The counters of a page by day over the last thirty days, their totals, and what each variant got. */
+/** The counters of a page by day over the last thirty days, their totals, and, while a test runs, what each variant got under it. */
 export const getLandingPageStats = employeeQuery({
   args: { pageId: v.id('landingPages') },
   returns: v.union(
@@ -70,14 +70,23 @@ export const getLandingPageStats = employeeQuery({
       days: v.array(v.object({ day: v.string(), views: v.number(), submissions: v.number() })),
       views: v.number(),
       submissions: v.number(),
-      variants: v.object({ a: variantStats, b: variantStats }),
+      test: v.union(
+        v.object({
+          startedAt: v.number(),
+          variants: v.object({ a: variantStats, b: variantStats }),
+        }),
+        v.null(),
+      ),
     }),
     v.null(),
   ),
   handler: async (ctx, args) => {
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) return null;
-    return await statsOfPage(ctx, args.pageId, STATS_DAYS);
+    return {
+      ...(await statsOfPage(ctx, args.pageId, STATS_DAYS)),
+      test: page.abTest ? await statsOfTest(ctx, args.pageId, page.abTest) : null,
+    };
   },
 });
 

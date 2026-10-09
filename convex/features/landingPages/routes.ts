@@ -50,6 +50,7 @@ export function registerLandingPagesRoutes(http: HttpRouter): void {
         await ctx.runMutation(internal.features.landingPages.internal.recordPageView, {
           pageId: page.pageId,
           variant: page.variant,
+          test: page.test,
         });
       }
       return html(page.html, 200, page.base);

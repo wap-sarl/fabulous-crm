@@ -1,7 +1,11 @@
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { refusal } from '../../_lib/refusal';
-import type { LandingSection, LandingVariant } from '../../_lib/validators/landingPages';
+import {
+  type LandingSection,
+  type LandingVariant,
+  variantFor,
+} from '../../_lib/validators/landingPages';
 import { sha256Base64Url } from '../security/crypto';
 import { isNotDeleted } from '../shared/db';
 import { loadTrackingConfig } from '../tracking/config';
@@ -64,20 +68,23 @@ export async function renderContextOf(ctx: QueryCtx | MutationCtx, sections: Lan
   };
 }
 
-/** The page and the variant a submission came from, when the embed names a page that is published and holds the form on that variant; B only while the test runs. */
+/** The page a submission came from, when the embed names one that is published and holds the form, and the variant that browser was shown: drawn again from its address and browser, as the page was served, nothing taken from the body. */
 export async function pageOfSubmission(
   ctx: Pick<MutationCtx, 'db'>,
   formId: Id<'forms'>,
   raw: string | undefined,
-  rawVariant: string | undefined,
-): Promise<{ pageId: Id<'landingPages'>; variant: LandingVariant } | undefined> {
+  visitor: { ip: string; userAgent: string },
+): Promise<{ pageId: Id<'landingPages'>; variant: LandingVariant; test?: string } | undefined> {
   const pageId = raw ? ctx.db.normalizeId('landingPages', raw) : null;
   const page = pageId ? await ctx.db.get(pageId) : null;
   if (!page || !isNotDeleted(page) || page.status !== 'published') return undefined;
-  const variant: LandingVariant = rawVariant === 'b' && page.abTest ? 'b' : 'a';
+  const variant = variantFor(
+    page.abTest,
+    await visitorBucket(page.slug, visitor.ip, visitor.userAgent),
+  );
   const sections = variant === 'b' && page.abTest ? page.abTest.sections : page.sections;
   return sections.some((section) => section.type === 'form' && section.formId === formId)
-    ? { pageId: page._id, variant }
+    ? { pageId: page._id, variant, test: page.abTest?.id }
     : undefined;
 }
 

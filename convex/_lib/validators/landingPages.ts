@@ -72,12 +72,21 @@ export type LandingVariant = Infer<typeof landingVariantValidator>;
 /** The share of visitors shown B, as a percentage, the rest seeing A. */
 export const testShareSchema = boundedInt(1, 99);
 
-/** An A/B test: B's blocks and the share of visitors who see them; a visitor always sees the same variant. */
-export const landingTestValidator = v.object({
+/** An A/B test: B's blocks and the share of visitors who see them; a visitor always sees the same variant. Set or changed, it is a new test: its own id and start, and the comparison starts again. */
+const landingTestValidator = v.object({
+  id: v.string(),
+  startedAt: v.number(),
   sections: v.array(landingSectionValidator),
   share: v.number(),
 });
 export type LandingTest = Infer<typeof landingTestValidator>;
+
+/** What the editor sets: the test without what the server gives it. */
+export const landingTestInputValidator = v.object({
+  sections: v.array(landingSectionValidator),
+  share: v.number(),
+});
+export type LandingTestInput = Infer<typeof landingTestInputValidator>;
 
 export const landingPageValidator = v.object({
   ...logsValidator.fields,
@@ -97,6 +106,8 @@ export const landingPageValidator = v.object({
 export const landingPageStatsValidator = v.object({
   pageId: v.id('landingPages'),
   day: v.string(),
+  // The test the row was counted under, so that a test compares its own figures; absent outside a test.
+  test: v.optional(v.string()),
   // Absent on rows older than the tests: counted as A.
   variant: v.optional(landingVariantValidator),
   shard: v.number(),
@@ -171,7 +182,7 @@ export function validatePublishable(page: LandingPageInput): string | null {
 }
 
 /** B is a page of its own, with the same rules; its share is a whole percentage, neither variant left without visitors. */
-export function validateTestShape(page: LandingPageInput, test: LandingTest): string | null {
+export function validateTestShape(page: LandingPageInput, test: LandingTestInput): string | null {
   if (!follows(testShareSchema, test.share)) return 'page_invalid_share';
   return validateLandingPageShape({ ...page, sections: test.sections });
 }
