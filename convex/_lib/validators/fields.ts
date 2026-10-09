@@ -8,6 +8,9 @@ export const emailSchema = z.string().regex(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
 /** An address the product opens or calls: http or https, and something after it. */
 export const httpUrlSchema = z.string().regex(/^https?:\/\/./);
 
+/** An address a public page loads a resource from: https only, what its content-security policy allows. */
+export const httpsUrlSchema = z.string().regex(/^https:\/\/./);
+
 /** `#rrggbb`, the only form of a colour the settings keep. */
 export const hexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/);
 

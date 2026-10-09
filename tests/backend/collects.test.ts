@@ -9,6 +9,7 @@ const ROOT = join(import.meta.dir, '../../convex');
 const SMALL: Record<string, string> = {
   apiKeys: 'the keys an administrator issued',
   forms: 'the capture forms of the settings',
+  'landingPages.by_deletedAt': 'the hosted pages people built',
   invitations: 'one per person invited',
   'invitations.by_status': 'one per person invited',
   leadLists: 'the lists people named; read where every list is shown or checked',

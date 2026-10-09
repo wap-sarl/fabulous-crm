@@ -1,6 +1,7 @@
 /** HTTP actions are limited per client IP; public mutations and queries have no request context, so they are keyed per resource, with a global bucket bounding the noise of invalid tokens. */
 import { HOUR, MINUTE, RateLimiter } from '@convex-dev/rate-limiter';
 import { components } from '../../_generated/api';
+import { PAGE_VIEWS_PER_MINUTE } from '../../_lib/validators/landingPages';
 import { TRACK_TOTAL_PER_MINUTE } from '../../_lib/validators/tracking';
 
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
@@ -29,6 +30,10 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // The same, per form, then for the whole deployment: a botnet spread over addresses still meets a ceiling.
   formSubmitPerForm: { kind: 'token bucket', rate: 200, period: HOUR },
   formSubmitTotal: { kind: 'token bucket', rate: 1000, period: HOUR },
+  // Hosted pages (GET /p/<slug>), per client IP.
+  pageRender: { kind: 'token bucket', rate: 120, period: MINUTE },
+  // The views counted for the whole deployment, whatever the addresses; the page is served past it.
+  pageRenderTotal: { kind: 'token bucket', rate: PAGE_VIEWS_PER_MINUTE, period: MINUTE },
   // Page-view beacons (POST /track), per client IP and per visitor id.
   trackBeacon: { kind: 'token bucket', rate: 120, period: MINUTE },
   trackVisitor: { kind: 'token bucket', rate: 60, period: MINUTE },
@@ -50,6 +55,8 @@ type LimitName =
   | 'formSubmit'
   | 'formSubmitPerForm'
   | 'formSubmitTotal'
+  | 'pageRender'
+  | 'pageRenderTotal'
   | 'trackBeacon'
   | 'trackVisitor'
   | 'trackTotal';

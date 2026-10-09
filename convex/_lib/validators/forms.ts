@@ -101,6 +101,8 @@ export const formSubmissionValidator = v.object({
   values: v.record(v.string(), propertyValueValidator),
   ipHash: v.string(),
   userAgent: v.optional(v.string()),
+  // The hosted page the form was on, when it was (landing pages count their conversions by it).
+  landingPageId: v.optional(v.id('landingPages')),
 });
 
 /** Progressive profiling: the embed stores the token after a submission and sends it back so the form skips the fields already filled; it maps to the lead and never exposes lead data. */

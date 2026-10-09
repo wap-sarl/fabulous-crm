@@ -122,7 +122,9 @@ workspaces.
   campagne, le journal des étapes de workflow et les liens suivis des campagnes
   terminées (365 jours par défaut, 30 à 3650), le journal d'audit (730 jours par
   défaut, 90 à 3650), ainsi que les invitations expirées et les clés
-  d'idempotence de l'API périmées. La purge travaille par lots bornés (un budget de 2 000 écritures par lot, 20
+  d'idempotence de l'API périmées. Les compteurs des pages hébergées
+  (`landingPageStats`, huit lignes par page et par jour, aucune donnée
+  personnelle) ne sont pas purgés. La purge travaille par lots bornés (un budget de 2 000 écritures par lot, 20
   fiches, 500 lignes par table, 200 lignes rattachées par fiche et par lot,
   chaque requête lue directement dans une plage d'index) et s'enchaîne jusqu'à
   épuisement, la politique et l'instant de référence étant figés au premier lot ; une fiche aux centaines de lignes rattachées
@@ -130,6 +132,21 @@ workspaces.
   ligne d'audit (`retention` / `purge`) avec ses compteurs, affichée sur la page,
   et relance le recalcul complet des listes dynamiques par sécurité. Une
   extension peut différer la purge (`beforeScheduledWork`, `retention_purge`).
+- **Pages** : des pages hébergées par le déploiement (`GET /p/<slug>`,
+  servies sous une politique de sécurité stricte, écrite dans le document
+  lui-même pour que l'aperçu de l'éditeur se comporte comme la page, limitées
+  en débit par adresse et en vues comptées pour tout le déploiement),
+  composées de blocs
+  (bandeau, texte, image, formulaire, appel à l'action) à partir d'un modèle,
+  avec titre et description pour les moteurs de recherche ; brouillon ou
+  publiée (seule une page publiée répond, un brouillon est introuvable),
+  aperçu avant publication, adresse unique parmi les pages vivantes. Le
+  formulaire embarqué dit de quelle page il vient : chaque envoi lui est
+  attribué. Les vues sont comptées côté serveur, sans cookie (les robots
+  exclus), par jour (`landingPageStats`, huit lignes par jour pour qu'une
+  affluence ne se dispute pas un document) ; la page montre vues, envois et
+  conversion sur trente jours. Quand le suivi web est activé, la page charge
+  son script, et l'origine du déploiement compte comme site suivi.
 - **Formulaires de capture** (*Paramètres → Formulaires*) : formulaires publics
   composés de champs standard ou de propriétés personnalisées, à intégrer par
   un script (`GET /forms/<id>/embed.js`, l'élément cible par `data-target`,

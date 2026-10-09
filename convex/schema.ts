@@ -1,4 +1,5 @@
 import { rgpdRequestValidator } from './_lib/validators/rgpd';
+import { landingPageStatsValidator, landingPageValidator } from './_lib/validators/landingPages';
 import { defineSchema, defineTable } from 'convex/server';
 import { extensionTables } from './extensionsSchema';
 import { userValidator } from './_lib/validators/users';
@@ -400,6 +401,18 @@ const tables = {
   forms: defineTable(formValidator).index('by_deletedAt', ['deletedAt']),
 
   formSubmissions: defineTable(formSubmissionValidator).index('by_lead', ['leadId']),
+
+  // Hosted pages (/p/<slug>): few rows, the ones people built.
+  landingPages: defineTable(landingPageValidator)
+    .index('by_slug', ['slug'])
+    .index('by_deletedAt', ['deletedAt']),
+
+  // The counters of a page by day, summed on read (landingPageStatsValidator).
+  landingPageStats: defineTable(landingPageStatsValidator).index('by_page_day_shard', [
+    'pageId',
+    'day',
+    'shard',
+  ]),
 
   // Browser identity for progressive profiling (see formVisitorTokenValidator).
   formVisitorTokens: defineTable(formVisitorTokenValidator)

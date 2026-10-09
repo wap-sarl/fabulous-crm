@@ -9,6 +9,9 @@ import { CEILING_NOTE_MS, MAX_BEACON_BYTES } from '../../_lib/validators/trackin
 import { clientIpOf, enforceRateLimit } from '../../lib/security/rateLimits';
 import { PUBLIC_CORS } from '../../lib/http/cors';
 
+/** The deployment's own origin: its hosted pages (/p/<slug>) are a tracked site without being listed. */
+const ownOrigin = (request: Request) => new URL(request.url).origin;
+
 const beaconResponse = (status: number) => new Response(null, { status, headers: PUBLIC_CORS });
 
 export function registerTrackingRoutes(http: HttpRouter): void {
@@ -43,7 +46,9 @@ export function registerTrackingRoutes(http: HttpRouter): void {
       if (!config.enabled) return beaconResponse(204);
       // Only the sites the script was set up for; a browser always says where a beacon comes from.
       const origin = request.headers.get('origin');
-      if (!origin || !config.allowedOrigins.includes(origin)) return beaconResponse(403);
+      if (!origin || !(config.allowedOrigins.includes(origin) || origin === ownOrigin(request))) {
+        return beaconResponse(403);
+      }
       // sendBeacon posts text/plain: the body is read as text whatever the header says.
       const text = await readCapped(request, MAX_BEACON_BYTES);
       if (text === null) return beaconResponse(413);
