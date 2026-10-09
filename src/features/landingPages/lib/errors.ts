@@ -8,6 +8,7 @@ const PAGE_ERRORS: Record<string, string> = {
   page_title_too_long: 'Le titre dépasse 70 caractères.',
   page_description_too_long: 'La description dépasse 160 caractères.',
   page_invalid_url: 'Une adresse doit commencer par http(s)://, ou mener au formulaire.',
+  page_invalid_image_url: 'L’adresse d’une image commence par https://.',
   page_too_many_sections: 'Trop de blocs.',
   page_duplicate_section: 'Un bloc apparaît deux fois.',
   page_heading_required: 'Chaque bandeau et chaque appel à l’action a un titre.',

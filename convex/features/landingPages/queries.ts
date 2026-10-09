@@ -75,13 +75,16 @@ export const getLandingPageStats = employeeQuery({
   },
 });
 
-/** The page as the public route would serve it now, draft included, for the editor's preview. */
+/** The page as the public route would serve it now, draft included, for the editor's preview; the form is drawn, not run. */
 export const previewLandingPage = employeeQuery({
   args: { pageId: v.id('landingPages') },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) return null;
-    return renderLandingPage(page, await renderContextOf(ctx, page.sections));
+    return renderLandingPage(page, {
+      ...(await renderContextOf(ctx, page.sections)),
+      preview: true,
+    });
   },
 });

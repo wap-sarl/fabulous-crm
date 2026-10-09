@@ -1,11 +1,13 @@
 import { type Infer, v } from 'convex/values';
 import { z } from 'zod';
-import { follows, httpUrlSchema } from './fields';
+import { follows, httpsUrlSchema, httpUrlSchema } from './fields';
 import { logsValidator, softDeleteValidator } from './shared';
 
 export const MAX_PAGE_SECTIONS = 20;
 export const MAX_SEO_TITLE = 70;
 export const MAX_SEO_DESCRIPTION = 160;
+/** Views a minute the whole deployment counts (the `pageRenderTotal` limit): 864 000 a day. */
+export const PAGE_VIEWS_PER_MINUTE = 600;
 
 /** The address of a page under /p/: lower-case letters, digits and hyphens, 60 characters at most. */
 export const landingSlugSchema = z
@@ -105,7 +107,8 @@ export function validateLandingPageShape(page: LandingPageInput): string | null 
   if (!page.seo.title.trim()) return 'page_title_required';
   if (page.seo.title.length > MAX_SEO_TITLE) return 'page_title_too_long';
   if ((page.seo.description ?? '').length > MAX_SEO_DESCRIPTION) return 'page_description_too_long';
-  if (page.seo.imageUrl && !follows(httpUrlSchema, page.seo.imageUrl)) return 'page_invalid_url';
+  if (page.seo.imageUrl && !follows(httpsUrlSchema, page.seo.imageUrl))
+    return 'page_invalid_image_url';
   if (page.sections.length > MAX_PAGE_SECTIONS) return 'page_too_many_sections';
   const ids = new Set<string>();
   for (const section of page.sections) {
@@ -116,14 +119,14 @@ export function validateLandingPageShape(page: LandingPageInput): string | null 
         if (!text(section.heading)) return 'page_heading_required';
         if (text(section.ctaLabel) && !follows(ctaHrefSchema, text(section.ctaHref)))
           return 'page_invalid_url';
-        if (section.imageUrl && !follows(httpUrlSchema, section.imageUrl))
-          return 'page_invalid_url';
+        if (section.imageUrl && !follows(httpsUrlSchema, section.imageUrl))
+          return 'page_invalid_image_url';
         break;
       case 'text':
         if (!text(section.html)) return 'page_text_required';
         break;
       case 'image':
-        if (!follows(httpUrlSchema, section.url)) return 'page_invalid_url';
+        if (!follows(httpsUrlSchema, section.url)) return 'page_invalid_image_url';
         break;
       case 'cta':
         if (!text(section.heading)) return 'page_heading_required';

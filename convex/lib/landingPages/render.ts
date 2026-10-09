@@ -37,6 +37,13 @@ export interface RenderOptions {
   liveFormIds: Set<string>;
   /** Whether the deployment tracks its pages: the script asks the visitor first. */
   tracking: boolean;
+  /** The editor's preview: the form is drawn, not run, so nothing is submitted from there. */
+  preview?: boolean;
+}
+
+/** What the page may load: scripts and calls from the deployment only, images from anywhere over https, styles inline (the scripts style what they add). Named by origin rather than 'self', so that it holds in the editor's frame too. */
+export function pagePolicy(base: string): string {
+  return `default-src 'none'; script-src ${base}; connect-src ${base}; img-src https: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'`;
 }
 
 function renderSection(section: LandingSection, page: Doc<'landingPages'>, opts: RenderOptions) {
@@ -64,6 +71,11 @@ function renderSection(section: LandingSection, page: Doc<'landingPages'>, opts:
       }<a class="button" href="${esc(section.href)}">${esc(section.label)}</a></section>`;
     case 'form':
       if (!opts.liveFormIds.has(section.formId)) return '';
+      if (opts.preview) {
+        return `<section class="form" id="form">${
+          section.heading ? `<h2>${esc(section.heading)}</h2>` : ''
+        }<p class="lede">Le formulaire s’affiche ici sur la page publiée.</p></section>`;
+      }
       // The embed posts the page's id with a submission, so the page counts its conversions.
       return `<section class="form" id="form">${
         section.heading ? `<h2>${esc(section.heading)}</h2>` : ''
@@ -71,12 +83,14 @@ function renderSection(section: LandingSection, page: Doc<'landingPages'>, opts:
   }
 }
 
-/** The whole document of a page, every text escaped but the editor's HTML; no inline script, so the route can serve it under a strict policy. */
+/** The whole document of a page, every text escaped but the editor's HTML; no inline script, so it holds under its own policy. */
 export function renderLandingPage(page: Doc<'landingPages'>, opts: RenderOptions): string {
   const { seo } = page;
   const url = `${opts.base}/p/${page.slug}`;
   const head = [
     '<meta charset="utf-8">',
+    // In the document as well as in the route's header: the editor's preview frame gets no header, and must behave as the page does.
+    `<meta http-equiv="Content-Security-Policy" content="${esc(pagePolicy(opts.base))}">`,
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${esc(seo.title)}</title>`,
     seo.description ? `<meta name="description" content="${esc(seo.description)}">` : '',

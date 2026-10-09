@@ -159,7 +159,16 @@ describe('landing pages: slug and status rules', () => {
       [{ id: 'c', type: 'cta', heading: 'Hey', label: 'Go', href: '/relative' }],
       'page_invalid_url',
     );
-    await bad([{ id: 'i', type: 'image', url: 'ftp://x', alt: '' }], 'page_invalid_url');
+    await bad([{ id: 'i', type: 'image', url: 'ftp://x', alt: '' }], 'page_invalid_image_url');
+    // The policy lets the page load images over https only: an http one would save and never show.
+    await bad(
+      [{ id: 'i', type: 'image', url: 'http://example.com/a.png', alt: '' }],
+      'page_invalid_image_url',
+    );
+    await bad(
+      [{ id: 'h', type: 'hero', heading: 'Hey', imageUrl: 'http://example.com/a.png' }],
+      'page_invalid_image_url',
+    );
     await bad([{ id: 't', type: 'text', html: '  ' }], 'page_text_required');
     await bad(
       [
@@ -235,8 +244,13 @@ describe('landing pages: the public page', () => {
     const res = await open(t, 'demo');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/html');
-    expect(res.headers.get('content-security-policy')).toContain("script-src 'self'");
+    // The policy names the deployment's origin, in the header and in the document, so the editor's preview frame gets it too.
+    const policy = `default-src 'none'; script-src ${SITE}; connect-src ${SITE}; img-src https: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'`;
+    expect(res.headers.get('content-security-policy')).toBe(`${policy}; frame-ancestors 'none'`);
     const html = await res.text();
+    expect(html).toContain(
+      `<meta http-equiv="Content-Security-Policy" content="${policy.replaceAll("'", '&#39;')}">`,
+    );
     expect(html).toContain('<title>Demande de démo</title>');
     expect(html).toContain('<meta name="description" content="Une démo de trente minutes.">');
     expect(html).toContain(`<link rel="canonical" href="${SITE}/p/demo">`);
@@ -251,10 +265,14 @@ describe('landing pages: the public page', () => {
     expect(html).not.toContain('track.js');
     expect(html).not.toContain('<script>');
 
-    // The same, as the editor previews it.
-    expect(await as.query(api.features.landingPages.queries.previewLandingPage, { pageId })).toBe(
-      html,
-    );
+    // The same for the editor's preview, but the form is drawn, not run: nothing is submitted from there.
+    const preview = await as.query(api.features.landingPages.queries.previewLandingPage, {
+      pageId,
+    });
+    expect(preview).toContain('Le formulaire s’affiche ici sur la page publiée.');
+    expect(preview).not.toContain('embed.js');
+    const withoutForm = (page: string) => page.replace(/<section class="form".*?<\/section>/, '');
+    expect(withoutForm(preview ?? '')).toBe(withoutForm(html));
 
     await publish(as, pageId, 'draft');
     expect((await open(t, 'demo')).status).toBe(404);
@@ -271,6 +289,24 @@ describe('landing pages: the public page', () => {
     expect(html).not.toContain('Vos coordonnées');
     expect(html).toContain(`<script src="${SITE}/track.js" defer></script>`);
   });
+
+  test('past the deployment’s ceiling the page is served and the view is not counted', async () => {
+    const { t, as } = await setup();
+    const pageId = await createPage(as, [{ id: 't', type: 'text', html: '<p>x</p>' }]);
+    await publish(as, pageId);
+    // Six hundred and one addresses, one view each: the last is served, not counted.
+    for (let i = 0; i <= 600; i++) {
+      const res = await t.fetch('/p/demo', {
+        method: 'GET',
+        headers: {
+          'user-agent': 'Mozilla/5.0 (test)',
+          'x-forwarded-for': `10.0.${i >> 8}.${i & 255}`,
+        },
+      });
+      expect(res.status).toBe(200);
+    }
+    expect(await stats(as, pageId)).toMatchObject({ views: 600 });
+  }, 60_000);
 
   test('a page under a slug is rate-limited per address', async () => {
     const { t, as } = await setup();

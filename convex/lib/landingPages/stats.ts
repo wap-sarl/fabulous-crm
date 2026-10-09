@@ -2,7 +2,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { DAY_MS } from '../../_lib/time';
 
-// A burst of visitors lands on one row out of eight per day, not on one document.
+// A burst of visitors lands on one row out of eight per day, not on one document; the row is reached by its index, so a view reads and writes that row and no other.
 const STAT_SHARDS = 8;
 
 /** The UTC day a moment belongs to, as the rows are keyed. */
@@ -18,9 +18,8 @@ export async function countForPage(
   const shard = Math.floor(Math.random() * STAT_SHARDS);
   const row = await ctx.db
     .query('landingPageStats')
-    .withIndex('by_page_day', (q) => q.eq('pageId', pageId).eq('day', day))
-    .filter((q) => q.eq(q.field('shard'), shard))
-    .first();
+    .withIndex('by_page_day_shard', (q) => q.eq('pageId', pageId).eq('day', day).eq('shard', shard))
+    .unique();
   if (row) await ctx.db.patch(row._id, { [what]: row[what] + 1 });
   else {
     await ctx.db.insert('landingPageStats', {
@@ -48,7 +47,7 @@ export async function statsOfPage(
   const since = dayOf(Date.now() - (days - 1) * DAY_MS);
   const rows = await ctx.db
     .query('landingPageStats')
-    .withIndex('by_page_day', (q) => q.eq('pageId', pageId).gte('day', since))
+    .withIndex('by_page_day_shard', (q) => q.eq('pageId', pageId).gte('day', since))
     .take(STAT_SHARDS * (days + 1));
   const byDay = new Map<string, DayStats>();
   for (const row of rows as Doc<'landingPageStats'>[]) {

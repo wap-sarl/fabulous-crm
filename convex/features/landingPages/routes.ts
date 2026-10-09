@@ -3,19 +3,16 @@ import { internal } from '../../_generated/api';
 import { httpAction } from '../../_generated/server';
 import { landingSlugSchema } from '../../_lib/validators/landingPages';
 import { follows } from '../../_lib/validators/fields';
-import { NOT_FOUND_HTML } from '../../lib/landingPages/render';
+import { NOT_FOUND_HTML, pagePolicy } from '../../lib/landingPages/render';
 import { clientIpOf, enforceRateLimit } from '../../lib/security/rateLimits';
 
-// The page loads nothing but the deployment's own scripts, which style what they add inline; images may come from anywhere over https.
-const PAGE_CSP =
-  "default-src 'none'; script-src 'self'; connect-src 'self'; img-src https: data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
-
-const html = (body: string, status: number) =>
+// The document's own policy, plus what only a header can say: nobody frames the page.
+const html = (body: string, status: number, base: string) =>
   new Response(body, {
     status,
     headers: {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Security-Policy': PAGE_CSP,
+      'Content-Security-Policy': `${pagePolicy(base)}; frame-ancestors 'none'`,
       'Cache-Control': 'no-store',
       'X-Robots-Tag': status === 200 ? 'all' : 'noindex',
     },
@@ -31,9 +28,11 @@ export function registerLandingPagesRoutes(http: HttpRouter): void {
     method: 'GET',
     handler: httpAction(async (ctx, request) => {
       const url = new URL(request.url);
+      // The header names the origin the document does, the deployment's as configured, not the one this request came through.
+      const base = process.env.CONVEX_SITE_URL ?? url.origin;
       const [slug, extra] = url.pathname.slice('/p/'.length).split('/');
       if (!slug || extra !== undefined || !follows(landingSlugSchema, slug)) {
-        return html(NOT_FOUND_HTML, 404);
+        return html(NOT_FOUND_HTML, 404, base);
       }
       if (!(await enforceRateLimit(ctx, 'pageRender', clientIpOf(request)))) {
         return new Response('Too many requests', { status: 429 });
@@ -41,13 +40,17 @@ export function registerLandingPagesRoutes(http: HttpRouter): void {
       const page = await ctx.runQuery(internal.features.landingPages.internal.getPublishedPage, {
         slug,
       });
-      if (!page) return html(NOT_FOUND_HTML, 404);
-      if (!BOT_RE.test(request.headers.get('user-agent') ?? '')) {
+      if (!page) return html(NOT_FOUND_HTML, 404, base);
+      // Past the deployment's ceiling the page is still served; the view is not counted, so a flood costs bandwidth and nothing else.
+      if (
+        !BOT_RE.test(request.headers.get('user-agent') ?? '') &&
+        (await enforceRateLimit(ctx, 'pageRenderTotal', 'all'))
+      ) {
         await ctx.runMutation(internal.features.landingPages.internal.recordPageView, {
           pageId: page.pageId,
         });
       }
-      return html(page.html, 200);
+      return html(page.html, 200, page.base);
     }),
   });
 }
