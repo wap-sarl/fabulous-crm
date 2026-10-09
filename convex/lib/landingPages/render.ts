@@ -1,5 +1,5 @@
 import type { Doc } from '../../_generated/dataModel';
-import type { LandingSection } from '../../_lib/validators/landingPages';
+import type { LandingSection, LandingVariant } from '../../_lib/validators/landingPages';
 
 const esc = (text: string): string =>
   text
@@ -39,6 +39,13 @@ export interface RenderOptions {
   tracking: boolean;
   /** The editor's preview: the form is drawn, not run, so nothing is submitted from there. */
   preview?: boolean;
+  /** The variant shown: B's blocks when the page is under test and the visitor falls in B's share. */
+  variant?: LandingVariant;
+}
+
+/** The blocks a variant shows. */
+export function sectionsOf(page: Doc<'landingPages'>, variant: LandingVariant = 'a') {
+  return variant === 'b' && page.abTest ? page.abTest.sections : page.sections;
 }
 
 /** What the page may load: scripts and calls from the deployment only, images from anywhere over https, styles inline (the scripts style what they add). Named by origin rather than 'self', so that it holds in the editor's frame too. */
@@ -76,10 +83,10 @@ function renderSection(section: LandingSection, page: Doc<'landingPages'>, opts:
           section.heading ? `<h2>${esc(section.heading)}</h2>` : ''
         }<p class="lede">Le formulaire s’affiche ici sur la page publiée.</p></section>`;
       }
-      // The embed posts the page's id with a submission, so the page counts its conversions.
+      // The embed posts the page's id and the variant with a submission, so the page counts its conversions, by variant.
       return `<section class="form" id="form">${
         section.heading ? `<h2>${esc(section.heading)}</h2>` : ''
-      }<script src="${esc(opts.base)}/forms/${esc(section.formId)}/embed.js" data-page="${esc(page._id)}"></script></section>`;
+      }<script src="${esc(opts.base)}/forms/${esc(section.formId)}/embed.js" data-page="${esc(page._id)}" data-variant="${opts.variant ?? 'a'}"></script></section>`;
   }
 }
 
@@ -104,7 +111,9 @@ export function renderLandingPage(page: Doc<'landingPages'>, opts: RenderOptions
   ]
     .filter(Boolean)
     .join('');
-  const body = page.sections.map((section) => renderSection(section, page, opts)).join('');
+  const body = sectionsOf(page, opts.variant)
+    .map((section) => renderSection(section, page, opts))
+    .join('');
   return `<!doctype html><html lang="fr"><head>${head}</head><body><main>${body}</main></body></html>`;
 }
 

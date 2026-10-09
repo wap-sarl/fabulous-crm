@@ -1,7 +1,8 @@
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { refusal } from '../../_lib/refusal';
-import type { LandingSection } from '../../_lib/validators/landingPages';
+import type { LandingSection, LandingVariant } from '../../_lib/validators/landingPages';
+import { sha256Base64Url } from '../security/crypto';
 import { isNotDeleted } from '../shared/db';
 import { loadTrackingConfig } from '../tracking/config';
 
@@ -63,16 +64,27 @@ export async function renderContextOf(ctx: QueryCtx | MutationCtx, sections: Lan
   };
 }
 
-/** The page a submission came from, when the embed names one that is published and holds the form. */
+/** The page and the variant a submission came from, when the embed names a page that is published and holds the form on that variant; B only while the test runs. */
 export async function pageOfSubmission(
   ctx: Pick<MutationCtx, 'db'>,
   formId: Id<'forms'>,
   raw: string | undefined,
-): Promise<Id<'landingPages'> | undefined> {
+  rawVariant: string | undefined,
+): Promise<{ pageId: Id<'landingPages'>; variant: LandingVariant } | undefined> {
   const pageId = raw ? ctx.db.normalizeId('landingPages', raw) : null;
   const page = pageId ? await ctx.db.get(pageId) : null;
   if (!page || !isNotDeleted(page) || page.status !== 'published') return undefined;
-  return page.sections.some((section) => section.type === 'form' && section.formId === formId)
-    ? page._id
+  const variant: LandingVariant = rawVariant === 'b' && page.abTest ? 'b' : 'a';
+  const sections = variant === 'b' && page.abTest ? page.abTest.sections : page.sections;
+  return sections.some((section) => section.type === 'form' && section.formId === formId)
+    ? { pageId: page._id, variant }
     : undefined;
+}
+
+/** Where a visitor falls among a hundred, the same at every visit of the page from the same address and browser, nothing stored: what decides the variant they see. */
+export async function visitorBucket(slug: string, ip: string, userAgent: string): Promise<number> {
+  const hash = await sha256Base64Url(`${slug}:${ip}:${userAgent}`);
+  let n = 0;
+  for (const char of hash.slice(0, 8)) n = (n * 31 + char.charCodeAt(0)) % 100;
+  return n;
 }

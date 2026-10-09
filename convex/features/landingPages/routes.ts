@@ -4,6 +4,7 @@ import { httpAction } from '../../_generated/server';
 import { landingSlugSchema } from '../../_lib/validators/landingPages';
 import { follows } from '../../_lib/validators/fields';
 import { NOT_FOUND_HTML, pagePolicy } from '../../lib/landingPages/render';
+import { visitorBucket } from '../../lib/landingPages/pages';
 import { clientIpOf, enforceRateLimit } from '../../lib/security/rateLimits';
 
 // The document's own policy, plus what only a header can say: nobody frames the page.
@@ -34,20 +35,21 @@ export function registerLandingPagesRoutes(http: HttpRouter): void {
       if (!slug || extra !== undefined || !follows(landingSlugSchema, slug)) {
         return html(NOT_FOUND_HTML, 404, base);
       }
-      if (!(await enforceRateLimit(ctx, 'pageRender', clientIpOf(request)))) {
+      const ip = clientIpOf(request);
+      if (!(await enforceRateLimit(ctx, 'pageRender', ip))) {
         return new Response('Too many requests', { status: 429 });
       }
+      const userAgent = request.headers.get('user-agent') ?? '';
       const page = await ctx.runQuery(internal.features.landingPages.internal.getPublishedPage, {
         slug,
+        bucket: await visitorBucket(slug, ip, userAgent),
       });
       if (!page) return html(NOT_FOUND_HTML, 404, base);
       // Past the deployment's ceiling the page is still served; the view is not counted, so a flood costs bandwidth and nothing else.
-      if (
-        !BOT_RE.test(request.headers.get('user-agent') ?? '') &&
-        (await enforceRateLimit(ctx, 'pageRenderTotal', 'all'))
-      ) {
+      if (!BOT_RE.test(userAgent) && (await enforceRateLimit(ctx, 'pageRenderTotal', 'all'))) {
         await ctx.runMutation(internal.features.landingPages.internal.recordPageView, {
           pageId: page.pageId,
+          variant: page.variant,
         });
       }
       return html(page.html, 200, page.base);

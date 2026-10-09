@@ -14,6 +14,7 @@ export const FORM_EMBED_JS = `(function () {
 
   // A hosted page names itself, so its conversions are counted.
   var page = script.getAttribute('data-page') || undefined;
+  var variant = script.getAttribute('data-variant') || undefined;
   var container = null;
   var target = script.getAttribute('data-target');
   if (target) container = document.querySelector(target);
@@ -187,7 +188,8 @@ export const FORM_EMBED_JS = `(function () {
           renderSig: stamp.sig,
           visitorToken: visitor,
           trackingVisitor: trackingVisitor(),
-          page: page
+          page: page,
+          variant: variant
         })
       }).then(function (r) {
         if (r.status === 429) throw refusal('rate');

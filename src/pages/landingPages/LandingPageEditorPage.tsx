@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api, validateLandingPageShape } from '@crm/lib/backend';
-import type { Id } from '@crm/lib/backend';
+import type { Id, LandingVariant } from '@crm/lib/backend';
 import {
   Button,
   Card,
@@ -15,6 +15,7 @@ import {
 } from '@crm/design-system';
 import { ExternalLink, Save, Trash2 } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
+import { AbTestPanel } from '../../features/landingPages/components/AbTestPanel';
 import { PagePreview } from '../../features/landingPages/components/PagePreview';
 import { PageSettingsFields } from '../../features/landingPages/components/PageSettingsFields';
 import { PageStatsCard } from '../../features/landingPages/components/PageStatsCard';
@@ -22,10 +23,11 @@ import { SectionEditor } from '../../features/landingPages/components/SectionEdi
 import { pageErrorMessage } from '../../features/landingPages/lib/errors';
 import type { PageDraft } from '../../features/landingPages/types';
 
-type Tab = 'content' | 'preview' | 'stats';
+type Tab = 'content' | 'test' | 'preview' | 'stats';
 
 const TABS = [
   { value: 'content', label: 'Contenu' },
+  { value: 'test', label: 'Test A/B' },
   { value: 'preview', label: 'Aperçu' },
   { value: 'stats', label: 'Statistiques' },
 ];
@@ -47,6 +49,7 @@ export function LandingPageEditorPage() {
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [previewVariant, setPreviewVariant] = useState<LandingVariant>('a');
 
   // The editor starts from the page once it is loaded; what someone else saves meanwhile is left alone until a reload.
   useEffect(() => {
@@ -194,12 +197,33 @@ export function LandingPageEditorPage() {
             </Card>
           </div>
         )}
+        {tab === 'test' && (
+          <AbTestPanel
+            pageId={id}
+            sections={data.page.sections}
+            test={data.page.abTest}
+            forms={forms}
+          />
+        )}
         {tab === 'preview' && (
           <div className="flex flex-col gap-2">
-            {dirty && (
-              <p className="text-xs text-faint">L’aperçu montre la page telle qu’enregistrée.</p>
-            )}
-            <PagePreview pageId={id} />
+            <div className="flex flex-wrap items-center gap-3">
+              {data.page.abTest && (
+                <SegmentedControl
+                  aria-label="Version"
+                  items={[
+                    { value: 'a', label: 'Version A' },
+                    { value: 'b', label: 'Version B' },
+                  ]}
+                  value={previewVariant}
+                  onChange={(v) => setPreviewVariant(v as LandingVariant)}
+                />
+              )}
+              {dirty && (
+                <p className="text-xs text-faint">L’aperçu montre la page telle qu’enregistrée.</p>
+              )}
+            </div>
+            <PagePreview pageId={id} variant={data.page.abTest ? previewVariant : 'a'} />
           </div>
         )}
         {tab === 'stats' && <PageStatsCard pageId={id} />}

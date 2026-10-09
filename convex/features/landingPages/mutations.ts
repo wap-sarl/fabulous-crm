@@ -6,8 +6,11 @@ import {
   landingSectionValidator,
   landingSeoValidator,
   landingStatusValidator,
+  landingTestValidator,
+  landingVariantValidator,
   validateLandingPageShape,
   validatePublishable,
+  validateTestShape,
 } from '../../_lib/validators/landingPages';
 import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
 import { requireFormsOf, requireSlugFree } from '../../lib/landingPages/pages';
@@ -132,6 +135,67 @@ export const deleteLandingPage = employeeMutation({
       entityId: args.pageId,
       action: 'delete',
       metadata: { name: page.name, slug: page.slug },
+    });
+    return null;
+  },
+});
+
+/** An A/B test on a page: B's blocks and the share of visitors who see them, or null to stop the test and keep A. B follows the page's rules, and must be publishable when the page is published. */
+export const setLandingPageTest = employeeMutation({
+  args: { pageId: v.id('landingPages'), test: v.union(landingTestValidator, v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.get(args.pageId);
+    if (!page || !isNotDeleted(page)) throw refusal('page_not_found');
+    if (args.test) {
+      const shape = validateTestShape(page, args.test);
+      if (shape) throw refusal(shape);
+      if (page.status === 'published') {
+        const publishable = validatePublishable({ ...page, sections: args.test.sections });
+        if (publishable) throw refusal(publishable);
+      }
+      await requireFormsOf(ctx, args.test.sections);
+    }
+    await ctx.db.patch(args.pageId, {
+      abTest: args.test ?? undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'landingPage',
+      entityId: args.pageId,
+      action: 'update',
+      metadata: args.test
+        ? { test: 'set', share: args.test.share, sections: args.test.sections.length }
+        : { test: 'stopped' },
+    });
+    return null;
+  },
+});
+
+/** The test ends with the winner as the page: B's blocks take A's place when B wins, nothing moves when A does; the counters keep what each variant got. */
+export const chooseLandingPageWinner = employeeMutation({
+  args: { pageId: v.id('landingPages'), winner: landingVariantValidator },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const page = await ctx.db.get(args.pageId);
+    if (!page || !isNotDeleted(page)) throw refusal('page_not_found');
+    if (!page.abTest) throw refusal('page_no_test');
+    const sections = args.winner === 'b' ? page.abTest.sections : page.sections;
+    await ctx.db.patch(args.pageId, {
+      sections,
+      formId: formOfPage(sections),
+      abTest: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'landingPage',
+      entityId: args.pageId,
+      action: 'update',
+      metadata: { test: 'won', winner: args.winner },
     });
     return null;
   },

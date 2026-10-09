@@ -110,6 +110,10 @@ export function emptySection(type: LandingSection['type'], formId?: Id<'forms'>)
   }
 }
 
+/** The blocks again, each with an id of its own: what a variant starts from. */
+export const copySections = (sections: LandingSection[]): LandingSection[] =>
+  sections.map((section) => ({ ...section, id: id() }));
+
 export const SECTION_LABEL: Record<LandingSection['type'], string> = {
   hero: 'Bandeau',
   text: 'Texte',

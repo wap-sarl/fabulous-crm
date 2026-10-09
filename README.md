@@ -145,7 +145,12 @@ workspaces.
   attribué. Les vues sont comptées côté serveur, sans cookie (les robots
   exclus), par jour (`landingPageStats`, huit lignes par jour pour qu'une
   affluence ne se dispute pas un document) ; la page montre vues, envois et
-  conversion sur trente jours. Quand le suivi web est activé, la page charge
+  conversion sur trente jours. **Test A/B** : une version B de la page (ses
+  propres blocs) montrée à une part des visiteurs (1 à 99 %), toujours la
+  même pour un visiteur donné (sa place parmi cent, tirée de son adresse et
+  de son navigateur, rien de stocké) ; le formulaire dit la version vue,
+  chaque version compte ses vues et ses envois, et l'on garde la gagnante,
+  dont les blocs deviennent ceux de la page. Quand le suivi web est activé, la page charge
   son script, et l'origine du déploiement compte comme site suivi.
 - **Formulaires de capture** (*Paramètres → Formulaires*) : formulaires publics
   composés de champs standard ou de propriétés personnalisées, à intégrer par
