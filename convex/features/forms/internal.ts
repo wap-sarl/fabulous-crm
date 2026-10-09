@@ -25,6 +25,8 @@ import {
   verifyRender,
 } from '../../lib/forms/submission';
 import { gateLeadCreate } from '../../lib/extensions/gates';
+import { pageOfSubmission } from '../../lib/landingPages/pages';
+import { countForPage } from '../../lib/landingPages/stats';
 import { normalizeEmail } from '../../lib/leads/import';
 import { createLeadRecord } from '../../lib/leads/records';
 import { stampLeadSignal } from '../../lib/leads/signals';
@@ -94,6 +96,8 @@ export const submitForm = internalMutation({
     visitorToken: v.optional(v.string()),
     // The tracking script's cookie id, to tie the browser's page views to the contact (named mode).
     trackingVisitor: v.optional(v.string()),
+    // The hosted page the form was on, as the embed says it.
+    page: v.optional(v.string()),
     ipHash: v.string(),
     userAgent: v.optional(v.string()),
   },
@@ -220,13 +224,17 @@ export const submitForm = internalMutation({
           : standard[field.target.field];
       if (value !== undefined) storedValues[field.key] = value;
     }
+    // Only a published page that holds this form counts the submission: a page id in the body proves nothing by itself.
+    const landingPageId = await pageOfSubmission(ctx, form._id, args.page);
     await ctx.db.insert('formSubmissions', {
       formId: form._id,
       leadId,
       values: storedValues,
       ipHash: args.ipHash,
       userAgent: args.userAgent,
+      landingPageId,
     });
+    if (landingPageId) await countForPage(ctx, landingPageId, 'submissions');
     await dispatchWorkflowTrigger(
       ctx,
       leadId,

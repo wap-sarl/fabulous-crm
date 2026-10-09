@@ -130,6 +130,18 @@ workspaces.
   ligne d'audit (`retention` / `purge`) avec ses compteurs, affichée sur la page,
   et relance le recalcul complet des listes dynamiques par sécurité. Une
   extension peut différer la purge (`beforeScheduledWork`, `retention_purge`).
+- **Pages** : des pages hébergées par le déploiement (`GET /p/<slug>`,
+  servies avec une CSP stricte, limitées en débit), composées de blocs
+  (bandeau, texte, image, formulaire, appel à l'action) à partir d'un modèle,
+  avec titre et description pour les moteurs de recherche ; brouillon ou
+  publiée (seule une page publiée répond, un brouillon est introuvable),
+  aperçu avant publication, adresse unique parmi les pages vivantes. Le
+  formulaire embarqué dit de quelle page il vient : chaque envoi lui est
+  attribué. Les vues sont comptées côté serveur, sans cookie (les robots
+  exclus), par jour (`landingPageStats`, huit lignes par jour pour qu'une
+  affluence ne se dispute pas un document) ; la page montre vues, envois et
+  conversion sur trente jours. Quand le suivi web est activé, la page charge
+  son script, et l'origine du déploiement compte comme site suivi.
 - **Formulaires de capture** (*Paramètres → Formulaires*) : formulaires publics
   composés de champs standard ou de propriétés personnalisées, à intégrer par
   un script (`GET /forms/<id>/embed.js`, l'élément cible par `data-target`,

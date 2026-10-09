@@ -188,6 +188,10 @@ function rulesFor(ctx: QueryCtx | MutationCtx, vis: Visibility): Rules<unknown, 
     workflows: same(async (d: { createdBy?: Id<'users'> }) =>
       moduleAllows(vis, 'workflows', byCreator(d)),
     ),
+    // Hosted pages are marketing, as campaigns are.
+    landingPages: same(async (d: { createdBy?: Id<'users'> }) =>
+      moduleAllows(vis, 'campaigns', byCreator(d)),
+    ),
     workflowRuns: same((d: { workflowId: Id<'workflows'> }) => workflowOk(d.workflowId)),
     workflowRunSteps: same((d: { runId: Id<'workflowRuns'> }) => runOk(d.runId)),
     attachments: same((d: { entityType: 'lead' | 'company' | 'deal'; entityId: string }) =>

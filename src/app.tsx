@@ -29,6 +29,14 @@ const CampaignCreatePage = page(
   () => import('./pages/campaigns/CampaignCreatePage'),
   'CampaignCreatePage',
 );
+const LandingPagesPage = page(
+  () => import('./pages/landingPages/LandingPagesPage'),
+  'LandingPagesPage',
+);
+const LandingPageEditorPage = page(
+  () => import('./pages/landingPages/LandingPageEditorPage'),
+  'LandingPageEditorPage',
+);
 const CampaignDetailPage = page(
   () => import('./pages/campaigns/CampaignDetailPage'),
   'CampaignDetailPage',
@@ -136,6 +144,8 @@ function AppRoutes() {
                 <Route path="/campaigns" element={<CampaignsPage />} />
                 <Route path="/campaigns/new" element={<CampaignCreatePage />} />
                 <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
+                <Route path="/pages" element={<LandingPagesPage />} />
+                <Route path="/pages/:pageId" element={<LandingPageEditorPage />} />
                 <Route path="/workflows" element={<WorkflowsPage />} />
                 <Route path="/workflows/new" element={<WorkflowEditorPage />} />
                 <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />

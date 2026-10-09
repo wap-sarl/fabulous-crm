@@ -23,6 +23,8 @@ const MODULE_OF_PATH: Record<string, AccessModule> = {
   '/deals': 'deals',
   '/tasks': 'activities',
   '/campaigns': 'campaigns',
+  // Hosted pages are marketing, as campaigns are.
+  '/pages': 'campaigns',
   '/workflows': 'workflows',
 };
 

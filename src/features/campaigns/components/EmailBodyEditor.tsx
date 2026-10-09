@@ -34,7 +34,7 @@ export interface EmailBodyEditorHandle {
 interface Props {
   value: string;
   onChange: (html: string) => void;
-  /** Placeholders substituted per recipient at send time (see createCampaign). */
+  /** Placeholders substituted per recipient at send time (see createCampaign); none for a text that has no recipient, and the menu is not shown. */
   placeholders: { label: string; token: string }[];
   /** When set, adds a "Lien de suivi" toolbar button that opens the parent's modal. */
   onRequestTrackedLink?: () => void;
@@ -142,30 +142,34 @@ export function EmailBodyEditor({
         />
         <ToolbarButton icon={ImageIcon} label="Image" onClick={() => insertImage(editor)} />
 
-        <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+        {placeholders.length > 0 && (
+          <>
+            <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-faint transition hover:bg-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
-            >
-              <Braces className="size-4" aria-hidden="true" />
-              Insérer un champ
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            {placeholders.map((p) => (
-              <DropdownMenuItem
-                key={p.token}
-                onSelect={() => editor.chain().focus().insertContent(`${p.token} `).run()}
-              >
-                {p.label}
-                <span className="ml-auto pl-3 text-xs text-faint">{p.token}</span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-faint transition hover:bg-muted hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-soft"
+                >
+                  <Braces className="size-4" aria-hidden="true" />
+                  Insérer un champ
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {placeholders.map((p) => (
+                  <DropdownMenuItem
+                    key={p.token}
+                    onSelect={() => editor.chain().focus().insertContent(`${p.token} `).run()}
+                  >
+                    {p.label}
+                    <span className="ml-auto pl-3 text-xs text-faint">{p.token}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        )}
 
         {onRequestTrackedLink && (
           <button

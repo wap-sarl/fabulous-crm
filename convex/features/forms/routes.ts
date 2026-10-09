@@ -82,6 +82,7 @@ export function registerFormsRoutes(http: HttpRouter): void {
         renderSig?: string;
         visitorToken?: string;
         trackingVisitor?: string;
+        page?: string;
       } | null;
       if (!body || typeof body.values !== 'object' || body.values === null) {
         return formJson({ ok: false, code: 'invalid_body' }, 400);
@@ -106,6 +107,7 @@ export function registerFormsRoutes(http: HttpRouter): void {
             ? body.trackingVisitor
             : undefined,
         visitorToken: typeof body.visitorToken === 'string' ? body.visitorToken : undefined,
+        page: typeof body.page === 'string' ? body.page : undefined,
         ipHash: await hashClientIp(ip),
         userAgent: request.headers.get('user-agent') ?? undefined,
       });

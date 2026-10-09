@@ -13,6 +13,7 @@ import {
   Megaphone,
   Milestone,
   Palette,
+  PanelsTopLeft,
   Radar,
   Settings,
   Upload,
@@ -42,6 +43,7 @@ export const NAV_ITEMS: ShellNavItem[] = [
   { label: 'Transactions', icon: <Handshake />, path: '/deals' },
   { label: 'Tâches', icon: <ListTodo />, path: '/tasks' },
   { label: 'Campagnes', icon: <Megaphone />, path: '/campaigns' },
+  { label: 'Pages', icon: <PanelsTopLeft />, path: '/pages' },
   { label: 'Workflows', icon: <Workflow />, path: '/workflows' },
   ...(import.meta.env.DEV
     ? [

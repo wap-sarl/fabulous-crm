@@ -29,6 +29,7 @@ describe('the settings page', () => {
       '/deals',
       '/tasks',
       '/campaigns',
+      '/pages',
       '/workflows',
       '/import',
       '/settings',

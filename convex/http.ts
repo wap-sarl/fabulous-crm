@@ -5,6 +5,7 @@ import { registerApiRoutes } from './features/api/routes';
 import { registerCampaignsRoutes } from './features/campaigns/routes';
 import { registerConnectorsRoutes } from './features/connectors/routes';
 import { registerFormsRoutes } from './features/forms/routes';
+import { registerLandingPagesRoutes } from './features/landingPages/routes';
 import { registerTrackingRoutes } from './features/tracking/routes';
 
 const http = httpRouter();
@@ -13,6 +14,7 @@ const http = httpRouter();
 registerCampaignsRoutes(http);
 registerConnectorsRoutes(http);
 registerFormsRoutes(http);
+registerLandingPagesRoutes(http);
 registerTrackingRoutes(http);
 
 // Public REST API (/api/v1/): see features/api/routes.ts.

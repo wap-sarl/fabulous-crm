@@ -28,6 +28,14 @@ export type {
   FormStandardField,
 } from '../../convex/_lib/validators/forms';
 export { FORM_STANDARD_FIELDS, formFieldKey } from '../../convex/_lib/validators/forms';
+export type { LandingSection, LandingSeo } from '../../convex/_lib/validators/landingPages';
+export {
+  landingSlugSchema,
+  MAX_PAGE_SECTIONS,
+  MAX_SEO_DESCRIPTION,
+  MAX_SEO_TITLE,
+  validateLandingPageShape,
+} from '../../convex/_lib/validators/landingPages';
 export type { TimelineKind } from '../../convex/_lib/validators/timeline';
 export type { TimelineEvent } from '../../convex/lib/timeline/events';
 export type { DuplicateReason } from '../../convex/_lib/validators/duplicates';
