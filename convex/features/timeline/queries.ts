@@ -3,7 +3,12 @@ import { activityTypeValidator } from '../../_lib/validators/activities';
 import { activityStatusValidator } from '../../_lib/validators/activities';
 import { campaignChannelValidator } from '../../_lib/validators/crm';
 import { campaignSendStatusValidator } from '../../_lib/validators/crm';
-import { campaignEventTypeValidator } from '../../_lib/validators/crm';
+import {
+  campaignEventTypeValidator,
+  consentSourceValidator,
+  marketingConsentChannelValidator,
+  subscriptionStatusValidator,
+} from '../../_lib/validators/crm';
 import { workflowRunStatusValidator } from '../../_lib/validators/workflows';
 import { lifecycleChangeSourceValidator } from '../../_lib/validators/lifecycle';
 import { dealStatusValidator } from '../../_lib/validators/deals';
@@ -134,6 +139,18 @@ export const listLeadTimeline = employeeQuery({
         userName: v.union(v.string(), v.null()),
         fields: v.array(v.string()),
         absorbedLeadName: v.union(v.string(), v.null()),
+      }),
+      v.object({
+        kind: v.literal('consent'),
+        id: v.string(),
+        at: v.number(),
+        typeName: v.union(v.string(), v.null()),
+        typeId: v.union(v.id('subscriptionTypes'), v.null()),
+        channel: v.union(marketingConsentChannelValidator, v.null()),
+        from: subscriptionStatusValidator,
+        to: subscriptionStatusValidator,
+        source: consentSourceValidator,
+        fromAddress: v.boolean(),
       }),
     ),
   ),

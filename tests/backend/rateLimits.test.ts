@@ -1,7 +1,6 @@
 /** The per-email OTP budget and Better Auth's per-IP limiter are not covered here: they need the full auth flow and are verified by hand. */
 import { describe, expect, test } from 'bun:test';
-import { api } from '../../convex/_generated/api';
-import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
+import { asIdentity, createTestConvex, seedEmployee, seedLead, type T } from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -10,49 +9,40 @@ async function setup() {
   return { t, emp, as };
 }
 
-describe('consent rate limits', () => {
-  test('per-token limit: the 11th update in a minute is refused, another token unaffected', async () => {
-    const { t } = await setup();
-    const leadA = await seedLead(t, { email: 'a@example.com', consentToken: 'token-aaaa' });
-    const leadB = await seedLead(t, { email: 'b@example.com', consentToken: 'token-bbbb' });
-    void leadA;
-    void leadB;
-
-    for (let i = 0; i < 10; i++) {
-      const res = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-        token: 'token-aaaa',
-        channels: i % 2 === 0 ? ['email'] : [],
-      });
-      expect(res.success).toBe(true);
-    }
-    const eleventh = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token: 'token-aaaa',
-      channels: ['email'],
+describe('consent route rate limits', () => {
+  const post = (t: T, token: string) =>
+    t.fetch(`/consent/${token}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ types: {} }),
     });
-    expect(eleventh).toEqual({ success: false, error: 'rate_limited' });
+
+  test('per-token limit: the 11th write in a minute is refused, another token unaffected', async () => {
+    process.env.BETTER_AUTH_SECRET = 'test-auth-secret';
+    const { t } = await setup();
+    await seedLead(t, { email: 'a@example.com', consentToken: 'token-aaaa' });
+    await seedLead(t, { email: 'b@example.com', consentToken: 'token-bbbb' });
+
+    for (let i = 0; i < 10; i++) expect((await post(t, 'token-aaaa')).status).toBe(200);
+    const eleventh = await post(t, 'token-aaaa');
+    expect(eleventh.status).toBe(429);
+    expect(await eleventh.json()).toEqual({ ok: false, code: 'rate_limited' });
 
     // The acceptance case: a legitimate second user is unaffected.
-    const other = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token: 'token-bbbb',
-      channels: ['email'],
-    });
-    expect(other.success).toBe(true);
+    expect((await post(t, 'token-bbbb')).status).toBe(200);
   });
 
   test('invalid tokens share a global bucket: enumeration gets rate_limited', async () => {
+    process.env.BETTER_AUTH_SECRET = 'test-auth-secret';
     const { t } = await setup();
     for (let i = 0; i < 30; i++) {
-      const res = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-        token: `guess-${i}`,
-        channels: [],
-      });
-      expect(res).toEqual({ success: false, error: 'invalid_token' });
+      const res = await post(t, `guess-${i}`);
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ ok: false, code: 'invalid_token' });
     }
-    const overrun = await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token: 'guess-final',
-      channels: [],
-    });
-    expect(overrun).toEqual({ success: false, error: 'rate_limited' });
+    const overrun = await post(t, 'guess-final');
+    expect(overrun.status).toBe(429);
+    expect(await overrun.json()).toEqual({ ok: false, code: 'rate_limited' });
   });
 });
 

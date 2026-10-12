@@ -165,7 +165,8 @@ workspaces.
   **Ce qu'une soumission peut écrire**, l'adresse n'étant la preuve de rien :
   un e-mail inconnu (ou absent) crée un contact avec le consentement e-mail
   coché (**simple opt-in** : la case cochée vaut consentement, sur ce contact
-  seulement) ; un contact vivant déjà connu n'est que complété (champs vides
+  seulement, avec ses événements de consentement : le canal et les abonnements
+  que le formulaire nomme, source `form`, hash de l'adresse) ; un contact vivant déjà connu n'est que complété (champs vides
   remplis, rien d'écrasé, aucun consentement posé, aucun déclencheur de
   propriété ou de consentement) et `form_submitted` est le seul déclencheur
   de workflow qu'un formulaire tire sur lui ; son compteur de soumissions ne
@@ -292,9 +293,47 @@ workspaces.
   campagnes renvoie le libellé du statut.
 - **Campagnes** : création de campagnes email Brevo (template + destinataires
   filtrés), suivi des envois (`campaignSends`), statuts.
-- **Consentement RGPD** : page publique `/consent/:token` permettant à un lead
-  de modifier ou révoquer ses consentements marketing (email, téléphone,
-  postal), sans authentification.
+- **Abonnements et centre de préférences** : des **types d'abonnement**
+  (*Paramètres → Abonnements*, `subscriptionTypes` : nom, description, canal,
+  base légale *consentement* ou *intérêt légitime*, actif, ordre ; trois
+  fournis à l'installation, « Newsletter », « Informations produit », « Invitations »,
+  tous sous consentement, l'intérêt légitime restant au choix du locataire qui
+  sait s'il s'applique, et un bouton les recrée sur un déploiement antérieur).
+  Le contact porte ses choix explicites (`subscriptions` : type,
+  inscrit/désinscrit, source, date) à côté des canaux (`marketingConsent`).
+  **Rien sans le consentement au canal**, quelle que soit la base : un canal
+  refusé couvre chacun de ses abonnements, ceux créés plus tard aussi. Avec le
+  canal, le choix explicite fait foi ; sans choix, un abonnement
+  « consentement » vaut non inscrit (un consentement se donne par sujet) et un
+  abonnement « intérêt légitime » vaut inscrit jusqu'à opposition. Les contacts
+  existants gardent leur canal et ne sont inscrits à aucun sujet tant qu'ils ne
+  l'ont pas choisi ; une campagne sans abonnement visé continue de cibler le
+  canal. Refuser un canal désinscrit explicitement de chacun de ses abonnements
+  ; s'inscrire à un abonnement accorde son canal. Un formulaire nomme les
+  abonnements e-mail que sa case accorde (`subscriptionTypeIds`) : le contact
+  créé y est inscrit, et à rien d'autre. Chaque changement écrit un **événement
+  de consentement** (`consentEvents`, jamais modifié : type ou canal, de → vers,
+  source, hash de l'adresse IP quand la personne a cliqué elle-même), montré
+  dans le fil du contact (filtre « Consentement »), joint à l'export RGPD, purgé
+  avec l'effacement. Une fusion de doublons garde un retrait de canal (un
+  événement « out ») sur l'accord de l'autre fiche et le choix le plus récent
+  par abonnement, et signe ses changements d'événements `merge`. Le **centre de
+  préférences** `/consent/:token` (public, le jeton est le secret) montre un
+  interrupteur par abonnement actif avec sa description et sa base légale, plus
+  « Tout désinscrire » ; il enregistre par `POST /consent/<token>` (JSON
+  `{ types: { id: bool }, unsubscribeAll }`), la seule voie d'écriture, qui
+  hache l'adresse et borne : dix écritures par minute et par jeton, un seau
+  global pour les jetons inconnus, mille écritures par heure pour le
+  déploiement. Une **campagne marketing vise un
+  abonnement** (`subscriptionTypeId`, un type actif de son canal) : la
+  préparation écarte les contacts qui n'y sont pas inscrits quel que soit le
+  filtre, le composeur pose la règle « Est inscrit à » pour que le compte
+  annoncé soit le bon, et le lien de désinscription mène au centre de
+  préférences ; une campagne transactionnelle ne vise rien. Le filtre « Est
+  inscrit à » des leads lit les types actifs (refusé dans les règles de
+  scoring et les listes dynamiques, qui ne les chargent pas) ; le déclencheur
+  `consent_updated` peut viser un abonnement ; un choix réenregistré à
+  l'identique n'écrit rien et ne déclenche rien.
 - **Droits des personnes (RGPD)** : sur la fiche d'un lead, carte « Droits de la
   personne » réservée aux détenteurs du droit *Paramètres* (`features/rgpd`),
   chaque action consignée dans le journal d'audit et dans la table

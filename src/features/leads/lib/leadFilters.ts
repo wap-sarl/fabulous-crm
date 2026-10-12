@@ -58,6 +58,8 @@ function leadFilterFields(): StandardFieldSpec<LeadStandardField>[] {
     { field: 'visitedPages', label: 'Pages visitées (chemin)', type: 'pages', group: BEHAVIOUR },
     // Its value control loads the lists itself, when a rule on them is shown.
     { field: 'listIds', label: 'Listes', type: 'list', group: BEHAVIOUR },
+    // The same for the subscription types.
+    { field: 'subscribedTo', label: 'Est inscrit à', type: 'subscription' },
   ];
 }
 
@@ -77,10 +79,12 @@ const CHANNEL_CONSENT: Record<'email' | 'sms', string> = { email: 'email', sms: 
 
 type LeadRule = FilterRule<LeadStandardField>;
 
+/** The seeded rules: the channel's address, and for a marketing campaign the subscription it targets, or the channel's consent when none is chosen. */
 export function applyRecipientFilter(
   filter: LeadAdvancedFilter | undefined,
   channel: 'email' | 'sms',
   messageType: 'marketing' | 'transactional',
+  subscriptionTypeId?: string,
 ): LeadAdvancedFilter {
   const channelField: LeadStandardField = channel === 'email' ? 'email' : 'phone';
   const isChannelRule = (r: LeadRule) =>
@@ -90,11 +94,11 @@ export function applyRecipientFilter(
   // Only the single-value email/sms consent rules are auto-managed; a consent rule authored by hand is left alone.
   const isAutoConsentRule = (r: LeadRule) =>
     r.field.kind === 'standard' &&
-    r.field.field === 'marketingConsent' &&
     r.operator === 'contains' &&
     Array.isArray(r.value) &&
     r.value.length === 1 &&
-    (r.value[0] === 'email' || r.value[0] === 'sms');
+    ((r.field.field === 'marketingConsent' && (r.value[0] === 'email' || r.value[0] === 'sms')) ||
+      r.field.field === 'subscribedTo');
 
   const channelRule: LeadRule = {
     field: { kind: 'standard', field: channelField },
@@ -102,13 +106,19 @@ export function applyRecipientFilter(
     value: undefined,
   };
   const consentRule: LeadRule | null =
-    messageType === 'marketing'
-      ? {
-          field: { kind: 'standard', field: 'marketingConsent' },
-          operator: 'contains',
-          value: [CHANNEL_CONSENT[channel]],
-        }
-      : null;
+    messageType !== 'marketing'
+      ? null
+      : subscriptionTypeId
+        ? {
+            field: { kind: 'standard', field: 'subscribedTo' },
+            operator: 'contains',
+            value: [subscriptionTypeId],
+          }
+        : {
+            field: { kind: 'standard', field: 'marketingConsent' },
+            operator: 'contains',
+            value: [CHANNEL_CONSENT[channel]],
+          };
   const seeded = consentRule ? [channelRule, consentRule] : [channelRule];
 
   // No placeholder rule: without an existing filter, the group holds only the seeded rules.

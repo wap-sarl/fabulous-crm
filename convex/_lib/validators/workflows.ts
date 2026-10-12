@@ -34,7 +34,8 @@ export const workflowTriggerValidator = v.union(
     change: v.union(v.literal('added'), v.literal('removed')),
     listId: v.optional(v.id('leadLists')),
   }),
-  v.object({ type: v.literal('consent_updated') }),
+  // Unset = a change on any type or channel enrolls.
+  v.object({ type: v.literal('consent_updated'), typeId: v.optional(v.id('subscriptionTypes')) }),
   v.object({
     type: v.literal('campaign_email_event'),
     event: workflowEmailEventValidator,

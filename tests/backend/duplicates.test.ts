@@ -262,7 +262,8 @@ describe('merge', () => {
       comment: 'Nouvelle fiche',
       lifecycleStage: 'mql',
       marketingConsent: ['sms'],
-      consentSource: 'public_link',
+      // The merge signs what it kept of the absorbed record.
+      consentSource: 'merge',
     });
     expect(survivor.dedupe?.phone).toBe('+33612345678');
     const absorbed = (await t.run((ctx) => ctx.db.get(absorbedId)))!;

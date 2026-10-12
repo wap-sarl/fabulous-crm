@@ -33,7 +33,8 @@ type Related =
   | 'formSubmissions'
   | 'formVisitorTokens'
   | 'pageViews'
-  | 'webVisitors';
+  | 'webVisitors'
+  | 'consentEvents';
 
 /** Deletes one batch of related rows; a query the page has no room for counts as pending. */
 async function purgeRelated(
@@ -79,6 +80,13 @@ export async function purgeLeadRows(ctx: MutationCtx, state: PageState, leadId: 
   pending ||= await purgeRelated(ctx, state, (limit) =>
     ctx.db
       .query('lifecycleStageHistory')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(limit),
+  );
+  // The proof of consent goes with the person it is about.
+  pending ||= await purgeRelated(ctx, state, (limit) =>
+    ctx.db
+      .query('consentEvents')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
       .take(limit),
   );

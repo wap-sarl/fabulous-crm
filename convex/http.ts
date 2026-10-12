@@ -4,6 +4,7 @@ import { extensions } from './extensions';
 import { registerApiRoutes } from './features/api/routes';
 import { registerCampaignsRoutes } from './features/campaigns/routes';
 import { registerConnectorsRoutes } from './features/connectors/routes';
+import { registerConsentRoutes } from './features/consent/routes';
 import { registerFormsRoutes } from './features/forms/routes';
 import { registerLandingPagesRoutes } from './features/landingPages/routes';
 import { registerTrackingRoutes } from './features/tracking/routes';
@@ -13,6 +14,7 @@ const http = httpRouter();
 // Each feature registers its own routes.
 registerCampaignsRoutes(http);
 registerConnectorsRoutes(http);
+registerConsentRoutes(http);
 registerFormsRoutes(http);
 registerLandingPagesRoutes(http);
 registerTrackingRoutes(http);

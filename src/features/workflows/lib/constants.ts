@@ -185,8 +185,12 @@ export function optionToTrigger(
 
   switch (value) {
     case 'lead_created':
-    case 'consent_updated':
       return { type: value };
+    case 'consent_updated':
+      return {
+        type: 'consent_updated',
+        typeId: prev?.type === 'consent_updated' ? prev.typeId : undefined,
+      };
     case 'lead_property_changed':
       return {
         type: 'lead_property_changed',

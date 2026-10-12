@@ -16,6 +16,7 @@ export async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
   const [
     company,
     notes,
+    consentEvents,
     lifecycleHistory,
     deals,
     activities,
@@ -36,6 +37,11 @@ export async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
       .take(cap)
       .then((rows) => capped('leadNotes', rows)),
+    ctx.db
+      .query('consentEvents')
+      .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+      .take(cap)
+      .then((rows) => capped('consentEvents', rows)),
     ctx.db
       .query('lifecycleStageHistory')
       .withIndex('by_lead', (q) => q.eq('leadId', leadId))
@@ -169,6 +175,7 @@ export async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     marketingConsent: lead.marketingConsent,
     consentUpdatedAt: lead.consentUpdatedAt,
     consentSource: lead.consentSource,
+    subscriptions: lead.subscriptions,
     comment: lead.comment,
     isRedFlagged: lead.isRedFlagged,
     excludeFromProfiling: lead.excludeFromProfiling,
@@ -192,6 +199,8 @@ export async function collect(ctx: QueryCtx, lead: Doc<'leads'>) {
     company: company ? { name: company.name, domain: company.domain ?? null } : null,
     notes,
     lifecycleHistory,
+    // When and how each consent was given or taken back, the address as a hash.
+    consentEvents,
     lists,
     deals,
     activities,

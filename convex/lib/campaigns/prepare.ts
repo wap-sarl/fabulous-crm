@@ -2,12 +2,14 @@ import type { ObjectType } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
+import { isSubscribed } from '../../_lib/validators/subscriptions';
 import { consentOrigin } from '../config/appUrl';
 import { deferUnlessAllowed, trySend } from '../extensions/gates';
 import { loadLifecycleConfig } from '../leads/lifecycle';
 import {
   type leadFilterArgs,
   loadAdvancedListMembers,
+  loadFilterSubscriptionTypes,
   loadListMemberIdsForLeads,
   matchesLeadFilters,
 } from '../leads/tableFilters';
@@ -66,11 +68,18 @@ export async function prepareBatch(
     args.filter.advancedFilter,
     pageIds,
   );
+  const subscriptionTypes = await loadFilterSubscriptionTypes(ctx, args.filter.advancedFilter);
+  // The subscription the campaign writes under, checked here whatever the filter says: a contact out of it is no recipient.
+  const subscription = campaign.subscriptionTypeId
+    ? await ctx.db.get(campaign.subscriptionTypeId)
+    : null;
 
   let total = 0;
   let skipped = 0;
   for (const lead of page.page) {
-    if (!matchesLeadFilters(lead, { ...args.filter, listMemberIds, advancedListMembers })) continue;
+    const filters = { ...args.filter, listMemberIds, advancedListMembers, subscriptionTypes };
+    if (!matchesLeadFilters(lead, filters)) continue;
+    if (subscription && !isSubscribed(lead, subscription)) continue;
     total++;
 
     // Token rows are inserted only for sends that go out (a skipped recipient gets dead URLs), but params and tokens are built as on a resend.

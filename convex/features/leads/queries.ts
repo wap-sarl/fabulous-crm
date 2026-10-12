@@ -16,6 +16,7 @@ import {
   loadAdvancedListMembers,
   loadListMemberIdsForLeads,
   matchesLeadFilters,
+  loadFilterSubscriptionTypes,
 } from '../../lib/leads/tableFilters';
 
 const sortFieldValidator = v.union(
@@ -65,6 +66,7 @@ export const listLeadsPaginated = employeeQuery({
       const pageIds = result.page.map((lead) => lead._id);
       const listMemberIds = await loadListMemberIdsForLeads(ctx, args.listIds, pageIds);
       const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter, pageIds);
+      const subscriptionTypes = await loadFilterSubscriptionTypes(ctx, args.advancedFilter);
       return {
         ...result,
         page: await withCompanyNames(
@@ -75,6 +77,7 @@ export const listLeadsPaginated = employeeQuery({
               search: undefined,
               listMemberIds,
               advancedListMembers,
+              subscriptionTypes,
             }),
           ),
         ),
@@ -110,12 +113,18 @@ export const listLeadsPaginated = employeeQuery({
     const pageIds = result.page.map((lead) => lead._id);
     const listMemberIds = await loadListMemberIdsForLeads(ctx, args.listIds, pageIds);
     const advancedListMembers = await loadAdvancedListMembers(ctx, args.advancedFilter, pageIds);
+    const subscriptionTypes = await loadFilterSubscriptionTypes(ctx, args.advancedFilter);
     return {
       ...result,
       page: await withCompanyNames(
         ctx,
         result.page.filter((lead) =>
-          matchesLeadFilters(lead, { ...args, listMemberIds, advancedListMembers }),
+          matchesLeadFilters(lead, {
+            ...args,
+            listMemberIds,
+            advancedListMembers,
+            subscriptionTypes,
+          }),
         ),
       ),
     };
@@ -356,8 +365,14 @@ export const matchingLeadsPage = employeeQuery({
     const pageIds = page.page.map((lead) => lead._id);
     const listMemberIds = await loadListMemberIdsForLeads(ctx, filters.listIds, pageIds);
     const advancedListMembers = await loadAdvancedListMembers(ctx, filters.advancedFilter, pageIds);
+    const subscriptionTypes = await loadFilterSubscriptionTypes(ctx, filters.advancedFilter);
     const matching = page.page.filter((lead) =>
-      matchesLeadFilters(lead, { ...filters, listMemberIds, advancedListMembers }),
+      matchesLeadFilters(lead, {
+        ...filters,
+        listMemberIds,
+        advancedListMembers,
+        subscriptionTypes,
+      }),
     );
     return {
       leadIds: matching.map((lead) => lead._id),

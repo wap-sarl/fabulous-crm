@@ -2,7 +2,12 @@ import { v } from 'convex/values';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { isNotDeleted } from '../../_lib/softDelete';
-import { advancedFilterListIds, leadAdvancedFilterValidator } from '../../_lib/validators/filters';
+import {
+  advancedFilterAsksSubscriptions,
+  advancedFilterListIds,
+  leadAdvancedFilterValidator,
+} from '../../_lib/validators/filters';
+import { loadActiveSubscriptionTypes } from '../consent/types';
 import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
 import { propertyValueValidator } from '../../schema';
@@ -38,7 +43,18 @@ export type LeadFilters = {
   listMemberIds?: Set<string>;
   advancedFilter?: LeadAdvancedFilter;
   advancedListMembers?: Map<string, Set<string>>;
+  subscriptionTypes?: Doc<'subscriptionTypes'>[];
 };
+
+/** The active types, when some rule asks a lead's subscriptions; nothing read otherwise. */
+export async function loadFilterSubscriptionTypes(
+  ctx: QueryCtx | MutationCtx,
+  filter: LeadAdvancedFilter | undefined,
+): Promise<Doc<'subscriptionTypes'>[] | undefined> {
+  return advancedFilterAsksSubscriptions(filter)
+    ? await loadActiveSubscriptionTypes(ctx)
+    : undefined;
+}
 
 /** Membership of the given leads only, by point reads: bounded by page size × filtered lists, where a whole list is not. */
 export async function loadListMemberIdsForLeads(
@@ -97,7 +113,10 @@ export async function loadLeadFilterExtras(
   filter: LeadAdvancedFilter | undefined,
 ): Promise<LeadFilterExtras> {
   const members = await loadAdvancedListMembers(ctx, filter, [leadId]);
-  return { memberListIds: memberListIdsOf(members, leadId) };
+  return {
+    memberListIds: memberListIdsOf(members, leadId),
+    subscriptionTypes: await loadFilterSubscriptionTypes(ctx, filter),
+  };
 }
 
 /** One lead's `memberListIds` extras, from a resolved membership map. */
@@ -158,6 +177,7 @@ export function matchesLeadFilters(lead: Doc<'leads'>, filters: LeadFilters): bo
     filters.advancedFilter &&
     !evalAdvancedFilter(lead, filters.advancedFilter, {
       memberListIds: memberListIdsOf(filters.advancedListMembers, lead._id),
+      subscriptionTypes: filters.subscriptionTypes,
     })
   ) {
     return false;

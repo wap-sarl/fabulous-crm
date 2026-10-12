@@ -3,6 +3,7 @@ export { api } from '../../convex/_generated/api';
 export type { Id, Doc } from '../../convex/_generated/dataModel';
 export type {
   MarketingConsentChannel,
+  ConsentSource,
   CampaignStatus,
   CampaignChannel,
   MessageType,
@@ -41,6 +42,12 @@ export {
   testShareSchema,
   validateLandingPageShape,
 } from '../../convex/_lib/validators/landingPages';
+export type { LegalBasis } from '../../convex/_lib/validators/subscriptions';
+export {
+  isSubscribed,
+  subscriptionDescriptionSchema,
+  subscriptionNameSchema,
+} from '../../convex/_lib/validators/subscriptions';
 export type { TimelineKind } from '../../convex/_lib/validators/timeline';
 export type { TimelineEvent } from '../../convex/lib/timeline/events';
 export type { DuplicateReason } from '../../convex/_lib/validators/duplicates';

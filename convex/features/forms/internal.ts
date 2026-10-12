@@ -3,7 +3,8 @@ import { formAfterSubmitValidator } from '../../_lib/validators/forms';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
-import { internalQuery } from '../../_generated/server';
+import type { LeadSubscription } from '../../_lib/validators/crm';
+import { internalQuery, type MutationCtx } from '../../_generated/server';
 // Trigger-wrapped constructor: lead writes must run the lead triggers (functions.ts).
 import { internalMutation } from '../../_lib/functions';
 import { MAX_FILL_MS, MIN_FILL_MS } from '../../_lib/validators/forms';
@@ -25,6 +26,8 @@ import {
   verifyRender,
 } from '../../lib/forms/submission';
 import { gateLeadCreate } from '../../lib/extensions/gates';
+import { recordInitialConsent } from '../../lib/consent/choice';
+import { loadActiveSubscriptionTypes } from '../../lib/consent/types';
 import { pageOfSubmission } from '../../lib/landingPages/pages';
 import { countForPage } from '../../lib/landingPages/stats';
 import { normalizeEmail } from '../../lib/leads/import';
@@ -84,6 +87,18 @@ export const getPublicForm = internalQuery({
 });
 
 /** An address proves nothing: a known contact is only completed (nothing overwritten, no consent recorded); an unknown or deleted one creates a contact, with the e-mail consent the person ticked. */
+/** The choices a form's box makes for the contact it creates: an entry per type it names that still exists and is active. */
+async function formSubscriptions(
+  ctx: MutationCtx,
+  form: Doc<'forms'>,
+  at: number,
+): Promise<LeadSubscription[] | undefined> {
+  const named = new Set(form.subscriptionTypeIds ?? []);
+  if (named.size === 0) return undefined;
+  const types = (await loadActiveSubscriptionTypes(ctx)).filter((type) => named.has(type._id));
+  return types.map((type) => ({ typeId: type._id, status: 'in', source: 'form', at }));
+}
+
 export const submitForm = internalMutation({
   args: {
     formId: v.string(),
@@ -203,10 +218,11 @@ export const submitForm = internalMutation({
           email,
           phone: standard.phone,
           comment: initialComment(standard, companyId !== undefined),
-          // Single opt-in: the box the person ticked, on the contact this submission creates and on no other.
+          // Single opt-in: the box the person ticked, on the contact this submission creates and on no other; the types it names, if they still exist, as their choice.
           marketingConsent: ['email'],
           consentUpdatedAt: now,
           consentSource: 'form',
+          subscriptions: await formSubscriptions(ctx, form, now),
           ownerIds: [],
           companyId,
           lifecycleStage: lifecycle.defaultStage,
@@ -214,6 +230,11 @@ export const submitForm = internalMutation({
         },
         { workflows, signal: { kind: 'form_submission', at: now } },
       );
+      // The proof of the box ticked: the channel, and each topic it opens, with the address kept as a hash.
+      const created = await ctx.db.get(leadId);
+      if (created) {
+        await recordInitialConsent(ctx, created, { source: 'form', ipHash: args.ipHash, at: now });
+      }
     }
 
     // Only the accepted values are logged, keyed like the public definition.

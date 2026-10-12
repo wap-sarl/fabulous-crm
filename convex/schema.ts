@@ -21,6 +21,7 @@ import {
   formVisitorTokenValidator,
 } from './_lib/validators/forms';
 import { scoringRuleValidator, scoringStateValidator } from './_lib/validators/scoring';
+import { consentEventValidator, subscriptionTypeValidator } from './_lib/validators/subscriptions';
 import { appConfigValidator } from './_lib/validators/appConfig';
 import {
   connectorAccountValidator,
@@ -298,6 +299,11 @@ const tables = {
   auditLogs: defineTable(auditLogValidator)
     .index('by_entity', ['entityType', 'entityId'])
     .index('by_timestamp', ['timestamp']),
+
+  // The topics a contact subscribes to (validators/subscriptions.ts): a handful of rows, read whole.
+  subscriptionTypes: defineTable(subscriptionTypeValidator),
+  // Every change of a contact's consent, never edited: the proof of when and how it was collected.
+  consentEvents: defineTable(consentEventValidator).index('by_lead', ['leadId', 'at']),
 
   leads: defineTable(leadValidator)
     // [lifecycleStage, _creationTime]: single-stage filter under the default sort.

@@ -11,6 +11,7 @@ export const TIMELINE_KINDS = [
   'lifecycle',
   'deal',
   'audit',
+  'consent',
 ] as const;
 
 export const timelineKindValidator = v.union(
@@ -24,6 +25,7 @@ export const timelineKindValidator = v.union(
   v.literal('lifecycle'),
   v.literal('deal'),
   v.literal('audit'),
+  v.literal('consent'),
 );
 
 export type TimelineKind = Infer<typeof timelineKindValidator>;

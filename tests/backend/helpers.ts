@@ -10,6 +10,8 @@ import migrationsSchema from '../../node_modules/@convex-dev/migrations/dist/com
 import rateLimiterSchema from '../../node_modules/@convex-dev/rate-limiter/dist/component/schema';
 import { api, components } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
+import type { MarketingConsentChannel } from '../../convex/_lib/validators/crm';
+import { applyConsentChoice } from '../../convex/lib/consent/choice';
 import { leadSearchText } from '../../convex/lib/leads/search';
 import schema from '../../convex/schema';
 import { onTestEnd } from '../support/teardown';
@@ -203,6 +205,19 @@ export async function seedLead(
       ...fields,
     } as Doc<'leads'>;
     return await ctx.db.insert('leads', { ...doc, searchText: leadSearchText(doc) });
+  });
+}
+
+/** A contact's channels set as a public link would, straight through the consent logic: for tests that need a consent without the preference centre. */
+export async function setConsentChannels(
+  t: T,
+  leadId: Id<'leads'>,
+  channels: MarketingConsentChannel[],
+): Promise<void> {
+  await t.run(async (ctx) => {
+    const lead = await ctx.db.get(leadId);
+    if (!lead) throw new Error('no such lead');
+    await applyConsentChoice(ctx, lead, { channels }, { source: 'public_link' });
   });
 }
 

@@ -4,6 +4,7 @@ import type {
   CampaignEventType,
   CampaignSendStatus,
   CampaignStatus,
+  ConsentSource,
   DealStatus,
   MarketingConsentChannel,
 } from '@crm/lib/backend';
@@ -133,6 +134,17 @@ export const CONSENT_CHANNELS: { value: MarketingConsentChannel; label: string }
 export const CONSENT_CHANNEL_LABEL: Record<MarketingConsentChannel, string> = Object.fromEntries(
   CONSENT_CHANNELS.map((c) => [c.value, c.label]),
 ) as Record<MarketingConsentChannel, string>;
+
+/** Where a consent change came from. */
+export const CONSENT_SOURCE_LABEL: Record<ConsentSource, string> = {
+  crm: 'CRM',
+  public_link: 'Lien public',
+  import: 'Import',
+  sms_stop: 'Réponse STOP (SMS)',
+  form: 'Formulaire',
+  preference_center: 'Centre de préférences',
+  merge: 'Fusion de fiches',
+};
 
 export const DEAL_STATUSES: { value: DealStatus; label: string; tone: StatusTone }[] = [
   { value: 'open', label: 'En cours', tone: 'blue' },

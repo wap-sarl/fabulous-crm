@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
 import { api, follows, positiveIntSchema } from '@crm/lib/backend';
-import type { CampaignChannel, CampaignTrackedLink, MessageType } from '@crm/lib/backend';
+import type { CampaignChannel, CampaignTrackedLink, Id, MessageType } from '@crm/lib/backend';
 import { useAuthMutation } from '@crm/widgets';
 import {
   Alert,
@@ -22,6 +22,7 @@ import { usePropertyDefinitions } from '../../features/properties/hooks/usePrope
 import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
 import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
 import { applyRecipientFilter } from '../../features/leads/lib/leadFilters';
+import { SubscriptionTypePicker } from '../../features/subscriptions/components/SubscriptionTypePicker';
 import { useLeadFieldCatalog } from '../../features/leads/hooks/useLeadFieldCatalog';
 import {
   withEmailCompliance,
@@ -58,6 +59,9 @@ export function CampaignCreatePage() {
   const [htmlBody, setHtmlBody] = useState('');
   const [smsBody, setSmsBody] = useState('');
   const [messageType, setMessageType] = useState<MessageType>('marketing');
+  const [subscriptionTypeId, setSubscriptionTypeId] = useState<Id<'subscriptionTypes'> | null>(
+    null,
+  );
   const [trackedLinks, setTrackedLinks] = useState<CampaignTrackedLink[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -85,14 +89,25 @@ export function CampaignCreatePage() {
     }
   }, [channel, messageType, emailMode]);
 
+  // A subscription belongs to one channel: changing the channel drops it.
   const handleChannelChange = (next: CampaignChannel) => {
     setChannel(next);
+    setSubscriptionTypeId(null);
     setAdvancedFilter(applyRecipientFilter(filters.advancedFilter, next, messageType));
   };
 
   const handleMessageTypeChange = (next: MessageType) => {
     setMessageType(next);
-    setAdvancedFilter(applyRecipientFilter(filters.advancedFilter, channel, next));
+    setAdvancedFilter(
+      applyRecipientFilter(filters.advancedFilter, channel, next, subscriptionTypeId ?? undefined),
+    );
+  };
+
+  const handleSubscriptionChange = (next: Id<'subscriptionTypes'> | null) => {
+    setSubscriptionTypeId(next);
+    setAdvancedFilter(
+      applyRecipientFilter(filters.advancedFilter, channel, messageType, next ?? undefined),
+    );
   };
 
   const total = matching?.total ?? 0;
@@ -155,6 +170,8 @@ export function CampaignCreatePage() {
         name,
         channel,
         messageType,
+        subscriptionTypeId:
+          messageType === 'marketing' ? (subscriptionTypeId ?? undefined) : undefined,
         // The server resolves the recipients from the filter: an id array would cap the campaign at Convex's 8,192-element limit.
         filter: toFilterArgs(filters),
         trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
@@ -202,6 +219,14 @@ export function CampaignCreatePage() {
             placeholder="Relance printemps"
           />
         </div>
+
+        {messageType === 'marketing' && (
+          <SubscriptionTypePicker
+            channel={channel}
+            value={subscriptionTypeId}
+            onChange={handleSubscriptionChange}
+          />
+        )}
 
         <CampaignContentFields
           channel={channel}

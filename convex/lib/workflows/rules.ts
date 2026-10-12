@@ -181,7 +181,8 @@ export type WorkflowTriggerEvent =
   | { type: 'lead_created' }
   | { type: 'lead_property_changed'; changedFields: FilterField[] }
   | { type: 'list_membership_changed'; change: 'added' | 'removed'; listId: Id<'leadLists'> }
-  | { type: 'consent_updated' }
+  // The types whose standing changed; a channel-only change lists none.
+  | { type: 'consent_updated'; typeIds: Id<'subscriptionTypes'>[] }
   | { type: 'campaign_email_event'; event: WorkflowEmailEvent; campaignId: Id<'campaigns'> }
   | { type: 'campaign_sms_event'; event: WorkflowSmsEvent; campaignId: Id<'campaigns'> }
   | { type: 'tracked_link_click'; campaignId: Id<'campaigns'>; linkKey: string }
@@ -205,8 +206,12 @@ export function matchesTrigger(trigger: WorkflowTrigger, event: WorkflowTriggerE
   if (trigger.type !== event.type) return false;
   switch (trigger.type) {
     case 'lead_created':
-    case 'consent_updated':
       return true;
+    case 'consent_updated':
+      return (
+        event.type === 'consent_updated' &&
+        (trigger.typeId === undefined || event.typeIds.includes(trigger.typeId))
+      );
     case 'lead_property_changed': {
       if (event.type !== 'lead_property_changed') return false;
       if (!trigger.watchedFields || trigger.watchedFields.length === 0) return true;

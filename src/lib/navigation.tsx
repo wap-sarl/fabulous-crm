@@ -3,6 +3,7 @@ import {
   ClipboardList,
   Gauge,
   Handshake,
+  BellRing,
   Hourglass,
   KanbanSquare,
   KeyRound,
@@ -96,6 +97,7 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
       // Connecting one's own account is for every employee; the page shows the OAuth apps to admins only.
       { label: 'Intégrations', icon: <Plug />, path: '/settings/integrations' },
       settings({ label: 'Clés d’API', icon: <KeyRound />, path: '/settings/api' }),
+      settings({ label: 'Abonnements', icon: <BellRing />, path: '/settings/subscriptions' }),
       settings({ label: 'Fichiers', icon: <Paperclip />, path: '/settings/files' }),
       settings({ label: 'Conservation', icon: <Hourglass />, path: '/settings/retention' }),
     ],

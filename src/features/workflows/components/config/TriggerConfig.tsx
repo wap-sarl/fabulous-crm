@@ -28,6 +28,7 @@ import { countActiveRules, emptyAdvancedFilter } from '../../../filters/lib/adva
 import { LEAD_FILTER_FIELDS } from '../../../leads/lib/leadFilters';
 import { useLeadFieldCatalog } from '../../../leads/hooks/useLeadFieldCatalog';
 import { useLeadLists } from '../../../leads/hooks/useLeadLists';
+import { useSubscriptionTypes } from '../../../subscriptions/hooks/useSubscriptionTypes';
 import { usePipelines } from '../../../deals/hooks/usePipelines';
 import type { PropertyDefinitionRow } from '../../../properties/types';
 import { optionToTrigger, TRIGGER_GROUPS, triggerToOption } from '../../lib/constants';
@@ -65,6 +66,7 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
       api.features.forms.queries.listFormOptions,
       trigger?.type === 'form_submitted' ? {} : 'skip',
     ) ?? [];
+  const subscriptionTypes = useSubscriptionTypes(trigger?.type === 'consent_updated');
 
   // The editor always needs a filter object; whether criteria are stored is decided by the parent on apply, from the active-rule count.
   const [criteriaDraft, setCriteriaDraft] = useState<LeadAdvancedFilter>(
@@ -185,6 +187,33 @@ export function TriggerConfig({ value, onChange, definitions }: TriggerConfigPro
             Déclenche quand le score{' '}
             {trigger.direction === 'up' ? 'atteint ou dépasse' : 'passe en dessous de'} ce seuil
             (0–100).
+          </HelperText>
+        </div>
+      )}
+
+      {trigger?.type === 'consent_updated' && (
+        <div className="space-y-1.5">
+          <Label>Abonnement concerné</Label>
+          <Select
+            value={(trigger.typeId as string | undefined) ?? ANY}
+            onValueChange={(v) =>
+              setTrigger({ ...trigger, typeId: v === ANY ? undefined : (v as never) })
+            }
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANY}>Tout changement (abonnement ou canal)</SelectItem>
+              {subscriptionTypes.map((t) => (
+                <SelectItem key={t._id} value={t._id}>
+                  {t.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <HelperText>
+            Déclenche quand le contact s’inscrit à cet abonnement ou s’en désinscrit.
           </HelperText>
         </div>
       )}

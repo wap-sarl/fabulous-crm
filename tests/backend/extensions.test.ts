@@ -5,7 +5,13 @@ import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/ext
 import { api, internal } from '../../convex/_generated/api';
 import { extensions, setExtensionsForTests } from '../../convex/extensions';
 import { HOOK_FAILURE_ENTITY_ID, notifyChange } from '../../convex/lib/extensions/observers';
-import { asIdentity, createTestConvex, seedEmployee, seedLead } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  seedLead,
+  setConsentChannels,
+} from './helpers';
 
 async function setup() {
   const t = createTestConvex();
@@ -603,11 +609,7 @@ describe('extension seam', () => {
     );
     expect(revival?.metadata).toMatchObject({ revived: true });
     // The system: a consent change through the preference link is audited now, so the hook hears of it.
-    const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
-    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token,
-      channels: ['email'],
-    });
+    await setConsentChannels(t, leadId, ['email']);
     expect(drain()).toEqual(['lead.update (system)']);
     const audit = await t.run(async (ctx) =>
       (await ctx.db.query('auditLogs').collect()).filter((a) => a.entityId === leadId).pop(),

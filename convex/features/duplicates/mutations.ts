@@ -7,6 +7,7 @@ import { employeeMutation, settingsMutation } from '../../_lib/auth';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { addressValidator } from '../../schema';
 import { computeChanges, logAudit, updateAuditFields } from '../../lib/audit/log';
+import { mergeConsent } from '../../lib/consent/choice';
 import { isNotDeleted } from '../../lib/shared/db';
 import {
   insertLifecycleHistory,
@@ -153,15 +154,8 @@ export const mergeLeads = employeeMutation({
       }
     }
 
-    // Consent: union of both grants, stamped with the most recent decision.
-    const consent = [...new Set([...survivor.marketingConsent, ...absorbed.marketingConsent])];
-    if (consent.length !== survivor.marketingConsent.length) {
-      updates.marketingConsent = consent;
-      if ((absorbed.consentUpdatedAt ?? 0) > (survivor.consentUpdatedAt ?? 0)) {
-        updates.consentUpdatedAt = absorbed.consentUpdatedAt;
-        updates.consentSource = absorbed.consentSource;
-      }
-    }
+    // Consent: what the merge keeps of each record, with its events (lib/consent/choice.ts).
+    Object.assign(updates, await mergeConsent(ctx, survivor, absorbed));
 
     // The objection to profiling follows the person, whichever record survives; the trigger clears the score.
     const objectionCarried =

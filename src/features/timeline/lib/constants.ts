@@ -19,6 +19,7 @@ export const TIMELINE_FILTERS: TimelineFilter[] = [
   { value: 'workflows', label: 'Workflows', kinds: ['workflow_run'] },
   { value: 'lifecycle', label: 'Statut', kinds: ['lifecycle'] },
   { value: 'deals', label: 'Transactions', kinds: ['deal'] },
+  { value: 'consent', label: 'Consentement', kinds: ['consent'] },
   { value: 'changes', label: 'Modifications', kinds: ['audit'] },
 ];
 

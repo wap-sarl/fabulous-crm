@@ -27,6 +27,8 @@ const leadStandardFieldValidator = v.union(
   v.literal('visitedPages'),
   // List membership, resolved through the by_list_lead index at eval time.
   v.literal('listIds'),
+  // The subscription types the contact is in on, told from the active types loaded at eval time.
+  v.literal('subscribedTo'),
 );
 
 /** Built-in company columns that can be filtered in the builder. */
@@ -164,7 +166,8 @@ export type FilterFieldType =
   | 'lifecycle'
   | 'assignee'
   | 'list'
-  | 'pages';
+  | 'pages'
+  | 'subscription';
 
 /** Shared by the UI and the server so both agree; the first entry is the default when a field is picked. */
 export function operatorsForType(type: FilterFieldType): FilterOperator[] {
@@ -205,6 +208,9 @@ export function operatorsForType(type: FilterFieldType): FilterOperator[] {
     // Visited paths: a text typed by hand, matched against each path.
     case 'pages':
       return ['contains', 'equals', 'isEmpty', 'isNotEmpty'];
+    // The types one is in on: « contains » any of the chosen, « isEmpty » none at all.
+    case 'subscription':
+      return ['contains', 'isEmpty', 'isNotEmpty'];
   }
 }
 
@@ -220,6 +226,15 @@ export function advancedFilterListIds(filter: AdvancedFilter | undefined): strin
     }
   }
   return [...ids];
+}
+
+/** Whether some rule of the filter asks a lead's subscriptions, the one case the types must be loaded for. */
+export function advancedFilterAsksSubscriptions(filter: AdvancedFilter | undefined): boolean {
+  return !!filter?.groups.some((group) =>
+    group.rules.some(
+      (rule) => rule.field.kind === 'standard' && rule.field.field === 'subscribedTo',
+    ),
+  );
 }
 
 export function isActiveRule(rule: FilterRule): boolean {
