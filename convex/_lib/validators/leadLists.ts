@@ -41,6 +41,11 @@ export function validateDynamicListCriteria(
 ): string | null {
   const rules = criteria?.groups.flatMap((g) => g.rules) ?? [];
   if (!rules.some(isActiveRule)) return 'dynamic_list_criteria_required';
-  const hasListRule = rules.some((r) => r.field.kind === 'standard' && r.field.field === 'listIds');
+  // Membership and subscriptions are read outside the document; a list is kept from each lead write alone.
+  const hasListRule = rules.some(
+    (r) =>
+      r.field.kind === 'standard' &&
+      (r.field.field === 'listIds' || r.field.field === 'subscribedTo'),
+  );
   return hasListRule ? 'dynamic_list_criteria_list_rule' : null;
 }

@@ -6,6 +6,8 @@ import type { StatusTone } from '@crm/design-system';
 import type { LucideIcon } from 'lucide-react';
 import {
   Ban,
+  BellOff,
+  BellRing,
   ClipboardList,
   Eye,
   Globe,
@@ -33,6 +35,7 @@ import {
   SEND_STATUS_TONE,
   formatMoney,
 } from '../../../lib/constants';
+import { CONSENT_CHANNEL_LABEL, CONSENT_SOURCE_LABEL } from '../../../lib/constants';
 import { ACTIVITY_ICON } from '../../activities/lib/constants';
 import { LIFECYCLE_SOURCE_LABEL } from '../../leads/lib/lifecycle';
 import { RUN_STATUS_LABEL, RUN_STATUS_TONE } from '../../workflows/lib/constants';
@@ -236,6 +239,22 @@ function present(event: TimelineEvent, lifecycleLabel: (key: string) => string):
               event.userName,
             ]),
           };
+    case 'consent': {
+      const subject =
+        event.typeName ??
+        (event.channel ? CONSENT_CHANNEL_LABEL[event.channel] : 'Abonnement supprimé');
+      const on = event.to === 'in';
+      return {
+        Icon: on ? BellRing : BellOff,
+        tone: on ? 'green' : 'red',
+        title: `${on ? 'Inscription' : 'Désinscription'} : ${subject}`,
+        badge: { label: event.channel ? 'Canal' : 'Abonnement', tone: 'gray' },
+        detail: joinDetails([
+          CONSENT_SOURCE_LABEL[event.source],
+          event.fromAddress && 'adresse IP conservée (hachée)',
+        ]),
+      };
+    }
   }
 }
 

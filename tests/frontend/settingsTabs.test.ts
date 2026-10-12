@@ -52,7 +52,13 @@ describe('the settings page', () => {
       ['Canaux', ['/settings/email', '/settings/forms', '/settings/tracking']],
       [
         'Connexions et conformité',
-        ['/settings/integrations', '/settings/api', '/settings/files', '/settings/retention'],
+        [
+          '/settings/integrations',
+          '/settings/api',
+          '/settings/subscriptions',
+          '/settings/files',
+          '/settings/retention',
+        ],
       ],
     ]);
   });

@@ -19,6 +19,7 @@ const SMALL: Record<string, string> = {
   'propertyDefinitions.by_entityType': 'the custom properties of one entity',
   roles: 'the roles of the settings',
   scoringRules: 'the scoring rules of the settings',
+  subscriptionTypes: 'the subscription types of the settings',
   teams: 'the teams of the settings',
   'users.by_type': 'the employees',
   workflows: 'the workflows people built; read where all of them are listed',

@@ -11,6 +11,7 @@ import { logAudit } from '../lib/audit/log';
 import { encryptSecret } from '../lib/security/crypto';
 import { isSetupComplete } from './helpers';
 import { ensureDefaultRoles } from '../lib/roles/access';
+import { ensureDefaultSubscriptionTypes } from '../lib/consent/types';
 
 /** Upload URL for the wizard's logo and favicon: guarded by SETUP_TOKEN so it may run before any user exists, and refused once setup is complete. */
 export const generateSetupUploadUrl = mutation({
@@ -110,6 +111,7 @@ export const completeSetup = mutation({
     });
 
     await ensureDefaultRoles(ctx, userId);
+    await ensureDefaultSubscriptionTypes(ctx, userId);
     await ctx.db.insert('appConfig', {
       setupCompletedAt: now,
       organizationName: args.organizationName.trim(),

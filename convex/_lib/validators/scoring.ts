@@ -55,13 +55,16 @@ export const scoringStateValidator = v.object({
   ),
 });
 
-/** `listIds` is refused (membership reads on every lead write, cascade risk) and so is `leadScore` (a score feeding itself never converges). */
+/** `listIds` is refused (membership reads on every lead write, cascade risk), `leadScore` too (a score feeding itself never converges), and `subscribedTo` (a consent is not a score). */
 export function validateScoringCriteria(criteria: LeadAdvancedFilter | undefined): string | null {
   const rules = criteria?.groups.flatMap((g) => g.rules) ?? [];
   if (!rules.some(isActiveRule)) return 'scoring_criteria_required';
   const forbidden = rules.some(
     (r) =>
-      r.field.kind === 'standard' && (r.field.field === 'listIds' || r.field.field === 'leadScore'),
+      r.field.kind === 'standard' &&
+      (r.field.field === 'listIds' ||
+        r.field.field === 'leadScore' ||
+        r.field.field === 'subscribedTo'),
   );
   return forbidden ? 'scoring_criteria_forbidden_field' : null;
 }

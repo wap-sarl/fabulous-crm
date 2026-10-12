@@ -17,7 +17,8 @@ import {
 import { Link2, Milestone, Pencil, Phone } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { formatAddress } from '../../lib/addresses';
-import { CONSENT_CHANNEL_LABEL } from '../../lib/constants';
+import { CONSENT_CHANNEL_LABEL, CONSENT_SOURCE_LABEL } from '../../lib/constants';
+import { LeadSubscriptions } from '../../features/subscriptions/components/LeadSubscriptions';
 import { LeadFormDialog } from '../../features/leads/components/LeadFormDialog';
 import { LeadNotes } from '../../features/leads/components/LeadNotes';
 import { usePropertyDefinitions } from '../../features/properties/hooks/usePropertyDefinitions';
@@ -36,14 +37,6 @@ import {
   hasPropertyValue,
 } from '../../features/properties/lib/customProperties';
 import { dateFormat, dateTimeFormat } from '@crm/lib/format';
-
-const CONSENT_SOURCE_LABEL: Record<string, string> = {
-  crm: 'CRM',
-  public_link: 'Lien public',
-  import: 'Import',
-  sms_stop: 'Réponse STOP (SMS)',
-  form: 'Formulaire',
-};
 
 export function LeadDetailPage() {
   usePageTitle('Lead');
@@ -201,6 +194,7 @@ export function LeadDetailPage() {
             ) : (
               <p className="text-sm text-faint">Aucun consentement.</p>
             )}
+            <LeadSubscriptions lead={lead} />
             <KeyValueList>
               <KeyValueRow label="Mis à jour le" mono>
                 {lead.consentUpdatedAt ? dateTimeFormat.format(lead.consentUpdatedAt) : '—'}
@@ -211,7 +205,7 @@ export function LeadDetailPage() {
             </KeyValueList>
             <Button variant="ghost" className="mt-2 w-full" onClick={copyConsentLink}>
               <Link2 className="h-4 w-4" />
-              Copier le lien de consentement
+              Copier le lien du centre de préférences
             </Button>
           </Card>
 

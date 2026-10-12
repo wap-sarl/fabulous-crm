@@ -49,6 +49,7 @@ const CONTACT_READ_ONLY = [
   'consentSource',
   'consentUpdatedAt',
   'consentToken',
+  'subscriptions',
   'leadScore',
   'lastActivityAt',
   'emailOpenCount',

@@ -101,10 +101,12 @@ describe('enrollment', () => {
     return workflowId;
   }
 
+  // A choice saved again as it was changes nothing and fires nothing: each call flips the channels.
+  let flip = 0;
   async function fireConsentUpdated(t: T, token: string): Promise<void> {
     await t.mutation(api.features.consent.mutations.updateConsentByToken, {
       token,
-      channels: ['email'],
+      channels: flip++ % 2 === 0 ? ['email'] : ['sms'],
     });
   }
 

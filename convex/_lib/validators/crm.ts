@@ -25,7 +25,19 @@ export const consentSourceValidator = v.union(
   v.literal('sms_stop'),
   // The lead checked the GDPR box of a public capture form.
   v.literal('form'),
+  // The lead chose on the preference centre (/consent/<token>), with their address kept as a hash.
+  v.literal('preference_center'),
 );
+
+export const subscriptionStatusValidator = v.union(v.literal('in'), v.literal('out'));
+
+/** A contact's explicit choice on one subscription type (validators/subscriptions.ts); a type without one follows its channel (`consent`) or stays in (`legitimate_interest`). */
+export const leadSubscriptionValidator = v.object({
+  typeId: v.id('subscriptionTypes'),
+  status: subscriptionStatusValidator,
+  source: consentSourceValidator,
+  at: v.number(),
+});
 
 export const leadValidator = v.object({
   ...firstAndLastNameValidator.fields,
@@ -41,6 +53,8 @@ export const leadValidator = v.object({
   consentSource: v.optional(consentSourceValidator),
   // Persistent per-lead secret embedded in every marketing email's consent link.
   consentToken: v.string(),
+  // The contact's explicit choices per subscription type (validators/subscriptions.ts); a type absent here follows its channel or its legal basis.
+  subscriptions: v.optional(v.array(leadSubscriptionValidator)),
 
   comment: v.optional(v.string()),
   ownerIds: v.array(v.id('users')),
@@ -77,6 +91,8 @@ export const leadValidator = v.object({
 export type Lead = Infer<typeof leadValidator>;
 export type MarketingConsentChannel = Infer<typeof marketingConsentChannelValidator>;
 export type ConsentSource = Infer<typeof consentSourceValidator>;
+export type SubscriptionStatus = Infer<typeof subscriptionStatusValidator>;
+export type LeadSubscription = Infer<typeof leadSubscriptionValidator>;
 
 export const campaignStatusValidator = v.union(
   v.literal('draft'),
@@ -162,6 +178,8 @@ export const campaignValidator = v.object({
   smsBody: v.optional(v.string()),
   // Marketing vs transactional category. Absent on legacy rows = marketing.
   messageType: v.optional(messageTypeValidator),
+  // The subscription the campaign writes under: its recipients are the contacts in on it (the filter carries the rule); absent on a transactional one or a legacy row.
+  subscriptionTypeId: v.optional(v.id('subscriptionTypes')),
   // Chosen channel. Optional so pre-channel campaigns still validate (= email).
   channel: v.optional(campaignChannelValidator),
   // Tracked links authored in the composer (snapshot, like subject/htmlBody).

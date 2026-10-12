@@ -194,8 +194,8 @@ export function CampaignContentFields({
       <span className="mr-2 text-sm font-medium text-ink">Type de message</span>
       <SegmentedToggle options={MESSAGE_TYPES} value={messageType} onChange={onMessageTypeChange} />
       <p className="text-xs text-muted-foreground">
-        « Marketing » ne cible que les leads ayant consenti à ce canal (filtre ajouté
-        automatiquement, modifiable)
+        « Marketing » ne cible que les inscrits à l’abonnement choisi, ou à défaut les leads ayant
+        consenti à ce canal (filtre ajouté automatiquement, modifiable)
         {channel === 'sms' ? ' et applique les règles d’opt-out Brevo' : ''} et ajoute par défaut{' '}
         {channel === 'sms' ? 'une ligne STOP' : 'un bloc de désinscription'} avec le lien de
         consentement (modifiable) ; « Transactionnel » n’applique pas de filtre de consentement.

@@ -76,6 +76,10 @@ const IntegrationsPage = page(
   'IntegrationsPage',
 );
 const FormsPage = page(() => import('./pages/settings/FormsPage'), 'FormsPage');
+const SubscriptionsPage = page(
+  () => import('./pages/settings/SubscriptionsPage'),
+  'SubscriptionsPage',
+);
 const CompaniesPage = page(() => import('./pages/companies/CompaniesPage'), 'CompaniesPage');
 const CompanyDetailPage = page(
   () => import('./pages/companies/CompanyDetailPage'),
@@ -163,6 +167,7 @@ function AppRoutes() {
                 <Route path="/settings/api" element={<ApiKeysPage />} />
                 <Route path="/settings/integrations" element={<IntegrationsPage />} />
                 <Route path="/settings/forms" element={<FormsPage />} />
+                <Route path="/settings/subscriptions" element={<SubscriptionsPage />} />
                 <Route path="/settings/pipelines" element={<PipelinesPage />} />
                 <Route path="/settings/files" element={<FilesPage />} />
                 <Route path="/settings/retention" element={<RetentionPage />} />

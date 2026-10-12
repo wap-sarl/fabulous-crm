@@ -51,6 +51,8 @@ export const createCampaign = employeeMutation({
     smsBody: v.optional(v.string()),
     // Marketing vs transactional; applies to both channels. Default marketing.
     messageType: v.optional(messageTypeValidator),
+    // The subscription a marketing campaign writes under: only the contacts in on it receive it.
+    subscriptionTypeId: v.optional(v.id('subscriptionTypes')),
     // Tracked links authored in the composer (unique per-recipient URLs).
     trackedLinks: v.optional(v.array(campaignTrackedLinkValidator)),
   },
@@ -62,6 +64,15 @@ export const createCampaign = employeeMutation({
     }
 
     const messageType = args.messageType ?? 'marketing';
+    const subscriptionType = args.subscriptionTypeId
+      ? await ctx.db.get(args.subscriptionTypeId)
+      : null;
+    if (args.subscriptionTypeId && !subscriptionType?.active) {
+      throw refusal('subscription_type_not_found');
+    }
+    if (subscriptionType && subscriptionType.channel !== args.channel) {
+      throw refusal('subscription_channel_mismatch');
+    }
 
     // Channels and modes the configured provider cannot serve are rejected up front.
     const cfg = await ctx.db.query('appConfig').first();
@@ -170,6 +181,7 @@ export const createCampaign = employeeMutation({
       htmlBody,
       smsBody,
       messageType,
+      subscriptionTypeId: messageType === 'marketing' ? args.subscriptionTypeId : undefined,
       channel: args.channel,
       // A snapshot, so analytics degrade correctly even if the admin later switches providers.
       emailProvider: args.channel === 'email' ? emailProvider : undefined,

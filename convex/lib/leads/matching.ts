@@ -8,11 +8,16 @@ import type {
 } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
 import { evalFilter, evalFilterRule } from '../filters/matching';
+import { subscribedTypeIds } from '../../_lib/validators/subscriptions';
 
-/** Out-of-document inputs a lead filter can need: list membership, eval time. */
+type SubscriptionTypeRef = Parameters<typeof subscribedTypeIds>[1][number];
+
+/** Out-of-document inputs a lead filter can need: list membership, the subscription types, eval time. */
 export interface LeadFilterExtras {
   /** Ids of the filter-referenced lists the lead belongs to (resolved via by_list_lead). */
   memberListIds?: string[];
+  /** The active types, loaded once when a rule asks a lead's subscriptions. */
+  subscriptionTypes?: SubscriptionTypeRef[];
   now?: number;
 }
 
@@ -75,6 +80,8 @@ function getFieldValue(
       return operator === 'contains' ? lead.visitedPages.join('\n') : lead.visitedPages;
     case 'listIds':
       return extras?.memberListIds ?? [];
+    case 'subscribedTo':
+      return subscribedTypeIds(lead, extras?.subscriptionTypes ?? []);
   }
 }
 

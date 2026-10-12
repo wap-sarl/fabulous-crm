@@ -8,6 +8,11 @@ import type {
 } from '../../_lib/validators/crm';
 import type { DealStatus } from '../../_lib/validators/deals';
 import type { LifecycleChangeSource } from '../../_lib/validators/lifecycle';
+import type {
+  ConsentSource,
+  MarketingConsentChannel,
+  SubscriptionStatus,
+} from '../../_lib/validators/crm';
 import type { TimelineKind } from '../../_lib/validators/timeline';
 import type { WorkflowRunStatus } from '../../_lib/validators/workflows';
 
@@ -99,4 +104,15 @@ export type TimelineEvent =
       fields: string[];
       /** The lead absorbed by a merge. */
       absorbedLeadName: string | null;
+    })
+  | (TimelineEventBase<'consent'> & {
+      /** The type's name, or null for a channel event or a type since deleted. */
+      typeName: string | null;
+      typeId: Id<'subscriptionTypes'> | null;
+      channel: MarketingConsentChannel | null;
+      from: SubscriptionStatus;
+      to: SubscriptionStatus;
+      source: ConsentSource;
+      /** Whether the address of the click was kept (as a hash). */
+      fromAddress: boolean;
     });

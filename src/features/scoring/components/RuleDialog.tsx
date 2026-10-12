@@ -25,7 +25,7 @@ const SAVE_ERRORS: Record<string, string> = {
   invalid_scoring_decay: 'La demi-vie doit être un nombre de jours entre 1 et 365.',
   scoring_criteria_required: 'Au moins un critère complet est requis.',
   scoring_criteria_forbidden_field:
-    'Les critères ne peuvent pas porter sur les listes ni sur le score.',
+    'Les critères ne peuvent pas porter sur les listes, les abonnements ni le score.',
 };
 
 const saveErrorMessage = (error: unknown) =>
@@ -42,10 +42,12 @@ export function RuleDialog({
   const { createScoringRule, updateScoringRule } = useScoringActions();
   const definitions = usePropertyDefinitions('lead');
   const fullCatalog = useLeadFieldCatalog(definitions);
-  // Server rule: no list-membership and no score-on-score criteria.
+  // Server rule: no list-membership, no subscription and no score-on-score criteria.
   const catalog = {
     ...fullCatalog,
-    standard: fullCatalog.standard.filter((f) => f.field !== 'listIds' && f.field !== 'leadScore'),
+    standard: fullCatalog.standard.filter(
+      (f) => f.field !== 'listIds' && f.field !== 'leadScore' && f.field !== 'subscribedTo',
+    ),
   };
   const [name, setName] = useState(rule?.name ?? '');
   const [description, setDescription] = useState(rule?.description ?? '');

@@ -1,7 +1,7 @@
 import type { MutationCtx } from '../../_generated/server';
 import type { CampaignEvent, CampaignEventType } from '../../_lib/validators/crm';
 import type { WorkflowEmailEvent, WorkflowSmsEvent } from '../../_lib/validators/workflows';
-import { computeChanges, logAudit } from '../audit/log';
+import { applyConsentChoice } from '../consent/choice';
 import { insertSystemNote } from '../leads/notes';
 import { BEHAVIOURAL_CAMPAIGN_EVENTS, profilingExcluded, stampLeadSignal } from '../leads/signals';
 import { dispatchWorkflowTrigger } from '../workflows/dispatch';
@@ -189,20 +189,13 @@ export async function recordSmsEvent(
   if (!lead || lead.deletedAt !== undefined) return;
   if (!lead.marketingConsent.includes('sms')) return;
 
-  const marketingConsent = lead.marketingConsent.filter((channel) => channel !== 'sms');
-  await ctx.db.patch(lead._id, {
-    marketingConsent,
-    consentUpdatedAt: Date.now(),
-    consentSource: 'sms_stop',
-    updatedAt: Date.now(),
-  });
-  await logAudit({
+  // The channel goes, and each SMS type with it; the events, the audit entry and the workflows follow.
+  await applyConsentChoice(
     ctx,
-    entityType: 'lead',
-    entityId: lead._id,
-    action: 'update',
-    metadata: { source: 'sms_stop', changes: computeChanges(lead, { marketingConsent }) },
-  });
+    lead,
+    { channels: lead.marketingConsent.filter((channel) => channel !== 'sms') },
+    { source: 'sms_stop' },
+  );
 
   // So the opt-out is visible in the lead timeline.
   await insertSystemNote(
@@ -211,6 +204,4 @@ export async function recordSmsEvent(
     'Désinscription SMS : le contact a répondu STOP (événement Brevo).',
     Date.now(),
   );
-
-  await dispatchWorkflowTrigger(ctx, lead._id, { type: 'consent_updated' });
 }

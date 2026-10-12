@@ -26,6 +26,7 @@ const auditLogEntityTypeValidator = v.union(
   // One row per nightly purge run, with its counts (features/retention).
   v.literal('retention'),
   v.literal('importJob'),
+  v.literal('subscriptionType'),
 );
 
 const auditLogActionValidator = v.union(

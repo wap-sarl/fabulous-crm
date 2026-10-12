@@ -153,7 +153,7 @@ export const mergeLeads = employeeMutation({
       }
     }
 
-    // Consent: union of both grants, stamped with the most recent decision.
+    // Consent: union of both grants, stamped with the most recent decision; per type, the newer choice of the two.
     const consent = [...new Set([...survivor.marketingConsent, ...absorbed.marketingConsent])];
     if (consent.length !== survivor.marketingConsent.length) {
       updates.marketingConsent = consent;
@@ -161,6 +161,14 @@ export const mergeLeads = employeeMutation({
         updates.consentUpdatedAt = absorbed.consentUpdatedAt;
         updates.consentSource = absorbed.consentSource;
       }
+    }
+    const subscriptions = new Map((survivor.subscriptions ?? []).map((s) => [s.typeId, s]));
+    for (const theirs of absorbed.subscriptions ?? []) {
+      const mine = subscriptions.get(theirs.typeId);
+      if (!mine || theirs.at > mine.at) subscriptions.set(theirs.typeId, theirs);
+    }
+    if (subscriptions.size !== (survivor.subscriptions?.length ?? 0)) {
+      updates.subscriptions = [...subscriptions.values()];
     }
 
     // The objection to profiling follows the person, whichever record survives; the trigger clears the score.

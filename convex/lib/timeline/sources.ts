@@ -335,6 +335,34 @@ export const SOURCES: Record<TimelineKind, SourceFactory> = {
     },
   }),
 
+  consent: (ctx, leadId, { get }) => ({
+    kind: 'consent',
+    load: async (w, limit) => {
+      const rows = await fetchRows(
+        ctx.db
+          .query('consentEvents')
+          .withIndex('by_lead', (q) => withinWindow(q.eq('leadId', leadId), 'at', w))
+          .order('desc'),
+        limit,
+      );
+      return rows.map((event) => ({
+        at: event.at,
+        build: async () => ({
+          kind: 'consent',
+          id: event._id,
+          at: event.at,
+          typeName: event.typeId ? ((await get(event.typeId))?.name ?? null) : null,
+          typeId: event.typeId ?? null,
+          channel: event.channel ?? null,
+          from: event.from,
+          to: event.to,
+          source: event.source,
+          fromAddress: event.ipHash !== undefined,
+        }),
+      }));
+    },
+  }),
+
   audit: (ctx, leadId, { actorName }) => ({
     kind: 'audit',
     load: async (w, limit) => {

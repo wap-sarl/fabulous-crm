@@ -732,11 +732,13 @@ describe('the consent page', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       marketingConsent: ['email', 'sms'],
+      types: [],
     });
     expect(await consent(t, 'token-bob')).toEqual({
       firstName: 'Bob',
       lastName: 'Martin',
       marketingConsent: [],
+      types: [],
     });
   });
 

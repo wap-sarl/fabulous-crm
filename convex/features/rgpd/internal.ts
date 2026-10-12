@@ -1,7 +1,7 @@
 import { docOf } from '../../lib/shared/docs';
 import { addressValidator } from '../../_lib/validators/shared';
 import { marketingConsentChannelValidator } from '../../_lib/validators/crm';
-import { consentSourceValidator } from '../../_lib/validators/crm';
+import { consentSourceValidator, leadSubscriptionValidator } from '../../_lib/validators/crm';
 import { propertyValueValidator } from '../../_lib/validators/properties';
 import { campaignChannelValidator } from '../../_lib/validators/crm';
 import { v } from 'convex/values';
@@ -57,6 +57,7 @@ export const collectContactData = internalQuery({
         marketingConsent: v.array(marketingConsentChannelValidator),
         consentUpdatedAt: v.optional(v.number()),
         consentSource: v.optional(consentSourceValidator),
+        subscriptions: v.optional(v.array(leadSubscriptionValidator)),
         comment: v.optional(v.string()),
         isRedFlagged: v.boolean(),
         excludeFromProfiling: v.optional(v.boolean()),
@@ -80,6 +81,7 @@ export const collectContactData = internalQuery({
       ),
       notes: v.array(docOf('leadNotes')),
       lifecycleHistory: v.array(docOf('lifecycleStageHistory')),
+      consentEvents: v.array(docOf('consentEvents')),
       lists: v.array(
         v.object({ name: v.string(), kind: v.union(v.literal('static'), v.literal('dynamic')) }),
       ),

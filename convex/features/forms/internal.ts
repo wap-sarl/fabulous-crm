@@ -25,6 +25,7 @@ import {
   verifyRender,
 } from '../../lib/forms/submission';
 import { gateLeadCreate } from '../../lib/extensions/gates';
+import { recordInitialConsent } from '../../lib/consent/choice';
 import { pageOfSubmission } from '../../lib/landingPages/pages';
 import { countForPage } from '../../lib/landingPages/stats';
 import { normalizeEmail } from '../../lib/leads/import';
@@ -214,6 +215,11 @@ export const submitForm = internalMutation({
         },
         { workflows, signal: { kind: 'form_submission', at: now } },
       );
+      // The proof of the box ticked: the channel, and each topic it opens, with the address kept as a hash.
+      const created = await ctx.db.get(leadId);
+      if (created) {
+        await recordInitialConsent(ctx, created, { source: 'form', ipHash: args.ipHash, at: now });
+      }
     }
 
     // Only the accepted values are logged, keyed like the public definition.

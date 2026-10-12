@@ -12,8 +12,8 @@ export const SMS_STOP_LINE = `STOP : ${CONSENT_TOKEN}`;
 
 /** Minimal markup on purpose: inline `style` attributes do not survive the serialization of TipTap's StarterKit. */
 export const EMAIL_UNSUB_FOOTER_HTML =
-  `<hr><p>Vous recevez cet e-mail car vous avez consenti à recevoir nos communications. ` +
-  `Pour vous désinscrire, <a href="${CONSENT_TOKEN}">cliquez ici</a>.</p>`;
+  `<hr><p>Vous recevez cet e-mail car vous êtes inscrit à nos communications. ` +
+  `Pour gérer vos préférences ou vous désinscrire, <a href="${CONSENT_TOKEN}">cliquez ici</a>.</p>`;
 
 /** Marketing gets the STOP line once; transactional loses every line that carries the consent placeholder. */
 export function withSmsCompliance(body: string, type: MessageType): string {
