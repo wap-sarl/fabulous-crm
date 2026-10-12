@@ -1,5 +1,6 @@
 import { refusal, refusalFrom } from '../../_lib/refusal';
 import { v } from 'convex/values';
+import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { settingsMutation } from '../../_lib/auth';
 import {
@@ -25,6 +26,17 @@ async function checkCustomTargets(ctx: MutationCtx, fields: FormFieldInput[]): P
   }
 }
 
+/** The box grants e-mail: each type it names is an e-mail type that exists. */
+async function checkSubscriptionTypes(
+  ctx: MutationCtx,
+  typeIds: Id<'subscriptionTypes'>[] | undefined,
+): Promise<void> {
+  for (const typeId of new Set(typeIds ?? [])) {
+    const type = await ctx.db.get(typeId);
+    if (type?.channel !== 'email') throw refusal('form_subscription_type_invalid');
+  }
+}
+
 export const createForm = settingsMutation({
   args: {
     name: v.string(),
@@ -32,6 +44,7 @@ export const createForm = settingsMutation({
     buttonText: v.string(),
     afterSubmit: formAfterSubmitValidator,
     consentText: v.string(),
+    subscriptionTypeIds: v.optional(v.array(v.id('subscriptionTypes'))),
     active: v.boolean(),
   },
   returns: v.id('forms'),
@@ -39,12 +52,14 @@ export const createForm = settingsMutation({
     const error = validateFormShape(args);
     if (error) throw refusalFrom(error, 'invalid_form');
     await checkCustomTargets(ctx, args.fields);
+    await checkSubscriptionTypes(ctx, args.subscriptionTypeIds);
     const formId = await ctx.db.insert('forms', {
       name: args.name.trim(),
       fields: assignFieldKeys(args.fields),
       buttonText: args.buttonText.trim(),
       afterSubmit: args.afterSubmit,
       consentText: args.consentText.trim(),
+      subscriptionTypeIds: args.subscriptionTypeIds,
       active: args.active,
       ...createAuditFields(ctx.userId),
     });
@@ -67,12 +82,14 @@ export const updateForm = settingsMutation({
     buttonText: v.optional(v.string()),
     afterSubmit: v.optional(formAfterSubmitValidator),
     consentText: v.optional(v.string()),
+    subscriptionTypeIds: v.optional(v.array(v.id('subscriptionTypes'))),
     active: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const form = await ctx.db.get(args.formId);
     if (!form || !isNotDeleted(form)) throw refusal('form_not_found');
+    await checkSubscriptionTypes(ctx, args.subscriptionTypeIds);
     const next = {
       name: args.name ?? form.name,
       fields: args.fields ?? form.fields,
@@ -90,6 +107,9 @@ export const updateForm = settingsMutation({
       buttonText: next.buttonText.trim(),
       afterSubmit: next.afterSubmit,
       consentText: next.consentText.trim(),
+      ...(args.subscriptionTypeIds !== undefined && {
+        subscriptionTypeIds: args.subscriptionTypeIds,
+      }),
       ...(args.active !== undefined && { active: args.active }),
       ...updateAuditFields(ctx.userId),
     });

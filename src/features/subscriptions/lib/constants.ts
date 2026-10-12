@@ -9,5 +9,5 @@ export const LEGAL_BASIS_LABEL: Record<LegalBasis, string> = {
 export const LEGAL_BASIS_WORDING: Record<LegalBasis, string> = {
   consent: 'Envoyé uniquement avec votre accord, que vous pouvez retirer à tout moment.',
   legitimate_interest:
-    'Envoyé au titre de notre intérêt légitime ; vous pouvez vous y opposer à tout moment.',
+    'Envoyé au titre de notre intérêt légitime tant que vous acceptez ce canal ; vous pouvez vous y opposer à tout moment.',
 };

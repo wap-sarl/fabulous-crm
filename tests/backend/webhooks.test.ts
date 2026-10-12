@@ -1,7 +1,14 @@
 import { beforeAll, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
-import { asIdentity, createTestConvex, seedEmployee, type SeededEmployee, type T } from './helpers';
+import {
+  asIdentity,
+  createTestConvex,
+  seedEmployee,
+  setConsentChannels,
+  type SeededEmployee,
+  type T,
+} from './helpers';
 
 /** Materialize the sends of a freshly created campaign (single prep batch). */
 async function prepareCampaign(t: T, campaignId: Id<'campaigns'>) {
@@ -63,11 +70,7 @@ async function seedSmsSend(t: T, emp: SeededEmployee): Promise<{ leadId: Id<'lea
     phone: '+33612345678',
   });
   // The STOP path only revokes consent the lead actually holds.
-  const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
-  await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-    token,
-    channels: ['email', 'sms'],
-  });
+  await setConsentChannels(t, leadId, ['email', 'sms']);
   const campaignId = await as.mutation(api.features.campaigns.mutations.createCampaign, {
     name: 'Webhook sms',
     channel: 'sms',

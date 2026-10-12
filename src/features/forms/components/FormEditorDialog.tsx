@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   IconButton,
+  HelperText,
   Input,
   Label,
   SegmentedControl,
@@ -29,6 +30,7 @@ import {
 import { Trash2 } from 'lucide-react';
 import { usePropertyDefinitions } from '../../properties/hooks/usePropertyDefinitions';
 import type { EditorDraft } from '../types';
+import { SubscriptionTypeMultiSelect } from '../../subscriptions/components/SubscriptionTypeMultiSelect';
 import { FormPreview } from './FormPreview';
 
 const STANDARD_FIELD_LABEL: Record<FormStandardField, string> = {
@@ -52,6 +54,8 @@ const SAVE_ERRORS: Record<string, string> = {
   form_button_text_required: 'Le texte du bouton est requis.',
   form_consent_text_required: 'La phrase de consentement RGPD est requise.',
   form_invalid_redirect_url: 'L’URL de redirection doit commencer par http(s)://.',
+  form_subscription_type_invalid:
+    'Un abonnement choisi n’existe plus ou n’est pas un abonnement e-mail.',
   form_message_required: 'Le message de confirmation est requis.',
   form_unknown_property: 'Une propriété du formulaire n’existe plus.',
 };
@@ -65,6 +69,7 @@ function draftOf(form: Form & { _id: Id<'forms'> }): EditorDraft {
     fields: form.fields,
     buttonText: form.buttonText,
     consentText: form.consentText,
+    subscriptionTypeIds: form.subscriptionTypeIds ?? [],
     afterKind: form.afterSubmit.kind,
     afterMessage: form.afterSubmit.kind === 'message' ? form.afterSubmit.message : 'Merci !',
     afterUrl: form.afterSubmit.kind === 'redirect' ? form.afterSubmit.url : '',
@@ -81,6 +86,7 @@ const NEW_DRAFT: EditorDraft = {
   ],
   buttonText: 'Envoyer',
   consentText: DEFAULT_CONSENT_TEXT,
+  subscriptionTypeIds: [],
   afterKind: 'message',
   afterMessage: 'Merci ! Nous revenons vers vous rapidement.',
   afterUrl: '',
@@ -142,6 +148,7 @@ export function FormEditorDialog({
         fields: draft.fields,
         buttonText: draft.buttonText,
         consentText: draft.consentText,
+        subscriptionTypeIds: draft.subscriptionTypeIds,
         afterSubmit:
           draft.afterKind === 'message'
             ? ({ kind: 'message', message: draft.afterMessage } as const)
@@ -264,6 +271,20 @@ export function FormEditorDialog({
                 onChange={(e) => set('consentText', e.target.value)}
                 rows={2}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>La case inscrit à</Label>
+              <SubscriptionTypeMultiSelect
+                channel="email"
+                value={draft.subscriptionTypeIds}
+                onChange={(ids) => set('subscriptionTypeIds', ids as Id<'subscriptionTypes'>[])}
+                className="w-full"
+              />
+              <HelperText>
+                Un consentement vaut pour un sujet : nommez dans la phrase les abonnements que la
+                case accorde. Sans abonnement, la case n’accorde que le canal e-mail.
+              </HelperText>
             </div>
 
             <div className="space-y-1.5">

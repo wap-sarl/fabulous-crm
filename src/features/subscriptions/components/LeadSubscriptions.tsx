@@ -4,7 +4,7 @@ import { CONSENT_SOURCE_LABEL } from '../../../lib/constants';
 import { dateFormat } from '@crm/lib/format';
 import { useSubscriptionTypes } from '../hooks/useSubscriptionTypes';
 
-/** Where the contact stands on each active type: their own choice dated and sourced, or what their channel and the basis say. */
+/** Where the contact stands on each active type: nothing without the channel's consent, else their own choice dated and sourced, else what the basis says. */
 export function LeadSubscriptions({
   lead,
 }: {
@@ -27,13 +27,13 @@ export function LeadSubscriptions({
               <span className={on ? 'text-ink' : 'text-soft'}>{type.name}</span>
             </span>
             <span className="text-xs text-faint">
-              {own
-                ? `${own.status === 'in' ? 'Inscrit' : 'Désinscrit'} le ${dateFormat.format(own.at)} · ${CONSENT_SOURCE_LABEL[own.source]}`
-                : on
-                  ? type.legalBasis === 'legitimate_interest'
+              {!lead.marketingConsent.includes(type.channel)
+                ? 'Canal refusé'
+                : own
+                  ? `${own.status === 'in' ? 'Inscrit' : 'Désinscrit'} le ${dateFormat.format(own.at)} · ${CONSENT_SOURCE_LABEL[own.source]}`
+                  : on
                     ? 'Intérêt légitime'
-                    : 'Par le canal'
-                  : 'Non inscrit'}
+                    : 'Non inscrit'}
             </span>
           </li>
         );

@@ -27,6 +27,8 @@ export const consentSourceValidator = v.union(
   v.literal('form'),
   // The lead chose on the preference centre (/consent/<token>), with their address kept as a hash.
   v.literal('preference_center'),
+  // Two records of one person became one: what the merge kept of each.
+  v.literal('merge'),
 );
 
 export const subscriptionStatusValidator = v.union(v.literal('in'), v.literal('out'));

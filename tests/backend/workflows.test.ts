@@ -7,6 +7,7 @@ import {
   createTestConvex,
   seedEmployee,
   seedLead,
+  setConsentChannels,
   type SeededEmployee,
   type T,
 } from './helpers';
@@ -103,11 +104,8 @@ describe('enrollment', () => {
 
   // A choice saved again as it was changes nothing and fires nothing: each call flips the channels.
   let flip = 0;
-  async function fireConsentUpdated(t: T, token: string): Promise<void> {
-    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token,
-      channels: flip++ % 2 === 0 ? ['email'] : ['sms'],
-    });
+  async function fireConsentUpdated(t: T, leadId: Id<'leads'>): Promise<void> {
+    await setConsentChannels(t, leadId, flip++ % 2 === 0 ? ['email'] : ['sms']);
   }
 
   /** Mark every run of the workflow finished, freeing the lead for re-enrollment. */
@@ -132,10 +130,9 @@ describe('enrollment', () => {
       api.features.leads.mutations.createLead,
       { firstName: 'W', lastName: 'F', email: 'wf@example.com' },
     );
-    const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
 
-    await fireConsentUpdated(t, token);
-    await fireConsentUpdated(t, token); // second event while the run is active
+    await fireConsentUpdated(t, leadId);
+    await fireConsentUpdated(t, leadId); // second event while the run is active
 
     const runs = await t.run((ctx) =>
       ctx.db
@@ -154,10 +151,9 @@ describe('enrollment', () => {
       api.features.leads.mutations.createLead,
       { firstName: 'Cap', lastName: 'Lead', email: 'cap@example.com' },
     );
-    const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
 
     for (let i = 0; i < 7; i++) {
-      await fireConsentUpdated(t, token);
+      await fireConsentUpdated(t, leadId);
       await completeAllRuns(t, workflowId); // free the active-run slot each time
     }
 
@@ -177,11 +173,10 @@ describe('enrollment', () => {
       api.features.leads.mutations.createLead,
       { firstName: 'Once', lastName: 'Only', email: 'once@example.com' },
     );
-    const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
 
-    await fireConsentUpdated(t, token);
+    await fireConsentUpdated(t, leadId);
     await completeAllRuns(t, workflowId);
-    await fireConsentUpdated(t, token);
+    await fireConsentUpdated(t, leadId);
 
     const runs = await t.run((ctx) =>
       ctx.db

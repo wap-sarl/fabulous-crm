@@ -7,8 +7,10 @@ import { TRACK_TOTAL_PER_MINUTE } from '../../_lib/validators/tracking';
 export const rateLimiter = new RateLimiter(components.rateLimiter, {
   // Public consent page writes, per consent token.
   consentUpdate: { kind: 'token bucket', rate: 10, period: MINUTE },
-  // Invalid-token attempts on the consent mutation, one global bucket.
+  // Invalid-token attempts on the consent route, one global bucket.
   consentInvalid: { kind: 'token bucket', rate: 30, period: MINUTE },
+  // Consent writes for the whole deployment, whatever the tokens.
+  consentTotal: { kind: 'token bucket', rate: 1000, period: HOUR },
   // Tracked-link clicks (GET /l/<token>), per client IP.
   trackedLink: { kind: 'token bucket', rate: 60, period: MINUTE },
   // Sign-in OTP emails, per normalized email address.
@@ -44,6 +46,7 @@ export const rateLimiter = new RateLimiter(components.rateLimiter, {
 type LimitName =
   | 'consentUpdate'
   | 'consentInvalid'
+  | 'consentTotal'
   | 'trackedLink'
   | 'otpEmail'
   | 'rppsVerify'

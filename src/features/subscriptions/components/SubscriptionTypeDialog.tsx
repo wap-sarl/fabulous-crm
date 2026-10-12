@@ -161,7 +161,7 @@ export function SubscriptionTypeDialog({
             {LEGAL_BASIS_WORDING[form.legalBasis]}
             {type
               ? ' Le canal et la base légale ne changent plus : les consentements recueillis en dépendent.'
-              : ' Un abonnement « intérêt légitime » est actif jusqu’à ce que la personne s’y oppose.'}
+              : ' Dans les deux cas le consentement au canal est requis ; un abonnement « consentement » attend en plus le choix de la personne, un abonnement « intérêt légitime » est actif jusqu’à ce qu’elle s’y oppose.'}
           </HelperText>
           <label className="flex items-center justify-between gap-3 text-sm">
             <span>Actif (proposé sur le centre de préférences et aux campagnes)</span>

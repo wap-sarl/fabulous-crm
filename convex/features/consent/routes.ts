@@ -3,7 +3,7 @@ import { internal } from '../../_generated/api';
 import { httpAction } from '../../_generated/server';
 import { hashClientIp } from '../../lib/forms/submission';
 import { PUBLIC_CORS } from '../../lib/http/cors';
-import { clientIpOf } from '../../lib/security/rateLimits';
+import { clientIpOf, enforceRateLimit } from '../../lib/security/rateLimits';
 
 const consentJson = (body: unknown, status: number) =>
   new Response(JSON.stringify(body), {
@@ -24,6 +24,9 @@ export function registerConsentRoutes(http: HttpRouter): void {
     handler: httpAction(async (ctx, request) => {
       const token = tokenOf(request);
       if (!token) return new Response('Not found', { status: 404 });
+      if (!(await enforceRateLimit(ctx, 'consentTotal', 'all'))) {
+        return consentJson({ ok: false, code: 'rate_limited' }, 429);
+      }
       const body = (await request.json().catch(() => null)) as {
         types?: Record<string, unknown>;
         unsubscribeAll?: unknown;

@@ -4,7 +4,7 @@ import { subscriptionStatusValidator } from '../../_lib/validators/crm';
 import { applyConsentChoice } from '../../lib/consent/choice';
 import { leadForConsentWrite } from '../../lib/consent/token';
 
-/** The preference centre's choice, per type or everything off, with the hash of the address it came from; an id that names no type is ignored. */
+/** The preference centre's choice, per type or everything off, with the hash of the address it came from; an id that names no type is ignored. The one public way in: the route that calls it. */
 export const applyConsentByToken = internalMutation({
   args: {
     token: v.string(),

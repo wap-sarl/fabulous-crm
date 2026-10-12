@@ -41,7 +41,7 @@ export type SubscriptionType = Infer<typeof subscriptionTypeValidator>;
 export const subscriptionNameSchema = z.string().trim().min(1).max(80);
 export const subscriptionDescriptionSchema = z.string().trim().max(500);
 
-/** Shipped at setup and offered again when the list is empty, named here so a tenant's own edits are never overwritten. */
+/** Shipped at setup and offered again when the list is empty, all under consent: whether a legitimate interest applies (existing customers, similar offers) is the tenant's to say. */
 export const DEFAULT_SUBSCRIPTION_TYPES: ReadonlyArray<
   Pick<SubscriptionType, 'name' | 'description' | 'channel' | 'legalBasis'>
 > = [
@@ -55,7 +55,7 @@ export const DEFAULT_SUBSCRIPTION_TYPES: ReadonlyArray<
     name: 'Informations produit',
     description: 'Les nouveautés et évolutions de nos offres.',
     channel: 'email',
-    legalBasis: 'legitimate_interest',
+    legalBasis: 'consent',
   },
   {
     name: 'Invitations',
@@ -75,11 +75,12 @@ type TypeRef = {
   legalBasis: LegalBasis;
 };
 
-/** Whether a contact is in on a type: their explicit choice, else the channel's consent for a `consent` type, else in: a legitimate interest stands until the person objects. */
+/** Whether a contact is in on a type. Nothing without the channel's consent, whatever the basis: a channel refused covers every type of it, the ones made later too. With it, their explicit choice; without one, a `consent` type is out (a consent is given per topic) and a `legitimate_interest` type is in until they object. */
 export function isSubscribed(lead: Subscriber, type: TypeRef): boolean {
+  if (!lead.marketingConsent.includes(type.channel)) return false;
   const own = lead.subscriptions?.find((s) => s.typeId === type._id);
   if (own) return own.status === 'in';
-  return type.legalBasis === 'legitimate_interest' || lead.marketingConsent.includes(type.channel);
+  return type.legalBasis === 'legitimate_interest';
 }
 
 /** The ids of the given types the contact is in on. */

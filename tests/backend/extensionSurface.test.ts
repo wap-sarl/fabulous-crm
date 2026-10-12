@@ -113,7 +113,6 @@ const FUNCTIONS = [
   api.features.leads.mutations.importLeads,
   api.features.campaigns.mutations.resendAllCampaignSends,
   api.features.campaigns.mutations.retryCampaignSend,
-  api.features.consent.mutations.updateConsentByToken,
   api.features.leads.mutations.updateLead,
   api.features.deals.mutations.createDeal,
   api.features.deals.mutations.deleteDeal,

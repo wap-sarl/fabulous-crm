@@ -165,8 +165,8 @@ workspaces.
   **Ce qu'une soumission peut écrire**, l'adresse n'étant la preuve de rien :
   un e-mail inconnu (ou absent) crée un contact avec le consentement e-mail
   coché (**simple opt-in** : la case cochée vaut consentement, sur ce contact
-  seulement, avec ses événements de consentement : le canal et chaque
-  abonnement « consentement » e-mail, source `form`, hash de l'adresse) ; un contact vivant déjà connu n'est que complété (champs vides
+  seulement, avec ses événements de consentement : le canal et les abonnements
+  que le formulaire nomme, source `form`, hash de l'adresse) ; un contact vivant déjà connu n'est que complété (champs vides
   remplis, rien d'écrasé, aucun consentement posé, aucun déclencheur de
   propriété ou de consentement) et `form_submitted` est le seul déclencheur
   de workflow qu'un formulaire tire sur lui ; son compteur de soumissions ne
@@ -297,23 +297,34 @@ workspaces.
   (*Paramètres → Abonnements*, `subscriptionTypes` : nom, description, canal,
   base légale *consentement* ou *intérêt légitime*, actif, ordre ; trois
   fournis à l'installation, « Newsletter », « Informations produit », « Invitations »,
-  et un bouton les recrée sur un déploiement antérieur). Le contact porte ses
-  choix explicites (`subscriptions` : type, inscrit/désinscrit, source, date)
-  à côté des canaux (`marketingConsent`) ; sans choix sur un type, un
-  abonnement « consentement » suit le canal et un abonnement « intérêt
-  légitime » vaut inscrit jusqu'à opposition, ce qui fait passer les contacts
-  existants sans migration. Refuser un canal désinscrit de chacun de ses
-  abonnements ; s'inscrire à un abonnement accorde son canal. Chaque changement
-  écrit un **événement de consentement** (`consentEvents`, jamais modifié :
-  type ou canal, de → vers, source, hash de l'adresse IP quand la personne a
-  cliqué elle-même), montré dans le fil du contact (filtre « Consentement »),
-  joint à l'export RGPD, purgé avec l'effacement. Le **centre de préférences**
-  `/consent/:token` (public, le jeton est le secret) montre un interrupteur par
-  abonnement actif avec sa description et sa base légale, plus « Tout
-  désinscrire » ; il enregistre par `POST /consent/<token>` (JSON `{ types:
-  { id: bool }, unsubscribeAll }`), qui hache l'adresse et applique les mêmes
-  limites que la mutation (dix écritures par minute et par jeton, un seau
-  global pour les jetons inconnus). Une **campagne marketing vise un
+  tous sous consentement, l'intérêt légitime restant au choix du locataire qui
+  sait s'il s'applique, et un bouton les recrée sur un déploiement antérieur).
+  Le contact porte ses choix explicites (`subscriptions` : type,
+  inscrit/désinscrit, source, date) à côté des canaux (`marketingConsent`).
+  **Rien sans le consentement au canal**, quelle que soit la base : un canal
+  refusé couvre chacun de ses abonnements, ceux créés plus tard aussi. Avec le
+  canal, le choix explicite fait foi ; sans choix, un abonnement
+  « consentement » vaut non inscrit (un consentement se donne par sujet) et un
+  abonnement « intérêt légitime » vaut inscrit jusqu'à opposition. Les contacts
+  existants gardent leur canal et ne sont inscrits à aucun sujet tant qu'ils ne
+  l'ont pas choisi ; une campagne sans abonnement visé continue de cibler le
+  canal. Refuser un canal désinscrit explicitement de chacun de ses abonnements
+  ; s'inscrire à un abonnement accorde son canal. Un formulaire nomme les
+  abonnements e-mail que sa case accorde (`subscriptionTypeIds`) : le contact
+  créé y est inscrit, et à rien d'autre. Chaque changement écrit un **événement
+  de consentement** (`consentEvents`, jamais modifié : type ou canal, de → vers,
+  source, hash de l'adresse IP quand la personne a cliqué elle-même), montré
+  dans le fil du contact (filtre « Consentement »), joint à l'export RGPD, purgé
+  avec l'effacement. Une fusion de doublons garde un retrait de canal (un
+  événement « out ») sur l'accord de l'autre fiche et le choix le plus récent
+  par abonnement, et signe ses changements d'événements `merge`. Le **centre de
+  préférences** `/consent/:token` (public, le jeton est le secret) montre un
+  interrupteur par abonnement actif avec sa description et sa base légale, plus
+  « Tout désinscrire » ; il enregistre par `POST /consent/<token>` (JSON
+  `{ types: { id: bool }, unsubscribeAll }`), la seule voie d'écriture, qui
+  hache l'adresse et borne : dix écritures par minute et par jeton, un seau
+  global pour les jetons inconnus, mille écritures par heure pour le
+  déploiement. Une **campagne marketing vise un
   abonnement** (`subscriptionTypeId`, un type actif de son canal) : la
   préparation écarte les contacts qui n'y sont pas inscrits quel que soit le
   filtre, le composeur pose la règle « Est inscrit à » pour que le compte

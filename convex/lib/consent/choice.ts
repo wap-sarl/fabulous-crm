@@ -130,6 +130,55 @@ export async function applyConsentChoice(
   return { changed: true };
 }
 
+/** The withdrawals a contact made: the channels they left, among their last events. A merge keeps a withdrawal over the other record's grant. */
+async function withdrawnChannels(
+  ctx: MutationCtx,
+  leadId: Id<'leads'>,
+): Promise<Set<MarketingConsentChannel>> {
+  const events = await ctx.db
+    .query('consentEvents')
+    .withIndex('by_lead', (q) => q.eq('leadId', leadId))
+    .order('desc')
+    .take(WITHDRAWALS_LOOKBACK);
+  return new Set(events.flatMap((e) => (e.channel && e.to === 'out' ? [e.channel] : [])));
+}
+
+// A person changes their mind a few times, not hundreds: the withdrawals are among their last events.
+const WITHDRAWALS_LOOKBACK = 200;
+
+/** What one record keeps of the other's consent when two records of one person become one: a channel either holds unless either withdrew it, the newer choice per type, and the changes as events the merge signs. Returns the fields to patch on the survivor, none when nothing changes. */
+export async function mergeConsent(
+  ctx: MutationCtx,
+  survivor: Doc<'leads'>,
+  absorbed: Doc<'leads'>,
+): Promise<Partial<
+  Pick<Doc<'leads'>, 'marketingConsent' | 'subscriptions' | 'consentUpdatedAt' | 'consentSource'>
+> | null> {
+  const withdrawn = new Set([
+    ...(await withdrawnChannels(ctx, survivor._id)),
+    ...(await withdrawnChannels(ctx, absorbed._id)),
+  ]);
+  const marketingConsent = [
+    ...new Set([...survivor.marketingConsent, ...absorbed.marketingConsent]),
+  ].filter((channel) => !withdrawn.has(channel));
+  const entries = new Map((survivor.subscriptions ?? []).map((s) => [s.typeId, s]));
+  for (const theirs of absorbed.subscriptions ?? []) {
+    const mine = entries.get(theirs.typeId);
+    if (!mine || theirs.at > mine.at) entries.set(theirs.typeId, theirs);
+  }
+  const after = { marketingConsent, subscriptions: [...entries.values()] };
+  const changes = diffConsent(survivor, after, await loadActiveSubscriptionTypes(ctx));
+  const entriesChanged =
+    JSON.stringify(survivor.subscriptions ?? []) !== JSON.stringify(after.subscriptions);
+  if (changes.length === 0 && !entriesChanged) return null;
+  const at = Date.now();
+  await recordConsentChanges(ctx, survivor._id, changes, { source: 'merge' }, at);
+  return {
+    ...after,
+    ...(changes.length > 0 && { consentUpdatedAt: at, consentSource: 'merge' as const }),
+  };
+}
+
 /** The consent a contact was created with, as events: what their first record says against nothing. */
 export async function recordInitialConsent(
   ctx: MutationCtx,

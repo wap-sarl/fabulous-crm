@@ -10,6 +10,7 @@ import {
   runAll,
   seedConfig,
   seedEmployee,
+  setConsentChannels,
   type T,
 } from './helpers';
 
@@ -62,10 +63,7 @@ async function setup(): Promise<{
     email: 'ada@example.com',
   });
   const token = (await t.run((ctx) => ctx.db.get(leadId)))?.consentToken ?? '';
-  await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-    token,
-    channels: ['email'],
-  });
+  await setConsentChannels(t, leadId, ['email']);
   return { t, as, types, leadId, token };
 }
 
@@ -98,7 +96,7 @@ describe('subscription types', () => {
     const rows = await t.run((ctx) => ctx.db.query('subscriptionTypes').collect());
     expect(rows.map((r) => [r.name, r.channel, r.legalBasis, r.active, r.order])).toEqual([
       ['Newsletter', 'email', 'consent', true, 0],
-      ['Informations produit', 'email', 'legitimate_interest', true, 1],
+      ['Informations produit', 'email', 'consent', true, 1],
       ['Invitations', 'email', 'consent', true, 2],
     ]);
 
@@ -191,15 +189,27 @@ describe('subscription types', () => {
 });
 
 describe('where a contact stands', () => {
-  test('without a choice of their own, a consent type follows the channel and a legitimate-interest type is in until they object', async () => {
-    const { t, as, token } = await setup();
-    const ada = await standing(t, token);
-    expect(ada?.types.map((x) => [x.name, x.subscribed])).toEqual([
-      ['Newsletter', true],
-      ['Informations produit', true],
-      ['Invitations', true],
+  test('nothing without the channel; with it, a consent type needs their word and a legitimate-interest type is in until they object', async () => {
+    const { t, as, types, token } = await setup();
+    // Ada holds e-mail and chose nothing: a consent is given per topic, so she is in on none.
+    expect((await standing(t, token))?.types.map((x) => x.subscribed)).toEqual([
+      false,
+      false,
+      false,
     ]);
+    const liId = await as.mutation(api.features.subscriptions.mutations.createSubscriptionType, {
+      name: 'Clients',
+      channel: 'email',
+      legalBasis: 'legitimate_interest',
+      active: true,
+    });
+    const standingOn = async (id: string, who = token) =>
+      (await standing(t, who))?.types.find((x) => x._id === id)?.subscribed;
+    expect(await standingOn(liId)).toBe(true);
+    await post(t, token, { types: { [liId]: false } });
+    expect(await standingOn(liId)).toBe(false);
 
+    // Bob never consented to e-mail (an employee created him): out of everything, the legitimate interest included.
     const bobId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Bob',
       lastName: 'Martin',
@@ -209,18 +219,44 @@ describe('where a contact stands', () => {
     const bob = await standing(t, bobToken);
     expect(bob?.types.map((x) => [x.name, x.subscribed])).toEqual([
       ['Newsletter', false],
-      ['Informations produit', true],
+      ['Informations produit', false],
       ['Invitations', false],
+      ['Clients', false],
     ]);
+    // Carol withdrew e-mail before any type existed: out of them all, and of a legitimate-interest type made later.
+    const carolId = await as.mutation(api.features.leads.mutations.createLead, {
+      firstName: 'Carol',
+      lastName: 'Martin',
+      email: 'carol@example.com',
+    });
+    const carolToken = (await t.run((ctx) => ctx.db.get(carolId)))?.consentToken ?? '';
+    await setConsentChannels(t, carolId, ['email']);
+    await post(t, carolToken, { types: { [types.newsletter]: true } });
+    await setConsentChannels(t, carolId, []);
+    const laterId = await as.mutation(api.features.subscriptions.mutations.createSubscriptionType, {
+      name: 'Partenaires',
+      channel: 'email',
+      legalBasis: 'legitimate_interest',
+      active: true,
+    });
+    expect((await standing(t, carolToken))?.types.map((x) => x.subscribed)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(await standingOn(laterId, carolToken)).toBe(false);
     // An inactive type is not proposed.
-    const [first] = ada?.types ?? [];
     await as.mutation(api.features.subscriptions.mutations.updateSubscriptionType, {
-      typeId: first._id,
+      typeId: types.newsletter,
       active: false,
     });
     expect((await standing(t, token))?.types.map((x) => x.name)).toEqual([
       'Informations produit',
       'Invitations',
+      'Clients',
+      'Partenaires',
     ]);
   });
 });
@@ -228,6 +264,7 @@ describe('where a contact stands', () => {
 describe('the preference centre', () => {
   test('a contact leaves the newsletter and keeps the invitations: a newsletter campaign skips them, an invitation campaign reaches them, the timeline shows both choices with their source', async () => {
     const { t, as, types, leadId, token } = await setup();
+    await post(t, token, { types: { [types.newsletter]: true, [types.invitations]: true } });
     const response = await post(t, token, {
       types: { [types.newsletter]: false, [types.invitations]: true },
     });
@@ -241,17 +278,21 @@ describe('the preference centre', () => {
       { typeId: types.newsletter, status: 'out', source: 'preference_center', at: NOW },
       { typeId: types.invitations, status: 'in', source: 'preference_center', at: NOW },
     ]);
-    // The channel joined opened the two consent types; then one event for the change, none for the invitations, in already.
+    // The channel first, the two topics chosen, then the one left; the invitations confirmed are no change.
     const events = await eventsOf(t, leadId);
     expect(events.map((e) => [e.typeId, e.channel, e.from, e.to, e.source])).toEqual([
       [undefined, 'email', 'out', 'in', 'public_link'],
-      [types.newsletter, undefined, 'out', 'in', 'public_link'],
-      [types.invitations, undefined, 'out', 'in', 'public_link'],
+      [types.newsletter, undefined, 'out', 'in', 'preference_center'],
+      [types.invitations, undefined, 'out', 'in', 'preference_center'],
       [types.newsletter, undefined, 'in', 'out', 'preference_center'],
     ]);
     expect(events[0].ipHash).toBeUndefined();
     expect(events[3].ipHash).toMatch(/^[0-9a-f]{64}$/);
-    expect((await standing(t, token))?.types.map((x) => x.subscribed)).toEqual([false, true, true]);
+    expect((await standing(t, token))?.types.map((x) => x.subscribed)).toEqual([
+      false,
+      false,
+      true,
+    ]);
 
     const campaignOn = async (subscriptionTypeId: Id<'subscriptionTypes'>) => {
       const campaignId = await as.mutation(api.features.campaigns.mutations.createCampaign, {
@@ -275,7 +316,8 @@ describe('the preference centre', () => {
     };
     expect(await campaignOn(types.newsletter)).toHaveLength(0);
     expect(await campaignOn(types.invitations)).toMatchObject([{ leadId, status: 'pending' }]);
-    expect(await campaignOn(types.product)).toMatchObject([{ leadId, status: 'pending' }]);
+    // A type never chosen reaches nobody, the channel's consent notwithstanding.
+    expect(await campaignOn(types.product)).toHaveLength(0);
 
     const page = await as.query(api.features.timeline.queries.listLeadTimeline, {
       leadId,
@@ -290,8 +332,8 @@ describe('the preference centre', () => {
         source: 'preference_center',
         fromAddress: true,
       },
-      { kind: 'consent', typeName: 'Invitations', to: 'in', source: 'public_link' },
-      { kind: 'consent', typeName: 'Newsletter', to: 'in', source: 'public_link' },
+      { kind: 'consent', typeName: 'Invitations', to: 'in', source: 'preference_center' },
+      { kind: 'consent', typeName: 'Newsletter', to: 'in', source: 'preference_center' },
       { kind: 'consent', typeName: null, channel: 'email', to: 'in', source: 'public_link' },
     ]);
   });
@@ -342,21 +384,16 @@ describe('the preference centre', () => {
     expect((await post(t, token, { types: { [smsId]: true } })).status).toBe(200);
     expect((await t.run((ctx) => ctx.db.get(leadId)))?.marketingConsent).toEqual(['email', 'sms']);
     // Refusing SMS as a channel objects to the alerts too, legitimate interest or not.
-    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token,
-      channels: ['email'],
-    });
+    await setConsentChannels(t, leadId, ['email']);
     const after = await t.run((ctx) => ctx.db.get(leadId));
     expect(after?.marketingConsent).toEqual(['email']);
     expect(after?.subscriptions).toMatchObject([{ typeId: smsId, status: 'out' }]);
     expect((await standing(t, token))?.types.find((x) => x._id === smsId)?.subscribed).toBe(false);
     // An objection stands when the channel comes back.
-    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token,
-      channels: ['email', 'sms'],
-    });
+    await setConsentChannels(t, leadId, ['email', 'sms']);
     expect((await standing(t, token))?.types.find((x) => x._id === smsId)?.subscribed).toBe(false);
 
+    await post(t, token, { types: { [types.newsletter]: true } });
     expect((await post(t, token, { unsubscribeAll: true })).status).toBe(200);
     const gone = await t.run((ctx) => ctx.db.get(leadId));
     expect(gone?.marketingConsent).toEqual([]);
@@ -368,17 +405,11 @@ describe('the preference centre', () => {
       false,
     ]);
     const events = await eventsOf(t, leadId);
-    const last = events.slice(-5);
+    const last = events.slice(-3);
     const key = (e: { channel?: string; typeId?: string; to: string }) =>
       `${e.channel ?? e.typeId}:${e.to}`;
     expect(last.map(key).sort()).toEqual(
-      [
-        'email:out',
-        'sms:out',
-        `${types.newsletter}:out`,
-        `${types.product}:out`,
-        `${types.invitations}:out`,
-      ].sort(),
+      ['email:out', 'sms:out', `${types.newsletter}:out`].sort(),
     );
 
     // The same choice saved again, or a choice that confirms where one stands, changes nothing: no event, no workflow.
@@ -425,8 +456,7 @@ describe('the preference centre', () => {
     expect((await t.fetch('/consent/', { method: 'POST' })).status).toBe(404);
     const bad = await t.fetch(`/consent/${token}`, { method: 'POST', headers: IP, body: '[' });
     expect(bad.status).toBe(400);
-    // The setup wrote once already: nine more pass, the eleventh of the minute is refused.
-    for (let i = 0; i < 9; i++) {
+    for (let i = 0; i < 10; i++) {
       expect((await post(t, token, { types: {} })).status).toBe(200);
     }
     const eleventh = await post(t, token, { types: {} });
@@ -443,15 +473,32 @@ describe('consent events elsewhere', () => {
     required,
   });
 
-  test('a contact a public form creates gets the proof of the box ticked: the channel and each consent type of it, with the address hashed', async () => {
+  test('a contact a public form creates gets the proof of the box ticked: the channel and the types the form names, with the address hashed', async () => {
     const { t, as, types } = await setup();
-    const formId = await as.mutation(api.features.forms.mutations.createForm, {
+    const form = {
       name: 'Contact',
       fields: [std('firstName', 'Prénom', true), std('email', 'E-mail', true)],
       buttonText: 'Envoyer',
-      afterSubmit: { kind: 'message', message: 'Merci !' },
-      consentText: 'J’accepte.',
+      afterSubmit: { kind: 'message' as const, message: 'Merci !' },
+      consentText: 'J’accepte de recevoir la newsletter.',
       active: true,
+    };
+    // The box grants e-mail: a type of another channel cannot hang from it.
+    const smsId = await as.mutation(api.features.subscriptions.mutations.createSubscriptionType, {
+      name: 'Alertes',
+      channel: 'sms',
+      legalBasis: 'consent',
+      active: true,
+    });
+    await expect(
+      as.mutation(api.features.forms.mutations.createForm, {
+        ...form,
+        subscriptionTypeIds: [smsId],
+      }),
+    ).rejects.toMatchObject({ data: { code: 'form_subscription_type_invalid' } });
+    const formId = await as.mutation(api.features.forms.mutations.createForm, {
+      ...form,
+      subscriptionTypeIds: [types.newsletter],
     });
     const def = (await (await t.fetch(`/forms/${formId}/def`, { method: 'GET' })).json()) as {
       ts: number;
@@ -475,23 +522,28 @@ describe('consent events elsewhere', () => {
         .withIndex('by_email', (q) => q.eq('email', 'grace@example.com'))
         .first(),
     );
+    expect(grace?.subscriptions).toMatchObject([
+      { typeId: types.newsletter, status: 'in', source: 'form' },
+    ]);
     const events = await eventsOf(t, grace?._id as Id<'leads'>);
     expect(events.map((e) => [e.channel ?? e.typeId, e.from, e.to, e.source])).toEqual([
       ['email', 'out', 'in', 'form'],
       [types.newsletter, 'out', 'in', 'form'],
-      [types.invitations, 'out', 'in', 'form'],
     ]);
     expect(new Set(events.map((e) => e.ipHash)).size).toBe(1);
     expect(events[0].ipHash).toMatch(/^[0-9a-f]{64}$/);
   });
 
-  test('a merge keeps the newer choice per type', async () => {
+  test('a merge keeps a withdrawal over the other record’s grant and the newer choice per type, and signs the changes as events', async () => {
     const { t, as, types, leadId } = await setup();
     const absorbedId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ada',
       lastName: 'L.',
       email: 'ada.l@example.com',
     });
+    // The survivor withdrew e-mail; the absorbed record holds e-mail and SMS.
+    await setConsentChannels(t, leadId, []);
+    await setConsentChannels(t, absorbedId, ['email', 'sms']);
     const earlier = NOW - 1000;
     await t.run(async (ctx) => {
       await ctx.db.patch(leadId, {
@@ -508,19 +560,26 @@ describe('consent events elsewhere', () => {
         ],
       });
     });
+    const before = (await eventsOf(t, leadId)).length;
     await as.mutation(api.features.duplicates.mutations.mergeLeads, {
       survivorId: leadId,
       absorbedId,
       fields: {},
     });
     const survivor = await t.run((ctx) => ctx.db.get(leadId));
+    expect(survivor?.marketingConsent).toEqual(['sms']);
+    expect(survivor?.consentSource).toBe('merge');
     expect(survivor?.subscriptions?.map((s) => `${s.typeId}:${s.status}`).sort()).toEqual(
       [`${types.newsletter}:out`, `${types.product}:in`, `${types.invitations}:out`].sort(),
     );
+    const added = (await eventsOf(t, leadId)).slice(before);
+    expect(added.map((e) => [e.channel ?? e.typeId, e.to, e.source])).toEqual([
+      ['sms', 'in', 'merge'],
+    ]);
   });
 
   test('the filter « est inscrit à » reads the active types; scoring rules and dynamic lists refuse it', async () => {
-    const { as, types, leadId } = await setup();
+    const { t, as, types, leadId, token } = await setup();
     const bobId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Bob',
       lastName: 'Martin',
@@ -550,17 +609,17 @@ describe('consent events elsewhere', () => {
       });
       return page.leadIds;
     };
+    await post(t, token, { types: { [types.newsletter]: true } });
     expect(await ids(rule('contains', [types.newsletter]))).toEqual([leadId]);
-    // Bob is in on the legitimate-interest type without a word.
-    expect((await ids(rule('contains', [types.product]))).sort()).toEqual([leadId, bobId].sort());
-    expect(await ids(rule('isEmpty'))).toEqual([]);
-    await as.mutation(api.features.subscriptions.mutations.updateSubscriptionType, {
-      typeId: types.product,
-      active: false,
-    });
+    expect(await ids(rule('contains', [types.product]))).toEqual([]);
     expect(await ids(rule('isEmpty'))).toEqual([bobId]);
     expect(await ids(rule('isNotEmpty'))).toEqual([leadId]);
-    expect(await ids(rule('contains', [types.product]))).toEqual([]);
+    await as.mutation(api.features.subscriptions.mutations.updateSubscriptionType, {
+      typeId: types.newsletter,
+      active: false,
+    });
+    expect((await ids(rule('isEmpty'))).sort()).toEqual([leadId, bobId].sort());
+    expect(await ids(rule('contains', [types.newsletter]))).toEqual([]);
 
     await expect(
       as.mutation(api.features.scoring.mutations.createScoringRule, {
@@ -581,10 +640,11 @@ describe('consent events elsewhere', () => {
 
   test('the archive lists the events and the choices; the erasure takes them away', async () => {
     const { t, as, types, leadId, token } = await setup();
+    await post(t, token, { types: { [types.newsletter]: true } });
     await post(t, token, { types: { [types.newsletter]: false } });
     const { archive } = await as.action(api.features.rgpd.actions.exportContactData, { leadId });
-    // The channel joined, the two consent types it opened, the newsletter left.
-    expect(archive.consentEvents).toHaveLength(4);
+    // The channel joined, the newsletter chosen, the newsletter left.
+    expect(archive.consentEvents).toHaveLength(3);
     expect(archive.contact.subscriptions).toMatchObject([
       { typeId: types.newsletter, status: 'out' },
     ]);

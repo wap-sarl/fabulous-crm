@@ -6,9 +6,10 @@ import {
   asIdentity,
   createTestConvex,
   matchingLeads,
-  type SeededEmployee,
   seedEmployee,
   seedLead,
+  setConsentChannels,
+  type SeededEmployee,
   type T,
 } from './helpers';
 
@@ -73,11 +74,7 @@ describe('recipient resolution by consent (matchingLeadsPage)', () => {
       lastName: 'Consent',
       email: 'non@example.com',
     });
-    const token = (await t.run((ctx) => ctx.db.get(consenting)))?.consentToken ?? '';
-    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token,
-      channels: ['email'],
-    });
+    await setConsentChannels(t, consenting, ['email']);
 
     const result = await matchingLeads(as, emailConsentFilter);
     expect(result.leadIds).toContain(consenting);
@@ -154,11 +151,7 @@ describe('createCampaign', () => {
       lastName: 'Consent',
       email: 'non@example.com',
     });
-    const token = (await t.run((ctx) => ctx.db.get(consenting)))?.consentToken ?? '';
-    await t.mutation(api.features.consent.mutations.updateConsentByToken, {
-      token,
-      channels: ['email'],
-    });
+    await setConsentChannels(t, consenting, ['email']);
 
     const campaignId = await as.mutation(api.features.campaigns.mutations.createCampaign, {
       name: 'Marketing filtrée',

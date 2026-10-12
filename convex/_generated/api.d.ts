@@ -84,7 +84,6 @@ import type * as features_connectors_mutations from "../features/connectors/muta
 import type * as features_connectors_queries from "../features/connectors/queries.js";
 import type * as features_connectors_routes from "../features/connectors/routes.js";
 import type * as features_consent_internal from "../features/consent/internal.js";
-import type * as features_consent_mutations from "../features/consent/mutations.js";
 import type * as features_consent_queries from "../features/consent/queries.js";
 import type * as features_consent_routes from "../features/consent/routes.js";
 import type * as features_deals_mutations from "../features/deals/mutations.js";
@@ -339,7 +338,6 @@ declare const fullApi: ApiFromModules<{
   "features/connectors/queries": typeof features_connectors_queries;
   "features/connectors/routes": typeof features_connectors_routes;
   "features/consent/internal": typeof features_consent_internal;
-  "features/consent/mutations": typeof features_consent_mutations;
   "features/consent/queries": typeof features_consent_queries;
   "features/consent/routes": typeof features_consent_routes;
   "features/deals/mutations": typeof features_deals_mutations;

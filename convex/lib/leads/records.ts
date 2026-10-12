@@ -32,6 +32,7 @@ export type NewLead = Pick<Doc<'leads'>, 'firstName' | 'lastName' | 'ownerIds'> 
       | 'marketingConsent'
       | 'consentUpdatedAt'
       | 'consentSource'
+      | 'subscriptions'
     >
   >;
 

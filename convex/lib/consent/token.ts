@@ -18,7 +18,7 @@ export async function leadOfConsentToken(
 
 export type ConsentRefusal = 'invalid_token' | 'rate_limited';
 
-/** The lead a write by token may touch, within the limits: invalid tokens share one small bucket against enumeration, a valid one has its own. */
+/** The lead a write by token may touch, within the limits: invalid tokens share one small bucket against enumeration, a valid one has its own; the route bounds the whole first. */
 export async function leadForConsentWrite(
   ctx: MutationCtx,
   token: string,

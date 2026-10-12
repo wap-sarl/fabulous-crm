@@ -91,6 +91,8 @@ export const formValidator = v.object({
   afterSubmit: formAfterSubmitValidator,
   // The GDPR sentence next to the mandatory consent checkbox.
   consentText: v.string(),
+  // The e-mail subscriptions the box opts into, named in that sentence; none means the channel alone.
+  subscriptionTypeIds: v.optional(v.array(v.id('subscriptionTypes'))),
   active: v.boolean(),
 });
 

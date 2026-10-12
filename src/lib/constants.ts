@@ -143,6 +143,7 @@ export const CONSENT_SOURCE_LABEL: Record<ConsentSource, string> = {
   sms_stop: 'Réponse STOP (SMS)',
   form: 'Formulaire',
   preference_center: 'Centre de préférences',
+  merge: 'Fusion de fiches',
 };
 
 export const DEAL_STATUSES: { value: DealStatus; label: string; tone: StatusTone }[] = [
