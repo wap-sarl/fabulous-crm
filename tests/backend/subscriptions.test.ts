@@ -578,6 +578,56 @@ describe('consent events elsewhere', () => {
     ]);
   });
 
+  test('a merge forgets a withdrawal the person reversed, and reads one from before the events in the dates', async () => {
+    const { t, as, leadId } = await setup();
+    // Ada left e-mail in March and came back in June: her last word is « in ».
+    await setConsentChannels(t, leadId, []);
+    await setConsentChannels(t, leadId, ['email']);
+    const twinId = await as.mutation(api.features.leads.mutations.createLead, {
+      firstName: 'Ada',
+      lastName: 'L.',
+      email: 'ada.l@example.com',
+    });
+    await setConsentChannels(t, twinId, ['email']);
+    await as.mutation(api.features.duplicates.mutations.mergeLeads, {
+      survivorId: leadId,
+      absorbedId: twinId,
+      fields: {},
+    });
+    expect((await t.run((ctx) => ctx.db.get(leadId)))?.marketingConsent).toEqual(['email']);
+    expect((await eventsOf(t, leadId)).filter((e) => e.source === 'merge')).toEqual([]);
+
+    // Before the events existed, a withdrawal left only a date: the record lacking the channel changed its consent after the other's grant.
+    const oldId = await as.mutation(api.features.leads.mutations.createLead, {
+      firstName: 'Ada',
+      lastName: 'Old',
+      email: 'ada.old@example.com',
+    });
+    const grantedId = await as.mutation(api.features.leads.mutations.createLead, {
+      firstName: 'Ada',
+      lastName: 'Granted',
+      email: 'ada.granted@example.com',
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(grantedId, {
+        marketingConsent: ['email'],
+        consentUpdatedAt: NOW - 2000,
+        consentSource: 'public_link',
+      });
+      await ctx.db.patch(oldId, {
+        marketingConsent: [],
+        consentUpdatedAt: NOW - 1000,
+        consentSource: 'public_link',
+      });
+    });
+    await as.mutation(api.features.duplicates.mutations.mergeLeads, {
+      survivorId: oldId,
+      absorbedId: grantedId,
+      fields: {},
+    });
+    expect((await t.run((ctx) => ctx.db.get(oldId)))?.marketingConsent).toEqual([]);
+  });
+
   test('the filter « est inscrit à » reads the active types; scoring rules and dynamic lists refuse it', async () => {
     const { t, as, types, leadId, token } = await setup();
     const bobId = await as.mutation(api.features.leads.mutations.createLead, {

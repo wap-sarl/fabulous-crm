@@ -130,23 +130,40 @@ export async function applyConsentChoice(
   return { changed: true };
 }
 
-/** The withdrawals a contact made: the channels they left, among their last events. A merge keeps a withdrawal over the other record's grant. */
-async function withdrawnChannels(
+/** Where a contact's last word on each channel stands, among their last events: withdrawn when that word is « out », a withdrawal later reversed is none. */
+async function lastWordOnChannels(
   ctx: MutationCtx,
   leadId: Id<'leads'>,
-): Promise<Set<MarketingConsentChannel>> {
+): Promise<Map<MarketingConsentChannel, SubscriptionStatus>> {
   const events = await ctx.db
     .query('consentEvents')
     .withIndex('by_lead', (q) => q.eq('leadId', leadId))
     .order('desc')
     .take(WITHDRAWALS_LOOKBACK);
-  return new Set(events.flatMap((e) => (e.channel && e.to === 'out' ? [e.channel] : [])));
+  const last = new Map<MarketingConsentChannel, SubscriptionStatus>();
+  for (const event of events) {
+    if (event.channel && !last.has(event.channel)) last.set(event.channel, event.to);
+  }
+  return last;
 }
 
 // A person changes their mind a few times, not hundreds: the withdrawals are among their last events.
 const WITHDRAWALS_LOOKBACK = 200;
 
-/** What one record keeps of the other's consent when two records of one person become one: a channel either holds unless either withdrew it, the newer choice per type, and the changes as events the merge signs. Returns the fields to patch on the survivor, none when nothing changes. */
+/** Whether a record withdrew a channel it lacks: its last word on it says so, or, for a withdrawal from before the events existed, its consent changed after the other record's grant. */
+function withdrew(
+  record: Doc<'leads'>,
+  lastWord: Map<MarketingConsentChannel, SubscriptionStatus>,
+  other: Doc<'leads'>,
+  channel: MarketingConsentChannel,
+): boolean {
+  if (record.marketingConsent.includes(channel)) return false;
+  const word = lastWord.get(channel);
+  if (word !== undefined) return word === 'out';
+  return (record.consentUpdatedAt ?? 0) > (other.consentUpdatedAt ?? 0);
+}
+
+/** What one record keeps of the other's consent when two records of one person become one: a channel either holds unless the other withdrew it, the newer choice per type, and the changes as events the merge signs. Returns the fields to patch on the survivor, none when nothing changes. */
 export async function mergeConsent(
   ctx: MutationCtx,
   survivor: Doc<'leads'>,
@@ -154,13 +171,17 @@ export async function mergeConsent(
 ): Promise<Partial<
   Pick<Doc<'leads'>, 'marketingConsent' | 'subscriptions' | 'consentUpdatedAt' | 'consentSource'>
 > | null> {
-  const withdrawn = new Set([
-    ...(await withdrawnChannels(ctx, survivor._id)),
-    ...(await withdrawnChannels(ctx, absorbed._id)),
+  const [mine, theirs] = await Promise.all([
+    lastWordOnChannels(ctx, survivor._id),
+    lastWordOnChannels(ctx, absorbed._id),
   ]);
   const marketingConsent = [
     ...new Set([...survivor.marketingConsent, ...absorbed.marketingConsent]),
-  ].filter((channel) => !withdrawn.has(channel));
+  ].filter(
+    (channel) =>
+      !withdrew(survivor, mine, absorbed, channel) &&
+      !withdrew(absorbed, theirs, survivor, channel),
+  );
   const entries = new Map((survivor.subscriptions ?? []).map((s) => [s.typeId, s]));
   for (const theirs of absorbed.subscriptions ?? []) {
     const mine = entries.get(theirs.typeId);
