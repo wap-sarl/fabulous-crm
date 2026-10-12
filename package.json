@@ -40,6 +40,7 @@
     "@tiptap/extension-link": "^3.27.3",
     "@tiptap/react": "^3.27.3",
     "@tiptap/starter-kit": "^3.27.3",
+    "@tiptap/suggestion": "^3.27.3",
     "@xyflow/react": "^12.11.2",
     "better-auth": "1.6.15",
     "class-variance-authority": "0.7.1",

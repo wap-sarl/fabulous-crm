@@ -93,6 +93,8 @@ export const workflowNodeValidator = v.union(
     type: v.literal('send_email'),
     subject: v.string(),
     htmlBody: v.string(),
+    // The CRM template the step was loaded from, for its usage figures; the content is a copy.
+    templateId: v.optional(v.id('emailTemplates')),
     next: v.optional(v.string()),
   }),
   v.object({

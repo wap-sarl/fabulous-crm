@@ -49,7 +49,10 @@ describe('the settings page', () => {
           '/settings/lists',
         ],
       ],
-      ['Canaux', ['/settings/email', '/settings/forms', '/settings/tracking']],
+      [
+        'Canaux',
+        ['/settings/email', '/settings/templates', '/settings/forms', '/settings/tracking'],
+      ],
       [
         'Connexions et conformité',
         [
@@ -63,9 +66,10 @@ describe('the settings page', () => {
     ]);
   });
 
-  test('without the settings right, the two tabs every employee has; a group left empty is not shown', () => {
+  test('without the settings right, the three tabs every employee has; a group left empty is not shown', () => {
     expect(paths(visibleTabGroups(SETTINGS_GROUPS, [], false))).toEqual([
       ['Données', ['/settings/lists']],
+      ['Canaux', ['/settings/templates']],
       ['Connexions et conformité', ['/settings/integrations']],
     ]);
   });

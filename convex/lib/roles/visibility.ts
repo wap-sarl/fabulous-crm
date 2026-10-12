@@ -5,6 +5,7 @@ import {
   wrapDatabaseWriter,
 } from 'convex-helpers/server/rowLevelSecurity';
 import type { DataModel, Doc, Id } from '../../_generated/dataModel';
+import type { TemplateScope } from '../../_lib/validators/emailTemplates';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import {
   type AccessLevel,
@@ -87,6 +88,16 @@ export function ownerNamespaces(
 }
 
 const byCreator = (doc: { createdBy?: Id<'users'> }) => (doc.createdBy ? [doc.createdBy] : []);
+
+/** Whether a template is in reach: its owner's, their teammates' at `team`, everyone's at `organization`. */
+function templateVisible(
+  vis: Pick<Visibility, 'userId' | 'teamUserIds'>,
+  doc: { ownerId: Id<'users'>; scope: TemplateScope },
+): boolean {
+  if (doc.ownerId === vis.userId) return true;
+  if (doc.scope === 'organization') return true;
+  return doc.scope === 'team' && vis.teamUserIds.has(doc.ownerId);
+}
 
 /** The RLS rules of one request: parent lookups go through the raw reader and are memoized, so a page of child rows costs one read per distinct parent. */
 function rulesFor(ctx: QueryCtx | MutationCtx, vis: Visibility): Rules<unknown, DataModel> {
@@ -205,6 +216,10 @@ function rulesFor(ctx: QueryCtx | MutationCtx, vis: Visibility): Rules<unknown, 
     ),
     leadLists: same(async (d: { createdBy?: Id<'users'> }) =>
       moduleAllows(vis, 'leads', byCreator(d)),
+    ),
+    // A template is read by its owner, by the owner's teammates at `team`, by everyone at `organization`; who may change it is the mutation's business.
+    emailTemplates: same(async (d: { ownerId: Id<'users'>; scope: TemplateScope }) =>
+      templateVisible(vis, d),
     ),
     leadListMembers: same((d: { leadId: Id<'leads'> }) => leadOk(d.leadId)),
   } as Rules<unknown, DataModel>;

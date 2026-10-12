@@ -20,6 +20,8 @@ const SMALL: Record<string, string> = {
   roles: 'the roles of the settings',
   scoringRules: 'the scoring rules of the settings',
   subscriptionTypes: 'the subscription types of the settings',
+  'emailTemplates.by_deletedAt': 'the e-mail templates people wrote, filtered by scope on read',
+  'snippets.by_shortcut': 'the text blocks of the settings',
   teams: 'the teams of the settings',
   'users.by_type': 'the employees',
   workflows: 'the workflows people built; read where all of them are listed',

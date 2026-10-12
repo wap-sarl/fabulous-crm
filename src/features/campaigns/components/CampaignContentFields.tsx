@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Input, Label, Textarea, cn } from '@crm/design-system';
-import type { CampaignChannel, CampaignTrackedLink, MessageType } from '@crm/lib/backend';
+import type { CampaignChannel, CampaignTrackedLink, Id, MessageType } from '@crm/lib/backend';
 import { MousePointerClick, X } from 'lucide-react';
 import type { PropertyDefinitionRow } from '../../properties/types';
 import { insertAtCaret, type PlaceholderItem } from '../lib/placeholders';
@@ -9,6 +9,13 @@ import { EmailBodyEditor, type EmailBodyEditorHandle } from './EmailBodyEditor';
 import { HtmlImportDropzone } from './HtmlImportDropzone';
 import { PlaceholderChips } from './PlaceholderChips';
 import { TrackedLinkModal } from './TrackedLinkModal';
+import { TemplateDialog } from '../../templates/components/TemplateDialog';
+import { TemplatePicker } from '../../templates/components/TemplatePicker';
+import { useEmailTemplates } from '../../templates/hooks/useEmailTemplates';
+import { categoriesOf } from '../../templates/lib/search';
+import type { EmailTemplateRow } from '../../templates/types';
+import { Button } from '@crm/design-system';
+import { BookOpen, Save } from 'lucide-react';
 
 export type EmailContentMode = 'template' | 'editor' | 'import';
 
@@ -34,6 +41,8 @@ interface Props {
   propertyDefinitions: PropertyDefinitionRow[];
   /** Brevo templates require the Brevo email provider; false under SMTP. */
   templateAvailable?: boolean;
+  /** A CRM template loaded into the editor, or the e-mail saved as one: the page keeps its id for the campaign's figures. */
+  onLoadTemplate?: (templateId: Id<'emailTemplates'>) => void;
 }
 
 const MESSAGE_TYPES: { value: MessageType; label: string }[] = [
@@ -118,8 +127,18 @@ export function CampaignContentFields({
   onTrackedLinksChange,
   propertyDefinitions,
   templateAvailable = true,
+  onLoadTemplate,
 }: Props) {
   const smsRef = useRef<HTMLTextAreaElement>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [saveAsOpen, setSaveAsOpen] = useState(false);
+  const templateCategories = categoriesOf(useEmailTemplates(channel === 'email'));
+  const loadTemplate = (template: EmailTemplateRow) => {
+    onSubjectChange(template.subject);
+    onHtmlBodyChange(template.htmlBody);
+    onLoadTemplate?.(template._id);
+    setPickerOpen(false);
+  };
   const subjectRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<EmailBodyEditorHandle>(null);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
@@ -330,7 +349,24 @@ export function CampaignContentFields({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Corps de l’e-mail</Label>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <Label>Corps de l’e-mail</Label>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPickerOpen(true)}>
+                  <BookOpen className="size-4" aria-hidden="true" />
+                  Charger un modèle
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!subject.trim() || htmlBody.replace(/<[^>]*>/g, '').trim() === ''}
+                  onClick={() => setSaveAsOpen(true)}
+                >
+                  <Save className="size-4" aria-hidden="true" />
+                  Enregistrer comme modèle
+                </Button>
+              </div>
+            </div>
             <EmailBodyEditor
               ref={editorRef}
               value={htmlBody}
@@ -343,6 +379,16 @@ export function CampaignContentFields({
         </div>
       )}
       {linkModal}
+      {pickerOpen && <TemplatePicker onPick={loadTemplate} onClose={() => setPickerOpen(false)} />}
+      {saveAsOpen && (
+        <TemplateDialog
+          template={null}
+          initial={{ subject, htmlBody }}
+          categories={templateCategories}
+          onClose={() => setSaveAsOpen(false)}
+          onSaved={(templateId) => onLoadTemplate?.(templateId)}
+        />
+      )}
     </div>
   );
 }

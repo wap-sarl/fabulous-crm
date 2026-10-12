@@ -43,6 +43,16 @@ export {
   validateLandingPageShape,
 } from '../../convex/_lib/validators/landingPages';
 export type { LegalBasis } from '../../convex/_lib/validators/subscriptions';
+export type { TemplateScope } from '../../convex/_lib/validators/emailTemplates';
+export {
+  snippetNameSchema,
+  snippetShortcutSchema,
+  snippetTextSchema,
+  templateBodySchema,
+  templateCategorySchema,
+  templateNameSchema,
+  templateSubjectSchema,
+} from '../../convex/_lib/validators/emailTemplates';
 export {
   isSubscribed,
   subscriptionDescriptionSchema,

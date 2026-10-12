@@ -1,9 +1,15 @@
-import { useEffect, useImperativeHandle, type Ref } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { cn } from '@crm/design-system';
+import { useSnippets } from '../../templates/hooks/useSnippets';
+import {
+  type SnippetItem,
+  type SnippetMenuState,
+  snippetSuggestion,
+} from '../../templates/components/SnippetSuggestion';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +58,17 @@ export function EmailBodyEditor({
   onRequestTrackedLink,
   ref,
 }: Props) {
+  // The snippets and the menu's selection live in refs: the extension is built once and reads them at each keystroke.
+  const snippets = useSnippets();
+  const snippetsRef = useRef<SnippetItem[]>(snippets);
+  snippetsRef.current = snippets;
+  const [menu, setMenu] = useState<SnippetMenuState>(null);
+  const [selected, setSelected] = useState(0);
+  const menuRef = useRef<{ state: SnippetMenuState; selected: number }>({
+    state: null,
+    selected: 0,
+  });
+  menuRef.current = { state: menu, selected };
   const editor = useEditor({
     extensions: [
       // StarterKit bundles its own Link; disable it so our configured Link wins.
@@ -59,6 +76,29 @@ export function EmailBodyEditor({
       // Allow any URI so placeholder hrefs like {{ params.consentUrl }} survive.
       Link.configure({ openOnClick: false, autolink: false, isAllowedUri: () => true }),
       Image,
+      snippetSuggestion(() => snippetsRef.current, {
+        onState: (state) => {
+          setMenu(state);
+          setSelected(0);
+        },
+        onKeyDown: (event) => {
+          const { state, selected: index } = menuRef.current;
+          if (!state || state.items.length === 0) return false;
+          if (event.key === 'ArrowDown') {
+            setSelected((index + 1) % state.items.length);
+            return true;
+          }
+          if (event.key === 'ArrowUp') {
+            setSelected((index - 1 + state.items.length) % state.items.length);
+            return true;
+          }
+          if (event.key === 'Enter' || event.key === 'Tab') {
+            state.command(state.items[index]);
+            return true;
+          }
+          return false;
+        },
+      }),
     ],
     content: value,
     editorProps: {
@@ -183,7 +223,62 @@ export function EmailBodyEditor({
         )}
       </div>
 
-      <EditorContent editor={editor} />
+      <div className="relative">
+        <EditorContent editor={editor} />
+        {menu && menu.items.length > 0 && (
+          <SnippetMenu menu={menu} selected={selected} onHover={setSelected} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The slash menu, under the caret: the snippets the typed text reaches, one chosen by arrows and enter, or by a click. */
+function SnippetMenu({
+  menu,
+  selected,
+  onHover,
+}: {
+  menu: NonNullable<SnippetMenuState>;
+  selected: number;
+  onHover: (index: number) => void;
+}) {
+  const host = useRef<HTMLDivElement>(null);
+  const rect = menu.rect;
+  const parent = host.current?.parentElement?.getBoundingClientRect();
+  const top = rect && parent ? rect.bottom - parent.top + 4 : 0;
+  const left = rect && parent ? rect.left - parent.left : 0;
+  return (
+    <div
+      ref={host}
+      role="listbox"
+      aria-label="Blocs de texte"
+      className="absolute z-20 w-72 overflow-hidden rounded-lg border border-border bg-card shadow-lg"
+      style={{ top, left }}
+    >
+      {menu.items.map((item, index) => (
+        <button
+          key={item._id}
+          type="button"
+          role="option"
+          aria-selected={index === selected}
+          onMouseEnter={() => onHover(index)}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            menu.command(item);
+          }}
+          className={cn(
+            'flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm',
+            index === selected ? 'bg-muted text-ink' : 'text-soft',
+          )}
+        >
+          <span className="flex w-full items-center gap-2">
+            <span className="font-medium text-ink">{item.name}</span>
+            <span className="ml-auto font-mono text-xs text-faint">{item.shortcut}</span>
+          </span>
+          <span className="line-clamp-1 text-xs text-faint">{item.text}</span>
+        </button>
+      ))}
     </div>
   );
 }

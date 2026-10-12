@@ -5,6 +5,7 @@ import {
   Handshake,
   BellRing,
   Hourglass,
+  LayoutTemplate,
   KanbanSquare,
   KeyRound,
   LayoutGrid,
@@ -87,6 +88,8 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
     name: 'Canaux',
     tabs: [
       settings({ label: 'E-mail & SMS', icon: <Mail />, path: '/settings/email' }),
+      // The library is every employee's: private templates are theirs to write.
+      { label: 'Modèles', icon: <LayoutTemplate />, path: '/settings/templates' },
       settings({ label: 'Formulaires', icon: <ClipboardList />, path: '/settings/forms' }),
       settings({ label: 'Suivi web', icon: <Radar />, path: '/settings/tracking' }),
     ],

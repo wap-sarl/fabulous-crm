@@ -6,6 +6,7 @@ import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
 import { loadResendContext, requeueSend, requireLinkBase } from '../../lib/campaigns/resend';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
+import { loadEmailTemplate } from '../../lib/templates/records';
 import {
   resolveEmailProvider,
   resolveBrevo,
@@ -53,6 +54,8 @@ export const createCampaign = employeeMutation({
     messageType: v.optional(messageTypeValidator),
     // The subscription a marketing campaign writes under: only the contacts in on it receive it.
     subscriptionTypeId: v.optional(v.id('subscriptionTypes')),
+    // The CRM template the e-mail was loaded from, one in the caller's reach; the content travels in subject and htmlBody.
+    templateId: v.optional(v.id('emailTemplates')),
     // Tracked links authored in the composer (unique per-recipient URLs).
     trackedLinks: v.optional(v.array(campaignTrackedLinkValidator)),
   },
@@ -64,6 +67,7 @@ export const createCampaign = employeeMutation({
     }
 
     const messageType = args.messageType ?? 'marketing';
+    if (args.templateId) await loadEmailTemplate(ctx, args.templateId);
     const subscriptionType = args.subscriptionTypeId
       ? await ctx.db.get(args.subscriptionTypeId)
       : null;
@@ -182,6 +186,7 @@ export const createCampaign = employeeMutation({
       smsBody,
       messageType,
       subscriptionTypeId: messageType === 'marketing' ? args.subscriptionTypeId : undefined,
+      templateId: args.channel === 'email' ? args.templateId : undefined,
       channel: args.channel,
       // A snapshot, so analytics degrade correctly even if the admin later switches providers.
       emailProvider: args.channel === 'email' ? emailProvider : undefined,
