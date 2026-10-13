@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import type { Id } from '../../_generated/dataModel';
+import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { employeeMutation } from '../../_lib/auth';
 import { refusal } from '../../_lib/refusal';
@@ -33,6 +33,19 @@ async function checkFields(
 
 const snippetArgs = { name: v.string(), shortcut: v.string(), text: v.string() };
 
+/** The owner changes their snippet; the settings right changes any. */
+async function loadEditable(
+  ctx: MutationCtx & { userId: Id<'users'>; visibility: { access: { settings: boolean } } },
+  snippetId: Id<'snippets'>,
+): Promise<Doc<'snippets'>> {
+  const snippet = await ctx.db.get(snippetId);
+  if (!snippet) throw refusal('snippet_not_found');
+  if (snippet.ownerId !== ctx.userId && !ctx.visibility.access.settings) {
+    throw refusal('snippet_forbidden');
+  }
+  return snippet;
+}
+
 export const createSnippet = employeeMutation({
   args: snippetArgs,
   returns: v.id('snippets'),
@@ -40,6 +53,7 @@ export const createSnippet = employeeMutation({
     const fields = await checkFields(ctx, args);
     const snippetId = await ctx.db.insert('snippets', {
       ...fields,
+      ownerId: ctx.userId,
       ...createAuditFields(ctx.userId),
     });
     await logAudit({
@@ -58,7 +72,7 @@ export const updateSnippet = employeeMutation({
   args: { snippetId: v.id('snippets'), ...snippetArgs },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (!(await ctx.db.get(args.snippetId))) throw refusal('snippet_not_found');
+    await loadEditable(ctx, args.snippetId);
     const fields = await checkFields(ctx, args, args.snippetId);
     await ctx.db.patch(args.snippetId, { ...fields, ...updateAuditFields(ctx.userId) });
     await logAudit({
@@ -77,8 +91,7 @@ export const deleteSnippet = employeeMutation({
   args: { snippetId: v.id('snippets') },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const snippet = await ctx.db.get(args.snippetId);
-    if (!snippet) throw refusal('snippet_not_found');
+    const snippet = await loadEditable(ctx, args.snippetId);
     await ctx.db.delete(args.snippetId);
     await logAudit({
       ctx,

@@ -19,10 +19,15 @@ import { enrollLead } from '../../lib/workflows/dispatch';
 import { kickParkedRuns, stopActiveRuns, stopRun } from '../../lib/workflows/runs';
 import { loadEmailTemplate } from '../../lib/templates/records';
 
-/** A step that names a template names one in the caller's reach. */
-async function checkTemplates(ctx: MutationCtx, nodes: Doc<'workflows'>['nodes']): Promise<void> {
+type Nodes = Doc<'workflows'>['nodes'];
+
+/** Only a template newly named must be in reach: a stored reference feeds usage figures and nothing else, so it stays whatever becomes of its template. */
+async function checkTemplates(ctx: MutationCtx, nodes: Nodes, stored: Nodes = []): Promise<void> {
+  const kept = new Set(
+    stored.map((node) => (node.type === 'send_email' ? node.templateId : undefined)),
+  );
   for (const node of nodes) {
-    if (node.type === 'send_email' && node.templateId)
+    if (node.type === 'send_email' && node.templateId && !kept.has(node.templateId))
       await loadEmailTemplate(ctx, node.templateId);
   }
 }
@@ -124,7 +129,7 @@ export const updateWorkflow = employeeMutation({
     }
     const graphError = lightValidateGraph(args.nodes, args.startNodeId);
     if (graphError) throw refusal('workflow_graph_invalid', { message: graphError });
-    await checkTemplates(ctx, args.nodes);
+    await checkTemplates(ctx, args.nodes, workflow.nodes);
 
     await ctx.db.patch(args.workflowId, { ...updates, ...updateAuditFields(ctx.userId) });
 

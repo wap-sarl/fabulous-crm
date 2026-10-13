@@ -14,6 +14,7 @@ const TEMPLATE_ERROR_MESSAGES: Record<string, string> = {
   snippet_text_invalid: 'Le texte est requis (2 000 caractères au plus).',
   snippet_shortcut_taken: 'Ce raccourci est déjà pris.',
   snippet_not_found: 'Ce bloc n’existe plus.',
+  snippet_forbidden: 'Seul son auteur, ou un détenteur du droit Paramètres, peut modifier ce bloc.',
 };
 
 export const templateErrorMessage = (error: unknown, fallback: string) =>

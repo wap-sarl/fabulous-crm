@@ -27,6 +27,8 @@ export const snippetValidator = v.object({
   name: v.string(),
   shortcut: v.string(),
   text: v.string(),
+  // Read by everyone, changed by its owner or the settings right, as a template.
+  ownerId: v.id('users'),
 });
 
 export type TemplateScope = Infer<typeof templateScopeValidator>;

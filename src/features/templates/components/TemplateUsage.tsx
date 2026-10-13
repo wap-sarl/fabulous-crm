@@ -12,13 +12,16 @@ export function TemplateUsage({ templateId }: { templateId: Id<'emailTemplates'>
   });
   if (!usage) return <Spinner size="sm" />;
   return (
-    <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-5">
-      <Figure label="Campagnes" value={String(usage.campaigns) + (usage.partial ? '+' : '')} />
-      <Figure label="Étapes de workflow" value={String(usage.workflows)} />
-      <Figure label="Envoyés" value={String(usage.sent)} />
-      <Figure label="Ouvertures" value={pct(usage.opened, usage.sent)} />
-      <Figure label="Clics" value={pct(usage.clicked, usage.sent)} />
-    </dl>
+    <div className="space-y-2">
+      <p className="text-xs text-faint">Dans les campagnes et les workflows de votre périmètre.</p>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-5">
+        <Figure label="Campagnes" value={String(usage.campaigns) + (usage.partial ? '+' : '')} />
+        <Figure label="Étapes de workflow" value={String(usage.workflows)} />
+        <Figure label="Envoyés" value={String(usage.sent)} />
+        <Figure label="Ouvertures" value={pct(usage.opened, usage.sent)} />
+        <Figure label="Clics" value={pct(usage.clicked, usage.sent)} />
+      </dl>
+    </div>
   );
 }
 

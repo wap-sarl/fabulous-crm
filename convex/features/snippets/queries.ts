@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
 
-/** Every snippet, by shortcut: the editor's slash menu and the settings read the same list. */
+/** Every snippet, by shortcut: the editor's slash menu and the settings read the same list; `editable` tells whether the caller may change it. */
 export const listSnippets = employeeQuery({
   args: {},
   returns: v.array(
@@ -10,6 +10,8 @@ export const listSnippets = employeeQuery({
       name: v.string(),
       shortcut: v.string(),
       text: v.string(),
+      ownerId: v.id('users'),
+      editable: v.boolean(),
     }),
   ),
   handler: async (ctx) => {
@@ -19,6 +21,8 @@ export const listSnippets = employeeQuery({
       name: row.name,
       shortcut: row.shortcut,
       text: row.text,
+      ownerId: row.ownerId,
+      editable: row.ownerId === ctx.userId || ctx.visibility.access.settings,
     }));
   },
 });

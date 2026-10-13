@@ -231,22 +231,26 @@ export function TemplatesPage() {
                     </span>
                     <span className="line-clamp-1 text-xs text-soft">{snippet.text}</span>
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSnippetToEdit(snippet)}
-                    aria-label={`Modifier ${snippet.name}`}
-                  >
-                    <Pencil className="size-4" aria-hidden="true" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSnippetToDelete(snippet)}
-                    aria-label={`Supprimer ${snippet.name}`}
-                  >
-                    <Trash2 className="size-4" aria-hidden="true" />
-                  </Button>
+                  {snippet.editable && (
+                    <>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSnippetToEdit(snippet)}
+                        aria-label={`Modifier ${snippet.name}`}
+                      >
+                        <Pencil className="size-4" aria-hidden="true" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSnippetToDelete(snippet)}
+                        aria-label={`Supprimer ${snippet.name}`}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </Button>
+                    </>
+                  )}
                 </li>
               ))}
             </ul>

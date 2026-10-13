@@ -298,10 +298,81 @@ describe('email templates', () => {
     // The campaign keeps its copy and its figures count whatever becomes of the template.
     expect((await t.run((ctx) => ctx.db.get(campaignId)))?.templateId).toBe(templateId);
   });
+
+  test('a stored reference never blocks a workflow edit: a deleted or narrowed template lets the workflow be renamed, only a step newly loading an out-of-reach template is refused', async () => {
+    const { as } = await setup();
+    const sharedId = await template(as.marc, 'Partagé', 'organization');
+    const ownId = await template(as.marc, 'Mien', 'private');
+    const secretId = await template(as.marc, 'Secret', 'private');
+    const node = (id: string, templateId?: Id<'emailTemplates'>) => ({
+      id,
+      type: 'send_email' as const,
+      subject: 'Objet',
+      htmlBody: '<p>Corps</p>',
+      templateId,
+    });
+    const graph = { trigger: { type: 'lead_created' as const }, allowReEnrollment: false };
+    const ninaId = await as.nina.mutation(api.features.workflows.mutations.createWorkflow, {
+      name: 'Accueil',
+      ...graph,
+      nodes: [node('n1', sharedId)],
+      startNodeId: 'n1',
+    });
+    const marcId = await as.marc.mutation(api.features.workflows.mutations.createWorkflow, {
+      name: 'Relance',
+      ...graph,
+      nodes: [node('n1', ownId)],
+      startNodeId: 'n1',
+    });
+    // Marc narrows the shared template and deletes his own.
+    await as.marc.mutation(api.features.emailTemplates.mutations.updateEmailTemplate, {
+      templateId: sharedId,
+      name: 'Partagé',
+      subject: 'Objet',
+      htmlBody: '<p>Corps</p>',
+      scope: 'private',
+    });
+    await as.marc.mutation(api.features.emailTemplates.mutations.deleteEmailTemplate, {
+      templateId: ownId,
+    });
+    await as.nina.mutation(api.features.workflows.mutations.updateWorkflow, {
+      workflowId: ninaId,
+      name: 'Accueil des nouveaux',
+      ...graph,
+      nodes: [node('n1', sharedId)],
+      startNodeId: 'n1',
+    });
+    await as.marc.mutation(api.features.workflows.mutations.updateWorkflow, {
+      workflowId: marcId,
+      name: 'Relance du mois',
+      ...graph,
+      nodes: [node('n1', ownId)],
+      startNodeId: 'n1',
+    });
+    // A step newly loading a template out of reach is refused; one already stored may be loaded again.
+    await expect(
+      as.nina.mutation(api.features.workflows.mutations.updateWorkflow, {
+        workflowId: ninaId,
+        name: 'Accueil des nouveaux',
+        ...graph,
+        nodes: [node('n1', sharedId), node('n2', secretId)],
+        startNodeId: 'n1',
+      }),
+    ).rejects.toMatchObject({ data: { code: 'template_not_found' } });
+    await expect(
+      as.nina.mutation(api.features.workflows.mutations.updateWorkflow, {
+        workflowId: ninaId,
+        name: 'Accueil des nouveaux',
+        ...graph,
+        nodes: [node('n1', sharedId), node('n2', sharedId)],
+        startNodeId: 'n1',
+      }),
+    ).resolves.toBe(ninaId);
+  });
 });
 
 describe('snippets', () => {
-  test('a shortcut is slash-lowercase and names one snippet; the fields are bounded; the list is by shortcut', async () => {
+  test('a shortcut is slash-lowercase and names one snippet; the fields are bounded; everyone reads them by shortcut, the owner or the settings right changes them', async () => {
     const { t, as } = await setup();
     const create = (extra: Record<string, unknown>) =>
       as.nina.mutation(api.features.snippets.mutations.createSnippet, {
@@ -327,30 +398,68 @@ describe('snippets', () => {
       data: { code: 'snippet_shortcut_taken' },
     });
     const devisId = await create({ name: 'Devis', shortcut: '/devis', text: 'Voici notre devis.' });
-    await expect(
-      as.marc.mutation(api.features.snippets.mutations.updateSnippet, {
-        snippetId: devisId,
-        name: 'Devis',
-        shortcut: '/signature',
-        text: 'x',
-      }),
-    ).rejects.toMatchObject({ data: { code: 'snippet_shortcut_taken' } });
-    await as.marc.mutation(api.features.snippets.mutations.updateSnippet, {
+    const devis = {
       snippetId: devisId,
       name: 'Devis',
       shortcut: '/devis',
+      text: 'Voici notre devis.',
+    };
+    await expect(
+      as.nina.mutation(api.features.snippets.mutations.updateSnippet, {
+        ...devis,
+        shortcut: '/signature',
+      }),
+    ).rejects.toMatchObject({ data: { code: 'snippet_shortcut_taken' } });
+    // A teammate without the settings right changes nothing of Nina's; she does, and so does the admin.
+    await expect(
+      as.marc.mutation(api.features.snippets.mutations.updateSnippet, { ...devis, text: 'x' }),
+    ).rejects.toMatchObject({ data: { code: 'snippet_forbidden' } });
+    await as.nina.mutation(api.features.snippets.mutations.updateSnippet, {
+      ...devis,
       text: 'Voici notre devis, valable un mois.',
     });
-    // Every employee reads them all, by shortcut.
+    await as.admin.mutation(api.features.snippets.mutations.updateSnippet, {
+      ...devis,
+      text: 'Voici notre devis, valable deux mois.',
+    });
+    // Every employee reads them all, by shortcut, and knows which they may change.
     expect(
-      (await as.sam.query(api.features.snippets.queries.listSnippets, {})).map((s) => s.shortcut),
-    ).toEqual(['/devis', '/signature']);
-    await as.sam.mutation(api.features.snippets.mutations.deleteSnippet, {
+      (await as.sam.query(api.features.snippets.queries.listSnippets, {})).map((s) => [
+        s.shortcut,
+        s.editable,
+      ]),
+    ).toEqual([
+      ['/devis', false],
+      ['/signature', false],
+    ]);
+    expect(
+      (await as.nina.query(api.features.snippets.queries.listSnippets, {})).every(
+        (s) => s.editable,
+      ),
+    ).toBe(true);
+    await expect(
+      as.sam.mutation(api.features.snippets.mutations.deleteSnippet, { snippetId: signatureId }),
+    ).rejects.toMatchObject({ data: { code: 'snippet_forbidden' } });
+    await as.nina.mutation(api.features.snippets.mutations.deleteSnippet, {
       snippetId: signatureId,
     });
     expect(await t.run((ctx) => ctx.db.get(signatureId))).toBeNull();
     await expect(
       as.sam.mutation(api.features.snippets.mutations.deleteSnippet, { snippetId: signatureId }),
     ).rejects.toMatchObject({ data: { code: 'snippet_not_found' } });
+    // Each change signed in the audit trail.
+    const logs = await t.run((ctx) =>
+      ctx.db
+        .query('auditLogs')
+        .filter((q) => q.eq(q.field('entityType'), 'snippet'))
+        .collect(),
+    );
+    expect(logs.map((log) => log.action)).toEqual([
+      'create',
+      'create',
+      'update',
+      'update',
+      'delete',
+    ]);
   });
 });
