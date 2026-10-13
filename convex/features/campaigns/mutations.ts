@@ -1,9 +1,10 @@
-import { follows, httpUrlSchema, positiveIntSchema } from '../../_lib/validators/fields';
+import { follows, positiveIntSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
+import { checkTrackedLinks } from '../../lib/campaigns/links';
 import { loadResendContext, requeueSend, requireLinkBase } from '../../lib/campaigns/resend';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
 import { loadEmailTemplate } from '../../lib/templates/records';
@@ -18,25 +19,19 @@ import {
   campaignTrackedLinkValidator,
   messageTypeValidator,
 } from '../../_lib/validators/crm';
-import { validateLeadTargetValue } from '../../lib/leads/targets';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
 import { requireSendAllowed } from '../../lib/extensions/gates';
+import {
+  cancelStart,
+  checkScheduledAt,
+  scheduleStart,
+  startCampaign,
+} from '../../lib/campaigns/schedule';
+import { abTestArgs, checkAbTest } from '../../lib/campaigns/variants';
 
 const SMS_PROVIDER_REQUIRED = 'Les campagnes SMS nécessitent un compte Brevo configuré.';
 const EMAIL_PROVIDER_REQUIRED =
   "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.";
-
-// Params injected for every recipient: tracked-link keys may not shadow them.
-const RESERVED_PARAM_KEYS = new Set([
-  'firstName',
-  'lastName',
-  'email',
-  'phone',
-  'status',
-  'comment',
-  'address',
-  'consentUrl',
-]);
 
 export const createCampaign = employeeMutation({
   args: {
@@ -58,6 +53,11 @@ export const createCampaign = employeeMutation({
     templateId: v.optional(v.id('emailTemplates')),
     // Tracked links authored in the composer (unique per-recipient URLs).
     trackedLinks: v.optional(v.array(campaignTrackedLinkValidator)),
+    // Later than now: the campaign waits for that time instead of starting at once.
+    scheduledAt: v.optional(v.number()),
+    // Each e-mail at the hour its recipient opens most, within the day that follows the start.
+    sendTimeOptimized: v.optional(v.boolean()),
+    abTest: v.optional(abTestArgs),
   },
   returns: v.id('campaigns'),
   handler: async (ctx, args) => {
@@ -67,6 +67,7 @@ export const createCampaign = employeeMutation({
     }
 
     const messageType = args.messageType ?? 'marketing';
+    if (args.scheduledAt !== undefined) checkScheduledAt(args.scheduledAt);
     if (args.templateId) await loadEmailTemplate(ctx, args.templateId);
     const subscriptionType = args.subscriptionTypeId
       ? await ctx.db.get(args.subscriptionTypeId)
@@ -87,39 +88,7 @@ export const createCampaign = employeeMutation({
     // Custom-property definitions are substituted as {{ params.custom_<id> }} and referenced by tracked links.
     const defsById = await loadPropertyDefsById(ctx, 'lead');
 
-    // Validate tracked links up front (keys, target field/property, value, redirect).
-    const trackedLinks = args.trackedLinks ?? [];
-    const linkKeys = new Set<string>();
-    for (const link of trackedLinks) {
-      if (
-        !/^\w+$/.test(link.key) ||
-        RESERVED_PARAM_KEYS.has(link.key) ||
-        link.key.startsWith('custom_')
-      ) {
-        throw refusal('tracked_link_key_invalid', {
-          message: `Clé de lien de suivi invalide : ${link.key}`,
-        });
-      }
-      if (linkKeys.has(link.key)) {
-        throw refusal('tracked_link_key_duplicate', {
-          message: `Clé de lien de suivi en double : ${link.key}`,
-        });
-      }
-      linkKeys.add(link.key);
-
-      const valueError = validateLeadTargetValue(link.target, link.value, defsById);
-      if (valueError) {
-        throw refusal('tracked_link_value_invalid', {
-          message: `Lien « ${link.label} » : ${valueError}`,
-        });
-      }
-
-      if (link.redirectUrl !== undefined && !follows(httpUrlSchema, link.redirectUrl)) {
-        throw refusal('tracked_link_redirect_invalid', {
-          message: `Lien « ${link.label} » : l'URL de redirection doit commencer par http(s)://`,
-        });
-      }
-    }
+    const trackedLinks = checkTrackedLinks(args.trackedLinks ?? [], defsById);
     const linkBase = process.env.CONVEX_SITE_URL;
     if (trackedLinks.length > 0 && !linkBase) {
       throw refusal('link_base_missing', {
@@ -171,6 +140,8 @@ export const createCampaign = employeeMutation({
       }
     }
 
+    const abTest = args.abTest ? checkAbTest(args.abTest, htmlBody) : undefined;
+
     // Early gate: an exhausted allowance refuses before any recipient is materialised.
     await requireSendAllowed(ctx, {
       source: 'campaign',
@@ -191,19 +162,22 @@ export const createCampaign = employeeMutation({
       // A snapshot, so analytics degrade correctly even if the admin later switches providers.
       emailProvider: args.channel === 'email' ? emailProvider : undefined,
       trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
-      status: 'preparing',
+      // Kept for a scheduled start, and for a start by hand after a cancellation.
+      filter: args.filter,
+      sendTimeOptimized: args.channel === 'email' && args.sendTimeOptimized ? true : undefined,
+      abTest,
+      status: 'draft',
       totalCount: 0,
       sentCount: 0,
       failedCount: 0,
       statsCountedThrough: 'all',
       ...createAuditFields(ctx.userId),
     });
+    const campaign = (await ctx.db.get(campaignId))!;
 
     // Recipients are materialised in scheduled batches: one transaction caps at 8,192 writes, exceeded around 2,000 recipients with 3 tracked links.
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.prepareCampaignBatch, {
-      campaignId,
-      filter: args.filter,
-    });
+    if (args.scheduledAt !== undefined) await scheduleStart(ctx, campaign, args.scheduledAt);
+    else await startCampaign(ctx, campaign);
 
     return campaignId;
   },
@@ -316,6 +290,70 @@ export const resendAllCampaignSends = employeeMutation({
       entityId: args.campaignId,
       action: 'update',
       metadata: { event: 'resend_all', count: campaign.totalCount },
+    });
+    return null;
+  },
+});
+
+/** A campaign that waits, or was taken off the schedule, gets a new time; `null` starts it now. */
+export const scheduleCampaign = employeeMutation({
+  args: { campaignId: v.id('campaigns'), scheduledAt: v.union(v.number(), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'scheduled' && campaign.status !== 'draft') {
+      throw refusal('campaign_not_schedulable');
+    }
+    if (args.scheduledAt === null) {
+      await cancelStart(ctx, campaign);
+      await ctx.db.patch(args.campaignId, {
+        scheduledAt: undefined,
+        ...updateAuditFields(ctx.userId),
+      });
+      await startCampaign(ctx, campaign);
+    } else {
+      checkScheduledAt(args.scheduledAt);
+      await scheduleStart(ctx, campaign, args.scheduledAt);
+      await ctx.db.patch(args.campaignId, updateAuditFields(ctx.userId));
+    }
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata:
+        args.scheduledAt === null
+          ? { event: 'started' }
+          : { event: 'scheduled', scheduledAt: args.scheduledAt },
+    });
+    return null;
+  },
+});
+
+/** « Annuler l'envoi »: the campaign leaves the schedule and waits as a draft, its recipients still unresolved. */
+export const cancelScheduledCampaign = employeeMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'scheduled') throw refusal('campaign_not_scheduled');
+    await cancelStart(ctx, campaign);
+    await ctx.db.patch(args.campaignId, {
+      status: 'draft',
+      scheduledAt: undefined,
+      scheduledFnId: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata: { event: 'schedule_cancelled' },
     });
     return null;
   },

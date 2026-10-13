@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useQuery } from 'convex/react';
-import { api, follows, positiveIntSchema } from '@crm/lib/backend';
+import { api, DEFAULT_TIMEZONE, follows, positiveIntSchema } from '@crm/lib/backend';
 import type { CampaignChannel, CampaignTrackedLink, Id, MessageType } from '@crm/lib/backend';
-import { useAuthMutation } from '@crm/widgets';
+import { useAuthMutation, usePublicConfig } from '@crm/widgets';
 import {
   Alert,
   AlertDescription,
@@ -34,6 +34,15 @@ import {
   type EmailContentMode,
 } from '../../features/campaigns/components/CampaignContentFields';
 import { buildPlaceholders } from '../../features/campaigns/lib/placeholders';
+import { AbTestFields } from '../../features/campaigns/components/AbTestFields';
+import { CampaignDeliveryFields } from '../../features/campaigns/components/CampaignDeliveryFields';
+import {
+  abTestArgsOf,
+  EMPTY_AB_TEST,
+  type ScheduleForm,
+  scheduledAtOf,
+} from '../../features/campaigns/lib/delivery';
+import { epochToZoned } from '@crm/lib/timezone';
 import { describeError } from '@crm/lib/errors';
 import { numberFormat } from '@crm/lib/format';
 
@@ -46,6 +55,7 @@ export function CampaignCreatePage() {
   const smsAvailable = capabilities?.smsAvailable ?? true;
   const emailConfigured = capabilities?.emailConfigured ?? true;
   const templateAvailable = (capabilities?.emailProvider ?? 'brevo') === 'brevo';
+  const timeZone = usePublicConfig().config?.timezone ?? DEFAULT_TIMEZONE;
   const { filters, setParam, setAdvancedFilter } = useLeadFilters();
   const propertyDefinitions = usePropertyDefinitions('lead');
   const leadCatalog = useLeadFieldCatalog(propertyDefinitions);
@@ -65,6 +75,14 @@ export function CampaignCreatePage() {
   // The CRM template the e-mail was loaded from or saved as: the campaign counts towards its figures.
   const [crmTemplateId, setCrmTemplateId] = useState<Id<'emailTemplates'> | null>(null);
   const [trackedLinks, setTrackedLinks] = useState<CampaignTrackedLink[]>([]);
+  // Tomorrow at nine on the organisation's clock, the usual choice, until the author moves it.
+  const [schedule, setSchedule] = useState<ScheduleForm>(() => ({
+    later: false,
+    ...epochToZoned(Date.now() + 24 * 3_600_000, timeZone),
+    time: '09:00',
+  }));
+  const [optimized, setOptimized] = useState(false);
+  const [abTest, setAbTest] = useState(EMPTY_AB_TEST);
   const [submitting, setSubmitting] = useState(false);
 
   const placeholders = useMemo(
@@ -166,6 +184,18 @@ export function CampaignCreatePage() {
       content.brevoTemplateId = brevoTemplateId;
     }
 
+    const scheduledAt = scheduledAtOf(schedule, timeZone);
+    if (!scheduledAt.ok) {
+      toast.error(scheduledAt.error);
+      return;
+    }
+    const customEmail = channel === 'email' && content.htmlBody !== undefined;
+    const test = customEmail ? abTestArgsOf(abTest) : { ok: true as const, value: undefined };
+    if (!test.ok) {
+      toast.error(test.error);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const campaignId = await createCampaign({
@@ -179,9 +209,16 @@ export function CampaignCreatePage() {
         // The server resolves the recipients from the filter: an id array would cap the campaign at Convex's 8,192-element limit.
         filter: toFilterArgs(filters),
         trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
+        scheduledAt: scheduledAt.value,
+        sendTimeOptimized: channel === 'email' && optimized ? true : undefined,
+        abTest: test.value,
         ...content,
       });
-      toast.success('Campagne créée, préparation des destinataires en cours.');
+      toast.success(
+        scheduledAt.value !== undefined
+          ? 'Campagne programmée.'
+          : 'Campagne créée, préparation des destinataires en cours.',
+      );
       navigate(`/campaigns/${campaignId}`);
     } catch (e) {
       toast.error(describeError(e, 'Échec de la création de la campagne.'));
@@ -254,6 +291,24 @@ export function CampaignCreatePage() {
           onLoadTemplate={setCrmTemplateId}
         />
 
+        {channel === 'email' && (
+          <AbTestFields
+            form={abTest}
+            onChange={setAbTest}
+            placeholders={placeholders}
+            available={emailMode !== 'template'}
+          />
+        )}
+
+        <CampaignDeliveryFields
+          channel={channel}
+          schedule={schedule}
+          onScheduleChange={setSchedule}
+          timeZone={timeZone}
+          optimized={optimized}
+          onOptimizedChange={setOptimized}
+        />
+
         <div className="flex flex-col gap-3">
           <span className="text-sm font-semibold text-ink">Destinataires</span>
           <div className="flex flex-wrap items-start gap-3">
@@ -309,7 +364,8 @@ export function CampaignCreatePage() {
             data-testid="create-campaign"
           >
             <Send className="h-4 w-4" />
-            Créer la campagne ({numberFormat.format(total)})
+            {schedule.later ? 'Programmer la campagne' : 'Créer la campagne'} (
+            {numberFormat.format(total)})
           </Button>
         </div>
       </div>

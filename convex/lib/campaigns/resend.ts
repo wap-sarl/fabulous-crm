@@ -54,6 +54,7 @@ export async function requeueSend(
   // What the previous send earned goes, so the counters say what the new one does; a reply and an unsubscription are about the person and stay.
   const reset = {
     status: 'pending' as const,
+    sendAt: Date.now(),
     error: undefined,
     brevoMessageId: undefined,
     openedAt: undefined,

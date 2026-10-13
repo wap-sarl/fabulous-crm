@@ -1,4 +1,9 @@
 import type { MutationCtx } from '../../_generated/server';
+import { refusal } from '../../_lib/refusal';
+import type { CampaignTrackedLink } from '../../_lib/validators/crm';
+import { follows, httpUrlSchema } from '../../_lib/validators/fields';
+import type { PropertyDefinitionDoc } from '../properties/definitions';
+import { validateLeadTargetValue } from '../leads/targets';
 import { LINK_GRANT_MS } from '../../_lib/validators/tracking';
 import { computeChanges, logAudit } from '../audit/log';
 import { insertSystemNote } from '../leads/notes';
@@ -100,4 +105,55 @@ export async function clickTrackedLink(
     });
   }
   return { found: true, redirectUrl: link?.redirectUrl, identify };
+}
+
+// Params injected for every recipient: tracked-link keys may not shadow them.
+const RESERVED_PARAM_KEYS = new Set([
+  'firstName',
+  'lastName',
+  'email',
+  'phone',
+  'status',
+  'comment',
+  'address',
+  'consentUrl',
+]);
+
+/** The links of a campaign checked up front, before anything is written: a key of its own, a target the lead can take the value of, a redirection that is a URL. */
+export function checkTrackedLinks(
+  trackedLinks: CampaignTrackedLink[],
+  defsById: Map<string, PropertyDefinitionDoc>,
+): CampaignTrackedLink[] {
+  const linkKeys = new Set<string>();
+  for (const link of trackedLinks) {
+    if (
+      !/^\w+$/.test(link.key) ||
+      RESERVED_PARAM_KEYS.has(link.key) ||
+      link.key.startsWith('custom_')
+    ) {
+      throw refusal('tracked_link_key_invalid', {
+        message: `Clé de lien de suivi invalide : ${link.key}`,
+      });
+    }
+    if (linkKeys.has(link.key)) {
+      throw refusal('tracked_link_key_duplicate', {
+        message: `Clé de lien de suivi en double : ${link.key}`,
+      });
+    }
+    linkKeys.add(link.key);
+
+    const valueError = validateLeadTargetValue(link.target, link.value, defsById);
+    if (valueError) {
+      throw refusal('tracked_link_value_invalid', {
+        message: `Lien « ${link.label} » : ${valueError}`,
+      });
+    }
+
+    if (link.redirectUrl !== undefined && !follows(httpUrlSchema, link.redirectUrl)) {
+      throw refusal('tracked_link_redirect_invalid', {
+        message: `Lien « ${link.label} » : l'URL de redirection doit commencer par http(s)://`,
+      });
+    }
+  }
+  return trackedLinks;
 }

@@ -1,35 +1,18 @@
-import { v } from 'convex/values';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { isNotDeleted } from '../../_lib/softDelete';
 import {
   advancedFilterAsksSubscriptions,
   advancedFilterListIds,
-  leadAdvancedFilterValidator,
 } from '../../_lib/validators/filters';
 import { loadActiveSubscriptionTypes } from '../consent/types';
-import type { LeadAdvancedFilter } from '../../_lib/validators/filters';
+import { type LeadAdvancedFilter, leadFilterArgs } from '../../_lib/validators/filters';
 import type { PropertyValue } from '../../_lib/validators/properties';
-import { propertyValueValidator } from '../../schema';
 import { normalizeSearchText } from './search';
 import { evalAdvancedFilter, type LeadFilterExtras } from './matching';
 
 /** One filter shape for the table, the campaign resolver and the batched recipient resolution, so they all select the same leads. */
-export const leadFilterArgs = {
-  search: v.optional(v.string()),
-  // Lifecycle stage keys (appConfig.lifecycle); OR within the filter.
-  lifecycleStages: v.optional(v.array(v.string())),
-  // Companies a lead must belong to one of (OR within the filter).
-  companyIds: v.optional(v.array(v.id('companies'))),
-  ownerIds: v.optional(v.array(v.id('users'))),
-  isRedFlagged: v.optional(v.boolean()),
-  // definitionId -> allowed values: OR within a property, AND across properties; only select and boolean properties are filterable.
-  customProperties: v.optional(v.record(v.string(), v.array(propertyValueValidator))),
-  // Lead lists a lead must belong to at least one of (OR within the filter); the handler resolves membership before matching.
-  listIds: v.optional(v.array(v.id('leadLists'))),
-  // A two-level AND/OR tree of typed rules, ANDed with the flat quick filters above.
-  advancedFilter: v.optional(leadAdvancedFilterValidator),
-} as const;
+export { leadFilterArgs };
 
 export type LeadFilters = {
   search?: string;

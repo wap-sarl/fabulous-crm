@@ -34,7 +34,19 @@ export const CampaignSendRow = memo(
           {(isSms ? s.phone : s.email) ?? '—'}
         </TableCell>
         <TableCell>
-          <StatusBadge tone={SEND_STATUS_TONE[s.status]}>{SEND_STATUS_LABEL[s.status]}</StatusBadge>
+          <span className="inline-flex items-center gap-1.5">
+            <StatusBadge tone={SEND_STATUS_TONE[s.status]}>
+              {SEND_STATUS_LABEL[s.status]}
+            </StatusBadge>
+            {s.variant && (
+              <span
+                className="rounded border border-border px-1 font-mono text-[10px] text-soft"
+                title={`Variante ${s.variant} du test A/B`}
+              >
+                {s.variant}
+              </span>
+            )}
+          </span>
         </TableCell>
         <TableCell className="whitespace-nowrap font-mono text-[12.5px] text-soft">
           {s.sentAt ? dateTimeFormat.format(s.sentAt) : '—'}

@@ -6,12 +6,20 @@ import type { Id } from '../../_generated/dataModel';
 import { internalQuery, type MutationCtx } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { refusal } from '../../_lib/refusal';
-import { campaignEventTypeValidator, campaignSendStatusValidator } from '../../_lib/validators/crm';
+import {
+  campaignAbTestValidator,
+  campaignEventTypeValidator,
+  campaignSendStatusValidator,
+  campaignVariantValidator,
+} from '../../_lib/validators/crm';
 import { recordEmailEvent, recordSmsEvent } from '../../lib/campaigns/events';
 import { clickTrackedLink } from '../../lib/campaigns/links';
 import { prepareBatch } from '../../lib/campaigns/prepare';
 import { resendBatch } from '../../lib/campaigns/resend';
-import { countStatsPage, startStatsCount } from '../../lib/campaigns/stats';
+import { startCampaign } from '../../lib/campaigns/schedule';
+import { countStatsPage, readCampaignStats, startStatsCount } from '../../lib/campaigns/stats';
+import { pickWinner } from '../../lib/campaigns/variants';
+import { logAudit } from '../../lib/audit/log';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
 
@@ -19,7 +27,7 @@ const BATCH_SIZE = 50;
 // Failing a send is one patch: 200 per transaction keeps the chain short and far below the write limit.
 const FAIL_BATCH = 200;
 
-/** Load the campaign template id plus the next batch of pending sends. */
+/** The message of the campaign plus the next batch of its pending sends that are due; with none due, when the next one is. A holdout send due before the test is decided asks for the decision first. */
 export const getPendingSends = internalQuery({
   args: { campaignId: v.id('campaigns') },
   returns: v.union(
@@ -30,12 +38,16 @@ export const getPendingSends = internalQuery({
       htmlBody: v.optional(v.string()),
       smsBody: v.optional(v.string()),
       messageType: v.optional(messageTypeValidator),
+      abTest: v.optional(campaignAbTestValidator),
+      winnerPending: v.boolean(),
+      nextAt: v.optional(v.number()),
       sends: v.array(
         v.object({
           sendId: v.id('campaignSends'),
           email: v.optional(v.string()),
           phone: v.optional(v.string()),
           params: v.record(v.string(), v.string()),
+          variant: v.optional(campaignVariantValidator),
         }),
       ),
     }),
@@ -45,12 +57,25 @@ export const getPendingSends = internalQuery({
     const campaign = await ctx.db.get(args.campaignId);
     if (!campaign) return null;
 
-    const pending = await ctx.db
+    const now = Date.now();
+    // A send without a time sorts before every time: it is due.
+    const due = await ctx.db
       .query('campaignSends')
-      .withIndex('by_campaign_status', (q) =>
-        q.eq('campaignId', args.campaignId).eq('status', 'pending'),
+      .withIndex('by_campaign_status_sendAt', (q) =>
+        q.eq('campaignId', args.campaignId).eq('status', 'pending').lte('sendAt', now),
       )
       .take(BATCH_SIZE);
+    const next =
+      due.length === 0
+        ? await ctx.db
+            .query('campaignSends')
+            .withIndex('by_campaign_status_sendAt', (q) =>
+              q.eq('campaignId', args.campaignId).eq('status', 'pending').gt('sendAt', now),
+            )
+            .first()
+        : null;
+    const test = campaign.abTest;
+    const winnerPending = !!test && !test.winner && due.some((send) => send.variant === undefined);
 
     return {
       channel: campaign.channel,
@@ -59,13 +84,55 @@ export const getPendingSends = internalQuery({
       htmlBody: campaign.htmlBody,
       smsBody: campaign.smsBody,
       messageType: campaign.messageType,
-      sends: pending.map((send) => ({
+      abTest: test,
+      winnerPending,
+      nextAt: next?.sendAt,
+      sends: due.map((send) => ({
         sendId: send._id,
         email: send.email,
         phone: send.phone,
         params: send.params,
+        variant: send.variant,
       })),
     };
+  },
+});
+
+/** The scheduled call: the campaign starts if it still waits; cancelled or started by hand meanwhile, nothing happens. */
+export const startScheduledCampaign = internalMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null || campaign.status !== 'scheduled') return null;
+    await startCampaign(ctx, campaign);
+    return null;
+  },
+});
+
+/** The winner of the test, from the counters of its variants, once; the holdout then receives it. */
+export const decideAbWinner = internalMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.union(campaignVariantValidator, v.null()),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    const test = campaign?.abTest;
+    if (!campaign || !test) return null;
+    if (test.winner) return test.winner;
+    const winner = pickWinner(await readCampaignStats(ctx, args.campaignId), test.metric);
+    await ctx.db.patch(args.campaignId, {
+      abTest: { ...test, winner, decidedAt: Date.now() },
+      updatedAt: Date.now(),
+    });
+    await logAudit({
+      ctx,
+      userId: undefined,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata: { event: 'ab_winner', winner, metric: test.metric },
+    });
+    return winner;
   },
 });
 

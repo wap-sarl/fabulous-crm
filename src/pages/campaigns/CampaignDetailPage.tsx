@@ -1,8 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { api } from '@crm/lib/backend';
+import { api, DEFAULT_TIMEZONE } from '@crm/lib/backend';
 import type { Id } from '@crm/lib/backend';
-import { useAuthMutation, useAuthQuery } from '@crm/widgets';
+import { useAuthMutation, useAuthQuery, usePublicConfig } from '@crm/widgets';
 import { Card, Spinner, toast } from '@crm/design-system';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { CampaignDetailHeader } from '../../features/campaigns/components/CampaignDetailHeader';
@@ -12,6 +12,8 @@ import { CampaignSendFunnel } from '../../features/campaigns/components/Campaign
 import { CampaignSendsChart } from '../../features/campaigns/components/CampaignSendsChart';
 import { CampaignSendsTable } from '../../features/campaigns/components/CampaignSendsTable';
 import { CampaignStatCards } from '../../features/campaigns/components/CampaignStatCards';
+import { CampaignScheduleBanner } from '../../features/campaigns/components/CampaignScheduleBanner';
+import { CampaignVariantResults } from '../../features/campaigns/components/CampaignVariantResults';
 import { RecipientPreviewSheet } from '../../features/campaigns/components/RecipientPreviewSheet';
 import { retryErrorMessage } from '../../features/campaigns/lib/retryErrors';
 import { buildSendSeries } from '../../features/campaigns/lib/sends';
@@ -32,6 +34,7 @@ export function CampaignDetailPage() {
     api.features.campaigns.queries.getCampaignStats,
     campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
   );
+  const timeZone = usePublicConfig().config?.timezone ?? DEFAULT_TIMEZONE;
   const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
   // Stable for the memoised recipients table.
@@ -66,8 +69,9 @@ export function CampaignDetailPage() {
 
   const { campaign } = data;
   const isSms = campaign.channel === 'sms';
-  // Resend can only run when the campaign is settled (not mid-preparation/drain).
-  const canRetry = campaign.status !== 'sending' && campaign.status !== 'preparing';
+  // Resend can only run when the campaign is settled: not mid-preparation or drain, and not before it ever left.
+  const waiting = campaign.status === 'scheduled' || campaign.status === 'draft';
+  const canRetry = !waiting && campaign.status !== 'sending' && campaign.status !== 'preparing';
 
   const handleResendAll = async () => {
     if (
@@ -101,6 +105,7 @@ export function CampaignDetailPage() {
       />
 
       <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-4 px-5 py-5 sm:px-7">
+        {waiting && <CampaignScheduleBanner campaign={campaign} timeZone={timeZone} />}
         {campaign.status === 'preparing' && (
           <p className="rounded-lg border border-info/40 bg-info/10 px-4 py-2 text-xs text-info">
             Préparation des destinataires en cours — {numberFormat.format(campaign.totalCount)}{' '}
@@ -114,6 +119,8 @@ export function CampaignDetailPage() {
           </p>
         )}
         <CampaignStatCards campaign={campaign} stats={stats} isSms={isSms} isSmtp={isSmtp} />
+
+        <CampaignVariantResults campaign={campaign} stats={stats} />
 
         {series.length > 0 && <CampaignSendsChart series={series} />}
 

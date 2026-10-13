@@ -7,6 +7,7 @@ type Provider = 'brevo' | 'smtp';
 export type Draft = {
   senderEmail: string;
   senderName: string;
+  timezone: string;
   provider: Provider;
   brevoApiKey: string;
   brevoWebhookSecret: string;

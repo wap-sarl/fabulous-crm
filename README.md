@@ -292,7 +292,15 @@ workspaces.
   étape « Changer le statut ». Le placeholder `{{ params.status }}` des
   campagnes renvoie le libellé du statut.
 - **Campagnes** : création de campagnes email Brevo (template + destinataires
-  filtrés), suivi des envois (`campaignSends`), statuts.
+  filtrés), suivi des envois (`campaignSends`), statuts. Envoi **programmé**
+  (`scheduledAt`, heure lue dans le fuseau de l'organisation, *Paramètres →
+  E-mail & SMS*) annulable et reprogrammable tant que la campagne n'est pas
+  partie, les destinataires étant résolus au départ ; **heure d'envoi
+  optimisée** par destinataire (l'heure de la journée où il ouvre le plus, dans
+  les 24 h qui suivent le départ) ; **test A/B** sur l'objet ou le contenu d'un
+  e-mail rédigé dans l'éditeur (part testée, fenêtre, ouvertures ou clics), la
+  variante gagnante partant d'elle-même au reste des destinataires, avec les
+  résultats par variante sur la page de la campagne.
 - **Modèles d'e-mail et blocs de texte** (*Paramètres → Modèles*, ouvert à
   tout employé) : des **modèles** (`emailTemplates` : nom, objet, corps HTML
   de l'éditeur avec ses `{{ params.x }}`, catégorie, propriétaire, visibilité

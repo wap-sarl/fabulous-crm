@@ -159,6 +159,7 @@ describe('campaign sends: the drain', () => {
       email: 'a@example.com',
       phone: undefined,
       params: { firstName: 'Jean' },
+      variant: undefined,
     });
 
     await w.t.run((ctx) => ctx.db.delete(campaignId));

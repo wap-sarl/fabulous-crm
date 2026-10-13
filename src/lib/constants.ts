@@ -17,6 +17,7 @@ export const CAMPAIGN_STATUSES: {
   tone: StatusTone;
 }[] = [
   { value: 'draft', label: 'Brouillon', tone: 'gray' },
+  { value: 'scheduled', label: 'Programmée', tone: 'violet' },
   { value: 'preparing', label: 'Préparation', tone: 'amber' },
   { value: 'sending', label: 'En cours', tone: 'blue' },
   { value: 'sent', label: 'Envoyée', tone: 'green' },
