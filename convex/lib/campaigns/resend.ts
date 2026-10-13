@@ -11,9 +11,12 @@ import { loadPropertyDefsById, type PropertyDefinitionDoc } from '../properties/
 import { toBrevoRecipient } from '../sms/brevo';
 import { scheduleDrain } from './drain';
 import { buildSendParams } from './params';
+import { loadSendAt } from './sendTime';
 
 // Each send re-queued is one patch, plus one token per tracked link for a send that had none: 200 stay far below Convex's 8,192 writes per transaction.
 const RESEND_BATCH = 200;
+// An optimised recipient also reads their recent events (sendTime.ts): a shorter page keeps the reads of one transaction bounded.
+const RESEND_BATCH_OPTIMIZED = 100;
 
 /** Tracked links need their base address: refused before anything is re-queued, not in a batch nobody watches. */
 export function requireLinkBase(campaign: Doc<'campaigns'>): string | undefined {
@@ -24,6 +27,7 @@ export function requireLinkBase(campaign: Doc<'campaigns'>): string | undefined 
 
 type ResendContext = {
   isSms: boolean;
+  optimized: boolean;
   trackedLinks: CampaignTrackedLink[];
   defsById: Map<string, PropertyDefinitionDoc>;
   consentBase: string;
@@ -38,6 +42,7 @@ export async function loadResendContext(
 ): Promise<ResendContext> {
   return {
     isSms: (campaign.channel ?? 'email') === 'sms',
+    optimized: campaign.sendTimeOptimized === true,
     trackedLinks: campaign.trackedLinks ?? [],
     defsById: await loadPropertyDefsById(ctx, 'lead'),
     consentBase: consentOrigin(),
@@ -52,10 +57,11 @@ export async function requeueSend(
   send: Doc<'campaignSends'>,
   remat: ResendContext,
 ): Promise<boolean> {
-  // What the previous send earned goes, so the counters say what the new one does; a reply and an unsubscription are about the person and stay.
+  // What the previous send earned goes, so the counters say what the new one does; a reply and an unsubscription are about the person and stay. An optimised campaign keeps each recipient's hour; a holdout re-queued before its test was decided is due now, so the decision comes at once on the results there are, and says whether it had any.
+  const now = Date.now();
   const reset = {
     status: 'pending' as const,
-    sendAt: Date.now(),
+    sendAt: remat.optimized ? await loadSendAt(ctx, send.leadId, now) : now,
     error: undefined,
     brevoMessageId: undefined,
     openedAt: undefined,
@@ -92,10 +98,16 @@ export async function requeueSend(
   return true;
 }
 
-/** One page of the sends of a campaign re-queued, the next page scheduled, the drain after the last; the paging state is returned so tests can drive the chain without the scheduler. */
+/** One page of the sends of a campaign re-queued, the next page scheduled, the drain after the last; `only: 'cancelled'` resumes a stopped campaign, re-queuing what was cancelled and nothing else. The paging state is returned so tests can drive the chain without the scheduler. */
 export async function resendBatch(
   ctx: MutationCtx,
-  args: { campaignId: Id<'campaigns'>; cursor?: string; resent?: number; batchSize?: number },
+  args: {
+    campaignId: Id<'campaigns'>;
+    cursor?: string;
+    resent?: number;
+    batchSize?: number;
+    only?: 'cancelled';
+  },
 ): Promise<{ isDone: boolean; continueCursor: string | null }> {
   const campaign = await ctx.db.get(args.campaignId);
   // Deleted mid-resend (or unexpected state): stop the chain quietly.
@@ -115,10 +127,22 @@ export async function resendBatch(
   }
 
   const remat = await loadResendContext(ctx, campaign);
-  const page = await ctx.db
-    .query('campaignSends')
-    .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
-    .paginate({ cursor: args.cursor ?? null, numItems: args.batchSize ?? RESEND_BATCH });
+  const paging = {
+    cursor: args.cursor ?? null,
+    numItems: args.batchSize ?? (remat.optimized ? RESEND_BATCH_OPTIMIZED : RESEND_BATCH),
+  };
+  const page =
+    args.only === 'cancelled'
+      ? await ctx.db
+          .query('campaignSends')
+          .withIndex('by_campaign_status', (q) =>
+            q.eq('campaignId', args.campaignId).eq('status', 'cancelled'),
+          )
+          .paginate(paging)
+      : await ctx.db
+          .query('campaignSends')
+          .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
+          .paginate(paging);
 
   let resent = args.resent ?? 0;
   let stillSkipped = 0;
@@ -161,13 +185,16 @@ export async function resendBatch(
       cursor: page.continueCursor,
       resent,
       batchSize: args.batchSize,
+      only: args.only,
     });
     return { isDone: false, continueCursor: page.continueCursor };
   }
 
+  // Nothing to re-queue: a resend of all ends sent as before, a resume ends as the stop left it, sent when something had left.
+  const settled = args.only === 'cancelled' && campaign.sentCount === 0 ? 'failed' : 'sent';
   await ctx.db.patch(args.campaignId, {
     failedCount,
-    status: resent > 0 ? 'sending' : 'sent',
+    status: resent > 0 ? 'sending' : settled,
     updatedAt: Date.now(),
   });
   if (resent > 0) {

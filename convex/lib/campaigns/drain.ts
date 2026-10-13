@@ -2,7 +2,7 @@ import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 
-// A page of the campaigns being sent, checked by the hourly restart: far more than are ever sent at once.
+// The campaigns being sent that the hourly restart looks at: one organisation never has a hundred campaigns leaving at once, so one page is the whole set; past that, the rest would wait for the next hour and the first hundred keep the page.
 const STUCK_PAGE = 100;
 
 /** The drain's next call, scheduled and kept on the campaign: one chain per campaign, found again if it breaks. */

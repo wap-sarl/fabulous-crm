@@ -1,7 +1,7 @@
 import type { NavigateFunction } from 'react-router-dom';
 import type { Doc } from '@crm/lib/backend';
 import { Button, PageHeader, StatusBadge } from '@crm/design-system';
-import { OctagonX, RotateCcw } from 'lucide-react';
+import { OctagonX, Play, RotateCcw } from 'lucide-react';
 import { CampaignChannelBadge } from './CampaignChannelBadge';
 import { CAMPAIGN_STATUS_LABEL, CAMPAIGN_STATUS_TONE } from '../../../lib/constants';
 import { describeError } from '@crm/lib/errors';
@@ -14,6 +14,7 @@ export function CampaignDetailHeader({
   canStop,
   retrying,
   handleResendAll,
+  handleResume,
   handleStop,
   navigate,
 }: {
@@ -22,6 +23,7 @@ export function CampaignDetailHeader({
   canStop: boolean;
   retrying: boolean;
   handleResendAll: () => Promise<void>;
+  handleResume: () => Promise<void>;
   handleStop: () => void;
   navigate: NavigateFunction;
 }) {
@@ -50,10 +52,18 @@ export function CampaignDetailHeader({
             Arrêter l’envoi
           </Button>
         ) : canRetry ? (
-          <Button variant="outline" onClick={handleResendAll} loading={retrying}>
-            <RotateCcw className="size-4" />
-            Tout renvoyer
-          </Button>
+          <>
+            {campaign.status === 'stopped' && (
+              <Button onClick={handleResume} loading={retrying}>
+                <Play className="size-4" />
+                Reprendre l’envoi
+              </Button>
+            )}
+            <Button variant="outline" onClick={handleResendAll} loading={retrying}>
+              <RotateCcw className="size-4" />
+              Tout renvoyer
+            </Button>
+          </>
         ) : undefined
       }
     />

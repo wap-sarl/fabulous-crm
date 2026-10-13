@@ -3,6 +3,7 @@ import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { refusal, refusalOf } from '../../_lib/refusal';
 import { SCHEDULE_HORIZON_MS } from '../../_lib/validators/crm';
+import { loadAppConfig } from '../config/load';
 import { assertChannelDeliverable } from '../email/provider';
 import { trySend } from '../extensions/gates';
 
@@ -50,7 +51,7 @@ export async function startRefusal(
 ): Promise<string | null> {
   const channel = campaign.channel ?? 'email';
   try {
-    await assertChannelDeliverable(await ctx.db.query('appConfig').first(), channel);
+    await assertChannelDeliverable(await loadAppConfig(ctx), channel);
   } catch (error) {
     return refusalOf(error)?.code ?? 'start_refused';
   }

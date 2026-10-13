@@ -39,6 +39,7 @@ export function CampaignDetailPage() {
   const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
   const stopSending = useAuthMutation(api.features.campaigns.mutations.stopCampaignSending);
+  const resumeSending = useAuthMutation(api.features.campaigns.mutations.resumeCampaignSending);
   // Stable for the memoised recipients table.
   const handleRetrySend = useCallback(
     async (sendId: Id<'campaignSends'>) => {
@@ -75,6 +76,18 @@ export function CampaignDetailPage() {
   const waiting = campaign.status === 'scheduled' || campaign.status === 'draft';
   const canStop = campaign.status === 'sending' || campaign.status === 'preparing';
   const canRetry = !waiting && !canStop;
+
+  const handleResume = async () => {
+    setRetrying(true);
+    try {
+      await resumeSending({ campaignId: campaign._id });
+      toast.success('Envoi repris : les envois annulés sont remis en file.');
+    } catch (err) {
+      toast.error(retryErrorMessage(err));
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const handleStop = async () => {
     setConfirmStop(false);
@@ -118,6 +131,7 @@ export function CampaignDetailPage() {
         canStop={canStop}
         retrying={retrying}
         handleResendAll={handleResendAll}
+        handleResume={handleResume}
         handleStop={() => setConfirmStop(true)}
         navigate={navigate}
       />
@@ -125,7 +139,7 @@ export function CampaignDetailPage() {
         open={confirmStop}
         onOpenChange={setConfirmStop}
         title="Arrêter l’envoi ?"
-        description="Plus rien ne part. Les envois encore en file sont annulés ; « Tout renvoyer » ou un renvoi individuel les remettra en file."
+        description="Plus rien ne part. Les envois encore en file sont annulés ; « Reprendre l’envoi » les remettra en file, sans toucher à ceux déjà partis."
         confirmLabel="Arrêter"
         destructive
         onConfirm={handleStop}
@@ -135,8 +149,9 @@ export function CampaignDetailPage() {
         {waiting && <CampaignScheduleBanner campaign={campaign} timeZone={timeZone} />}
         {campaign.status === 'stopped' && (
           <p className="rounded-lg border border-border bg-muted/40 px-4 py-2 text-xs text-soft">
-            Envoi arrêté : les envois encore en file ont été annulés. « Tout renvoyer » les remet en
-            file, ainsi que les envois déjà partis ; un renvoi individuel ne remet que le sien.
+            Envoi arrêté : les envois encore en file ont été annulés. « Reprendre l’envoi » les
+            remet en file sans toucher à ceux déjà partis ; « Tout renvoyer » renvoie à tout le
+            monde, les destinataires déjà livrés compris.
           </p>
         )}
         {campaign.status === 'preparing' && (

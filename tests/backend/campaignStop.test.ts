@@ -30,7 +30,12 @@ afterEach(() => {
 
 async function setup(leads = 3, withoutEmail = 0): Promise<World> {
   const t = createTestConvex();
-  const emp = await seedEmployee(t, { email: 'agent@example.com', role: 'admin' });
+  // The clock moves by a day in one test: the session must outlive it.
+  const emp = await seedEmployee(t, {
+    email: 'agent@example.com',
+    role: 'admin',
+    sessionTtlMs: 3 * 24 * HOUR,
+  });
   await seedConfig(t);
   const as = asIdentity(t, emp.identity);
   for (let i = 0; i < withoutEmail; i++) {
@@ -161,6 +166,149 @@ describe('stopping a campaign', () => {
       cancelled: 0,
       isDone: true,
     });
+  });
+
+  test('resuming re-queues the cancelled sends and nothing else: the ones already sent stay sent and counted, the drain follows the last page', async () => {
+    const w = await setup(4);
+    const campaignId = await create(w);
+    await w.t.mutation(fn.prepareCampaignBatch, { campaignId, filter: {} });
+    const [first, second] = await sendsOf(w, campaignId);
+    await w.t.mutation(fn.recordSendResults, {
+      campaignId,
+      results: [
+        { sendId: first._id, status: 'sent', brevoMessageId: 'm-1' },
+        { sendId: second._id, status: 'failed', error: 'boom' },
+      ],
+    });
+    await w.as.mutation(api.features.campaigns.mutations.stopCampaignSending, { campaignId });
+    await w.t.mutation(fn.cancelPendingSends, { campaignId });
+    expect((await sendsOf(w, campaignId)).map((s) => s.status).sort()).toEqual([
+      'cancelled',
+      'cancelled',
+      'failed',
+      'sent',
+    ]);
+    const before = await get(w, campaignId);
+    expect(before).toMatchObject({ status: 'stopped', sentCount: 1, failedCount: 1 });
+
+    await expect(
+      w.as.mutation(api.features.campaigns.mutations.resumeCampaignSending, {
+        campaignId: await create(w),
+      }),
+    ).rejects.toMatchObject({ data: { code: 'campaign_not_stopped' } });
+    await w.as.mutation(api.features.campaigns.mutations.resumeCampaignSending, { campaignId });
+    expect((await get(w, campaignId)).status).toBe('preparing');
+    expect(await jobs(w, 'resendCampaignBatch')).toEqual([
+      { state: 'pending', args: { campaignId, only: 'cancelled' } },
+    ]);
+    // Two pages of one: the chain carries the word.
+    expect(
+      await w.t.mutation(fn.resendCampaignBatch, { campaignId, only: 'cancelled', batchSize: 1 }),
+    ).toMatchObject({ isDone: false });
+    const pending = (await jobs(w, 'resendCampaignBatch')).filter((j) => j.state === 'pending');
+    expect(pending.at(-1)?.args).toMatchObject({ campaignId, only: 'cancelled', resent: 1 });
+    expect(
+      await w.t.mutation(fn.resendCampaignBatch, {
+        campaignId,
+        only: 'cancelled',
+        batchSize: 1,
+        cursor: pending.at(-1)?.args.cursor as string,
+        resent: 1,
+      }),
+    ).toMatchObject({ isDone: true });
+
+    const after = await get(w, campaignId);
+    expect(after).toMatchObject({ status: 'sending', sentCount: 1, failedCount: 1 });
+    expect(await jobState(w, after.drainFnId)).toBe('pending');
+    const sends = await sendsOf(w, campaignId);
+    expect(sends.find((s) => s._id === first._id)).toMatchObject({
+      status: 'sent',
+      brevoMessageId: 'm-1',
+    });
+    expect(sends.find((s) => s._id === second._id)).toMatchObject({
+      status: 'failed',
+      error: 'boom',
+    });
+    expect(sends.filter((s) => s.status === 'pending').map((s) => s.sendAt)).toEqual([NOW, NOW]);
+    const events = await w.t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect())
+        .map((a) => a.metadata as { event?: string; count?: number } | undefined)
+        .filter((m): m is { event: string; count?: number } => m?.event !== undefined),
+    );
+    expect(events.at(-1)).toEqual({ event: 'resumed', count: 2 });
+  });
+
+  test('an optimised campaign resumed keeps each recipient’s hour; an A/B one resumed before its decision has its holdout due at once', async () => {
+    const w = await setup(12);
+    const leadIds = await w.t.run(async (ctx) =>
+      (await ctx.db.query('leads').collect()).map((l) => l._id),
+    );
+    // Everyone opened at 23:00 UTC in an earlier campaign.
+    const oldCampaign = await w.t.run((ctx) =>
+      ctx.db.insert('campaigns', {
+        name: 'Ancienne',
+        channel: 'email',
+        status: 'sent',
+        totalCount: 1,
+        sentCount: 1,
+        failedCount: 0,
+        updatedAt: NOW,
+      }),
+    );
+    for (const leadId of leadIds) {
+      const sendId = await w.t.run((ctx) =>
+        ctx.db.insert('campaignSends', {
+          campaignId: oldCampaign,
+          leadId,
+          params: {},
+          status: 'sent',
+        }),
+      );
+      await w.t.run((ctx) =>
+        ctx.db.insert('campaignEvents', {
+          campaignId: oldCampaign,
+          sendId,
+          leadId,
+          type: 'opened',
+          eventAt: Date.UTC(2026, 9, 1, 23, 0, 0),
+        }),
+      );
+    }
+    const campaignId = await w.as.mutation(api.features.campaigns.mutations.createCampaign, {
+      name: 'Test',
+      channel: 'email',
+      filter: {},
+      subject: 'Objet A',
+      htmlBody: '<p>Corps</p>',
+      messageType: 'transactional',
+      sendTimeOptimized: true,
+      abTest: {
+        kind: 'subject',
+        subjectB: 'Objet B',
+        splitPercent: 50,
+        windowHours: 2,
+        metric: 'opens',
+      },
+    });
+    await w.t.mutation(fn.prepareCampaignBatch, { campaignId, filter: {} });
+    await w.as.mutation(api.features.campaigns.mutations.stopCampaignSending, { campaignId });
+    await w.t.mutation(fn.cancelPendingSends, { campaignId });
+    // Resumed the next morning.
+    const morning = Date.UTC(2026, 9, 14, 8, 0, 0);
+    pinClock(morning);
+    await w.as.mutation(api.features.campaigns.mutations.resumeCampaignSending, { campaignId });
+    await w.t.mutation(fn.resendCampaignBatch, { campaignId, only: 'cancelled' });
+    const sends = await sendsOf(w, campaignId);
+    expect(sends.every((s) => s.status === 'pending')).toBe(true);
+    // Each at their hour, the holdout included: tonight at eleven, no window to wait for.
+    expect(new Set(sends.map((s) => s.sendAt))).toEqual(new Set([Date.UTC(2026, 9, 14, 23, 0, 0)]));
+    pinClock(Date.UTC(2026, 9, 14, 23, 0, 0));
+    const batch = await w.t.query(fn.getPendingSends, { campaignId });
+    expect(batch?.sends).toHaveLength(sends.length);
+    // The decision is asked at once, on no result: said so.
+    expect(batch?.winnerPending).toBe(true);
+    await w.t.mutation(fn.decideAbWinner, { campaignId });
+    expect((await get(w, campaignId)).abTest).toMatchObject({ winner: 'A', decidedBy: 'fallback' });
   });
 
   test('while it prepares: the preparation chain ends with nothing more written; a settled campaign cannot be stopped', async () => {

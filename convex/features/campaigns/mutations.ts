@@ -1,4 +1,3 @@
-import { follows, positiveIntSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
 import { employeeMutation } from '../../_lib/auth';
@@ -9,12 +8,11 @@ import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/
 import { loadEmailTemplate } from '../../lib/templates/records';
 import {
   assertChannelDeliverable,
-  EMAIL_PROVIDER_REQUIRED,
-  isEmailProviderConfigured,
   resolveBrevo,
   resolveEmailProvider,
-  SMS_PROVIDER_REQUIRED,
 } from '../../lib/email/provider';
+import { resolveCampaignContent } from '../../lib/campaigns/content';
+import { loadAppConfig } from '../../lib/config/load';
 import { scheduleDrain } from '../../lib/campaigns/drain';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import {
@@ -79,7 +77,7 @@ export const createCampaign = employeeMutation({
     }
 
     // Channels and modes the configured provider cannot serve are rejected up front.
-    const cfg = await ctx.db.query('appConfig').first();
+    const cfg = await loadAppConfig(ctx);
     const provider = await resolveEmailProvider(cfg);
     const emailProvider = provider.kind;
     const smsAvailable = (await resolveBrevo(cfg)).smsAvailable;
@@ -95,49 +93,11 @@ export const createCampaign = employeeMutation({
       });
     }
 
-    // Resolve and validate the content fields for the chosen channel/mode.
-    let brevoTemplateId: number | undefined;
-    let subject: string | undefined;
-    let htmlBody: string | undefined;
-    let smsBody: string | undefined;
-
-    if (args.channel === 'sms') {
-      // SMS is Brevo-only, independent of the email provider.
-      if (!smsAvailable) {
-        throw refusal('sms_provider_required', { message: SMS_PROVIDER_REQUIRED });
-      }
-      smsBody = args.smsBody?.trim();
-      if (!smsBody) {
-        throw refusal('sms_body_required', { message: 'Le message SMS est requis.' });
-      }
-    } else {
-      // Without a usable provider (Brevo key or SMTP host) the campaign would silently never send.
-      if (!isEmailProviderConfigured(provider)) {
-        throw refusal('email_provider_required', { message: EMAIL_PROVIDER_REQUIRED });
-      }
-      const customHtml = args.htmlBody?.trim();
-      if (customHtml) {
-        // Custom (WYSIWYG) email: a subject is required.
-        subject = args.subject?.trim();
-        if (!subject) {
-          throw refusal('email_subject_required', { message: 'L’objet de l’e-mail est requis.' });
-        }
-        htmlBody = customHtml;
-      } else {
-        // Brevo merges a template server-side, so templates are unavailable under SMTP.
-        if (emailProvider === 'smtp') {
-          throw refusal('brevo_template_unavailable', {
-            message:
-              'Les modèles Brevo ne sont pas disponibles en mode SMTP. Utilisez un e-mail personnalisé.',
-          });
-        }
-        // Template email: a positive integer Brevo template id is required.
-        if (!follows(positiveIntSchema, args.brevoTemplateId)) {
-          throw refusal('brevo_template_invalid', { message: 'ID de template Brevo invalide.' });
-        }
-        brevoTemplateId = args.brevoTemplateId;
-      }
-    }
+    const { brevoTemplateId, subject, htmlBody, smsBody } = resolveCampaignContent(
+      args,
+      provider,
+      smsAvailable,
+    );
 
     const abTest = args.abTest ? checkAbTest(args.abTest, htmlBody) : undefined;
 
@@ -198,7 +158,7 @@ export const retryCampaignSend = employeeMutation({
       throw refusal('campaign_sending');
     }
 
-    const cfg = await ctx.db.query('appConfig').first();
+    const cfg = await loadAppConfig(ctx);
     await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
 
     const remat = await loadResendContext(ctx, campaign);
@@ -244,7 +204,7 @@ export const resendAllCampaignSends = employeeMutation({
     }
     if (campaign.totalCount === 0) return null;
 
-    const cfg = await ctx.db.query('appConfig').first();
+    const cfg = await loadAppConfig(ctx);
     await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
     requireLinkBase(campaign);
     await requireSendAllowed(ctx, {
@@ -369,6 +329,46 @@ export const stopCampaignSending = employeeMutation({
       entityId: args.campaignId,
       action: 'update',
       metadata: { event: 'stopped', sentCount: campaign.sentCount },
+    });
+    return null;
+  },
+});
+
+/** « Reprendre l'envoi » of a stopped campaign: the sends that were cancelled go back in the queue, nothing else; those already sent stay sent. The pages re-queue them, the drain follows the last. */
+export const resumeCampaignSending = employeeMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'stopped') throw refusal('campaign_not_stopped');
+    await assertChannelDeliverable(await loadAppConfig(ctx), campaign.channel ?? 'email');
+    // What neither left nor failed is what was cancelled.
+    const queued = Math.max(0, campaign.totalCount - campaign.sentCount - campaign.failedCount);
+    if (queued > 0) {
+      await requireSendAllowed(ctx, {
+        source: 'campaign',
+        channel: campaign.channel ?? 'email',
+        count: queued,
+        stage: 'preparing',
+      });
+    }
+    await ctx.db.patch(args.campaignId, {
+      status: 'preparing',
+      failureReason: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.resendCampaignBatch, {
+      campaignId: args.campaignId,
+      only: 'cancelled',
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata: { event: 'resumed', count: queued },
     });
     return null;
   },

@@ -13,6 +13,7 @@ const RETRY_ERRORS: Record<string, string> = {
   campaign_not_schedulable: 'Cette campagne est déjà partie : elle ne peut plus être programmée.',
   campaign_not_scheduled: 'Cette campagne n’est pas programmée.',
   campaign_not_sending: 'Cette campagne n’est pas en cours d’envoi.',
+  campaign_not_stopped: 'Cette campagne n’est pas arrêtée.',
   schedule_time_invalid: 'L’heure d’envoi doit être à venir, dans l’année.',
 };
 
