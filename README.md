@@ -293,6 +293,26 @@ workspaces.
   campagnes renvoie le libellé du statut.
 - **Campagnes** : création de campagnes email Brevo (template + destinataires
   filtrés), suivi des envois (`campaignSends`), statuts.
+- **Modèles d'e-mail et blocs de texte** (*Paramètres → Modèles*, ouvert à
+  tout employé) : des **modèles** (`emailTemplates` : nom, objet, corps HTML
+  de l'éditeur avec ses `{{ params.x }}`, catégorie, propriétaire, visibilité
+  `private` / `team` / `organization`, suppression douce purgée avec la
+  conservation) lus selon leur visibilité par les règles de périmètre (le sien,
+  ceux de ses coéquipiers, ceux de l'organisation ; un accès complet lit tout),
+  modifiables par leur auteur ou un détenteur du droit *Paramètres*, dupliqués
+  en copie privée ; trois fournis à l'installation (« Bienvenue », « Relance »,
+  « Invitation », à l'organisation, au premier administrateur) et un bouton les
+  recrée. « Charger un modèle » dans l'éditeur de campagne (qui peut aussi
+  « Enregistrer comme modèle » l'e-mail écrit) et dans l'étape « Envoyer un
+  e-mail » d'un workflow : le contenu est copié, l'identifiant gardé
+  (`campaigns.templateId`, `templateId` du nœud) pour les **chiffres d'usage**
+  du modèle, calculés à la lecture dans le périmètre du lecteur : campagnes
+  envoyées depuis lui (les cent dernières), leurs envois, ouvertures et clics
+  sommés des compteurs de campagne, et les étapes de workflow qui le chargent
+  (un e-mail de workflow n'est pas suivi : il compte, sans plus). Des **blocs de texte** (`snippets` :
+  nom, raccourci `/devis`, texte, communs à l'organisation) s'insèrent dans
+  l'éditeur par leur raccourci : taper `/` ouvre le menu, le texte choisi
+  remplace la saisie, une ligne en ligne, plusieurs en paragraphes.
 - **Abonnements et centre de préférences** : des **types d'abonnement**
   (*Paramètres → Abonnements*, `subscriptionTypes` : nom, description, canal,
   base légale *consentement* ou *intérêt légitime*, actif, ordre ; trois

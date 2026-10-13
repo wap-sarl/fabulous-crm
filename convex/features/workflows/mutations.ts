@@ -17,6 +17,20 @@ import { lightValidateGraph } from '../../lib/workflows/rules';
 import { activationIssue } from '../../lib/workflows/activation';
 import { enrollLead } from '../../lib/workflows/dispatch';
 import { kickParkedRuns, stopActiveRuns, stopRun } from '../../lib/workflows/runs';
+import { loadEmailTemplate } from '../../lib/templates/records';
+
+type Nodes = Doc<'workflows'>['nodes'];
+
+/** Only a template newly named must be in reach: a stored reference feeds usage figures and nothing else, so it stays whatever becomes of its template. */
+async function checkTemplates(ctx: MutationCtx, nodes: Nodes, stored: Nodes = []): Promise<void> {
+  const kept = new Set(
+    stored.map((node) => (node.type === 'send_email' ? node.templateId : undefined)),
+  );
+  for (const node of nodes) {
+    if (node.type === 'send_email' && node.templateId && !kept.has(node.templateId))
+      await loadEmailTemplate(ctx, node.templateId);
+  }
+}
 
 /** Every employee manages workflows, as for campaigns; a structural edit requires a pause, so the engine never reads a graph that changes under a run. */
 
@@ -52,6 +66,7 @@ export const createWorkflow = employeeMutation({
     if (!name) throw refusal('workflow_name_required', { message: NAME_REQUIRED });
     const graphError = lightValidateGraph(args.nodes, args.startNodeId);
     if (graphError) throw refusal('workflow_graph_invalid', { message: graphError });
+    await checkTemplates(ctx, args.nodes);
 
     const workflowId = await ctx.db.insert('workflows', {
       name,
@@ -114,6 +129,7 @@ export const updateWorkflow = employeeMutation({
     }
     const graphError = lightValidateGraph(args.nodes, args.startNodeId);
     if (graphError) throw refusal('workflow_graph_invalid', { message: graphError });
+    await checkTemplates(ctx, args.nodes, workflow.nodes);
 
     await ctx.db.patch(args.workflowId, { ...updates, ...updateAuditFields(ctx.userId) });
 

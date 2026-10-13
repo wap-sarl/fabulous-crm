@@ -28,6 +28,7 @@ import type * as _lib_validators_connectors from "../_lib/validators/connectors.
 import type * as _lib_validators_crm from "../_lib/validators/crm.js";
 import type * as _lib_validators_deals from "../_lib/validators/deals.js";
 import type * as _lib_validators_duplicates from "../_lib/validators/duplicates.js";
+import type * as _lib_validators_emailTemplates from "../_lib/validators/emailTemplates.js";
 import type * as _lib_validators_employees from "../_lib/validators/employees.js";
 import type * as _lib_validators_fields from "../_lib/validators/fields.js";
 import type * as _lib_validators_filters from "../_lib/validators/filters.js";
@@ -93,6 +94,8 @@ import type * as features_duplicates_mutations from "../features/duplicates/muta
 import type * as features_duplicates_queries from "../features/duplicates/queries.js";
 import type * as features_email_actions from "../features/email/actions.js";
 import type * as features_email_send from "../features/email/send.js";
+import type * as features_emailTemplates_mutations from "../features/emailTemplates/mutations.js";
+import type * as features_emailTemplates_queries from "../features/emailTemplates/queries.js";
 import type * as features_forms_internal from "../features/forms/internal.js";
 import type * as features_forms_mutations from "../features/forms/mutations.js";
 import type * as features_forms_queries from "../features/forms/queries.js";
@@ -135,6 +138,8 @@ import type * as features_roles_queries from "../features/roles/queries.js";
 import type * as features_scoring_internal from "../features/scoring/internal.js";
 import type * as features_scoring_mutations from "../features/scoring/mutations.js";
 import type * as features_scoring_queries from "../features/scoring/queries.js";
+import type * as features_snippets_mutations from "../features/snippets/mutations.js";
+import type * as features_snippets_queries from "../features/snippets/queries.js";
 import type * as features_subscriptions_mutations from "../features/subscriptions/mutations.js";
 import type * as features_subscriptions_queries from "../features/subscriptions/queries.js";
 import type * as features_teams_mutations from "../features/teams/mutations.js";
@@ -229,6 +234,7 @@ import type * as lib_shared_db from "../lib/shared/db.js";
 import type * as lib_shared_devWhitelist from "../lib/shared/devWhitelist.js";
 import type * as lib_shared_docs from "../lib/shared/docs.js";
 import type * as lib_sms_brevo from "../lib/sms/brevo.js";
+import type * as lib_templates_records from "../lib/templates/records.js";
 import type * as lib_timeline_events from "../lib/timeline/events.js";
 import type * as lib_timeline_pagination from "../lib/timeline/pagination.js";
 import type * as lib_timeline_sources from "../lib/timeline/sources.js";
@@ -282,6 +288,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/crm": typeof _lib_validators_crm;
   "_lib/validators/deals": typeof _lib_validators_deals;
   "_lib/validators/duplicates": typeof _lib_validators_duplicates;
+  "_lib/validators/emailTemplates": typeof _lib_validators_emailTemplates;
   "_lib/validators/employees": typeof _lib_validators_employees;
   "_lib/validators/fields": typeof _lib_validators_fields;
   "_lib/validators/filters": typeof _lib_validators_filters;
@@ -347,6 +354,8 @@ declare const fullApi: ApiFromModules<{
   "features/duplicates/queries": typeof features_duplicates_queries;
   "features/email/actions": typeof features_email_actions;
   "features/email/send": typeof features_email_send;
+  "features/emailTemplates/mutations": typeof features_emailTemplates_mutations;
+  "features/emailTemplates/queries": typeof features_emailTemplates_queries;
   "features/forms/internal": typeof features_forms_internal;
   "features/forms/mutations": typeof features_forms_mutations;
   "features/forms/queries": typeof features_forms_queries;
@@ -389,6 +398,8 @@ declare const fullApi: ApiFromModules<{
   "features/scoring/internal": typeof features_scoring_internal;
   "features/scoring/mutations": typeof features_scoring_mutations;
   "features/scoring/queries": typeof features_scoring_queries;
+  "features/snippets/mutations": typeof features_snippets_mutations;
+  "features/snippets/queries": typeof features_snippets_queries;
   "features/subscriptions/mutations": typeof features_subscriptions_mutations;
   "features/subscriptions/queries": typeof features_subscriptions_queries;
   "features/teams/mutations": typeof features_teams_mutations;
@@ -483,6 +494,7 @@ declare const fullApi: ApiFromModules<{
   "lib/shared/devWhitelist": typeof lib_shared_devWhitelist;
   "lib/shared/docs": typeof lib_shared_docs;
   "lib/sms/brevo": typeof lib_sms_brevo;
+  "lib/templates/records": typeof lib_templates_records;
   "lib/timeline/events": typeof lib_timeline_events;
   "lib/timeline/pagination": typeof lib_timeline_pagination;
   "lib/timeline/sources": typeof lib_timeline_sources;

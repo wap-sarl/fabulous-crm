@@ -62,6 +62,8 @@ export function CampaignCreatePage() {
   const [subscriptionTypeId, setSubscriptionTypeId] = useState<Id<'subscriptionTypes'> | null>(
     null,
   );
+  // The CRM template the e-mail was loaded from or saved as: the campaign counts towards its figures.
+  const [crmTemplateId, setCrmTemplateId] = useState<Id<'emailTemplates'> | null>(null);
   const [trackedLinks, setTrackedLinks] = useState<CampaignTrackedLink[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
@@ -172,6 +174,8 @@ export function CampaignCreatePage() {
         messageType,
         subscriptionTypeId:
           messageType === 'marketing' ? (subscriptionTypeId ?? undefined) : undefined,
+        templateId:
+          channel === 'email' && emailMode === 'editor' ? (crmTemplateId ?? undefined) : undefined,
         // The server resolves the recipients from the filter: an id array would cap the campaign at Convex's 8,192-element limit.
         filter: toFilterArgs(filters),
         trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
@@ -247,6 +251,7 @@ export function CampaignCreatePage() {
           onTrackedLinksChange={setTrackedLinks}
           propertyDefinitions={propertyDefinitions}
           templateAvailable={templateAvailable}
+          onLoadTemplate={setCrmTemplateId}
         />
 
         <div className="flex flex-col gap-3">

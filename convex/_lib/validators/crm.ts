@@ -182,6 +182,8 @@ export const campaignValidator = v.object({
   messageType: v.optional(messageTypeValidator),
   // The subscription the campaign writes under: its recipients are the contacts in on it (the filter carries the rule); absent on a transactional one or a legacy row.
   subscriptionTypeId: v.optional(v.id('subscriptionTypes')),
+  // The CRM template the e-mail was loaded from, for its usage figures; the content is a copy, edited freely.
+  templateId: v.optional(v.id('emailTemplates')),
   // Chosen channel. Optional so pre-channel campaigns still validate (= email).
   channel: v.optional(campaignChannelValidator),
   // Tracked links authored in the composer (snapshot, like subject/htmlBody).

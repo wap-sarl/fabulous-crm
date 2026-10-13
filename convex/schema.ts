@@ -22,6 +22,7 @@ import {
 } from './_lib/validators/forms';
 import { scoringRuleValidator, scoringStateValidator } from './_lib/validators/scoring';
 import { consentEventValidator, subscriptionTypeValidator } from './_lib/validators/subscriptions';
+import { emailTemplateValidator, snippetValidator } from './_lib/validators/emailTemplates';
 import { appConfigValidator } from './_lib/validators/appConfig';
 import {
   connectorAccountValidator,
@@ -300,6 +301,11 @@ const tables = {
     .index('by_entity', ['entityType', 'entityId'])
     .index('by_timestamp', ['timestamp']),
 
+  // Reusable e-mails (validators/emailTemplates.ts): the ones people wrote, read whole and filtered by scope.
+  emailTemplates: defineTable(emailTemplateValidator).index('by_deletedAt', ['deletedAt']),
+  // Text blocks typed by shortcut: a handful of rows.
+  snippets: defineTable(snippetValidator).index('by_shortcut', ['shortcut']),
+
   // The topics a contact subscribes to (validators/subscriptions.ts): a handful of rows, read whole.
   subscriptionTypes: defineTable(subscriptionTypeValidator),
   // Every change of a contact's consent, never edited: the proof of when and how it was collected.
@@ -426,6 +432,8 @@ const tables = {
 
   campaigns: defineTable(campaignValidator)
     .index('by_status', ['status'])
+    // The campaigns sent from one template, for its usage figures.
+    .index('by_template', ['templateId'])
     // Closed campaigns past their retention whose tracked links are still there, for the purge: a campaign leaves the range once they are gone.
     .index('by_status_linksPurgedAt_updatedAt', ['status', 'linksPurgedAt', 'updatedAt'])
     // The list and the pickers search a name as one types.
