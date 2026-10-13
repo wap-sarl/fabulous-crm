@@ -448,6 +448,8 @@ const tables = {
   campaignSends: defineTable(campaignSendValidator)
     .index('by_campaign', ['campaignId'])
     .index('by_campaign_status', ['campaignId', 'status'])
+    // The pending sends due by now, and the earliest still to come.
+    .index('by_campaign_status_sendAt', ['campaignId', 'status', 'sendAt'])
     .index('by_lead', ['leadId'])
     // Correlates Brevo SMS webhook events (STOP opt-outs) back to the lead.
     .index('by_brevoMessageId', ['brevoMessageId'])

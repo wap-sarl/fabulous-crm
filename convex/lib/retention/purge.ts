@@ -138,7 +138,7 @@ export async function purgePage(
     );
   }
   // The tracked links of a closed campaign redirect until the campaign's retention is over; a campaign whose links are gone is marked and leaves the range, so each page walks only what is left to do.
-  for (const status of ['sent', 'failed'] as const) {
+  for (const status of ['sent', 'failed', 'stopped'] as const) {
     const closed = await ctx.db
       .query('campaigns')
       .withIndex('by_status_linksPurgedAt_updatedAt', (q) =>

@@ -9,6 +9,7 @@ import {
   type SocialProviderConfig,
   type SsoProvider,
   ssoProviderIdSchema,
+  timezoneSchema,
 } from '../../_lib/validators/appConfig';
 import {
   ATTACHMENT_MAX_BYTES_CEILING,
@@ -70,6 +71,7 @@ const emailConfigInput = v.object({
 /** What the settings pages send: every field is optional, an omitted one keeps what is stored. */
 export const settingsArgs = {
   organizationName: v.optional(v.string()),
+  timezone: v.optional(v.string()),
   appUrl: v.optional(v.string()),
   senderEmail: v.optional(v.string()),
   senderName: v.optional(v.string()),
@@ -105,6 +107,9 @@ const keepSecret = async (incoming: string | undefined, existing: string | undef
 export function checkSettings(cfg: Config, args: SettingsArgs): void {
   if (args.primaryColor !== undefined && !follows(hexColorSchema, args.primaryColor)) {
     throw refusal('invalid_primary_color');
+  }
+  if (args.timezone !== undefined && !follows(timezoneSchema, args.timezone)) {
+    throw refusal('invalid_timezone');
   }
   if (args.ssoProviders) {
     // An id already stored is not checked again: its callback path is declared at the issuer.

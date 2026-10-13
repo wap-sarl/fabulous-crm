@@ -1,4 +1,6 @@
 import { type Infer, v } from 'convex/values';
+import { z } from 'zod';
+import { leadFilterArgs } from './filters';
 import {
   addressValidator,
   firstAndLastNameValidator,
@@ -97,12 +99,17 @@ export type SubscriptionStatus = Infer<typeof subscriptionStatusValidator>;
 export type LeadSubscription = Infer<typeof leadSubscriptionValidator>;
 
 export const campaignStatusValidator = v.union(
+  // Written but not started: a scheduled send that was cancelled waits here for a new time, or for « Envoyer maintenant ».
   v.literal('draft'),
+  // Waiting for `scheduledAt`, when `scheduledFnId` starts the preparation.
+  v.literal('scheduled'),
   // The campaignSends are being materialized in scheduled batches (prepareCampaignBatch); 'sending' follows.
   v.literal('preparing'),
   v.literal('sending'),
   v.literal('sent'),
   v.literal('failed'),
+  // Stopped by hand while sending: the sends still queued were cancelled, a resend re-queues them.
+  v.literal('stopped'),
 );
 
 /** Channel a campaign targets. Absent on legacy rows = email. */
@@ -137,6 +144,33 @@ export const campaignTrackedLinkValidator = v.object({
 
 export type CampaignTrackedLink = Infer<typeof campaignTrackedLinkValidator>;
 
+export const campaignVariantValidator = v.union(v.literal('A'), v.literal('B'));
+export type CampaignVariant = Infer<typeof campaignVariantValidator>;
+
+/** An A/B test on a custom e-mail: a share of the audience gets A or B, the rest waits for the window to close and receives the variant the metric prefers; A is the campaign's own subject and body. */
+export const campaignAbTestValidator = v.object({
+  kind: v.union(v.literal('subject'), v.literal('content')),
+  subjectB: v.optional(v.string()),
+  htmlBodyB: v.optional(v.string()),
+  // Share of the recipients in the test, split in two; the rest is the holdout.
+  splitPercent: v.number(),
+  windowHours: v.number(),
+  metric: v.union(v.literal('opens'), v.literal('clicks')),
+  winner: v.optional(campaignVariantValidator),
+  decidedAt: v.optional(v.number()),
+  // `fallback`: neither variant had a send or a result, A went by default.
+  decidedBy: v.optional(v.union(v.literal('result'), v.literal('fallback'))),
+});
+export type CampaignAbTest = Infer<typeof campaignAbTestValidator>;
+
+export const AB_SPLIT_MIN = 10;
+export const AB_SPLIT_MAX = 50;
+export const AB_WINDOW_HOURS_MAX = 72;
+export const abSplitPercentSchema = z.number().int().min(AB_SPLIT_MIN).max(AB_SPLIT_MAX);
+export const abWindowHoursSchema = z.number().int().min(1).max(AB_WINDOW_HOURS_MAX);
+/** A year ahead at most: further is a typo. */
+export const SCHEDULE_HORIZON_MS = 366 * 24 * 3_600_000;
+
 /** The figures of a campaign page that are one per send: each counts the sends carrying the stamp of its name, `pending` and `skipped` those in that status. */
 export const CAMPAIGN_STAT_KEYS = [
   'pending',
@@ -150,6 +184,13 @@ export const CAMPAIGN_STAT_KEYS = [
 ] as const;
 export type CampaignStatKey = (typeof CAMPAIGN_STAT_KEYS)[number];
 
+const campaignVariantStatsValidator = v.object({
+  sent: v.number(),
+  opened: v.number(),
+  clicked: v.number(),
+});
+export type CampaignVariantStats = Infer<typeof campaignVariantStatsValidator>;
+
 /** What the sends of a campaign add up to, kept by the campaignSends trigger (lib/campaigns/stats.ts) so the page reads no send; `sentByHour` buckets `sentAt` by hour start (epoch ms, as a string) for the chart. */
 export const campaignStatsValidator = v.object({
   ...(Object.fromEntries(CAMPAIGN_STAT_KEYS.map((key) => [key, v.number()])) as Record<
@@ -157,6 +198,8 @@ export const campaignStatsValidator = v.object({
     ReturnType<typeof v.number>
   >),
   sentByHour: v.record(v.string(), v.number()),
+  // The sends of each variant of an A/B test and what they earned; absent when the campaign has none.
+  variants: v.optional(v.record(v.string(), campaignVariantStatsValidator)),
 });
 export type CampaignStats = Infer<typeof campaignStatsValidator>;
 
@@ -193,6 +236,16 @@ export const campaignValidator = v.object({
   status: campaignStatusValidator,
   // Code of the refusal that failed the campaign during preparation (extensions), if any.
   failureReason: v.optional(v.string()),
+  // The recipients' filter, kept until the campaign starts: resolved at that moment, not when it was written.
+  filter: v.optional(v.object(leadFilterArgs)),
+  // When a scheduled campaign starts, and the scheduled call that starts it, cancelled by a reschedule.
+  scheduledAt: v.optional(v.number()),
+  scheduledFnId: v.optional(v.id('_scheduled_functions')),
+  // The drain's next call, so a chain that broke is seen and started again (`restartStuckDrains`).
+  drainFnId: v.optional(v.id('_scheduled_functions')),
+  // Each recipient is sent at the hour of the day they open most, within the day that follows the start.
+  sendTimeOptimized: v.optional(v.boolean()),
+  abTest: v.optional(campaignAbTestValidator),
   totalCount: v.number(),
   sentCount: v.number(),
   failedCount: v.number(),
@@ -213,6 +266,8 @@ export const campaignSendStatusValidator = v.union(
   v.literal('failed'),
   v.literal('skipped_no_email'),
   v.literal('skipped_no_phone'),
+  // Still queued when the campaign was stopped.
+  v.literal('cancelled'),
 );
 
 export const campaignSendValidator = v.object({
@@ -226,6 +281,10 @@ export const campaignSendValidator = v.object({
   // Placeholder values substituted into the message ({{ params.x }}).
   params: v.record(v.string(), v.string()),
   status: campaignSendStatusValidator,
+  // A or B in the test group, nothing in the holdout, which receives the winner.
+  variant: v.optional(campaignVariantValidator),
+  // Not before this time: the drain takes the pending sends that are due (`by_campaign_status_sendAt`).
+  sendAt: v.optional(v.number()),
   brevoMessageId: v.optional(v.string()),
   error: v.optional(v.string()),
   sentAt: v.optional(v.number()),

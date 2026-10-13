@@ -11,8 +11,17 @@ export type {
   CampaignTrackedLink,
   CampaignEventType,
   CampaignStats,
+  CampaignAbTest,
   TrackedLinkStandardField,
 } from '../../convex/_lib/validators/crm';
+export {
+  AB_SPLIT_MAX,
+  AB_SPLIT_MIN,
+  AB_WINDOW_HOURS_MAX,
+  abSplitPercentSchema,
+  abWindowHoursSchema,
+} from '../../convex/_lib/validators/crm';
+export { DEFAULT_TIMEZONE } from '../../convex/_lib/validators/appConfig';
 export type {
   LifecycleStage,
   LifecycleConfig,

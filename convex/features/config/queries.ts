@@ -1,4 +1,5 @@
 import { v } from 'convex/values';
+import { DEFAULT_TIMEZONE } from '../../_lib/validators/appConfig';
 import { retentionPolicyValidator } from '../../_lib/validators/retention';
 import { trackingModeValidator } from '../../_lib/validators/tracking';
 import { connectorProviderValidator } from '../../_lib/validators/connectors';
@@ -31,6 +32,8 @@ export const getPublicConfig = query({
       ...(await extensions.publicConfig(ctx)),
       setupComplete,
       organizationName: cfg?.organizationName ?? 'CRM',
+      // Where a scheduled campaign's time is read and shown.
+      timezone: cfg?.timezone ?? DEFAULT_TIMEZONE,
       // Short-lived URLs, public so the login page and the runtime favicon can render before sign-in.
       logoUrl: cfg?.logoStorageId ? await ctx.storage.getUrl(cfg.logoStorageId) : null,
       faviconUrl: cfg?.faviconStorageId ? await ctx.storage.getUrl(cfg.faviconStorageId) : null,
@@ -64,6 +67,7 @@ export const getAdminConfig = settingsQuery({
   returns: v.union(
     v.object({
       organizationName: v.string(),
+      timezone: v.string(),
       appUrl: v.string(),
       senderEmail: v.string(),
       senderName: v.string(),
@@ -145,6 +149,7 @@ export const getAdminConfig = settingsQuery({
 
     return {
       organizationName: cfg.organizationName,
+      timezone: cfg.timezone ?? DEFAULT_TIMEZONE,
       appUrl: cfg.appUrl,
       senderEmail: cfg.senderEmail,
       senderName: cfg.senderName,

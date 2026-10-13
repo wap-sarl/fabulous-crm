@@ -59,9 +59,22 @@ const emailConfigValidator = v.object({
 export type EmailConfig = Infer<typeof emailConfigValidator>;
 
 /** A singleton: the setup wizard creates it (convex/setup/mutations.ts), or convex/seed/bootstrapConfig.ts backfills it on an existing deployment. */
+export const DEFAULT_TIMEZONE = 'Europe/Paris';
+/** An IANA name the runtime knows; the browser and the server agree on them. */
+export const timezoneSchema = z.string().refine((name) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: name });
+    return true;
+  } catch {
+    return false;
+  }
+});
+
 export const appConfigValidator = v.object({
   setupCompletedAt: v.optional(v.number()),
   organizationName: v.string(),
+  // The organisation's time zone (IANA), where a scheduled campaign's time is read; absent means Europe/Paris.
+  timezone: v.optional(v.string()),
   appUrl: v.string(), // canonical origin, no trailing slash
   senderEmail: v.string(),
   senderName: v.string(),

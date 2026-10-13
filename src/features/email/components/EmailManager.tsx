@@ -4,6 +4,7 @@ import { api, emailSchema, follows, positiveIntSchema } from '@crm/lib/backend';
 import {
   Button,
   Card,
+  Combobox,
   Input,
   Label,
   Spinner,
@@ -13,6 +14,7 @@ import {
   TabsTrigger,
 } from '@crm/design-system';
 import type { Draft } from '../types';
+import { timeZoneOptions } from '@crm/lib/timezone';
 import { BrevoSettings } from './BrevoSettings';
 import { SmtpSettings } from './SmtpSettings';
 import { errorText } from '@crm/lib/errors';
@@ -62,6 +64,7 @@ export function EmailManager() {
     setDraft({
       senderEmail: config.senderEmail,
       senderName: config.senderName,
+      timezone: config.timezone,
       provider: config.email.provider,
       brevoApiKey: '',
       brevoWebhookSecret: '',
@@ -110,6 +113,7 @@ export function EmailManager() {
       await updateConfig({
         senderEmail: draft.senderEmail,
         senderName: draft.senderName,
+        timezone: draft.timezone,
         email: {
           provider: draft.provider,
           // Empty secret → undefined → server keeps the stored value.
@@ -189,6 +193,20 @@ export function EmailManager() {
               onChange={(e) => set('senderEmail', e.target.value)}
               placeholder="ex. contact@votredomaine.fr"
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="timezone">Fuseau horaire de l'organisation</Label>
+            <Combobox
+              items={timeZoneOptions(draft.timezone).map((zone) => ({ value: zone, label: zone }))}
+              value={draft.timezone}
+              onValueChange={(zone) => set('timezone', zone)}
+              placeholder="Europe/Paris"
+              searchPlaceholder="Rechercher un fuseau…"
+              emptyText="Aucun fuseau ne correspond."
+            />
+            <p className="text-xs text-muted-foreground">
+              L'heure à laquelle une campagne programmée part est lue dans ce fuseau.
+            </p>
           </div>
         </div>
       </Card>

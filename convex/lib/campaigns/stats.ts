@@ -6,6 +6,7 @@ import {
   CAMPAIGN_STAT_KEYS,
   type CampaignStatKey,
   type CampaignStats,
+  type CampaignVariantStats,
 } from '../../_lib/validators/crm';
 
 const HOUR_MS = 3_600_000;
@@ -26,7 +27,11 @@ const emptyStats = (): CampaignStats => ({
 function sendStats(send: Doc<'campaignSends'>, sign: 1 | -1): CampaignStats {
   const stats = emptyStats();
   if (send.status === 'pending') stats.pending = sign;
-  if (send.status === 'skipped_no_email' || send.status === 'skipped_no_phone')
+  if (
+    send.status === 'skipped_no_email' ||
+    send.status === 'skipped_no_phone' ||
+    send.status === 'cancelled'
+  )
     stats.skipped = sign;
   if (send.deliveredAt !== undefined) stats.delivered = sign;
   if (send.openedAt !== undefined) stats.opened = sign;
@@ -37,7 +42,36 @@ function sendStats(send: Doc<'campaignSends'>, sign: 1 | -1): CampaignStats {
   if (send.sentAt !== undefined) {
     stats.sentByHour[String(Math.floor(send.sentAt / HOUR_MS) * HOUR_MS)] = sign;
   }
+  if (send.variant) {
+    stats.variants = {
+      [send.variant]: {
+        sent: send.status === 'sent' ? sign : 0,
+        opened: send.openedAt !== undefined ? sign : 0,
+        clicked: send.clickedAt !== undefined ? sign : 0,
+      },
+    };
+  }
   return stats;
+}
+
+const VARIANT_KEYS = ['sent', 'opened', 'clicked'] as const;
+const nothingOf = (figures: CampaignVariantStats) =>
+  VARIANT_KEYS.every((key) => figures[key] === 0);
+
+/** The figures of two sets of variants added up; a variant that comes to nothing is dropped, and the whole block with the last. */
+function addVariants(
+  a: CampaignStats['variants'],
+  b: CampaignStats['variants'],
+): CampaignStats['variants'] {
+  if (!a && !b) return undefined;
+  const sum: Record<string, CampaignVariantStats> = { ...a };
+  for (const [variant, figures] of Object.entries(b ?? {})) {
+    const total = { ...(sum[variant] ?? { sent: 0, opened: 0, clicked: 0 }) };
+    for (const key of VARIANT_KEYS) total[key] += figures[key];
+    if (nothingOf(total)) delete sum[variant];
+    else sum[variant] = total;
+  }
+  return Object.keys(sum).length > 0 ? sum : undefined;
 }
 
 /** Two sets of counters added up; an hour that comes to nothing is dropped. */
@@ -49,11 +83,16 @@ function addStats(a: CampaignStats, b: CampaignStats): CampaignStats {
     if (total === 0) delete sum.sentByHour[hour];
     else sum.sentByHour[hour] = total;
   }
+  const variants = addVariants(a.variants, b.variants);
+  if (variants) sum.variants = variants;
+  else delete sum.variants;
   return sum;
 }
 
 const countsNothing = (stats: CampaignStats): boolean =>
-  CAMPAIGN_STAT_KEYS.every((key) => stats[key] === 0) && Object.keys(stats.sentByHour).length === 0;
+  CAMPAIGN_STAT_KEYS.every((key) => stats[key] === 0) &&
+  Object.keys(stats.sentByHour).length === 0 &&
+  !stats.variants;
 
 const shardsOf = (ctx: Pick<QueryCtx, 'db'>, campaignId: Id<'campaigns'>) =>
   ctx.db
@@ -71,6 +110,9 @@ export async function readCampaignStats(
   for (const key of CAMPAIGN_STAT_KEYS) sum[key] = Math.max(0, sum[key]);
   for (const [hour, count] of Object.entries(sum.sentByHour)) {
     if (count < 0) delete sum.sentByHour[hour];
+  }
+  for (const figures of Object.values(sum.variants ?? {})) {
+    for (const key of VARIANT_KEYS) figures[key] = Math.max(0, figures[key]);
   }
   return sum;
 }

@@ -19,4 +19,12 @@ crons.hourly(
   {},
 );
 
+// A campaign being sent whose chain of calls broke, while a send is due, is drained again (lib/campaigns/drain.ts).
+crons.hourly(
+  'campaign drains restart',
+  { minuteUTC: 40 },
+  internal.features.campaigns.internal.restartStuckDrains,
+  {},
+);
+
 export default crons;

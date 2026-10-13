@@ -10,10 +10,13 @@ import {
   resolveEmailProvider,
 } from '../../lib/email/provider';
 import { renderPlaceholders, sendBrevoTemplateEmail, wrapEmailHtml } from '../../lib/email/brevo';
+import { registerBrevoWebhook } from '../../lib/email/brevoWebhooks';
 import { sendBrevoSms, toBrevoRecipient } from '../../lib/sms/brevo';
 import { createEmailDispatcher } from '../email/send';
+import { variantContent } from '../../lib/campaigns/variants';
 import type { CampaignSendStatus } from '../../schema';
-import { deferUnlessAllowed } from '../../lib/extensions/gates';
+import { scheduledWorkAllowed } from '../../lib/extensions/gates';
+import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensions/types';
 
 const BATCH_DELAY_MS = 1000;
 
@@ -38,67 +41,24 @@ export const registerBrevoEmailWebhook = internalAction({
     v.object({ action: v.literal('skipped'), reason: v.literal('provider_not_brevo') }),
     v.object({ action: v.string(), id: v.number(), url: v.string() }),
   ),
-  handler: async (ctx) => {
+  // Spelled out: inferred through the helper, the type would loop back through the generated api.
+  handler: async (
+    ctx,
+  ): Promise<
+    | { action: 'skipped'; reason: 'provider_not_brevo' }
+    | { action: string; id: number; url: string }
+  > => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const brevo = await resolveBrevo(cfg);
     // Email tracking webhooks only make sense when email goes through Brevo.
     if (!brevo.emailIsBrevo) {
       return { action: 'skipped', reason: 'provider_not_brevo' } as const;
     }
-    const apiKey = brevo.apiKey;
-    const secret = brevo.webhookSecret;
-    const siteUrl = process.env.CONVEX_SITE_URL;
-    for (const [name, value] of [
-      ['BREVO_API_KEY', apiKey],
-      ['BREVO_WEBHOOK_SECRET', secret],
-      ['CONVEX_SITE_URL', siteUrl],
-    ] as const) {
-      if (!value) throw new Error(`Configuration manquante : ${name}`);
-    }
-
-    const headers = {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      'api-key': apiKey!,
-    };
-    const endpoint = `${siteUrl}/webhooks/brevo/email`;
-    const body = JSON.stringify({
-      type: 'transactional',
+    return await registerBrevoWebhook(brevo, {
+      path: '/webhooks/brevo/email',
       description: 'Fabulous CRM — événements e-mail campagnes',
-      // The secret goes in a header, never in the URL, where it would sit in proxy logs and in Brevo's webhook listing.
-      url: endpoint,
-      headers: [{ key: 'x-webhook-secret', value: secret }],
       events: BREVO_EMAIL_WEBHOOK_EVENTS,
     });
-
-    // A re-run updates our webhook (matched by endpoint) instead of stacking duplicates; with none, Brevo answers the error `document_not_found`, not an empty list.
-    const listResponse = await fetch('https://api.brevo.com/v3/webhooks?type=transactional', {
-      headers,
-    });
-    const listBody = (await listResponse.json().catch(() => ({}))) as {
-      webhooks?: { id: number; url: string }[];
-      code?: string;
-    };
-    if (!listResponse.ok && listBody.code !== 'document_not_found') {
-      throw new Error(`Brevo GET /webhooks a échoué : ${JSON.stringify(listBody)}`);
-    }
-    const existing = listBody.webhooks?.find((w) => w.url.startsWith(endpoint));
-
-    const response = existing
-      ? await fetch(`https://api.brevo.com/v3/webhooks/${existing.id}`, {
-          method: 'PUT',
-          headers,
-          body,
-        })
-      : await fetch('https://api.brevo.com/v3/webhooks', { method: 'POST', headers, body });
-    if (!response.ok) {
-      throw new Error(
-        `Brevo ${existing ? 'PUT' : 'POST'} /webhooks a échoué : ${await response.text()}`,
-      );
-    }
-
-    const id = existing?.id ?? ((await response.json()) as { id: number }).id;
-    return { action: existing ? 'updated' : 'created', id, url: endpoint };
   },
 });
 
@@ -106,66 +66,15 @@ export const registerBrevoEmailWebhook = internalAction({
 export const registerBrevoSmsWebhook = internalAction({
   args: {},
   returns: v.object({ action: v.string(), id: v.number(), url: v.string() }),
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<{ action: string; id: number; url: string }> => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    const brevo = await resolveBrevo(cfg);
-    const apiKey = brevo.apiKey;
-    const secret = brevo.webhookSecret;
-    const siteUrl = process.env.CONVEX_SITE_URL;
-    for (const [name, value] of [
-      ['BREVO_API_KEY', apiKey],
-      ['BREVO_WEBHOOK_SECRET', secret],
-      ['CONVEX_SITE_URL', siteUrl],
-    ] as const) {
-      if (!value) throw new Error(`Configuration manquante : ${name}`);
-    }
-
-    const headers = {
-      accept: 'application/json',
-      'content-type': 'application/json',
-      'api-key': apiKey!,
-    };
-    const endpoint = `${siteUrl}/webhooks/brevo/sms`;
-    const body = JSON.stringify({
-      type: 'transactional',
+    return await registerBrevoWebhook(await resolveBrevo(cfg), {
+      path: '/webhooks/brevo/sms',
       channel: 'sms',
       description: 'Fabulous CRM — événements SMS entrants (STOP, réponses)',
-      // An account-level registration can carry a header: only the per-message webUrl (sendCampaignBatch) is stuck with a query secret.
-      url: endpoint,
-      headers: [{ key: 'x-webhook-secret', value: secret }],
       // Inbound only, the per-message webUrl already reports the outbound ones; these names differ from the payload `msg_status` ("replied", "unsubscribed", "bl") that handleSmsEvent reads.
       events: ['reply', 'unsubscribe', 'blacklisted'],
     });
-
-    // Re-runs update our webhook (matched by endpoint) instead of stacking dupes.
-    const listResponse = await fetch(
-      'https://api.brevo.com/v3/webhooks?type=transactional&channel=sms',
-      { headers },
-    );
-    const listBody = (await listResponse.json().catch(() => ({}))) as {
-      webhooks?: { id: number; url: string }[];
-      code?: string;
-    };
-    if (!listResponse.ok && listBody.code !== 'document_not_found') {
-      throw new Error(`Brevo GET /webhooks a échoué : ${JSON.stringify(listBody)}`);
-    }
-    const existing = listBody.webhooks?.find((w) => w.url.startsWith(endpoint));
-
-    const response = existing
-      ? await fetch(`https://api.brevo.com/v3/webhooks/${existing.id}`, {
-          method: 'PUT',
-          headers,
-          body,
-        })
-      : await fetch('https://api.brevo.com/v3/webhooks', { method: 'POST', headers, body });
-    if (!response.ok) {
-      throw new Error(
-        `Brevo ${existing ? 'PUT' : 'POST'} /webhooks a échoué : ${await response.text()}`,
-      );
-    }
-
-    const id = existing?.id ?? ((await response.json()) as { id: number }).id;
-    return { action: existing ? 'updated' : 'created', id, url: endpoint };
   },
 });
 
@@ -174,15 +83,15 @@ export const sendCampaignBatch = internalAction({
   args: { campaignId: v.id('campaigns') },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Every call of the chain goes through scheduleCampaignDrain, so the campaign knows its next call and the hourly restart can tell a broken chain from a sleeping one.
+    const again = (at: number) =>
+      ctx.runMutation(internal.features.campaigns.internal.scheduleCampaignDrain, {
+        campaignId: args.campaignId,
+        at,
+      });
     // Deferred (e.g. a suspended deployment): the pending sends wait untouched for the next attempt.
-    if (
-      await deferUnlessAllowed(
-        ctx,
-        'campaign_drain',
-        internal.features.campaigns.actions.sendCampaignBatch,
-        args,
-      )
-    ) {
+    if (!(await scheduledWorkAllowed(ctx, 'campaign_drain'))) {
+      await again(Date.now() + SCHEDULED_WORK_RETRY_MS);
       return null;
     }
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
@@ -193,10 +102,23 @@ export const sendCampaignBatch = internalAction({
       campaignId: args.campaignId,
     });
 
+    // Nothing due yet: the drain sleeps until the next send's time.
+    if (batch && batch.sends.length === 0 && batch.nextAt !== undefined) {
+      await again(batch.nextAt);
+      return null;
+    }
     if (!batch || batch.sends.length === 0) {
       await ctx.runMutation(internal.features.campaigns.internal.markCampaignComplete, {
         campaignId: args.campaignId,
       });
+      return null;
+    }
+    // The holdout is due and the test undecided: decided first, the batch is read again with the winner.
+    if (batch.winnerPending) {
+      await ctx.runMutation(internal.features.campaigns.internal.decideAbWinner, {
+        campaignId: args.campaignId,
+      });
+      await again(Date.now());
       return null;
     }
 
@@ -299,8 +221,12 @@ export const sendCampaignBatch = internalAction({
 
         // A custom (WYSIWYG) email goes through the active provider; without an HTML body, the Brevo template path below applies.
         if (batch.htmlBody) {
-          const subject = renderPlaceholders(batch.subject ?? '', send.params, false);
-          const htmlContent = wrapEmailHtml(renderPlaceholders(batch.htmlBody, send.params));
+          // The variant the send tests, or the winner for the holdout.
+          const content = variantContent(batch, send.variant ?? batch.abTest?.winner);
+          const subject = renderPlaceholders(content.subject ?? '', send.params, false);
+          const htmlContent = wrapEmailHtml(
+            renderPlaceholders(content.htmlBody ?? batch.htmlBody, send.params),
+          );
           const result = await dispatcher!.send({
             to: [{ email: send.email }],
             subject,
@@ -370,14 +296,8 @@ export const sendCampaignBatch = internalAction({
       results,
     });
 
-    // Reschedule for the next batch; markCampaignComplete fires when drained.
-    await ctx.scheduler.runAfter(
-      BATCH_DELAY_MS,
-      internal.features.campaigns.actions.sendCampaignBatch,
-      {
-        campaignId: args.campaignId,
-      },
-    );
+    // The next batch; markCampaignComplete fires when drained.
+    await again(Date.now() + BATCH_DELAY_MS);
     return null;
   },
 });

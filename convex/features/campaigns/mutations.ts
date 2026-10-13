@@ -1,42 +1,34 @@
-import { follows, httpUrlSchema, positiveIntSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
-import type { Doc } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
+import { checkTrackedLinks } from '../../lib/campaigns/links';
 import { loadResendContext, requeueSend, requireLinkBase } from '../../lib/campaigns/resend';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
 import { loadEmailTemplate } from '../../lib/templates/records';
 import {
-  resolveEmailProvider,
+  assertChannelDeliverable,
   resolveBrevo,
-  isEmailProviderConfigured,
+  resolveEmailProvider,
 } from '../../lib/email/provider';
+import { resolveCampaignContent } from '../../lib/campaigns/content';
+import { loadAppConfig } from '../../lib/config/load';
+import { scheduleDrain } from '../../lib/campaigns/drain';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import {
   campaignChannelValidator,
   campaignTrackedLinkValidator,
   messageTypeValidator,
 } from '../../_lib/validators/crm';
-import { validateLeadTargetValue } from '../../lib/leads/targets';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
 import { requireSendAllowed } from '../../lib/extensions/gates';
-
-const SMS_PROVIDER_REQUIRED = 'Les campagnes SMS nécessitent un compte Brevo configuré.';
-const EMAIL_PROVIDER_REQUIRED =
-  "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.";
-
-// Params injected for every recipient: tracked-link keys may not shadow them.
-const RESERVED_PARAM_KEYS = new Set([
-  'firstName',
-  'lastName',
-  'email',
-  'phone',
-  'status',
-  'comment',
-  'address',
-  'consentUrl',
-]);
+import {
+  cancelStart,
+  checkScheduledAt,
+  scheduleStart,
+  startCampaign,
+} from '../../lib/campaigns/schedule';
+import { abTestArgs, checkAbTest } from '../../lib/campaigns/variants';
 
 export const createCampaign = employeeMutation({
   args: {
@@ -58,6 +50,11 @@ export const createCampaign = employeeMutation({
     templateId: v.optional(v.id('emailTemplates')),
     // Tracked links authored in the composer (unique per-recipient URLs).
     trackedLinks: v.optional(v.array(campaignTrackedLinkValidator)),
+    // Later than now: the campaign waits for that time instead of starting at once.
+    scheduledAt: v.optional(v.number()),
+    // Each e-mail at the hour its recipient opens most, within the day that follows the start.
+    sendTimeOptimized: v.optional(v.boolean()),
+    abTest: v.optional(abTestArgs),
   },
   returns: v.id('campaigns'),
   handler: async (ctx, args) => {
@@ -67,6 +64,7 @@ export const createCampaign = employeeMutation({
     }
 
     const messageType = args.messageType ?? 'marketing';
+    if (args.scheduledAt !== undefined) checkScheduledAt(args.scheduledAt);
     if (args.templateId) await loadEmailTemplate(ctx, args.templateId);
     const subscriptionType = args.subscriptionTypeId
       ? await ctx.db.get(args.subscriptionTypeId)
@@ -79,7 +77,7 @@ export const createCampaign = employeeMutation({
     }
 
     // Channels and modes the configured provider cannot serve are rejected up front.
-    const cfg = await ctx.db.query('appConfig').first();
+    const cfg = await loadAppConfig(ctx);
     const provider = await resolveEmailProvider(cfg);
     const emailProvider = provider.kind;
     const smsAvailable = (await resolveBrevo(cfg)).smsAvailable;
@@ -87,39 +85,7 @@ export const createCampaign = employeeMutation({
     // Custom-property definitions are substituted as {{ params.custom_<id> }} and referenced by tracked links.
     const defsById = await loadPropertyDefsById(ctx, 'lead');
 
-    // Validate tracked links up front (keys, target field/property, value, redirect).
-    const trackedLinks = args.trackedLinks ?? [];
-    const linkKeys = new Set<string>();
-    for (const link of trackedLinks) {
-      if (
-        !/^\w+$/.test(link.key) ||
-        RESERVED_PARAM_KEYS.has(link.key) ||
-        link.key.startsWith('custom_')
-      ) {
-        throw refusal('tracked_link_key_invalid', {
-          message: `Clé de lien de suivi invalide : ${link.key}`,
-        });
-      }
-      if (linkKeys.has(link.key)) {
-        throw refusal('tracked_link_key_duplicate', {
-          message: `Clé de lien de suivi en double : ${link.key}`,
-        });
-      }
-      linkKeys.add(link.key);
-
-      const valueError = validateLeadTargetValue(link.target, link.value, defsById);
-      if (valueError) {
-        throw refusal('tracked_link_value_invalid', {
-          message: `Lien « ${link.label} » : ${valueError}`,
-        });
-      }
-
-      if (link.redirectUrl !== undefined && !follows(httpUrlSchema, link.redirectUrl)) {
-        throw refusal('tracked_link_redirect_invalid', {
-          message: `Lien « ${link.label} » : l'URL de redirection doit commencer par http(s)://`,
-        });
-      }
-    }
+    const trackedLinks = checkTrackedLinks(args.trackedLinks ?? [], defsById);
     const linkBase = process.env.CONVEX_SITE_URL;
     if (trackedLinks.length > 0 && !linkBase) {
       throw refusal('link_base_missing', {
@@ -127,49 +93,13 @@ export const createCampaign = employeeMutation({
       });
     }
 
-    // Resolve and validate the content fields for the chosen channel/mode.
-    let brevoTemplateId: number | undefined;
-    let subject: string | undefined;
-    let htmlBody: string | undefined;
-    let smsBody: string | undefined;
+    const { brevoTemplateId, subject, htmlBody, smsBody } = resolveCampaignContent(
+      args,
+      provider,
+      smsAvailable,
+    );
 
-    if (args.channel === 'sms') {
-      // SMS is Brevo-only, independent of the email provider.
-      if (!smsAvailable) {
-        throw refusal('sms_provider_required', { message: SMS_PROVIDER_REQUIRED });
-      }
-      smsBody = args.smsBody?.trim();
-      if (!smsBody) {
-        throw refusal('sms_body_required', { message: 'Le message SMS est requis.' });
-      }
-    } else {
-      // Without a usable provider (Brevo key or SMTP host) the campaign would silently never send.
-      if (!isEmailProviderConfigured(provider)) {
-        throw refusal('email_provider_required', { message: EMAIL_PROVIDER_REQUIRED });
-      }
-      const customHtml = args.htmlBody?.trim();
-      if (customHtml) {
-        // Custom (WYSIWYG) email: a subject is required.
-        subject = args.subject?.trim();
-        if (!subject) {
-          throw refusal('email_subject_required', { message: 'L’objet de l’e-mail est requis.' });
-        }
-        htmlBody = customHtml;
-      } else {
-        // Brevo merges a template server-side, so templates are unavailable under SMTP.
-        if (emailProvider === 'smtp') {
-          throw refusal('brevo_template_unavailable', {
-            message:
-              'Les modèles Brevo ne sont pas disponibles en mode SMTP. Utilisez un e-mail personnalisé.',
-          });
-        }
-        // Template email: a positive integer Brevo template id is required.
-        if (!follows(positiveIntSchema, args.brevoTemplateId)) {
-          throw refusal('brevo_template_invalid', { message: 'ID de template Brevo invalide.' });
-        }
-        brevoTemplateId = args.brevoTemplateId;
-      }
-    }
+    const abTest = args.abTest ? checkAbTest(args.abTest, htmlBody) : undefined;
 
     // Early gate: an exhausted allowance refuses before any recipient is materialised.
     await requireSendAllowed(ctx, {
@@ -191,37 +121,26 @@ export const createCampaign = employeeMutation({
       // A snapshot, so analytics degrade correctly even if the admin later switches providers.
       emailProvider: args.channel === 'email' ? emailProvider : undefined,
       trackedLinks: trackedLinks.length > 0 ? trackedLinks : undefined,
-      status: 'preparing',
+      // Kept for a scheduled start, and for a start by hand after a cancellation.
+      filter: args.filter,
+      sendTimeOptimized: args.channel === 'email' && args.sendTimeOptimized ? true : undefined,
+      abTest,
+      status: 'draft',
       totalCount: 0,
       sentCount: 0,
       failedCount: 0,
       statsCountedThrough: 'all',
       ...createAuditFields(ctx.userId),
     });
+    const campaign = (await ctx.db.get(campaignId))!;
 
     // Recipients are materialised in scheduled batches: one transaction caps at 8,192 writes, exceeded around 2,000 recipients with 3 tracked links.
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.prepareCampaignBatch, {
-      campaignId,
-      filter: args.filter,
-    });
+    if (args.scheduledAt !== undefined) await scheduleStart(ctx, campaign, args.scheduledAt);
+    else await startCampaign(ctx, campaign);
 
     return campaignId;
   },
 });
-
-/** Guards the resends, with the messages of createCampaign: a retry never resets rows into a provider that is silently unconfigured. */
-async function assertChannelDeliverable(
-  cfg: Doc<'appConfig'> | null,
-  channel: 'email' | 'sms',
-): Promise<void> {
-  if (channel === 'sms') {
-    if (!(await resolveBrevo(cfg)).smsAvailable) {
-      throw refusal('sms_provider_required', { message: SMS_PROVIDER_REQUIRED });
-    }
-  } else if (!isEmailProviderConfigured(await resolveEmailProvider(cfg))) {
-    throw refusal('email_provider_required', { message: EMAIL_PROVIDER_REQUIRED });
-  }
-}
 
 /** Resends one recipient whatever its status, except `pending`: that row is already queued. */
 export const retryCampaignSend = employeeMutation({
@@ -239,7 +158,7 @@ export const retryCampaignSend = employeeMutation({
       throw refusal('campaign_sending');
     }
 
-    const cfg = await ctx.db.query('appConfig').first();
+    const cfg = await loadAppConfig(ctx);
     await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
 
     const remat = await loadResendContext(ctx, campaign);
@@ -251,16 +170,15 @@ export const retryCampaignSend = employeeMutation({
       stage: 'resend',
     });
 
-    // `sent` was counted in sentCount; `failed` and `skipped_*` in failedCount.
+    // `sent` was counted in sentCount; `failed` and `skipped_*` in failedCount; a cancelled send in neither.
+    const wasCounted = send.status === 'failed' || send.status.startsWith('skipped_');
     await ctx.db.patch(args.campaignId, {
       sentCount: Math.max(0, campaign.sentCount - (send.status === 'sent' ? 1 : 0)),
-      failedCount: Math.max(0, campaign.failedCount - (send.status === 'sent' ? 0 : 1)),
+      failedCount: Math.max(0, campaign.failedCount - (wasCounted ? 1 : 0)),
       status: 'sending',
       ...updateAuditFields(ctx.userId),
     });
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.actions.sendCampaignBatch, {
-      campaignId: args.campaignId,
-    });
+    await scheduleDrain(ctx, args.campaignId, Date.now());
 
     await logAudit({
       ctx,
@@ -286,7 +204,7 @@ export const resendAllCampaignSends = employeeMutation({
     }
     if (campaign.totalCount === 0) return null;
 
-    const cfg = await ctx.db.query('appConfig').first();
+    const cfg = await loadAppConfig(ctx);
     await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
     requireLinkBase(campaign);
     await requireSendAllowed(ctx, {
@@ -316,6 +234,141 @@ export const resendAllCampaignSends = employeeMutation({
       entityId: args.campaignId,
       action: 'update',
       metadata: { event: 'resend_all', count: campaign.totalCount },
+    });
+    return null;
+  },
+});
+
+/** A campaign that waits, or was taken off the schedule, gets a new time; `null` starts it now. */
+export const scheduleCampaign = employeeMutation({
+  args: { campaignId: v.id('campaigns'), scheduledAt: v.union(v.number(), v.null()) },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'scheduled' && campaign.status !== 'draft') {
+      throw refusal('campaign_not_schedulable');
+    }
+    if (args.scheduledAt === null) {
+      await cancelStart(ctx, campaign);
+      await ctx.db.patch(args.campaignId, {
+        scheduledAt: undefined,
+        ...updateAuditFields(ctx.userId),
+      });
+      await startCampaign(ctx, campaign);
+    } else {
+      checkScheduledAt(args.scheduledAt);
+      await scheduleStart(ctx, campaign, args.scheduledAt);
+      await ctx.db.patch(args.campaignId, updateAuditFields(ctx.userId));
+    }
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata:
+        args.scheduledAt === null
+          ? { event: 'started' }
+          : { event: 'scheduled', scheduledAt: args.scheduledAt },
+    });
+    return null;
+  },
+});
+
+/** « Annuler l'envoi »: the campaign leaves the schedule and waits as a draft, its recipients still unresolved. */
+export const cancelScheduledCampaign = employeeMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'scheduled') throw refusal('campaign_not_scheduled');
+    await cancelStart(ctx, campaign);
+    await ctx.db.patch(args.campaignId, {
+      status: 'draft',
+      scheduledAt: undefined,
+      scheduledFnId: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata: { event: 'schedule_cancelled' },
+    });
+    return null;
+  },
+});
+
+/** « Arrêter l'envoi »: nothing more leaves. The sends still queued are cancelled a page at a time, and show as such; « Tout renvoyer » or a retry re-queues them. */
+export const stopCampaignSending = employeeMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'sending' && campaign.status !== 'preparing') {
+      throw refusal('campaign_not_sending');
+    }
+    // The preparation and the drain both read the status first: the chains end on their own.
+    await ctx.db.patch(args.campaignId, {
+      status: 'stopped',
+      drainFnId: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.cancelPendingSends, {
+      campaignId: args.campaignId,
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata: { event: 'stopped', sentCount: campaign.sentCount },
+    });
+    return null;
+  },
+});
+
+/** « Reprendre l'envoi » of a stopped campaign: the sends that were cancelled go back in the queue, nothing else; those already sent stay sent. The pages re-queue them, the drain follows the last. */
+export const resumeCampaignSending = employeeMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'stopped') throw refusal('campaign_not_stopped');
+    await assertChannelDeliverable(await loadAppConfig(ctx), campaign.channel ?? 'email');
+    // What neither left nor failed is what was cancelled.
+    const queued = Math.max(0, campaign.totalCount - campaign.sentCount - campaign.failedCount);
+    if (queued > 0) {
+      await requireSendAllowed(ctx, {
+        source: 'campaign',
+        channel: campaign.channel ?? 'email',
+        count: queued,
+        stage: 'preparing',
+      });
+    }
+    await ctx.db.patch(args.campaignId, {
+      status: 'preparing',
+      failureReason: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.resendCampaignBatch, {
+      campaignId: args.campaignId,
+      only: 'cancelled',
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata: { event: 'resumed', count: queued },
     });
     return null;
   },

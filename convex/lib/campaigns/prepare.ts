@@ -2,6 +2,7 @@ import type { ObjectType } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
+import { DAY_MS } from '../../_lib/time';
 import { isSubscribed } from '../../_lib/validators/subscriptions';
 import { consentOrigin } from '../config/appUrl';
 import { deferUnlessAllowed, trySend } from '../extensions/gates';
@@ -17,9 +18,15 @@ import { loadPropertyDefsById } from '../properties/definitions';
 import { loadVisibility, scopedReader } from '../roles/visibility';
 import { toBrevoRecipient } from '../sms/brevo';
 import { buildSendParams } from './params';
+import { scheduleDrain } from './drain';
+import { loadSendAt } from './sendTime';
+import { assignVariant } from './variants';
 
 // Each recipient writes one campaignSends row plus one campaignLinkTokens row per tracked link: 200 leads stay far below Convex's 8,192 writes per transaction.
 const PREP_BATCH = 200;
+// An optimised recipient also reads their recent events (sendTime.ts): a shorter page keeps the reads of one transaction bounded.
+const PREP_BATCH_OPTIMIZED = 100;
+const HOUR_MS = 3_600_000;
 
 /** One page of the recipients of a campaign, as sends; the paging state is returned so tests can drive the chain without the scheduler, production runs on the self-scheduled chain. */
 export async function prepareBatch(
@@ -56,9 +63,10 @@ export async function prepareBatch(
   const lifecycle = await loadLifecycleConfig(ctx);
   const creator = campaign.createdBy ? await ctx.db.get(campaign.createdBy) : null;
   const leadsDb = creator ? scopedReader(ctx, await loadVisibility(ctx, creator)) : ctx.db;
+  const pageSize = campaign.sendTimeOptimized ? PREP_BATCH_OPTIMIZED : PREP_BATCH;
   const page = await leadsDb
     .query('leads')
-    .paginate({ cursor: args.cursor ?? null, numItems: args.batchSize ?? PREP_BATCH });
+    .paginate({ cursor: args.cursor ?? null, numItems: args.batchSize ?? pageSize });
 
   // List membership is resolved per page with indexed point reads: a full member set is unbounded on large lists.
   const pageIds = page.page.map((lead) => lead._id);
@@ -73,6 +81,11 @@ export async function prepareBatch(
   const subscription = campaign.subscriptionTypeId
     ? await ctx.db.get(campaign.subscriptionTypeId)
     : null;
+  // The test group goes now, the holdout once the window has closed on this page's sends; optimised, the test sends spread over a day, so the window opens after it.
+  const now = Date.now();
+  const test = campaign.abTest;
+  const testUntil = now + (campaign.sendTimeOptimized ? DAY_MS : 0);
+  const holdoutAt = test ? testUntil + test.windowHours * HOUR_MS : now;
 
   let total = 0;
   let skipped = 0;
@@ -103,6 +116,9 @@ export async function prepareBatch(
       continue;
     }
 
+    const variant = test ? assignVariant(args.campaignId, lead._id, test.splitPercent) : undefined;
+    const base = test && variant === undefined ? holdoutAt : now;
+    const sendAt = campaign.sendTimeOptimized ? await loadSendAt(ctx, lead._id, base) : base;
     const sendId = await ctx.db.insert('campaignSends', {
       campaignId: args.campaignId,
       leadId: lead._id,
@@ -112,6 +128,8 @@ export async function prepareBatch(
       smsRecipient: isSms ? (toBrevoRecipient(lead.phone) ?? undefined) : undefined,
       params,
       status: 'pending',
+      variant,
+      sendAt,
     });
     for (const { linkKey, token } of leadTokens) {
       await ctx.db.insert('campaignLinkTokens', {
@@ -167,9 +185,7 @@ export async function prepareBatch(
     status: hasPending ? 'sending' : 'sent',
   });
   if (hasPending) {
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.actions.sendCampaignBatch, {
-      campaignId: args.campaignId,
-    });
+    await scheduleDrain(ctx, args.campaignId, Date.now());
   }
   return { isDone: true, continueCursor: page.continueCursor };
 }

@@ -17,10 +17,12 @@ export const CAMPAIGN_STATUSES: {
   tone: StatusTone;
 }[] = [
   { value: 'draft', label: 'Brouillon', tone: 'gray' },
+  { value: 'scheduled', label: 'Programmée', tone: 'violet' },
   { value: 'preparing', label: 'Préparation', tone: 'amber' },
   { value: 'sending', label: 'En cours', tone: 'blue' },
   { value: 'sent', label: 'Envoyée', tone: 'green' },
   { value: 'failed', label: 'Échec', tone: 'red' },
+  { value: 'stopped', label: 'Arrêtée', tone: 'gray' },
 ];
 
 export const CAMPAIGN_STATUS_LABEL: Record<CampaignStatus, string> = Object.fromEntries(
@@ -42,6 +44,7 @@ export const SEND_STATUSES: {
   { value: 'failed', label: 'Échec', tone: 'red' },
   { value: 'skipped_no_email', label: 'Ignoré — pas d’e-mail', tone: 'gray' },
   { value: 'skipped_no_phone', label: 'Ignoré — pas de téléphone', tone: 'gray' },
+  { value: 'cancelled', label: 'Annulé — envoi arrêté', tone: 'gray' },
 ];
 
 export const SEND_STATUS_LABEL: Record<CampaignSendStatus, string> = Object.fromEntries(

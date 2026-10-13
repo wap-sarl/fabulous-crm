@@ -5,6 +5,8 @@ import { api } from '@crm/lib/backend';
 type PublicConfig = {
   setupComplete: boolean;
   organizationName: string;
+  /** The organisation's time zone (IANA): a scheduled campaign's time is typed and shown in it. */
+  timezone: string;
   /** Resolved custom-branding URLs (null when the deployment uses defaults). */
   logoUrl: string | null;
   faviconUrl: string | null;
