@@ -9,6 +9,7 @@ import { deferUnlessAllowed, trySend } from '../extensions/gates';
 import { loadLifecycleConfig } from '../leads/lifecycle';
 import { loadPropertyDefsById, type PropertyDefinitionDoc } from '../properties/definitions';
 import { toBrevoRecipient } from '../sms/brevo';
+import { scheduleDrain } from './drain';
 import { buildSendParams } from './params';
 
 // Each send re-queued is one patch, plus one token per tracked link for a send that had none: 200 stay far below Convex's 8,192 writes per transaction.
@@ -170,9 +171,7 @@ export async function resendBatch(
     updatedAt: Date.now(),
   });
   if (resent > 0) {
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.actions.sendCampaignBatch, {
-      campaignId: args.campaignId,
-    });
+    await scheduleDrain(ctx, args.campaignId, Date.now());
   }
   return { isDone: true, continueCursor: page.continueCursor };
 }

@@ -16,7 +16,9 @@ import { recordEmailEvent, recordSmsEvent } from '../../lib/campaigns/events';
 import { clickTrackedLink } from '../../lib/campaigns/links';
 import { prepareBatch } from '../../lib/campaigns/prepare';
 import { resendBatch } from '../../lib/campaigns/resend';
-import { startCampaign } from '../../lib/campaigns/schedule';
+import { restartStuckDrains as restartDrains, scheduleDrain } from '../../lib/campaigns/drain';
+import { startCampaign, startRefusal } from '../../lib/campaigns/schedule';
+import { cancelPendingSends as cancelPending } from '../../lib/campaigns/stop';
 import { countStatsPage, readCampaignStats, startStatsCount } from '../../lib/campaigns/stats';
 import { pickWinner } from '../../lib/campaigns/variants';
 import { logAudit } from '../../lib/audit/log';
@@ -55,7 +57,8 @@ export const getPendingSends = internalQuery({
   ),
   handler: async (ctx, args) => {
     const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) return null;
+    // Stopped meanwhile: nothing more leaves, and the drain ends.
+    if (campaign?.status !== 'sending') return null;
 
     const now = Date.now();
     // A send without a time sorts before every time: it is due.
@@ -98,16 +101,63 @@ export const getPendingSends = internalQuery({
   },
 });
 
-/** The scheduled call: the campaign starts if it still waits; cancelled or started by hand meanwhile, nothing happens. */
+/** The scheduled call: the campaign starts if it still waits; cancelled or started by hand meanwhile, nothing happens. What the creation checked is checked again: refused, the campaign goes back to draft with the code, for someone to see. */
 export const startScheduledCampaign = internalMutation({
   args: { campaignId: v.id('campaigns') },
   returns: v.null(),
   handler: async (ctx, args) => {
     const campaign = await ctx.db.get(args.campaignId);
     if (!campaign || campaign.deletedAt != null || campaign.status !== 'scheduled') return null;
+    const refused = await startRefusal(ctx, campaign);
+    if (refused) {
+      await ctx.db.patch(args.campaignId, {
+        status: 'draft',
+        scheduledAt: undefined,
+        scheduledFnId: undefined,
+        failureReason: refused,
+        updatedAt: Date.now(),
+      });
+      await logAudit({
+        ctx,
+        userId: undefined,
+        entityType: 'campaign',
+        entityId: args.campaignId,
+        action: 'update',
+        metadata: { event: 'start_refused', code: refused },
+      });
+      return null;
+    }
     await startCampaign(ctx, campaign);
     return null;
   },
+});
+
+/** The drain's next call, from the action: scheduled and kept on the campaign in one transaction. */
+export const scheduleCampaignDrain = internalMutation({
+  args: { campaignId: v.id('campaigns'), at: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await scheduleDrain(ctx, args.campaignId, args.at);
+    return null;
+  },
+});
+
+/** Hourly: the campaigns being sent whose chain broke are drained again. */
+export const restartStuckDrains = internalMutation({
+  args: {},
+  returns: v.array(v.id('campaigns')),
+  handler: async (ctx) => await restartDrains(ctx),
+});
+
+/** One page of the pending sends of a stopped campaign cancelled; it schedules the next. */
+export const cancelPendingSends = internalMutation({
+  args: {
+    campaignId: v.id('campaigns'),
+    // Tests only: a small page exercises the chain.
+    batchSize: v.optional(v.number()),
+  },
+  returns: v.object({ cancelled: v.number(), isDone: v.boolean() }),
+  handler: (ctx, args) => cancelPending(ctx, args),
 });
 
 /** The winner of the test, from the counters of its variants, once; the holdout then receives it. */
@@ -119,18 +169,20 @@ export const decideAbWinner = internalMutation({
     const test = campaign?.abTest;
     if (!campaign || !test) return null;
     if (test.winner) return test.winner;
-    const winner = pickWinner(await readCampaignStats(ctx, args.campaignId), test.metric);
+    const stats = await readCampaignStats(ctx, args.campaignId);
+    const { winner, decidedBy } = pickWinner(stats, test.metric);
     await ctx.db.patch(args.campaignId, {
-      abTest: { ...test, winner, decidedAt: Date.now() },
+      abTest: { ...test, winner, decidedAt: Date.now(), decidedBy },
       updatedAt: Date.now(),
     });
+    // The figures of the moment, so the entry tells a result from a default.
     await logAudit({
       ctx,
       userId: undefined,
       entityType: 'campaign',
       entityId: args.campaignId,
       action: 'update',
-      metadata: { event: 'ab_winner', winner, metric: test.metric },
+      metadata: { event: 'ab_winner', winner, decidedBy, metric: test.metric, ...stats.variants },
     });
     return winner;
   },
@@ -251,10 +303,10 @@ export const handleTrackedLinkClick = internalMutation({
   handler: (ctx, args) => clickTrackedLink(ctx, args),
 });
 
-/** A campaign with no pending send left ends sent when something left, failed otherwise. */
+/** A campaign with no pending send left ends sent when something left, failed otherwise; one stopped meanwhile keeps its word. */
 async function completeCampaign(ctx: MutationCtx, campaignId: Id<'campaigns'>): Promise<void> {
   const campaign = await ctx.db.get(campaignId);
-  if (!campaign) return;
+  if (campaign?.status !== 'sending') return;
   await ctx.db.patch(campaignId, {
     status: campaign.sentCount > 0 ? 'sent' : 'failed',
     updatedAt: Date.now(),

@@ -49,6 +49,14 @@ export async function trySend(ctx: MutationCtx, info: SendInfo): Promise<string 
   }
 }
 
+/** Whether background work of this kind may run now; the caller that must record its own retry asks here instead of `deferUnlessAllowed`. */
+export async function scheduledWorkAllowed(
+  ctx: MutationCtx | ActionCtx,
+  kind: ScheduledWorkKind,
+): Promise<boolean> {
+  return await extensions.beforeScheduledWork(ctx, { kind });
+}
+
 /** Background work asks first; when refused, the same function is rescheduled later with the same args and `true` is returned. */
 export async function deferUnlessAllowed<F extends SchedulableFunctionReference>(
   ctx: MutationCtx | ActionCtx,

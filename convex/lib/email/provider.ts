@@ -1,6 +1,7 @@
 /** Imported from any runtime, so this must never import nodemailer, which is node-only: the SMTP transport lives in lib/email/smtp.ts. */
 
 import type { AppConfig } from '../../_lib/validators/appConfig';
+import { refusal } from '../../_lib/refusal';
 import { decryptSecret } from '../security/crypto';
 
 /** Sender identity used as the `From` for every outgoing email. */
@@ -110,4 +111,22 @@ export async function resolveBrevo(cfg: ConfigLike): Promise<ResolvedBrevo> {
     smsAvailable: apiKey.length > 0,
     emailIsBrevo: (email?.provider ?? 'brevo') === 'brevo',
   };
+}
+
+export const SMS_PROVIDER_REQUIRED = 'Les campagnes SMS nécessitent un compte Brevo configuré.';
+export const EMAIL_PROVIDER_REQUIRED =
+  "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.";
+
+/** A campaign never leaves for a provider that is silently unconfigured: SMS needs Brevo, e-mail Brevo or SMTP. */
+export async function assertChannelDeliverable(
+  cfg: AppConfig | null,
+  channel: 'email' | 'sms',
+): Promise<void> {
+  if (channel === 'sms') {
+    if (!(await resolveBrevo(cfg)).smsAvailable) {
+      throw refusal('sms_provider_required', { message: SMS_PROVIDER_REQUIRED });
+    }
+  } else if (!isEmailProviderConfigured(await resolveEmailProvider(cfg))) {
+    throw refusal('email_provider_required', { message: EMAIL_PROVIDER_REQUIRED });
+  }
 }

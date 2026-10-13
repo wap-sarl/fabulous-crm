@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { ConvexError } from 'convex/values';
 import { api, internal } from '../../convex/_generated/api';
+import { setExtensionsForTests } from '../../convex/extensions';
+import { defaultExtensions } from '../../convex/lib/extensions/types';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
 import { DAY_MS } from '../../convex/_lib/time';
 import {
@@ -174,6 +177,51 @@ describe('a scheduled campaign', () => {
     });
     await w.t.mutation(fn.startScheduledCampaign, { campaignId: otherId });
     expect((await get(w, otherId)).status).toBe('draft');
+  });
+
+  test('what the creation checked is checked again at the start: refused, the campaign goes back to draft with the code, and a new time clears it', async () => {
+    const w = await setup();
+    const at = NOW + DAY_MS;
+    const campaignId = await create(w, { scheduledAt: at });
+    pinClock(at);
+    delete process.env.BREVO_API_KEY;
+    await w.t.mutation(fn.startScheduledCampaign, { campaignId });
+    const campaign = await get(w, campaignId);
+    expect(campaign).toMatchObject({ status: 'draft', failureReason: 'email_provider_required' });
+    expect(campaign.scheduledAt).toBeUndefined();
+    expect(await jobs(w, 'prepareCampaignBatch')).toEqual([]);
+    expect(await audits(w, campaignId)).toEqual(['start_refused']);
+    process.env.BREVO_API_KEY = 'test-brevo-key';
+    await w.as.mutation(api.features.campaigns.mutations.scheduleCampaign, {
+      campaignId,
+      scheduledAt: at + HOUR,
+    });
+    expect((await get(w, campaignId)).failureReason).toBeUndefined();
+  });
+
+  test('the overlay’s gate is asked again at the start, as at the creation; its refusal sends the campaign back to draft with its code', async () => {
+    const w = await setup();
+    const at = NOW + DAY_MS;
+    const campaignId = await create(w, { scheduledAt: at });
+    pinClock(at);
+    const seen: string[] = [];
+    setExtensionsForTests({
+      beforeSend: async (_ctx, info) => {
+        seen.push(info.source === 'campaign' ? `${info.stage}:${info.count}` : 'workflow');
+        throw new ConvexError({ code: 'quota_exceeded' });
+      },
+    });
+    try {
+      await w.t.mutation(fn.startScheduledCampaign, { campaignId });
+    } finally {
+      setExtensionsForTests(defaultExtensions);
+    }
+    expect(seen).toEqual(['create:1']);
+    expect(await get(w, campaignId)).toMatchObject({
+      status: 'draft',
+      failureReason: 'quota_exceeded',
+    });
+    expect(await jobs(w, 'prepareCampaignBatch')).toEqual([]);
   });
 
   test('a time in the past or beyond the year is refused, as is scheduling a campaign already on its way', async () => {

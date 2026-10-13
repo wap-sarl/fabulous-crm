@@ -103,32 +103,39 @@ describe('the variants of a test', () => {
     });
   });
 
-  test('the winner is the better rate on the metric; A on a tie, and without a send', () => {
+  test('the winner is the better rate on the metric; A on a tie; without a send or a result on either side, A by default and said so', () => {
+    const result = (winner: 'A' | 'B') => ({ winner, decidedBy: 'result' as const });
     expect(
       pickWinner(
         stats({ A: { sent: 10, opened: 3, clicked: 0 }, B: { sent: 10, opened: 5, clicked: 0 } }),
         'opens',
       ),
-    ).toBe('B');
+    ).toEqual(result('B'));
     expect(
       pickWinner(
         stats({ A: { sent: 10, opened: 3, clicked: 2 }, B: { sent: 20, opened: 8, clicked: 1 } }),
         'clicks',
       ),
-    ).toBe('A');
+    ).toEqual(result('A'));
     expect(
       pickWinner(
         stats({ A: { sent: 5, opened: 2, clicked: 0 }, B: { sent: 10, opened: 4, clicked: 0 } }),
         'opens',
       ),
-    ).toBe('A');
-    expect(pickWinner(stats({}), 'opens')).toBe('A');
+    ).toEqual(result('A'));
     expect(
       pickWinner(
         stats({ A: { sent: 0, opened: 0, clicked: 0 }, B: { sent: 1, opened: 1, clicked: 1 } }),
         'opens',
       ),
-    ).toBe('B');
+    ).toEqual(result('B'));
+    expect(pickWinner(stats({}), 'opens')).toEqual({ winner: 'A', decidedBy: 'fallback' });
+    expect(
+      pickWinner(
+        stats({ A: { sent: 10, opened: 3, clicked: 0 }, B: { sent: 10, opened: 5, clicked: 0 } }),
+        'clicks',
+      ),
+    ).toEqual({ winner: 'A', decidedBy: 'fallback' });
   });
 });
 
@@ -210,7 +217,11 @@ describe('an A/B campaign', () => {
     expect(batch?.winnerPending).toBe(true);
     expect(await w.t.mutation(fn.decideAbWinner, { campaignId })).toBe('B');
     const decided = (await w.t.run((ctx) => ctx.db.get(campaignId))) as Doc<'campaigns'>;
-    expect(decided.abTest).toMatchObject({ winner: 'B', decidedAt: NOW + 4 * HOUR });
+    expect(decided.abTest).toMatchObject({
+      winner: 'B',
+      decidedAt: NOW + 4 * HOUR,
+      decidedBy: 'result',
+    });
     // Decided once: a second call changes nothing.
     expect(await w.t.mutation(fn.decideAbWinner, { campaignId })).toBe('B');
     batch = await w.t.query(fn.getPendingSends, { campaignId });
@@ -225,6 +236,132 @@ describe('an A/B campaign', () => {
         .filter((event): event is string => event !== undefined),
     );
     expect(events).toEqual(['ab_winner']);
+  });
+
+  test('with the send time optimised, the window opens once the day of test sends is over, so the decision waits for every test send', async () => {
+    const w = await setup();
+    const leads: Id<'leads'>[] = [];
+    for (let i = 0; i < 30; i++) {
+      leads.push(
+        await w.as.mutation(api.features.leads.mutations.createLead, {
+          firstName: 'Jean',
+          lastName: `N${i}`,
+          email: `lead${i}@example.com`,
+        }),
+      );
+    }
+    // Everyone opened at 23:00 UTC: the latest hour of the day, thirteen hours from now.
+    const oldCampaign = await w.t.run((ctx) =>
+      ctx.db.insert('campaigns', {
+        name: 'Ancienne',
+        channel: 'email',
+        status: 'sent',
+        totalCount: 1,
+        sentCount: 1,
+        failedCount: 0,
+        updatedAt: NOW,
+      }),
+    );
+    for (const leadId of leads) {
+      const sendId = await w.t.run((ctx) =>
+        ctx.db.insert('campaignSends', {
+          campaignId: oldCampaign,
+          leadId,
+          params: {},
+          status: 'sent',
+        }),
+      );
+      await w.t.run((ctx) =>
+        ctx.db.insert('campaignEvents', {
+          campaignId: oldCampaign,
+          sendId,
+          leadId,
+          type: 'opened',
+          eventAt: Date.UTC(2026, 9, 1, 23, 0, 0),
+        }),
+      );
+    }
+    const campaignId = await w.as.mutation(api.features.campaigns.mutations.createCampaign, {
+      name: 'Test',
+      channel: 'email',
+      filter: {},
+      subject: 'Objet A',
+      htmlBody: '<p>Corps</p>',
+      messageType: 'transactional',
+      sendTimeOptimized: true,
+      abTest: {
+        kind: 'subject',
+        subjectB: 'Objet B',
+        splitPercent: 50,
+        windowHours: 1,
+        metric: 'opens',
+      },
+    });
+    await w.t.mutation(fn.prepareCampaignBatch, { campaignId, filter: {} });
+    const sends = (await w.t.run((ctx) => ctx.db.query('campaignSends').collect())).filter(
+      (s) => s.campaignId === campaignId,
+    );
+    const tested = sends.filter((s) => s.variant !== undefined);
+    const holdout = sends.filter((s) => s.variant === undefined);
+    expect(tested.length).toBeGreaterThan(0);
+    expect(holdout.length).toBeGreaterThan(0);
+    const tonight = Date.UTC(2026, 9, 13, 23, 0, 0);
+    expect(tested.every((s) => s.sendAt === tonight)).toBe(true);
+    // The window of one hour opens a day after the start; the holdout then waits for its hour, tomorrow night.
+    expect(holdout.every((s) => s.sendAt === tonight + 24 * HOUR)).toBe(true);
+    pinClock(tonight + HOUR);
+    const batch = await w.t.query(fn.getPendingSends, { campaignId });
+    expect(batch?.winnerPending).toBe(false);
+    expect(batch?.sends).toHaveLength(tested.length);
+  });
+
+  test('without a send or a result on either side, A goes by default and the record says so', async () => {
+    const w = await setup();
+    for (let i = 0; i < 10; i++) {
+      await w.as.mutation(api.features.leads.mutations.createLead, {
+        firstName: 'Jean',
+        lastName: `N${i}`,
+        email: `lead${i}@example.com`,
+      });
+    }
+    const campaignId = await w.as.mutation(api.features.campaigns.mutations.createCampaign, {
+      name: 'Test',
+      channel: 'email',
+      filter: {},
+      subject: 'Objet A',
+      htmlBody: '<p>Corps</p>',
+      messageType: 'transactional',
+      abTest: {
+        kind: 'subject',
+        subjectB: 'Objet B',
+        splitPercent: 50,
+        windowHours: 4,
+        metric: 'clicks',
+      },
+    });
+    await w.t.mutation(fn.prepareCampaignBatch, { campaignId, filter: {} });
+    const batch = await w.t.query(fn.getPendingSends, { campaignId });
+    await w.t.mutation(fn.recordSendResults, {
+      campaignId,
+      results: batch!.sends.map((s) => ({
+        sendId: s.sendId,
+        status: 'sent' as const,
+        brevoMessageId: `m-${s.sendId}`,
+      })),
+    });
+    pinClock(NOW + 4 * HOUR);
+    expect(await w.t.mutation(fn.decideAbWinner, { campaignId })).toBe('A');
+    expect((await w.t.run((ctx) => ctx.db.get(campaignId)))?.abTest).toMatchObject({
+      winner: 'A',
+      decidedBy: 'fallback',
+    });
+    const entry = await w.t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect())
+        .map((a) => a.metadata as Record<string, unknown> | undefined)
+        .find((m) => m?.event === 'ab_winner'),
+    );
+    expect(entry).toMatchObject({ winner: 'A', decidedBy: 'fallback', metric: 'clicks' });
+    expect(entry?.A ?? entry?.B).toBeDefined();
   });
 
   test('a test needs a custom e-mail, its variant B, and bounds', async () => {

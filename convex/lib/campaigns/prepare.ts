@@ -2,6 +2,7 @@ import type { ObjectType } from 'convex/values';
 import { internal } from '../../_generated/api';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
+import { DAY_MS } from '../../_lib/time';
 import { isSubscribed } from '../../_lib/validators/subscriptions';
 import { consentOrigin } from '../config/appUrl';
 import { deferUnlessAllowed, trySend } from '../extensions/gates';
@@ -17,6 +18,7 @@ import { loadPropertyDefsById } from '../properties/definitions';
 import { loadVisibility, scopedReader } from '../roles/visibility';
 import { toBrevoRecipient } from '../sms/brevo';
 import { buildSendParams } from './params';
+import { scheduleDrain } from './drain';
 import { loadSendAt } from './sendTime';
 import { assignVariant } from './variants';
 
@@ -79,10 +81,11 @@ export async function prepareBatch(
   const subscription = campaign.subscriptionTypeId
     ? await ctx.db.get(campaign.subscriptionTypeId)
     : null;
-  // The test group goes now, the holdout once the window has closed on this page's sends.
+  // The test group goes now, the holdout once the window has closed on this page's sends; optimised, the test sends spread over a day, so the window opens after it.
   const now = Date.now();
   const test = campaign.abTest;
-  const holdoutAt = test ? now + test.windowHours * HOUR_MS : now;
+  const testUntil = now + (campaign.sendTimeOptimized ? DAY_MS : 0);
+  const holdoutAt = test ? testUntil + test.windowHours * HOUR_MS : now;
 
   let total = 0;
   let skipped = 0;
@@ -182,9 +185,7 @@ export async function prepareBatch(
     status: hasPending ? 'sending' : 'sent',
   });
   if (hasPending) {
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.actions.sendCampaignBatch, {
-      campaignId: args.campaignId,
-    });
+    await scheduleDrain(ctx, args.campaignId, Date.now());
   }
   return { isDone: true, continueCursor: page.continueCursor };
 }

@@ -18,6 +18,7 @@ import {
 } from '@crm/design-system';
 import { CalendarClock, Send, XCircle } from 'lucide-react';
 import { epochToZoned, formatInZone } from '@crm/lib/timezone';
+import { describeError } from '@crm/lib/errors';
 import { retryErrorMessage } from '../lib/retryErrors';
 import { scheduledAtOf } from '../lib/delivery';
 
@@ -92,6 +93,12 @@ export function CampaignScheduleBanner({
           <span>
             Envoi programmé le <strong>{formatInZone(campaign.scheduledAt, timeZone)}</strong> (
             {timeZone}), {countdown}. Les destinataires seront résolus à ce moment-là.
+          </span>
+        ) : campaign.failureReason ? (
+          <span>
+            Départ programmé refusé :{' '}
+            {describeError(campaign.failureReason, campaign.failureReason)}. La campagne attend une
+            nouvelle date, ou un envoi immédiat.
           </span>
         ) : (
           <span>Envoi annulé : la campagne attend une nouvelle date, ou un envoi immédiat.</span>

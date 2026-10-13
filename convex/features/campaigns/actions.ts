@@ -15,7 +15,8 @@ import { sendBrevoSms, toBrevoRecipient } from '../../lib/sms/brevo';
 import { createEmailDispatcher } from '../email/send';
 import { variantContent } from '../../lib/campaigns/variants';
 import type { CampaignSendStatus } from '../../schema';
-import { deferUnlessAllowed } from '../../lib/extensions/gates';
+import { scheduledWorkAllowed } from '../../lib/extensions/gates';
+import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensions/types';
 
 const BATCH_DELAY_MS = 1000;
 
@@ -82,15 +83,15 @@ export const sendCampaignBatch = internalAction({
   args: { campaignId: v.id('campaigns') },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // Every call of the chain goes through scheduleCampaignDrain, so the campaign knows its next call and the hourly restart can tell a broken chain from a sleeping one.
+    const again = (at: number) =>
+      ctx.runMutation(internal.features.campaigns.internal.scheduleCampaignDrain, {
+        campaignId: args.campaignId,
+        at,
+      });
     // Deferred (e.g. a suspended deployment): the pending sends wait untouched for the next attempt.
-    if (
-      await deferUnlessAllowed(
-        ctx,
-        'campaign_drain',
-        internal.features.campaigns.actions.sendCampaignBatch,
-        args,
-      )
-    ) {
+    if (!(await scheduledWorkAllowed(ctx, 'campaign_drain'))) {
+      await again(Date.now() + SCHEDULED_WORK_RETRY_MS);
       return null;
     }
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
@@ -103,11 +104,7 @@ export const sendCampaignBatch = internalAction({
 
     // Nothing due yet: the drain sleeps until the next send's time.
     if (batch && batch.sends.length === 0 && batch.nextAt !== undefined) {
-      await ctx.scheduler.runAt(
-        batch.nextAt,
-        internal.features.campaigns.actions.sendCampaignBatch,
-        args,
-      );
+      await again(batch.nextAt);
       return null;
     }
     if (!batch || batch.sends.length === 0) {
@@ -121,7 +118,7 @@ export const sendCampaignBatch = internalAction({
       await ctx.runMutation(internal.features.campaigns.internal.decideAbWinner, {
         campaignId: args.campaignId,
       });
-      await ctx.scheduler.runAfter(0, internal.features.campaigns.actions.sendCampaignBatch, args);
+      await again(Date.now());
       return null;
     }
 
@@ -299,14 +296,8 @@ export const sendCampaignBatch = internalAction({
       results,
     });
 
-    // Reschedule for the next batch; markCampaignComplete fires when drained.
-    await ctx.scheduler.runAfter(
-      BATCH_DELAY_MS,
-      internal.features.campaigns.actions.sendCampaignBatch,
-      {
-        campaignId: args.campaignId,
-      },
-    );
+    // The next batch; markCampaignComplete fires when drained.
+    await again(Date.now() + BATCH_DELAY_MS);
     return null;
   },
 });

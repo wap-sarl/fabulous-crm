@@ -27,7 +27,11 @@ const emptyStats = (): CampaignStats => ({
 function sendStats(send: Doc<'campaignSends'>, sign: 1 | -1): CampaignStats {
   const stats = emptyStats();
   if (send.status === 'pending') stats.pending = sign;
-  if (send.status === 'skipped_no_email' || send.status === 'skipped_no_phone')
+  if (
+    send.status === 'skipped_no_email' ||
+    send.status === 'skipped_no_phone' ||
+    send.status === 'cancelled'
+  )
     stats.skipped = sign;
   if (send.deliveredAt !== undefined) stats.delivered = sign;
   if (send.openedAt !== undefined) stats.opened = sign;

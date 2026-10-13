@@ -108,6 +108,8 @@ export const campaignStatusValidator = v.union(
   v.literal('sending'),
   v.literal('sent'),
   v.literal('failed'),
+  // Stopped by hand while sending: the sends still queued were cancelled, a resend re-queues them.
+  v.literal('stopped'),
 );
 
 /** Channel a campaign targets. Absent on legacy rows = email. */
@@ -156,6 +158,8 @@ export const campaignAbTestValidator = v.object({
   metric: v.union(v.literal('opens'), v.literal('clicks')),
   winner: v.optional(campaignVariantValidator),
   decidedAt: v.optional(v.number()),
+  // `fallback`: neither variant had a send or a result, A went by default.
+  decidedBy: v.optional(v.union(v.literal('result'), v.literal('fallback'))),
 });
 export type CampaignAbTest = Infer<typeof campaignAbTestValidator>;
 
@@ -237,6 +241,8 @@ export const campaignValidator = v.object({
   // When a scheduled campaign starts, and the scheduled call that starts it, cancelled by a reschedule.
   scheduledAt: v.optional(v.number()),
   scheduledFnId: v.optional(v.id('_scheduled_functions')),
+  // The drain's next call, so a chain that broke is seen and started again (`restartStuckDrains`).
+  drainFnId: v.optional(v.id('_scheduled_functions')),
   // Each recipient is sent at the hour of the day they open most, within the day that follows the start.
   sendTimeOptimized: v.optional(v.boolean()),
   abTest: v.optional(campaignAbTestValidator),
@@ -260,6 +266,8 @@ export const campaignSendStatusValidator = v.union(
   v.literal('failed'),
   v.literal('skipped_no_email'),
   v.literal('skipped_no_phone'),
+  // Still queued when the campaign was stopped.
+  v.literal('cancelled'),
 );
 
 export const campaignSendValidator = v.object({

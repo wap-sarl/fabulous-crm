@@ -1,7 +1,6 @@
 import { follows, positiveIntSchema } from '../../_lib/validators/fields';
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
-import type { Doc } from '../../_generated/dataModel';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
 import { checkTrackedLinks } from '../../lib/campaigns/links';
@@ -9,10 +8,14 @@ import { loadResendContext, requeueSend, requireLinkBase } from '../../lib/campa
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
 import { loadEmailTemplate } from '../../lib/templates/records';
 import {
-  resolveEmailProvider,
-  resolveBrevo,
+  assertChannelDeliverable,
+  EMAIL_PROVIDER_REQUIRED,
   isEmailProviderConfigured,
+  resolveBrevo,
+  resolveEmailProvider,
+  SMS_PROVIDER_REQUIRED,
 } from '../../lib/email/provider';
+import { scheduleDrain } from '../../lib/campaigns/drain';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import {
   campaignChannelValidator,
@@ -28,10 +31,6 @@ import {
   startCampaign,
 } from '../../lib/campaigns/schedule';
 import { abTestArgs, checkAbTest } from '../../lib/campaigns/variants';
-
-const SMS_PROVIDER_REQUIRED = 'Les campagnes SMS nécessitent un compte Brevo configuré.';
-const EMAIL_PROVIDER_REQUIRED =
-  "Aucun fournisseur d'e-mail n'est configuré. Configurez Brevo ou SMTP dans Paramètres → E-mail.";
 
 export const createCampaign = employeeMutation({
   args: {
@@ -183,20 +182,6 @@ export const createCampaign = employeeMutation({
   },
 });
 
-/** Guards the resends, with the messages of createCampaign: a retry never resets rows into a provider that is silently unconfigured. */
-async function assertChannelDeliverable(
-  cfg: Doc<'appConfig'> | null,
-  channel: 'email' | 'sms',
-): Promise<void> {
-  if (channel === 'sms') {
-    if (!(await resolveBrevo(cfg)).smsAvailable) {
-      throw refusal('sms_provider_required', { message: SMS_PROVIDER_REQUIRED });
-    }
-  } else if (!isEmailProviderConfigured(await resolveEmailProvider(cfg))) {
-    throw refusal('email_provider_required', { message: EMAIL_PROVIDER_REQUIRED });
-  }
-}
-
 /** Resends one recipient whatever its status, except `pending`: that row is already queued. */
 export const retryCampaignSend = employeeMutation({
   args: { campaignId: v.id('campaigns'), sendId: v.id('campaignSends') },
@@ -225,16 +210,15 @@ export const retryCampaignSend = employeeMutation({
       stage: 'resend',
     });
 
-    // `sent` was counted in sentCount; `failed` and `skipped_*` in failedCount.
+    // `sent` was counted in sentCount; `failed` and `skipped_*` in failedCount; a cancelled send in neither.
+    const wasCounted = send.status === 'failed' || send.status.startsWith('skipped_');
     await ctx.db.patch(args.campaignId, {
       sentCount: Math.max(0, campaign.sentCount - (send.status === 'sent' ? 1 : 0)),
-      failedCount: Math.max(0, campaign.failedCount - (send.status === 'sent' ? 0 : 1)),
+      failedCount: Math.max(0, campaign.failedCount - (wasCounted ? 1 : 0)),
       status: 'sending',
       ...updateAuditFields(ctx.userId),
     });
-    await ctx.scheduler.runAfter(0, internal.features.campaigns.actions.sendCampaignBatch, {
-      campaignId: args.campaignId,
-    });
+    await scheduleDrain(ctx, args.campaignId, Date.now());
 
     await logAudit({
       ctx,
@@ -354,6 +338,37 @@ export const cancelScheduledCampaign = employeeMutation({
       entityId: args.campaignId,
       action: 'update',
       metadata: { event: 'schedule_cancelled' },
+    });
+    return null;
+  },
+});
+
+/** « Arrêter l'envoi »: nothing more leaves. The sends still queued are cancelled a page at a time, and show as such; « Tout renvoyer » or a retry re-queues them. */
+export const stopCampaignSending = employeeMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await ctx.db.get(args.campaignId);
+    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (campaign.status !== 'sending' && campaign.status !== 'preparing') {
+      throw refusal('campaign_not_sending');
+    }
+    // The preparation and the drain both read the status first: the chains end on their own.
+    await ctx.db.patch(args.campaignId, {
+      status: 'stopped',
+      drainFnId: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.cancelPendingSends, {
+      campaignId: args.campaignId,
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'update',
+      metadata: { event: 'stopped', sentCount: campaign.sentCount },
     });
     return null;
   },

@@ -31,8 +31,10 @@ export function CampaignVariantResults({
         </h2>
         <span className="text-xs text-soft">
           {test.winner && test.decidedAt !== undefined
-            ? `Variante ${test.winner} retenue sur ${metric} le ${dateTimeFormat.format(test.decidedAt)}, envoyée au reste des destinataires.`
-            : `${test.splitPercent} % des destinataires testent ; le reste reçoit la variante qui gagne sur ${metric} après ${test.windowHours} h.`}
+            ? test.decidedBy === 'fallback'
+              ? `Données insuffisantes le ${dateTimeFormat.format(test.decidedAt)} : aucune variante n’avait de résultat sur ${metric}, la variante A a été envoyée par défaut au reste des destinataires.`
+              : `Variante ${test.winner} retenue sur ${metric} le ${dateTimeFormat.format(test.decidedAt)}, envoyée au reste des destinataires.`
+            : `${test.splitPercent} % des destinataires testent ; le reste reçoit la variante qui gagne sur ${metric} après ${test.windowHours} h${campaign.sendTimeOptimized ? ', comptées une fois la journée d’envois optimisés passée' : ''}.`}
         </span>
       </div>
       <table className="w-full text-sm">
@@ -55,7 +57,11 @@ export function CampaignVariantResults({
                       {variant}
                     </span>
                     <span className="truncate text-ink">{label(variant)}</span>
-                    {test.winner === variant && <StatusBadge tone="green">Gagnante</StatusBadge>}
+                    {test.winner === variant && (
+                      <StatusBadge tone={test.decidedBy === 'fallback' ? 'gray' : 'green'}>
+                        {test.decidedBy === 'fallback' ? 'Par défaut' : 'Gagnante'}
+                      </StatusBadge>
+                    )}
                   </span>
                 </td>
                 <td className="py-2 font-medium text-ink">{numberFormat.format(f.sent)}</td>

@@ -1,8 +1,10 @@
 import { internal } from '../../_generated/api';
 import type { Doc } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
-import { refusal } from '../../_lib/refusal';
+import { refusal, refusalOf } from '../../_lib/refusal';
 import { SCHEDULE_HORIZON_MS } from '../../_lib/validators/crm';
+import { assertChannelDeliverable } from '../email/provider';
+import { trySend } from '../extensions/gates';
 
 /** A time still to come, within the year. */
 export function checkScheduledAt(at: number): void {
@@ -33,12 +35,35 @@ export async function scheduleStart(
     internal.features.campaigns.internal.startScheduledCampaign,
     { campaignId: campaign._id },
   );
-  await ctx.db.patch(campaign._id, { status: 'scheduled', scheduledAt: at, scheduledFnId });
+  await ctx.db.patch(campaign._id, {
+    status: 'scheduled',
+    scheduledAt: at,
+    scheduledFnId,
+    failureReason: undefined,
+  });
+}
+
+/** What the creation checked, asked again when a scheduled campaign starts, months later maybe: the allowance and the provider. The code of the refusal, or null. */
+export async function startRefusal(
+  ctx: MutationCtx,
+  campaign: Doc<'campaigns'>,
+): Promise<string | null> {
+  const channel = campaign.channel ?? 'email';
+  try {
+    await assertChannelDeliverable(await ctx.db.query('appConfig').first(), channel);
+  } catch (error) {
+    return refusalOf(error)?.code ?? 'start_refused';
+  }
+  return await trySend(ctx, { source: 'campaign', channel, count: 1, stage: 'create' });
 }
 
 /** The campaign starts: its recipients are prepared from the filter it kept, resolved now, and the drain follows. */
 export async function startCampaign(ctx: MutationCtx, campaign: Doc<'campaigns'>): Promise<void> {
-  await ctx.db.patch(campaign._id, { status: 'preparing', scheduledFnId: undefined });
+  await ctx.db.patch(campaign._id, {
+    status: 'preparing',
+    scheduledFnId: undefined,
+    failureReason: undefined,
+  });
   await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.prepareCampaignBatch, {
     campaignId: campaign._id,
     filter: campaign.filter ?? {},

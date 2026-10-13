@@ -63,7 +63,10 @@ export function CampaignDeliveryFields({
             <Label htmlFor="campaign-optimized">Envoyer à l’heure où chacun ouvre</Label>
             <HelperText>
               Chaque destinataire reçoit l’e-mail à l’heure de la journée où il ouvre le plus, dans
-              les 24 h qui suivent le départ ; sans historique, il le reçoit au départ.
+              les 24 h qui suivent le départ ; sans historique, il le reçoit au départ. L’heure
+              retenue est celle de ses ouvertures passées, en heure absolue : le fuseau de
+              l’organisation ne sert qu’à l’affichage. Avec un test A/B, la fenêtre du test s’ouvre
+              une fois cette journée passée.
             </HelperText>
           </div>
         </div>

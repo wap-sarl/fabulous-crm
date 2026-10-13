@@ -92,15 +92,17 @@ export function variantContent(
     : { subject: campaign.subject, htmlBody: test.htmlBodyB ?? campaign.htmlBody };
 }
 
-/** The variant the metric prefers, by its rate over the sends of the variant; A on a tie, and without a send. */
-export function pickWinner(
-  stats: CampaignStats,
-  metric: CampaignAbTest['metric'],
-): CampaignVariant {
+export type Decision = { winner: CampaignVariant; decidedBy: 'result' | 'fallback' };
+
+/** The variant the metric prefers, by its rate over the sends of the variant; A on a tie. Without a send or a result on either side, A by default, and said so. */
+export function pickWinner(stats: CampaignStats, metric: CampaignAbTest['metric']): Decision {
   const rate = (variant: CampaignVariant): number => {
     const figures = stats.variants?.[variant];
     if (!figures || figures.sent === 0) return 0;
     return (metric === 'opens' ? figures.opened : figures.clicked) / figures.sent;
   };
-  return rate('B') > rate('A') ? 'B' : 'A';
+  const a = rate('A');
+  const b = rate('B');
+  if (a === 0 && b === 0) return { winner: 'A', decidedBy: 'fallback' };
+  return { winner: b > a ? 'B' : 'A', decidedBy: 'result' };
 }
