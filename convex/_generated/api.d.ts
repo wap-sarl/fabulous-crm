@@ -191,6 +191,7 @@ import type * as lib_deals_aggregates from "../lib/deals/aggregates.js";
 import type * as lib_deals_records from "../lib/deals/records.js";
 import type * as lib_duplicates_detection from "../lib/duplicates/detection.js";
 import type * as lib_email_brevo from "../lib/email/brevo.js";
+import type * as lib_email_brevoWebhooks from "../lib/email/brevoWebhooks.js";
 import type * as lib_email_provider from "../lib/email/provider.js";
 import type * as lib_email_smtp from "../lib/email/smtp.js";
 import type * as lib_extensions_gates from "../lib/extensions/gates.js";
@@ -451,6 +452,7 @@ declare const fullApi: ApiFromModules<{
   "lib/deals/records": typeof lib_deals_records;
   "lib/duplicates/detection": typeof lib_duplicates_detection;
   "lib/email/brevo": typeof lib_email_brevo;
+  "lib/email/brevoWebhooks": typeof lib_email_brevoWebhooks;
   "lib/email/provider": typeof lib_email_provider;
   "lib/email/smtp": typeof lib_email_smtp;
   "lib/extensions/gates": typeof lib_extensions_gates;
