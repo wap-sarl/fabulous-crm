@@ -101,6 +101,11 @@ const shardsOf = (ctx: Pick<QueryCtx, 'db'>, campaignId: Id<'campaigns'>) =>
     .take(STAT_SHARDS);
 
 /** The counters of a campaign, its rows summed; the rows hold changes and only their sum means something, shown at zero should it ever come out below. */
+/** The sends that failed: `failedCount` holds the skipped too, the stats say how many. */
+export async function failedSendsOf(ctx: Pick<QueryCtx, 'db'>, campaign: Doc<'campaigns'>) {
+  return Math.max(0, campaign.failedCount - (await readCampaignStats(ctx, campaign._id)).skipped);
+}
+
 export async function readCampaignStats(
   ctx: Pick<QueryCtx, 'db'>,
   campaignId: Id<'campaigns'>,

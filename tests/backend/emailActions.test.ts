@@ -455,3 +455,80 @@ describe('the test e-mail of the settings', () => {
     expect(requests).toEqual([]);
   });
 });
+
+describe('the backfill of e-mail events', () => {
+  const backfill = (t: T, days: number, offset?: number) =>
+    t.action(internal.features.campaigns.actions.backfillBrevoEmailEvents, { days, offset });
+
+  test('reads the statistics names, writes the known events once, and refuses a span out of bounds', async () => {
+    const t = createTestConvex();
+    brevoFromEnv();
+    const emp = await seedEmployee(t, { email: 'agent@example.com' });
+    const { sendId } = await t.run(async (ctx) => {
+      const leadId = await ctx.db.insert('leads', {
+        firstName: 'Mail',
+        lastName: 'Lead',
+        email: 'mail@example.com',
+        phone: '',
+        marketingConsent: ['email'],
+        consentToken: 'tok-backfill',
+        isRedFlagged: false,
+        ownerIds: [emp.userId],
+        updatedAt: Date.now(),
+      });
+      const campaignId = await ctx.db.insert('campaigns', {
+        name: 'Backfill',
+        status: 'sent',
+        channel: 'email',
+        totalCount: 1,
+        sentCount: 1,
+        failedCount: 0,
+        updatedAt: Date.now(),
+      });
+      const sendId = await ctx.db.insert('campaignSends', {
+        campaignId,
+        leadId,
+        email: 'mail@example.com',
+        params: {},
+        status: 'sent',
+        brevoMessageId: 'msg-backfill',
+      });
+      return { sendId };
+    });
+    await expect(backfill(t, 0)).rejects.toThrow('days');
+    await expect(backfill(t, 91)).rejects.toThrow('days');
+    answers.push({
+      status: 200,
+      body: {
+        events: [
+          {
+            event: 'clicks',
+            messageId: 'msg-backfill',
+            date: '2026-10-15T10:00:00Z',
+            link: 'https://x',
+          },
+          { event: 'hardBounces', messageId: 'msg-backfill', date: '2026-10-15T11:00:00Z' },
+          { event: 'requests', messageId: 'msg-backfill', date: '2026-10-15T09:00:00Z' },
+        ],
+      },
+    });
+    expect(await backfill(t, 2)).toEqual({ recorded: 2, skipped: 1, more: false });
+    expect(requests.map((r) => r.path)).toEqual([
+      '/smtp/statistics/events?days=2&limit=1000&offset=0&sort=asc',
+    ]);
+    const events = await t.run((ctx) => ctx.db.query('campaignEvents').collect());
+    expect(events.map((e) => e.type).sort()).toEqual(['clicked', 'hard_bounce']);
+    expect((await t.run((ctx) => ctx.db.get(sendId)))?.clickedAt).toBe(
+      Date.parse('2026-10-15T10:00:00Z'),
+    );
+    // Run again: the same events are replays, nothing is written twice.
+    answers.push({
+      status: 200,
+      body: {
+        events: [{ event: 'clicks', messageId: 'msg-backfill', date: '2026-10-15T10:00:00Z' }],
+      },
+    });
+    expect(await backfill(t, 2)).toEqual({ recorded: 1, skipped: 0, more: false });
+    expect(await t.run((ctx) => ctx.db.query('campaignEvents').collect())).toHaveLength(2);
+  });
+});

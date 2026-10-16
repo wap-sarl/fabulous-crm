@@ -20,6 +20,7 @@ import {
 import { resolveCampaignContent } from '../../lib/campaigns/content';
 import { loadAppConfig } from '../../lib/config/load';
 import { scheduleDrain } from '../../lib/campaigns/drain';
+import { failedSendsOf } from '../../lib/campaigns/stats';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import {
   campaignChannelValidator,
@@ -198,14 +199,14 @@ export const retryCampaignSend = employeeMutation({
   },
 });
 
-/** Resends to every recipient, those who already received it included, or with `onlyFailed` to the failed sends alone (after a credit top-up, say): the sends are re-queued in scheduled batches, the drain follows, and the campaign reads `preparing` meanwhile. The gate is asked here as a preparation with every recipient, so an exhausted allowance refuses at once; the batches ask with what they re-queue, the last one as the resend. */
+/** Resends to every recipient, those who already received it included, or with `onlyFailed` to the failed sends alone (after a credit top-up, say): the sends are re-queued in scheduled batches, the drain follows, and the campaign reads `preparing` meanwhile. The gate is asked here as a preparation with every recipient, so an exhausted allowance refuses at once; the batches ask with what they re-queue, the last one as the resend. Returns how many sends are to leave again. */
 export const resendAllCampaignSends = employeeMutation({
   args: { campaignId: v.id('campaigns'), onlyFailed: v.optional(v.boolean()) },
-  returns: v.null(),
+  returns: v.number(),
   handler: async (ctx, args) => {
     const campaign = await settledCampaign(ctx, args.campaignId);
-    const count = args.onlyFailed ? campaign.failedCount : campaign.totalCount;
-    if (count === 0) return null;
+    const count = args.onlyFailed ? await failedSendsOf(ctx, campaign) : campaign.totalCount;
+    if (count === 0) return 0;
     requireLinkBase(campaign);
     await requireSendAllowed(ctx, {
       source: 'campaign',
@@ -214,10 +215,9 @@ export const resendAllCampaignSends = employeeMutation({
       stage: 'preparing',
     });
 
-    // Counters reset: the batches count the skipped again, the drain what leaves. Links come back with the sends, so the purge sees the campaign again. A failed-only resend keeps the sent count and lets the drain re-tally the failures.
+    // Counters reset: the batches count the skipped again, the drain what leaves. Links come back with the sends, so the purge sees the campaign again. A failed-only resend keeps both counters: its batches take out what they re-queue.
     await ctx.db.patch(args.campaignId, {
-      ...(args.onlyFailed ? {} : { sentCount: 0 }),
-      failedCount: 0,
+      ...(args.onlyFailed ? {} : { sentCount: 0, failedCount: 0 }),
       status: 'preparing',
       failureReason: undefined,
       linksPurgedAt: undefined,
@@ -236,7 +236,7 @@ export const resendAllCampaignSends = employeeMutation({
       action: 'update',
       metadata: { event: args.onlyFailed ? 'retry_failed' : 'resend_all', count },
     });
-    return null;
+    return count;
   },
 });
 

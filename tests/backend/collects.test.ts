@@ -36,7 +36,6 @@ const BOUNDED: Record<string, string> = {
   'campaignEvents.by_send': 'the events of one send: a handful',
   'campaignLinkTokens.by_send': 'the tracked links of one send: those of the message',
   'dealStageHistory.by_deal': 'the stage changes of one deal',
-  'campaignSends.by_lead': 'the sends of one contact',
   'deals.by_lead': 'the deals of one contact',
   'importRows.by_job_index': 'a range of rows the caller bounds by index',
   'leadDuplicates.index': 'the duplicate pairs of one contact',

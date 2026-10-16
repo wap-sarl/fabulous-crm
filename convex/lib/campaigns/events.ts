@@ -13,6 +13,10 @@ export const BREVO_EMAIL_EVENT_TYPE: Record<string, CampaignEventType> = {
   unique_opened: 'opened',
   uniqueOpened: 'opened',
   click: 'clicked',
+  // The statistics endpoint (the backfill) names the events in the plural.
+  clicks: 'clicked',
+  hardBounces: 'hard_bounce',
+  softBounces: 'soft_bounce',
   hard_bounce: 'hard_bounce',
   hardBounce: 'hard_bounce',
   soft_bounce: 'soft_bounce',

@@ -60,8 +60,8 @@ export function CampaignCreatePage() {
   const { filters, setParam, setAdvancedFilter } = useLeadFilters();
   const propertyDefinitions = usePropertyDefinitions('lead');
   const leadCatalog = useLeadFieldCatalog(propertyDefinitions);
-  const matching = useMatchingLeads(filters);
   const [excludeCampaignIds, setExcludeCampaignIds] = useState<Id<'campaigns'>[]>([]);
+  const matching = useMatchingLeads(filters, excludeCampaignIds);
   // Empty: every matching contact; a number: a random share of that size.
   const [sampleSize, setSampleSize] = useState('');
 

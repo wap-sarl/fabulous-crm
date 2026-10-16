@@ -296,6 +296,25 @@ describe('SMS STOP', () => {
     }
   });
 
+  test('a STOP without a known message id lands on the latest send to that number', async () => {
+    const { t, emp } = await setup();
+    await seedSmsSend(t, emp);
+    const { leadId } = await seedSmsSend(t, emp);
+    await t.fetch(`/webhooks/brevo/sms?secret=${SECRET}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        msg_status: 'unsubscribed',
+        messageId: 77,
+        to: '+33612345678',
+        ts_event: 1_700_000,
+      }),
+    });
+    // The second campaign reaches both leads: three sends to the number, the last one takes the STOP.
+    const sends = await t.run((ctx) => ctx.db.query('campaignSends').collect());
+    expect(sends.map((s) => s.unsubscribedAt)).toEqual([undefined, undefined, 1_700_000_000]);
+    expect((await t.run((ctx) => ctx.db.get(leadId)))?.marketingConsent).toEqual(['email']);
+  });
+
   test('a reply that is not a STOP stays a reply', async () => {
     const { t, emp } = await setup();
     const { leadId } = await seedSmsSend(t, emp);

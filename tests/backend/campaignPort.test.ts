@@ -28,12 +28,19 @@ afterEach(() => {
   else process.env.BREVO_API_KEY = savedKey;
 });
 
-async function setup(leads = 3): Promise<World> {
+async function setup(leads = 3, withoutEmail = 0): Promise<World> {
   const t = createTestConvex();
   const emp = await seedEmployee(t, { email: 'agent@example.com', role: 'admin' });
   await seedConfig(t);
   const as = asIdentity(t, emp.identity);
   const leadIds: Id<'leads'>[] = [];
+  for (let i = 0; i < withoutEmail; i++) {
+    await as.mutation(api.features.leads.mutations.createLead, {
+      firstName: 'Sans',
+      lastName: `E${i}`,
+      email: '',
+    });
+  }
   for (let i = 0; i < leads; i++) {
     leadIds.push(
       await as.mutation(api.features.leads.mutations.createLead, {
@@ -96,21 +103,20 @@ const sendsOf = (w: World, id: Id<'campaigns'>) =>
       .collect(),
   );
 
-/** A campaign prepared and drained, its sends settled as the test wants them. */
-async function settled(w: World, statuses: Doc<'campaignSends'>['status'][]) {
+/** A campaign prepared, its pending sends settled as the test wants them through the drain's own write, so the counters and the stats follow; a contact without an address is a skipped row. */
+async function settled(w: World, statuses: ('sent' | 'failed')[]) {
   const id = await create(w);
   await prepare(w, id);
-  const sends = await sendsOf(w, id);
-  await w.t.run(async (ctx) => {
-    for (const [i, send] of sends.entries()) {
-      await ctx.db.patch(send._id, { status: statuses[i % statuses.length] });
-    }
-    await ctx.db.patch(id, {
-      status: 'sent',
-      sentCount: statuses.filter((s) => s === 'sent').length,
-      failedCount: statuses.filter((s) => s === 'failed').length,
-    });
+  const pending = (await sendsOf(w, id)).filter((s) => s.status === 'pending');
+  await w.t.mutation(fn.recordSendResults, {
+    campaignId: id,
+    results: pending.map((send, i) => ({
+      sendId: send._id,
+      status: statuses[i % statuses.length],
+      ...(statuses[i % statuses.length] === 'failed' ? { error: 'refused' } : {}),
+    })),
   });
+  await w.t.run((ctx) => ctx.db.patch(id, { status: 'sent' }));
   return id;
 }
 
@@ -149,20 +155,23 @@ describe('deleting a campaign', () => {
 });
 
 describe('« Relancer les échecs »', () => {
-  test('re-queues the failed sends alone and keeps the sent count', async () => {
-    const w = await setup();
+  test('re-queues the failed sends alone, keeps the sent count and the skipped in the failed one', async () => {
+    const w = await setup(3, 1);
     const id = await settled(w, ['sent', 'failed', 'failed']);
-    await w.as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, {
+    const count = await w.as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, {
       campaignId: id,
       onlyFailed: true,
     });
+    expect(count).toBe(2);
     const requeued = await w.t.mutation(fn.resendCampaignBatch, { campaignId: id, only: 'failed' });
     expect(requeued.isDone).toBe(true);
     const sends = await sendsOf(w, id);
     expect(sends.filter((s) => s.status === 'pending')).toHaveLength(2);
     expect(sends.filter((s) => s.status === 'sent')).toHaveLength(1);
+    expect(sends.filter((s) => s.status === 'skipped_no_email')).toHaveLength(1);
     const campaign = await get(w, id);
     expect(campaign.sentCount).toBe(1);
+    expect(campaign.failedCount).toBe(1);
     const audit = await w.t.run(async (ctx) =>
       (await ctx.db.query('auditLogs').collect()).find(
         (a) => (a.metadata as { event?: string } | undefined)?.event === 'retry_failed',
@@ -171,14 +180,16 @@ describe('« Relancer les échecs »', () => {
     expect(audit?.metadata).toEqual({ event: 'retry_failed', count: 2 });
   });
 
-  test('is a no-op without a failure', async () => {
-    const w = await setup();
+  test('is a no-op without a failure, the skipped rows not being failures', async () => {
+    const w = await setup(1, 1);
     const id = await settled(w, ['sent']);
-    await w.as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, {
+    const count = await w.as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, {
       campaignId: id,
       onlyFailed: true,
     });
+    expect(count).toBe(0);
     expect((await get(w, id)).status).toBe('sent');
+    expect((await get(w, id)).failedCount).toBe(1);
   });
 });
 
@@ -219,6 +230,30 @@ describe('a sample and exclusions', () => {
     expect(sends).toHaveLength(3);
     expect(sends.map((s) => s.leadId)).not.toContain(w.leadIds[0]);
     expect((await get(w, second)).excludeCampaignIds).toEqual([first]);
+  });
+
+  test('the count and the sample work on the contacts left after the exclusions', async () => {
+    const w = await setup(6);
+    const first = await create(w, { filter: { search: 'N0' } });
+    await prepare(w, first);
+    const second = await create(w, { filter: { search: 'N1' } });
+    await prepare(w, second);
+    const counted = await w.as.query(api.features.leads.queries.matchingLeadsPage, {
+      cursor: null,
+      excludeCampaignIds: [first, second],
+    });
+    expect(counted.leadIds).toHaveLength(4);
+    expect(counted.leadIds).not.toContain(w.leadIds[0]);
+    // A sample of everyone left is exactly everyone left.
+    const sampled = await create(w, {
+      excludeCampaignIds: [first, second],
+      sample: { size: 4, of: 4 },
+    });
+    await prepare(w, sampled);
+    const sends = await sendsOf(w, sampled);
+    expect(sends).toHaveLength(4);
+    expect(sends.map((s) => s.leadId)).not.toContain(w.leadIds[0]);
+    expect(sends.map((s) => s.leadId)).not.toContain(w.leadIds[1]);
   });
 
   test('a sample never exceeds its size, and reaches it when it asks for everyone', async () => {

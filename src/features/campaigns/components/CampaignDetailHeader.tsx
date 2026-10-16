@@ -10,6 +10,7 @@ import { dateFormat, numberFormat } from '@crm/lib/format';
 /** The header of a campaign's page: its name, channel, status, the stop while it sends, and once it is settled the resends and the deletion. */
 export function CampaignDetailHeader({
   campaign,
+  failedSends,
   canRetry,
   canStop,
   retrying,
@@ -21,6 +22,8 @@ export function CampaignDetailHeader({
   navigate,
 }: {
   campaign: Doc<'campaigns'>;
+  /** The sends that failed, the skipped ones left out: what « Relancer les échecs » sends again. */
+  failedSends: number;
   canRetry: boolean;
   canStop: boolean;
   retrying: boolean;
@@ -63,10 +66,10 @@ export function CampaignDetailHeader({
                 Reprendre l’envoi
               </Button>
             )}
-            {campaign.failedCount > 0 && (
+            {failedSends > 0 && (
               <Button onClick={handleRetryFailed} loading={retrying} data-testid="retry-failed">
                 <RotateCcw className="size-4" />
-                Relancer les échecs ({numberFormat.format(campaign.failedCount)})
+                Relancer les échecs ({numberFormat.format(failedSends)})
               </Button>
             )}
             <Button variant="outline" onClick={handleResendAll} loading={retrying}>

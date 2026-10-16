@@ -232,18 +232,31 @@ export const recordSendResults = internalMutation({
   },
 });
 
+/** What one Brevo e-mail event carries, by the webhook or the backfill. */
+const brevoEmailEventArgs = {
+  brevoMessageId: v.string(),
+  type: campaignEventTypeValidator,
+  eventAt: v.number(),
+  url: v.optional(v.string()),
+  reason: v.optional(v.string()),
+};
+
 /** A Brevo email webhook event, tied to its send by `brevoMessageId`. */
 export const recordBrevoEmailEvent = internalMutation({
-  args: {
-    brevoMessageId: v.string(),
-    type: campaignEventTypeValidator,
-    eventAt: v.number(),
-    url: v.optional(v.string()),
-    reason: v.optional(v.string()),
-  },
+  args: brevoEmailEventArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
     await recordEmailEvent(ctx, args);
+    return null;
+  },
+});
+
+/** One chunk of the backfill, written in one transaction; each event goes through the webhook's own path, replays included. */
+export const recordBrevoEmailEvents = internalMutation({
+  args: { events: v.array(v.object(brevoEmailEventArgs)) },
+  returns: v.null(),
+  handler: async (ctx, { events }) => {
+    for (const event of events) await recordEmailEvent(ctx, event);
     return null;
   },
 });

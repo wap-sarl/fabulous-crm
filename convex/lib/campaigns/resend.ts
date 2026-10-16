@@ -164,13 +164,18 @@ export async function resendBatch(
         .paginate(paging);
 
   let resent = args.resent ?? 0;
+  let pageResent = 0;
   let stillSkipped = 0;
   for (const send of page.page) {
-    if (await requeueSend(ctx, send, remat)) resent++;
+    if (await requeueSend(ctx, send, remat)) pageResent++;
     else stillSkipped++;
   }
-  // `sentCount` was reset when the resend started; the skipped ones add up page by page, the drain counts the rest.
-  const failedCount = campaign.failedCount + stillSkipped;
+  resent += pageResent;
+  // A failed-only resend takes what it re-queued out of the counter, the skipped stay in it; otherwise `sentCount` was reset when the resend started, the skipped add up page by page and the drain counts the rest.
+  const failedCount =
+    args.only === 'failed'
+      ? Math.max(0, campaign.failedCount - pageResent)
+      : campaign.failedCount + stillSkipped;
 
   // Asked on every page with the running count, and as a resend on the last with the exact one: a refused resend stops within one page of the limit, and what was re-queued is failed so it shows and can be tried again.
   const refused =

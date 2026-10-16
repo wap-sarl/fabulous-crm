@@ -451,6 +451,8 @@ const tables = {
     // The pending sends due by now, and the earliest still to come.
     .index('by_campaign_status_sendAt', ['campaignId', 'status', 'sendAt'])
     .index('by_lead', ['leadId'])
+    // Whether one contact has a send in one campaign: the exclusions of a new campaign.
+    .index('by_lead_campaign', ['leadId', 'campaignId'])
     // Correlates Brevo SMS webhook events (STOP opt-outs) back to the lead.
     .index('by_brevoMessageId', ['brevoMessageId'])
     // Correlates inbound SMS events by recipient phone: an inbound STOP carries a fresh messageId that won't match by_brevoMessageId.

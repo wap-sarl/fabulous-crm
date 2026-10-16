@@ -121,17 +121,19 @@ export function CampaignDetailPage() {
       setRetrying(false);
     }
   };
+  // `failedCount` holds the skipped too; the stats say how many of them are skipped.
+  const failedSends = Math.max(0, campaign.failedCount - stats.skipped);
   const handleRetryFailed = async () => {
     if (
       !window.confirm(
-        `Relancer les ${numberFormat.format(campaign.failedCount)} envoi(s) en échec ? Les autres ne bougent pas.`,
+        `Relancer les ${numberFormat.format(failedSends)} envoi(s) en échec ? Les autres ne bougent pas.`,
       )
     )
       return;
     setRetrying(true);
     try {
-      await resendAll({ campaignId: campaign._id, onlyFailed: true });
-      toast.success('Relance lancée : les envois en échec sont remis en file.');
+      const count = await resendAll({ campaignId: campaign._id, onlyFailed: true });
+      toast.success(`${numberFormat.format(count)} envoi(s) en échec remis en file.`);
     } catch (err) {
       toast.error(retryErrorMessage(err));
     } finally {
@@ -156,6 +158,7 @@ export function CampaignDetailPage() {
     <div className="flex flex-col">
       <CampaignDetailHeader
         campaign={campaign}
+        failedSends={failedSends}
         canRetry={canRetry}
         canStop={canStop}
         retrying={retrying}

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuthPaginatedQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
+import type { Id } from '@crm/lib/backend';
 import type { LeadFilters } from './useLeadFilters';
 import { useMatchingLeadCount } from './useMatchingLeadCount';
 
@@ -71,7 +72,10 @@ export function useLeadsPaginated(filters: LeadFilters) {
   };
 }
 
-/** How many leads match the current filter, for the recipient preview of a campaign. */
-export function useMatchingLeads(filters: LeadFilters) {
-  return useMatchingLeadCount(toFilterArgs(filters));
+/** How many leads match the current filter, for the recipient preview of a campaign; the exclusions count as the preparation will. */
+export function useMatchingLeads(filters: LeadFilters, excludeCampaignIds?: Id<'campaigns'>[]) {
+  return useMatchingLeadCount({
+    ...toFilterArgs(filters),
+    excludeCampaignIds: excludeCampaignIds?.length ? excludeCampaignIds : undefined,
+  });
 }

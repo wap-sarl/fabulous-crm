@@ -1,5 +1,5 @@
 import type { Id } from '../../_generated/dataModel';
-import type { MutationCtx } from '../../_generated/server';
+import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { refusal } from '../../_lib/refusal';
 import { EXCLUDED_CAMPAIGNS_MAX } from '../../_lib/validators/crm';
 import { follows, positiveIntSchema } from '../../_lib/validators/fields';
@@ -29,15 +29,18 @@ export function checkSample(sample: { size: number; of: number }): void {
   if (sample.size > sample.of) throw refusal('campaign_sample_invalid', { reason: 'size' });
 }
 
-/** Whether one contact already has a send in one of the excluded campaigns: a contact's sends are few. */
+/** Whether one contact has a send in one of the excluded campaigns: one point read per campaign, at most EXCLUDED_CAMPAIGNS_MAX. */
 export async function sentByExcluded(
-  ctx: MutationCtx,
+  ctx: QueryCtx | MutationCtx,
   leadId: Id<'leads'>,
-  excluded: Set<string>,
+  excluded: Id<'campaigns'>[],
 ): Promise<boolean> {
-  const sends = await ctx.db
-    .query('campaignSends')
-    .withIndex('by_lead', (q) => q.eq('leadId', leadId))
-    .collect();
-  return sends.some((send) => excluded.has(send.campaignId));
+  for (const campaignId of excluded) {
+    const send = await ctx.db
+      .query('campaignSends')
+      .withIndex('by_lead_campaign', (q) => q.eq('leadId', leadId).eq('campaignId', campaignId))
+      .first();
+    if (send) return true;
+  }
+  return false;
 }

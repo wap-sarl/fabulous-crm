@@ -2,6 +2,7 @@ import { paginationResultValidator } from 'convex/server';
 import { docOf } from '../../lib/shared/docs';
 import { lifecycleChangeSourceValidator } from '../../_lib/validators/lifecycle';
 import { v } from 'convex/values';
+import { sentByExcluded } from '../../lib/campaigns/sample';
 import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
 import type { QueryCtx } from '../../_generated/server';
@@ -353,27 +354,38 @@ const MATCHING_PAGE = 500;
 
 /** One page of the leads matching a filter, and what it counts; the caller follows `cursor` until it is null, so that no call reads the whole table and none is rerun at every write of a lead. */
 export const matchingLeadsPage = employeeQuery({
-  args: { ...leadFilterArgs, cursor: v.union(v.string(), v.null()) },
+  args: {
+    ...leadFilterArgs,
+    cursor: v.union(v.string(), v.null()),
+    // Contacts with a send in these campaigns are no match: the count of a campaign that excludes them.
+    excludeCampaignIds: v.optional(v.array(v.id('campaigns'))),
+  },
   returns: v.object({
     leadIds: v.array(v.id('leads')),
     withEmail: v.number(),
     withPhone: v.number(),
     cursor: v.union(v.string(), v.null()),
   }),
-  handler: async (ctx, { cursor, ...filters }) => {
+  handler: async (ctx, { cursor, excludeCampaignIds, ...filters }) => {
     const page = await ctx.db.query('leads').paginate({ cursor, numItems: MATCHING_PAGE });
     const pageIds = page.page.map((lead) => lead._id);
     const listMemberIds = await loadListMemberIdsForLeads(ctx, filters.listIds, pageIds);
     const advancedListMembers = await loadAdvancedListMembers(ctx, filters.advancedFilter, pageIds);
     const subscriptionTypes = await loadFilterSubscriptionTypes(ctx, filters.advancedFilter);
-    const matching = page.page.filter((lead) =>
-      matchesLeadFilters(lead, {
+    const matching = [];
+    for (const lead of page.page) {
+      const matches = matchesLeadFilters(lead, {
         ...filters,
         listMemberIds,
         advancedListMembers,
         subscriptionTypes,
-      }),
-    );
+      });
+      if (!matches) continue;
+      if (excludeCampaignIds?.length && (await sentByExcluded(ctx, lead._id, excludeCampaignIds))) {
+        continue;
+      }
+      matching.push(lead);
+    }
     return {
       leadIds: matching.map((lead) => lead._id),
       withEmail: matching.filter((lead) => !!lead.email).length,

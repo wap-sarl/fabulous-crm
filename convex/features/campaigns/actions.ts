@@ -88,54 +88,64 @@ export const registerBrevoSmsWebhook = internalAction({
   },
 });
 
-/** Brevo never re-sends a missed webhook, but its statistics keep the e-mail events for 90 days: this replays them into the campaign events (a replay is dropped by the usual dedup) for a webhook that was missing or pointed at another deployment. */
+/** Events read from Brevo's statistics per call, and written per mutation. */
+const BACKFILL_PAGE = 1000;
+const BACKFILL_CHUNK = 100;
+const BACKFILL_MAX_DAYS = 90;
+
+/** Brevo never re-sends a missed webhook, but its statistics keep the e-mail events for 90 days: this replays them into the campaign events (a replay is dropped by the usual dedup), one page per call and the next page scheduled, for a webhook that was missing or pointed at another deployment. */
 export const backfillBrevoEmailEvents = internalAction({
-  args: { days: v.number() },
-  returns: v.object({ recorded: v.number(), skipped: v.number() }),
-  handler: async (ctx, args) => {
+  args: { days: v.number(), offset: v.optional(v.number()) },
+  returns: v.object({ recorded: v.number(), skipped: v.number(), more: v.boolean() }),
+  handler: async (ctx, args): Promise<{ recorded: number; skipped: number; more: boolean }> => {
+    if (!Number.isInteger(args.days) || args.days < 1 || args.days > BACKFILL_MAX_DAYS) {
+      throw new Error(`days : un entier de 1 à ${BACKFILL_MAX_DAYS}`);
+    }
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const brevo = await resolveBrevo(cfg);
     if (!brevo.emailIsBrevo || !brevo.apiKey) throw new Error('Brevo non configuré');
-    const limit = 5000;
-    let offset = 0;
-    let recorded = 0;
-    let skipped = 0;
-    for (;;) {
-      const url = `https://api.brevo.com/v3/smtp/statistics/events?days=${args.days}&limit=${limit}&offset=${offset}&sort=asc`;
-      const response = await fetch(url, {
-        headers: { accept: 'application/json', 'api-key': brevo.apiKey },
-      });
-      if (!response.ok) {
-        throw new Error(`Brevo GET /smtp/statistics/events a échoué : ${await response.text()}`);
-      }
-      const { events = [] } = (await response.json()) as {
-        events?: {
-          event: string;
-          messageId: string;
-          date: string;
-          link?: string;
-          reason?: string;
-        }[];
-      };
-      for (const e of events) {
-        const type = BREVO_EMAIL_EVENT_TYPE[e.event];
-        if (!type) {
-          skipped++;
-          continue;
-        }
-        await ctx.runMutation(internal.features.campaigns.internal.recordBrevoEmailEvent, {
-          brevoMessageId: e.messageId,
-          type,
-          eventAt: Date.parse(e.date),
-          url: e.link,
-          reason: e.reason,
-        });
-        recorded++;
-      }
-      if (events.length < limit) break;
-      offset += limit;
+    const offset = args.offset ?? 0;
+    const url = `https://api.brevo.com/v3/smtp/statistics/events?days=${args.days}&limit=${BACKFILL_PAGE}&offset=${offset}&sort=asc`;
+    const response = await fetch(url, {
+      headers: { accept: 'application/json', 'api-key': brevo.apiKey },
+    });
+    if (!response.ok) {
+      throw new Error(`Brevo GET /smtp/statistics/events a échoué : ${await response.text()}`);
     }
-    return { recorded, skipped };
+    const { events = [] } = (await response.json()) as {
+      events?: { event: string; messageId: string; date: string; link?: string; reason?: string }[];
+    };
+    const known = events.flatMap((e) => {
+      const type = BREVO_EMAIL_EVENT_TYPE[e.event];
+      return type
+        ? [
+            {
+              brevoMessageId: e.messageId,
+              type,
+              eventAt: Date.parse(e.date),
+              url: e.link,
+              reason: e.reason,
+            },
+          ]
+        : [];
+    });
+    for (let i = 0; i < known.length; i += BACKFILL_CHUNK) {
+      await ctx.runMutation(internal.features.campaigns.internal.recordBrevoEmailEvents, {
+        events: known.slice(i, i + BACKFILL_CHUNK),
+      });
+    }
+    const more = events.length >= BACKFILL_PAGE;
+    if (more) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.features.campaigns.actions.backfillBrevoEmailEvents,
+        {
+          days: args.days,
+          offset: offset + BACKFILL_PAGE,
+        },
+      );
+    }
+    return { recorded: known.length, skipped: events.length - known.length, more };
   },
 });
 
