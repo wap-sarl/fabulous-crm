@@ -9,6 +9,7 @@ import {
   attachmentEntityTypeValidator,
   EMAIL_IMAGE_MAX_BYTES,
   EMAIL_IMAGE_TYPES,
+  EMAIL_IMAGE_UPLOAD_WINDOW_MS,
 } from '../../_lib/validators/attachments';
 import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
 import { isNotDeleted } from '../../lib/shared/db';
@@ -85,7 +86,7 @@ export const generateEmailImageUploadUrl = employeeMutation({
   handler: async (ctx) => await ctx.storage.generateUploadUrl(),
 });
 
-/** Records an uploaded image, raster and bounded, for its uploader, and gives its public URL; the declared type must be the one the upload carried. A blob that is not such an image is deleted and reported, not thrown, as a throwing mutation would roll the delete back; one that belongs to a record's file is refused untouched. */
+/** Records an upload as an e-mail image, for its uploader, and gives its public URL. Only a blob of the last minutes that no record, setting or image holds is in reach, so an id of someone else's file goes nowhere; one that is not a raster image within bounds is kept as refused, never served, for the purge to delete, since a delete here would be rolled back with a throw and is not this mutation's business either. */
 export const registerEmailImage = employeeMutation({
   args: { storageId: v.id('_storage'), contentType: v.string() },
   returns: v.union(
@@ -94,7 +95,10 @@ export const registerEmailImage = employeeMutation({
   ),
   handler: async (ctx, { storageId, contentType }) => {
     const blob = await ctx.db.system.get(storageId);
-    if (!blob) throw refusal('email_image_not_found');
+    if (!blob || blob._creationTime < Date.now() - EMAIL_IMAGE_UPLOAD_WINDOW_MS) {
+      throw refusal('email_image_not_found');
+    }
+    const cfg = await ctx.db.query('appConfig').first();
     const ownedByRecord = await ctx.db
       .query('attachments')
       .withIndex('by_storageId', (q) => q.eq('storageId', storageId))
@@ -103,41 +107,34 @@ export const registerEmailImage = employeeMutation({
       .query('emailImages')
       .withIndex('by_storageId', (q) => q.eq('storageId', storageId))
       .first();
-    if (ownedByRecord || registered) throw refusal('email_image_not_found');
+    if (
+      ownedByRecord ||
+      registered ||
+      cfg?.logoStorageId === storageId ||
+      cfg?.faviconStorageId === storageId
+    ) {
+      throw refusal('email_image_not_found');
+    }
     // The store keeps the Content-Type of the upload; the declared one stands in where it did not.
     const type = blob.contentType ?? contentType;
-    if (type !== contentType || !EMAIL_IMAGE_TYPES.has(type)) {
-      await ctx.storage.delete(storageId);
-      return { ok: false as const, code: 'type' as const };
-    }
-    if (blob.size > EMAIL_IMAGE_MAX_BYTES) {
-      await ctx.storage.delete(storageId);
-      return { ok: false as const, code: 'too_large' as const };
-    }
+    const refused =
+      type !== contentType || !EMAIL_IMAGE_TYPES.has(type)
+        ? ('type' as const)
+        : blob.size > EMAIL_IMAGE_MAX_BYTES
+          ? ('too_large' as const)
+          : null;
     const imageId = await ctx.db.insert('emailImages', {
       storageId,
       uploadedBy: ctx.userId,
       contentType: type,
       size: blob.size,
       createdAt: Date.now(),
+      ...(refused ? { refused: true } : {}),
     });
+    if (refused) return { ok: false as const, code: refused };
     const url = await ctx.storage.getUrl(storageId);
     if (!url) throw refusal('email_image_not_found');
     return { ok: true as const, imageId, url };
-  },
-});
-
-/** The images of a campaign just created, claimed by it so the purge leaves them; only the caller's own uploads are in reach. */
-export const claimEmailImages = employeeMutation({
-  args: { campaignId: v.id('campaigns'), imageIds: v.array(v.id('emailImages')) },
-  returns: v.null(),
-  handler: async (ctx, { campaignId, imageIds }) => {
-    if (!(await ctx.db.get(campaignId))) throw refusal('campaign_not_found');
-    for (const imageId of imageIds) {
-      const image = await ctx.db.get(imageId);
-      if (image && image.campaignId === undefined) await ctx.db.patch(imageId, { campaignId });
-    }
-    return null;
   },
 });
 

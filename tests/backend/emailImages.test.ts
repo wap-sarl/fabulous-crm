@@ -43,17 +43,42 @@ describe('the images of an e-mail body', () => {
     if (!kept.ok) throw new Error('refused');
     expect(kept.url).toMatch(/^https?:\/\//);
     expect((await t.run((ctx) => ctx.db.get(kept.imageId)))?.contentType).toBe('image/png');
+    // A refused upload is kept as such, never served, for the purge to delete with its blob.
     const svg = await image(t, 'image/svg+xml');
     expect(await as.mutation(register, svg)).toEqual({ ok: false, code: 'type' });
-    expect(await t.run((ctx) => ctx.db.system.get(svg.storageId))).toBeNull();
     const heavy = await image(t, 'image/jpeg', 5 * 1024 * 1024 + 1);
     expect(await as.mutation(register, heavy)).toEqual({ ok: false, code: 'too_large' });
+    const refused = await t.run((ctx) => ctx.db.query('emailImages').collect());
+    expect(
+      refused
+        .filter((i) => i.refused)
+        .map((i) => i.storageId)
+        .sort(),
+    ).toEqual([svg.storageId, heavy.storageId].sort());
+    expect(await t.run((ctx) => ctx.db.system.get(svg.storageId))).not.toBeNull();
+    pinClock(NOW + 2 * DAY_MS);
+    await t.mutation(internal.features.retention.internal.runPurge, {});
+    await runAll(t, NOW + 2 * DAY_MS);
+    expect(await t.run((ctx) => ctx.db.system.get(svg.storageId))).toBeNull();
     expect(await t.run((ctx) => ctx.db.system.get(heavy.storageId))).toBeNull();
+    // Nothing claimed the kept one either: every row is gone after a day.
+    expect(await t.run((ctx) => ctx.db.query('emailImages').collect())).toEqual([]);
+    expect(kept.ok).toBe(true);
   });
 
-  test("a blob that is a record's file, or already registered, cannot be registered", async () => {
+  test("a blob that is a record's file, a setting's, already registered, or older than the upload window, cannot be registered", async () => {
     const { t, as } = await setup();
     const { storageId } = await image(t, 'image/png');
+    const logo = await image(t, 'image/png');
+    await t.run(async (ctx) => {
+      const cfg = (await ctx.db.query('appConfig').first())!;
+      await ctx.db.patch(cfg._id, { logoStorageId: logo.storageId });
+    });
+    await expect(as.mutation(register, logo)).rejects.toThrow(/email_image_not_found/);
+    const stale = await image(t, 'image/png');
+    pinClock(NOW + 11 * 60_000);
+    await expect(as.mutation(register, stale)).rejects.toThrow(/email_image_not_found/);
+    pinClock(NOW);
     const leadId = await as.mutation(api.features.leads.mutations.createLead, {
       firstName: 'Ada',
       lastName: 'L',
@@ -92,18 +117,15 @@ describe('the images of an e-mail body', () => {
     const theirs = await kept(asMember, await image(t, 'image/png'));
     const orphanBlob = await image(t, 'image/gif');
     const orphan = await kept(as, orphanBlob);
-    // The member's own campaign: the claim reaches their image, not the admin's.
+    // The member's own campaign claims in its own transaction: their image, not the admin's.
     const campaignId = await asMember.mutation(api.features.campaigns.mutations.createCampaign, {
       name: 'Visuel',
       channel: 'email',
       filter: {},
       subject: 'Hi',
-      htmlBody: `<img src="${mine.url}">`,
+      htmlBody: `<img src="${theirs.url}">`,
       messageType: 'transactional',
-    });
-    await asMember.mutation(api.features.attachments.mutations.claimEmailImages, {
-      campaignId,
-      imageIds: [mine.imageId, theirs.imageId],
+      emailImageIds: [mine.imageId, theirs.imageId],
     });
     const claimed = await t.run(async (ctx) => [
       (await ctx.db.get(mine.imageId))?.campaignId ?? null,
@@ -112,9 +134,14 @@ describe('the images of an e-mail body', () => {
     ]);
     // The member reaches their own image only; the admin's stays unclaimed by them.
     expect(claimed).toEqual([null, campaignId, null]);
-    await as.mutation(api.features.attachments.mutations.claimEmailImages, {
-      campaignId,
-      imageIds: [mine.imageId],
+    await as.mutation(api.features.campaigns.mutations.createCampaign, {
+      name: 'Visuel admin',
+      channel: 'email',
+      filter: {},
+      subject: 'Hi',
+      htmlBody: `<img src="${mine.url}">`,
+      messageType: 'transactional',
+      emailImageIds: [mine.imageId],
     });
     pinClock(NOW + 2 * DAY_MS);
     await t.mutation(internal.features.retention.internal.runPurge, {});

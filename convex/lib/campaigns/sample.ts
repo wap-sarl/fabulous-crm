@@ -6,8 +6,22 @@ import { follows, positiveIntSchema } from '../../_lib/validators/fields';
 
 // A campaign's recipients narrowed down: the contacts of other campaigns left out, a random share kept.
 
+/** Index ranges one transaction may read: a page of contacts times the exclusion lookups of each stays under it. */
+const RANGES_PER_PAGE = 3000;
+export const pageSizeWithExclusions = (page: number, excluded: number): number =>
+  Math.min(page, Math.floor(RANGES_PER_PAGE / (1 + excluded)));
+
+/** The recipient extras of a new campaign, checked together: the excluded campaigns it keeps, the sample it was asked. */
+export async function checkRecipientExtras(
+  ctx: MutationCtx,
+  args: { excludeCampaignIds?: Id<'campaigns'>[]; sample?: { size: number; of: number } },
+): Promise<Id<'campaigns'>[] | undefined> {
+  if (args.sample) checkSample(args.sample);
+  return await checkExcludedCampaigns(ctx, args.excludeCampaignIds);
+}
+
 /** At most a handful of live campaigns, each one in the caller's reach. */
-export async function checkExcludedCampaigns(
+async function checkExcludedCampaigns(
   ctx: MutationCtx,
   ids: Id<'campaigns'>[] | undefined,
 ): Promise<Id<'campaigns'>[] | undefined> {
@@ -28,7 +42,7 @@ export async function checkExcludedCampaigns(
 }
 
 /** A whole number of contacts, out of at least as many. */
-export function checkSample(sample: { size: number; of: number }): void {
+function checkSample(sample: { size: number; of: number }): void {
   const message = 'Échantillon : un nombre entier de contacts, au plus le total correspondant.';
   if (!follows(positiveIntSchema, sample.size) || !follows(positiveIntSchema, sample.of)) {
     throw refusal('campaign_sample_invalid', { message });

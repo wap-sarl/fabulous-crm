@@ -180,6 +180,32 @@ describe('« Relancer les échecs »', () => {
     expect(audit?.metadata).toEqual({ event: 'retry_failed', count: 2 });
   });
 
+  test('after a stop, the failed sends are counted on their status, the cancelled ones apart', async () => {
+    const w = await setup(4);
+    const id = await create(w);
+    await prepare(w, id);
+    const [first, second] = await sendsOf(w, id);
+    await w.t.mutation(fn.recordSendResults, {
+      campaignId: id,
+      results: [
+        { sendId: first._id, status: 'sent' },
+        { sendId: second._id, status: 'failed', error: 'refused' },
+      ],
+    });
+    await w.t.run((ctx) => ctx.db.patch(id, { status: 'sending' }));
+    await w.as.mutation(api.features.campaigns.mutations.stopCampaignSending, { campaignId: id });
+    await w.t.mutation(fn.cancelPendingSends, { campaignId: id });
+    expect((await get(w, id)).status).toBe('stopped');
+    expect(
+      await w.as.query(api.features.campaigns.queries.countFailedCampaignSends, { campaignId: id }),
+    ).toEqual({ count: 1, capped: false });
+    const count = await w.as.mutation(api.features.campaigns.mutations.resendAllCampaignSends, {
+      campaignId: id,
+      onlyFailed: true,
+    });
+    expect(count).toBe(1);
+  });
+
   test('is a no-op without a failure, the skipped rows not being failures', async () => {
     const w = await setup(1, 1);
     const id = await settled(w, ['sent']);

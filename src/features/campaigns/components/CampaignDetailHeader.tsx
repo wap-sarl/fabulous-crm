@@ -22,8 +22,8 @@ export function CampaignDetailHeader({
   navigate,
 }: {
   campaign: Doc<'campaigns'>;
-  /** The sends that failed, the skipped ones left out: what « Relancer les échecs » sends again. */
-  failedSends: number;
+  /** The sends that failed, counted up to a cap: what « Relancer les échecs » sends again. */
+  failedSends: { count: number; capped: boolean };
   canRetry: boolean;
   canStop: boolean;
   retrying: boolean;
@@ -66,10 +66,11 @@ export function CampaignDetailHeader({
                 Reprendre l’envoi
               </Button>
             )}
-            {failedSends > 0 && (
+            {failedSends.count > 0 && (
               <Button onClick={handleRetryFailed} loading={retrying} data-testid="retry-failed">
                 <RotateCcw className="size-4" />
-                Relancer les échecs ({numberFormat.format(failedSends)})
+                Relancer les échecs ({numberFormat.format(failedSends.count)}
+                {failedSends.capped ? '+' : ''})
               </Button>
             )}
             <Button variant="outline" onClick={handleResendAll} loading={retrying}>

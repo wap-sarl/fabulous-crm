@@ -52,7 +52,6 @@ export function CampaignCreatePage() {
   const navigate = useNavigate();
 
   const createCampaign = useAuthMutation(api.features.campaigns.mutations.createCampaign);
-  const claimEmailImages = useAuthMutation(api.features.attachments.mutations.claimEmailImages);
   const capabilities = useQuery(api.features.config.queries.getEmailCapabilities);
   const smsAvailable = capabilities?.smsAvailable ?? true;
   const emailConfigured = capabilities?.emailConfigured ?? true;
@@ -224,9 +223,9 @@ export function CampaignCreatePage() {
         abTest: test.value,
         excludeCampaignIds: excludeCampaignIds.length > 0 ? excludeCampaignIds : undefined,
         sample: useSample && total > 0 ? { size: Math.min(sampleN, total), of: total } : undefined,
+        emailImageIds: emailImageIds.length > 0 ? emailImageIds : undefined,
         ...content,
       });
-      if (emailImageIds.length > 0) await claimEmailImages({ campaignId, imageIds: emailImageIds });
       toast.success(
         scheduledAt.value !== undefined
           ? 'Campagne programmée.'

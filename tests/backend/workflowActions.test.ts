@@ -289,7 +289,8 @@ describe('the action of a workflow step: a text message', () => {
         body: {
           sender: 'CRM',
           recipient: '33612345678',
-          content: 'Bonjour Jean, votre rendez-vous est confirmé.',
+          // The STOP line goes on every SMS as it leaves, a workflow written before the rule included.
+          content: 'Bonjour Jean, votre rendez-vous est confirmé.\n\nSTOP au [STOP_CODE]',
           type: 'marketing',
         },
       },

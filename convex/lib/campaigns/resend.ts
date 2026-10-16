@@ -100,14 +100,20 @@ export async function requeueSend(
   return true;
 }
 
+/** A campaign in reach and not deleted, or the refusal every campaign mutation gives. */
+export async function liveCampaign(ctx: MutationCtx, campaignId: Id<'campaigns'>) {
+  const campaign = await ctx.db.get(campaignId);
+  if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+  return campaign;
+}
+
 /** A live campaign that is settled (a drain or a resend already running would process the rows itself), deliverable on its channel when something is to leave. */
 export async function settledCampaign(
   ctx: MutationCtx,
   campaignId: Id<'campaigns'>,
   sending = true,
 ) {
-  const campaign = await ctx.db.get(campaignId);
-  if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+  const campaign = await liveCampaign(ctx, campaignId);
   if (campaign.status === 'sending' || campaign.status === 'preparing') {
     throw refusal('campaign_sending');
   }

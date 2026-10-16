@@ -35,6 +35,10 @@ export function CampaignDetailPage() {
     api.features.campaigns.queries.getCampaignStats,
     campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
   );
+  const failed = useAuthQuery(
+    api.features.campaigns.queries.countFailedCampaignSends,
+    campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
+  );
   const timeZone = usePublicConfig().config?.timezone ?? DEFAULT_TIMEZONE;
   const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
@@ -121,12 +125,11 @@ export function CampaignDetailPage() {
       setRetrying(false);
     }
   };
-  // `failedCount` holds the skipped too; the stats say how many of them are skipped.
-  const failedSends = Math.max(0, campaign.failedCount - stats.skipped);
+  const failedSends = failed ?? { count: 0, capped: false };
   const handleRetryFailed = async () => {
     if (
       !window.confirm(
-        `Relancer les ${numberFormat.format(failedSends)} envoi(s) en échec ? Les autres ne bougent pas.`,
+        `Relancer les ${numberFormat.format(failedSends.count)}${failedSends.capped ? '+' : ''} envoi(s) en échec ? Les autres ne bougent pas.`,
       )
     )
       return;

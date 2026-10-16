@@ -1,5 +1,5 @@
 /** RGPD / LCEN: a marketing message must carry an unsubscribe path, pre-filled in the editable body rather than injected at send time; the reconcilers are idempotent. Every SMS carries it whatever its type: Brevo files a SMS holding its STOP code as marketing, and a consent link would cost half of a 160-character SMS that an alphanumeric sender cannot even receive replies to. */
-import type { MessageType } from '@crm/lib/backend';
+import { SMS_STOP_LINE, type MessageType } from '@crm/lib/backend';
 
 /** The consent-link placeholder, used both as the link target and the presence sentinel. */
 const CONSENT_TOKEN = '{{ params.consentUrl }}';
@@ -7,8 +7,8 @@ const CONSENT_TOKEN = '{{ params.consentUrl }}';
 /** Whitespace-tolerant match for the placeholder, mirroring `renderPlaceholders`. */
 const CONSENT_RE = /\{\{\s*params\.consentUrl\s*\}\}/;
 
-/** The opt-out line appended to every SMS body; Brevo substitutes its short code at send time, and a STOP reply comes back through the SMS webhook. */
-export const SMS_STOP_LINE = 'STOP au [STOP_CODE]';
+/** The opt-out line appended to every SMS body, the server's own; a STOP reply comes back through the SMS webhook. */
+export { SMS_STOP_LINE };
 
 const SMS_STOP_RE = /STOP au \[STOP_CODE\]/;
 

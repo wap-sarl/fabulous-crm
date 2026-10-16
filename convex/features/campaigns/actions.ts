@@ -13,6 +13,7 @@ import { renderPlaceholders, sendBrevoTemplateEmail, wrapEmailHtml } from '../..
 import { registerBrevoWebhook } from '../../lib/email/brevoWebhooks';
 import { BREVO_EMAIL_EVENT_TYPE } from '../../lib/campaigns/events';
 import { sendBrevoSms, toBrevoRecipient } from '../../lib/sms/brevo';
+import { withStopLine } from '../../lib/sms/stop';
 import { createEmailDispatcher } from '../email/send';
 import { variantContent } from '../../lib/campaigns/variants';
 import type { CampaignSendStatus } from '../../schema';
@@ -135,6 +136,10 @@ export const backfillBrevoEmailEvents = internalAction({
       });
     }
     const more = events.length >= BACKFILL_PAGE;
+    // One line per page: a run through `convex run` only returns its first page's counts.
+    console.log(
+      `Brevo backfill: offset ${offset}, ${known.length} recorded, ${events.length - known.length} skipped${more ? ', next page scheduled' : ''}`,
+    );
     if (more) {
       await ctx.scheduler.runAfter(
         0,
@@ -258,7 +263,7 @@ export const sendCampaignBatch = internalAction({
             continue;
           }
 
-          const content = renderPlaceholders(batch.smsBody ?? '', send.params, false);
+          const content = withStopLine(renderPlaceholders(batch.smsBody ?? '', send.params, false));
           const result = await sendBrevoSms(brevo.apiKey, {
             recipient,
             content,

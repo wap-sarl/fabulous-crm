@@ -20,7 +20,7 @@ import { toBrevoRecipient } from '../sms/brevo';
 import { buildSendParams } from './params';
 import { scheduleDrain } from './drain';
 import { loadSendAt } from './sendTime';
-import { sentByExcluded } from './sample';
+import { pageSizeWithExclusions, sentByExcluded } from './sample';
 import { assignVariant } from './variants';
 
 // Each recipient writes one campaignSends row plus one campaignLinkTokens row per tracked link: 200 leads stay far below Convex's 8,192 writes per transaction.
@@ -64,7 +64,11 @@ export async function prepareBatch(
   const lifecycle = await loadLifecycleConfig(ctx);
   const creator = campaign.createdBy ? await ctx.db.get(campaign.createdBy) : null;
   const leadsDb = creator ? scopedReader(ctx, await loadVisibility(ctx, creator)) : ctx.db;
-  const pageSize = campaign.sendTimeOptimized ? PREP_BATCH_OPTIMIZED : PREP_BATCH;
+  const excluded = campaign.excludeCampaignIds ?? [];
+  const pageSize = pageSizeWithExclusions(
+    campaign.sendTimeOptimized ? PREP_BATCH_OPTIMIZED : PREP_BATCH,
+    excluded.length,
+  );
   const page = await leadsDb
     .query('leads')
     .paginate({ cursor: args.cursor ?? null, numItems: args.batchSize ?? pageSize });
@@ -88,7 +92,6 @@ export async function prepareBatch(
   const testUntil = now + (campaign.sendTimeOptimized ? DAY_MS : 0);
   const holdoutAt = test ? testUntil + test.windowHours * HOUR_MS : now;
 
-  const excluded = campaign.excludeCampaignIds ?? [];
   const sample = campaign.sample;
   let total = 0;
   let skipped = 0;

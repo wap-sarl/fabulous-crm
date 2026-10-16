@@ -1,12 +1,14 @@
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
-import { checkExcludedCampaigns, checkSample } from '../../lib/campaigns/sample';
+import { checkRecipientExtras } from '../../lib/campaigns/sample';
+import { claimEmailImages } from '../../lib/attachments/emailImages';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
 import { checkTrackedLinks } from '../../lib/campaigns/links';
 import {
   loadResendContext,
   requeueSend,
+  liveCampaign,
   requireLinkBase,
   settledCampaign,
 } from '../../lib/campaigns/resend';
@@ -20,7 +22,7 @@ import {
 import { resolveCampaignContent } from '../../lib/campaigns/content';
 import { loadAppConfig } from '../../lib/config/load';
 import { scheduleDrain } from '../../lib/campaigns/drain';
-import { failedSendsOf } from '../../lib/campaigns/stats';
+import { failedSendCount } from '../../lib/campaigns/stats';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import {
   campaignChannelValidator,
@@ -63,10 +65,10 @@ export const createCampaign = employeeMutation({
     // Each e-mail at the hour its recipient opens most, within the day that follows the start.
     sendTimeOptimized: v.optional(v.boolean()),
     abTest: v.optional(abTestArgs),
-    // Contacts with a send in these campaigns are left out at preparation.
+    // The extras: contacts of these campaigns left out, a random share (`size` of the `of` counted) kept, the hosted images of a Claude Design body claimed here so the purge leaves them.
     excludeCampaignIds: v.optional(v.array(v.id('campaigns'))),
-    // A random share of the matches: `size` of the `of` the page counted.
     sample: v.optional(campaignSampleValidator),
+    emailImageIds: v.optional(v.array(v.id('emailImages'))),
   },
   returns: v.id('campaigns'),
   handler: async (ctx, args) => {
@@ -112,8 +114,7 @@ export const createCampaign = employeeMutation({
     );
 
     const abTest = args.abTest ? checkAbTest(args.abTest, htmlBody) : undefined;
-    const excludeCampaignIds = await checkExcludedCampaigns(ctx, args.excludeCampaignIds);
-    if (args.sample) checkSample(args.sample);
+    const excludeCampaignIds = await checkRecipientExtras(ctx, args);
 
     // Early gate: an exhausted allowance refuses before any recipient is materialised.
     await requireSendAllowed(ctx, {
@@ -149,6 +150,7 @@ export const createCampaign = employeeMutation({
       ...createAuditFields(ctx.userId),
     });
     const campaign = (await ctx.db.get(campaignId))!;
+    if (args.emailImageIds?.length) await claimEmailImages(ctx, campaignId, args.emailImageIds);
 
     // Recipients are materialised in scheduled batches: one transaction caps at 8,192 writes, exceeded around 2,000 recipients with 3 tracked links.
     if (args.scheduledAt !== undefined) await scheduleStart(ctx, campaign, args.scheduledAt);
@@ -205,7 +207,7 @@ export const resendAllCampaignSends = employeeMutation({
   returns: v.number(),
   handler: async (ctx, args) => {
     const campaign = await settledCampaign(ctx, args.campaignId);
-    const count = args.onlyFailed ? await failedSendsOf(ctx, campaign) : campaign.totalCount;
+    const count = args.onlyFailed ? await failedSendCount(ctx, campaign._id) : campaign.totalCount;
     if (count === 0) return 0;
     requireLinkBase(campaign);
     await requireSendAllowed(ctx, {
@@ -245,8 +247,7 @@ export const scheduleCampaign = employeeMutation({
   args: { campaignId: v.id('campaigns'), scheduledAt: v.union(v.number(), v.null()) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    const campaign = await liveCampaign(ctx, args.campaignId);
     if (campaign.status !== 'scheduled' && campaign.status !== 'draft') {
       throw refusal('campaign_not_schedulable');
     }
@@ -282,8 +283,7 @@ export const cancelScheduledCampaign = employeeMutation({
   args: { campaignId: v.id('campaigns') },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    const campaign = await liveCampaign(ctx, args.campaignId);
     if (campaign.status !== 'scheduled') throw refusal('campaign_not_scheduled');
     await cancelStart(ctx, campaign);
     await ctx.db.patch(args.campaignId, {
@@ -333,8 +333,7 @@ export const stopCampaignSending = employeeMutation({
   args: { campaignId: v.id('campaigns') },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    const campaign = await liveCampaign(ctx, args.campaignId);
     if (campaign.status !== 'sending' && campaign.status !== 'preparing') {
       throw refusal('campaign_not_sending');
     }
@@ -364,8 +363,7 @@ export const resumeCampaignSending = employeeMutation({
   args: { campaignId: v.id('campaigns') },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    const campaign = await liveCampaign(ctx, args.campaignId);
     if (campaign.status !== 'stopped') throw refusal('campaign_not_stopped');
     await assertChannelDeliverable(await loadAppConfig(ctx), campaign.channel ?? 'email');
     // What neither left nor failed is what was cancelled.

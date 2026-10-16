@@ -2,7 +2,7 @@ import { paginationResultValidator } from 'convex/server';
 import { docOf } from '../../lib/shared/docs';
 import { lifecycleChangeSourceValidator } from '../../_lib/validators/lifecycle';
 import { v } from 'convex/values';
-import { sentByExcluded } from '../../lib/campaigns/sample';
+import { pageSizeWithExclusions, sentByExcluded } from '../../lib/campaigns/sample';
 import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
 import type { QueryCtx } from '../../_generated/server';
@@ -367,7 +367,10 @@ export const matchingLeadsPage = employeeQuery({
     cursor: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, { cursor, excludeCampaignIds, ...filters }) => {
-    const page = await ctx.db.query('leads').paginate({ cursor, numItems: MATCHING_PAGE });
+    const page = await ctx.db.query('leads').paginate({
+      cursor,
+      numItems: pageSizeWithExclusions(MATCHING_PAGE, excludeCampaignIds?.length ?? 0),
+    });
     const pageIds = page.page.map((lead) => lead._id);
     const listMemberIds = await loadListMemberIdsForLeads(ctx, filters.listIds, pageIds);
     const advancedListMembers = await loadAdvancedListMembers(ctx, filters.advancedFilter, pageIds);
