@@ -300,8 +300,10 @@ workspaces.
   échecs » ne remet en file que les envois en échec. Tout SMS porte la mention
   « STOP au [STOP_CODE] » (code court Brevo, insérable par un bouton) : Brevo
   le classe alors en marketing, d'où les deux webhooks SMS, et une réponse STOP
-  reçue comme simple réponse retire le consentement SMS ; un clic Brevo sur le
-  lien de consentement compte comme désinscription. Un corps HTML importé est
+  reçue comme simple réponse retire le consentement SMS ; l'événement
+  « désinscription » de Brevo est compté sur l'envoi, un clic sur le lien de
+  consentement reste un clic (le centre de préférences dit ce que la personne a
+  décidé). Un corps HTML importé est
   refusé au-delà de 800 Ko (le document Convex plafonne à 1 Mio) ; le mode
   « Claude Design » lit un export autonome, héberge ses images dans le stockage
   de fichiers et réécrit les `<img src>`. Les méthodes de connexion (lien

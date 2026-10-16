@@ -40,7 +40,7 @@ import {
 } from './_lib/validators/deals';
 import { activityValidator } from './_lib/validators/activities';
 import { apiIdempotencyKeyValidator, apiKeyValidator } from './_lib/validators/apiKeys';
-import { attachmentValidator } from './_lib/validators/attachments';
+import { attachmentValidator, emailImageValidator } from './_lib/validators/attachments';
 import { teamValidator } from './_lib/validators/teams';
 import { roleValidator } from './_lib/validators/roles';
 import { duplicateScanValidator, leadDuplicateValidator } from './_lib/validators/duplicates';
@@ -338,7 +338,15 @@ const tables = {
 
   duplicateScans: defineTable(duplicateScanValidator).index('by_status', ['status']),
 
-  attachments: defineTable(attachmentValidator).index('by_entity', ['entityType', 'entityId']),
+  attachments: defineTable(attachmentValidator)
+    .index('by_entity', ['entityType', 'entityId'])
+    // Whether a blob is a record's file: an e-mail image may not be registered over one.
+    .index('by_storageId', ['storageId']),
+
+  // The images of e-mail bodies the CRM hosts: `by_campaign_createdAt` serves the purge of the unclaimed ones.
+  emailImages: defineTable(emailImageValidator)
+    .index('by_storageId', ['storageId'])
+    .index('by_campaign_createdAt', ['campaignId', 'createdAt']),
 
   teams: defineTable(teamValidator),
 

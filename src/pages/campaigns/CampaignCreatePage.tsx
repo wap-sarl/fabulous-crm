@@ -52,6 +52,7 @@ export function CampaignCreatePage() {
   const navigate = useNavigate();
 
   const createCampaign = useAuthMutation(api.features.campaigns.mutations.createCampaign);
+  const claimEmailImages = useAuthMutation(api.features.attachments.mutations.claimEmailImages);
   const capabilities = useQuery(api.features.config.queries.getEmailCapabilities);
   const smsAvailable = capabilities?.smsAvailable ?? true;
   const emailConfigured = capabilities?.emailConfigured ?? true;
@@ -79,6 +80,8 @@ export function CampaignCreatePage() {
   // The CRM template the e-mail was loaded from or saved as: the campaign counts towards its figures.
   const [crmTemplateId, setCrmTemplateId] = useState<Id<'emailTemplates'> | null>(null);
   const [trackedLinks, setTrackedLinks] = useState<CampaignTrackedLink[]>([]);
+  // The hosted images of a Claude Design export, claimed by the campaign once created.
+  const [emailImageIds, setEmailImageIds] = useState<Id<'emailImages'>[]>([]);
   // Tomorrow at nine on the organisation's clock, the usual choice, until the author moves it.
   const [schedule, setSchedule] = useState<ScheduleForm>(() => ({
     later: false,
@@ -223,6 +226,7 @@ export function CampaignCreatePage() {
         sample: useSample && total > 0 ? { size: Math.min(sampleN, total), of: total } : undefined,
         ...content,
       });
+      if (emailImageIds.length > 0) await claimEmailImages({ campaignId, imageIds: emailImageIds });
       toast.success(
         scheduledAt.value !== undefined
           ? 'Campagne programmée.'
@@ -288,6 +292,7 @@ export function CampaignCreatePage() {
           onSubjectChange={setSubject}
           htmlBody={htmlBody}
           onHtmlBodyChange={setHtmlBody}
+          onEmailImages={setEmailImageIds}
           smsBody={smsBody}
           onSmsBodyChange={setSmsBody}
           messageType={messageType}

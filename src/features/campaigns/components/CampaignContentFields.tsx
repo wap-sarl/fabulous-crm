@@ -29,6 +29,8 @@ interface Props {
   onSubjectChange: (value: string) => void;
   htmlBody: string;
   onHtmlBodyChange: (value: string) => void;
+  /** The hosted images of a Claude Design export, for the campaign to claim once created. */
+  onEmailImages: (ids: Id<'emailImages'>[]) => void;
   smsBody: string;
   onSmsBodyChange: (value: string) => void;
   messageType: MessageType;
@@ -119,6 +121,7 @@ export function CampaignContentFields({
   onSubjectChange,
   htmlBody,
   onHtmlBodyChange,
+  onEmailImages,
   smsBody,
   onSmsBodyChange,
   messageType,
@@ -304,6 +307,7 @@ export function CampaignContentFields({
               onLoad={onHtmlBodyChange}
               fileName={importFileName}
               onFileNameChange={setImportFileName}
+              onImages={onEmailImages}
               tokens={placeholders.map((p) => p.token)}
             />
             {messageType === 'marketing' && (

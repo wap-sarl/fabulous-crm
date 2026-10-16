@@ -1,3 +1,4 @@
+import type { Id } from '@crm/lib/backend';
 import { Label } from '@crm/design-system';
 import { useClaudeDesignImport } from '../hooks/useClaudeDesignImport';
 import { HtmlImportDropzone } from './HtmlImportDropzone';
@@ -11,15 +12,18 @@ export function HtmlImportField({
   onLoad,
   fileName,
   onFileNameChange,
+  onImages,
   tokens,
 }: {
   claudeDesign: boolean;
   onLoad: (html: string) => void;
   fileName: string | null;
   onFileNameChange: (name: string) => void;
+  /** The hosted images of a Claude Design export, for the campaign to claim. */
+  onImages: (ids: Id<'emailImages'>[]) => void;
   tokens: string[];
 }) {
-  const importClaudeDesign = useClaudeDesignImport();
+  const importClaudeDesign = useClaudeDesignImport(onImages);
   return (
     <>
       <Label>{claudeDesign ? 'Export Claude Design' : 'Modèle HTML'}</Label>

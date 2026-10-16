@@ -7,6 +7,8 @@ import { employeeMutation } from '../../_lib/auth';
 import {
   type AttachmentEntityType,
   attachmentEntityTypeValidator,
+  EMAIL_IMAGE_MAX_BYTES,
+  EMAIL_IMAGE_TYPES,
 } from '../../_lib/validators/attachments';
 import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
 import { isNotDeleted } from '../../lib/shared/db';
@@ -76,19 +78,67 @@ export const generateAttachmentUploadUrl = employeeMutation({
   },
 });
 
-/** The upload address of one image of an e-mail (a Claude Design export): no entity, no size cap of the attachments, and the blob stays whether the campaign is created or not. */
+/** The upload address of one image of an e-mail body (a Claude Design export); the blob is checked and recorded by registerEmailImage right after. */
 export const generateEmailImageUploadUrl = employeeMutation({
   args: {},
   returns: v.string(),
   handler: async (ctx) => await ctx.storage.generateUploadUrl(),
 });
 
-/** The public URLs of uploaded images, in the order given, for the `<img src>` of the body. */
-export const resolveEmailImageUrls = employeeMutation({
-  args: { storageIds: v.array(v.id('_storage')) },
-  returns: v.array(v.union(v.string(), v.null())),
-  handler: async (ctx, { storageIds }) =>
-    await Promise.all(storageIds.map((id) => ctx.storage.getUrl(id))),
+/** Records an uploaded image, raster and bounded, for its uploader, and gives its public URL; the declared type must be the one the upload carried. A blob that is not such an image is deleted and reported, not thrown, as a throwing mutation would roll the delete back; one that belongs to a record's file is refused untouched. */
+export const registerEmailImage = employeeMutation({
+  args: { storageId: v.id('_storage'), contentType: v.string() },
+  returns: v.union(
+    v.object({ ok: v.literal(true), imageId: v.id('emailImages'), url: v.string() }),
+    v.object({ ok: v.literal(false), code: v.union(v.literal('type'), v.literal('too_large')) }),
+  ),
+  handler: async (ctx, { storageId, contentType }) => {
+    const blob = await ctx.db.system.get(storageId);
+    if (!blob) throw refusal('email_image_not_found');
+    const ownedByRecord = await ctx.db
+      .query('attachments')
+      .withIndex('by_storageId', (q) => q.eq('storageId', storageId))
+      .first();
+    const registered = await ctx.db
+      .query('emailImages')
+      .withIndex('by_storageId', (q) => q.eq('storageId', storageId))
+      .first();
+    if (ownedByRecord || registered) throw refusal('email_image_not_found');
+    // The store keeps the Content-Type of the upload; the declared one stands in where it did not.
+    const type = blob.contentType ?? contentType;
+    if (type !== contentType || !EMAIL_IMAGE_TYPES.has(type)) {
+      await ctx.storage.delete(storageId);
+      return { ok: false as const, code: 'type' as const };
+    }
+    if (blob.size > EMAIL_IMAGE_MAX_BYTES) {
+      await ctx.storage.delete(storageId);
+      return { ok: false as const, code: 'too_large' as const };
+    }
+    const imageId = await ctx.db.insert('emailImages', {
+      storageId,
+      uploadedBy: ctx.userId,
+      contentType: type,
+      size: blob.size,
+      createdAt: Date.now(),
+    });
+    const url = await ctx.storage.getUrl(storageId);
+    if (!url) throw refusal('email_image_not_found');
+    return { ok: true as const, imageId, url };
+  },
+});
+
+/** The images of a campaign just created, claimed by it so the purge leaves them; only the caller's own uploads are in reach. */
+export const claimEmailImages = employeeMutation({
+  args: { campaignId: v.id('campaigns'), imageIds: v.array(v.id('emailImages')) },
+  returns: v.null(),
+  handler: async (ctx, { campaignId, imageIds }) => {
+    if (!(await ctx.db.get(campaignId))) throw refusal('campaign_not_found');
+    for (const imageId of imageIds) {
+      const image = await ctx.db.get(imageId);
+      if (image && image.campaignId === undefined) await ctx.db.patch(imageId, { campaignId });
+    }
+    return null;
+  },
 });
 
 /** Step 2 of an upload: an oversized blob is deleted and reported as `too_large`, not thrown, as a throwing mutation rolls back its writes, the delete included. */

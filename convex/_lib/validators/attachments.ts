@@ -60,3 +60,19 @@ export function attachmentPurgeAt(deletedAt: number, retentionDays: number): num
 export function attachmentDaysLeft(purgeAt: number, now: number): number {
   return Math.max(0, Math.ceil((purgeAt - now) / DAY_MS));
 }
+
+/** Images of an e-mail body (a Claude Design export), hosted by the CRM: raster formats only, a SVG would run scripts from the deployment's own domain. */
+export const EMAIL_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+export const EMAIL_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+/** An upload nobody claimed for a campaign within a day is gone with its blob. */
+export const EMAIL_IMAGE_ORPHAN_MS = DAY_MS;
+
+export const emailImageValidator = v.object({
+  storageId: v.id('_storage'),
+  uploadedBy: v.id('users'),
+  contentType: v.string(),
+  size: v.number(),
+  createdAt: v.number(),
+  // Set once a campaign holds the image; absent, the nightly purge removes it after a day.
+  campaignId: v.optional(v.id('campaigns')),
+});

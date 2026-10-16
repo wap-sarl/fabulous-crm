@@ -120,9 +120,7 @@ export async function recordEmailEvent(
     return;
   }
 
-  // Brevo's click tracking wraps the consent link like any other: a click on it is an unsubscribe, not an engagement.
-  const type =
-    args.type === 'clicked' && args.url?.includes('/consent/') ? 'unsubscribed' : args.type;
+  const type = args.type;
   const outcome = await insertCampaignEventIfNew(ctx, {
     campaignId: send.campaignId,
     sendId: send._id,
@@ -141,6 +139,7 @@ export async function recordEmailEvent(
   if (type === 'clicked' && send.clickedAt === undefined) {
     await ctx.db.patch(send._id, { clickedAt: args.eventAt });
   }
+  // Brevo's own unsubscribe event; a click on the consent link stays a click, the preference centre says what the person decided.
   if (type === 'unsubscribed' && send.unsubscribedAt === undefined) {
     await ctx.db.patch(send._id, { unsubscribedAt: args.eventAt });
   }

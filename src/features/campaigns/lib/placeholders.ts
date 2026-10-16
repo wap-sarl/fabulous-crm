@@ -1,5 +1,6 @@
 import { customPropertyParamKey } from '@crm/lib/backend';
 import type { CampaignTrackedLink } from '@crm/lib/backend';
+import { SMS_STOP_LINE } from './marketingCompliance';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
 /** `kind` drives the filtering (a tracked-link URL is kept out of the email subject) and the styling of the chip. */
@@ -31,7 +32,7 @@ const FIXED_PLACEHOLDERS: PlaceholderItem[] = [
 export const SMS_STOP_PLACEHOLDER: PlaceholderItem = {
   key: 'stop',
   label: 'Mention STOP',
-  token: 'STOP au [STOP_CODE]',
+  token: SMS_STOP_LINE,
   kind: 'fixed',
 };
 

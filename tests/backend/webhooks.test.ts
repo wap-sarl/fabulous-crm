@@ -199,23 +199,26 @@ describe('email events', () => {
     expect(lead?.lastActivityAt).toBe(9_000);
   });
 
-  test('a click on the consent link is an unsubscribe, not a click', async () => {
+  test("a click on the consent link is a click; Brevo's own unsubscribe event stamps the send", async () => {
     const { t, emp } = await setup();
     const { sendId } = await seedEmailSend(t, emp, 'msg-unsub');
-    await t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
-      method: 'POST',
-      body: JSON.stringify({
-        event: 'click',
-        'message-id': 'msg-unsub',
-        ts_epoch: 1_700_000_000,
-        link: 'https://crm.example.com/consent/abc',
-      }),
+    const post = (body: unknown) =>
+      t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
+        method: 'POST',
+        body: JSON.stringify(body),
+      });
+    await post({
+      event: 'click',
+      'message-id': 'msg-unsub',
+      ts_epoch: 1_700_000_000,
+      link: 'https://crm.example.com/consent/abc',
     });
+    await post({ event: 'unsubscribed', 'message-id': 'msg-unsub', ts_epoch: 1_700_000_500 });
     const events = await t.run((ctx) => ctx.db.query('campaignEvents').collect());
-    expect(events.map((e) => e.type)).toEqual(['unsubscribed']);
+    expect(events.map((e) => e.type).sort()).toEqual(['clicked', 'unsubscribed']);
     const send = await t.run((ctx) => ctx.db.get(sendId));
-    expect(send?.unsubscribedAt).toBe(1_700_000_000);
-    expect(send?.clickedAt).toBeUndefined();
+    expect(send?.clickedAt).toBe(1_700_000_000);
+    expect(send?.unsubscribedAt).toBe(1_700_000_500);
   });
 
   test('an unknown message id is acknowledged without writing', async () => {
