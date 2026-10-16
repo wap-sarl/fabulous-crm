@@ -316,3 +316,20 @@ export async function mergeEmail(
   }
   return mergedEmail;
 }
+
+/** The settings never lock everyone out: with the magic link off, a social or SSO provider must be on; what the call leaves alone counts as stored. */
+export function assertSignInMethod(
+  cfg: Config,
+  args: SettingsArgs,
+  sso: SsoProvider[] | undefined,
+  social: SocialProviderConfig[] | undefined,
+): void {
+  const magicLink = args.magicLinkEnabled ?? cfg.auth.magicLinkEnabled;
+  const providers = [
+    ...(sso ?? cfg.auth.ssoProviders ?? []),
+    ...(social ?? cfg.auth.socialProviders ?? []),
+  ];
+  if (!magicLink && !providers.some((p) => p.enabled)) {
+    throw refusal('no_sign_in_method', { message: 'Activez au moins une méthode de connexion.' });
+  }
+}

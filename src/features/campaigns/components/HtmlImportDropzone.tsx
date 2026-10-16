@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { Button, Spinner, toast, cn } from '@crm/design-system';
-import { HTML_BODY_MAX_CHARS } from '@crm/lib/backend';
+import { HTML_BODY_MAX_BYTES } from '@crm/lib/backend';
 
 /** MIME types browsers report for a `.html`/`.htm` file (some report none). */
 const HTML_MIME = new Set(['text/html', 'application/xhtml+xml', 'text/plain', '']);
@@ -23,7 +23,7 @@ interface Props {
 export function HtmlImportDropzone({
   onLoad,
   readFile = (file) => file.text(),
-  maxBytes = HTML_BODY_MAX_CHARS,
+  maxBytes = HTML_BODY_MAX_BYTES,
   busyLabel = 'Lecture du fichier…',
   fileName,
   onFileNameChange,

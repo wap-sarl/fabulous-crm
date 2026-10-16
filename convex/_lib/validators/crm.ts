@@ -104,8 +104,8 @@ export const EXCLUDED_CAMPAIGNS_MAX = 20;
 /** A random share of the matching contacts: `size` of the `of` the creation page counted. */
 export const campaignSampleValidator = v.object({ size: v.number(), of: v.number() });
 
-/** Characters of an inline HTML body: headroom under Convex's 1 MiB document cap for the campaign's other fields. */
-export const HTML_BODY_MAX_CHARS = 800 * 1024;
+/** Bytes of an inline HTML body, UTF-8: headroom under Convex's 1 MiB document cap for the campaign's other fields; a content A/B test stores both bodies on the row. */
+export const HTML_BODY_MAX_BYTES = 800 * 1024;
 
 export const campaignStatusValidator = v.union(
   // Written but not started: a scheduled send that was cancelled waits here for a new time, or for « Envoyer maintenant ».

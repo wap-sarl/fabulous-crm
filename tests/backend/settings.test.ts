@@ -43,7 +43,14 @@ async function lastAudit(t: T) {
 
 describe('settings: the plain fields', () => {
   test('each field given is written as it is kept, the others stay, and the audit names what was given', async () => {
-    const { t, emp, update } = await setup({ primaryColor: '#111111' });
+    // A stored provider keeps a door open once the magic link goes off.
+    const { t, emp, update } = await setup({
+      primaryColor: '#111111',
+      auth: {
+        magicLinkEnabled: true,
+        socialProviders: [{ id: 'google', clientId: 'id', clientSecret: 'secret', enabled: true }],
+      },
+    });
     expect(
       await update({
         organizationName: 'Acme',
@@ -317,5 +324,30 @@ describe('settings: e-mail and sign-in providers', () => {
       ssoProviders: cfg.auth.ssoProviders,
       socialProviders: cfg.auth.socialProviders,
     });
+  });
+});
+
+describe('the sign-in methods', () => {
+  test('the settings refuse to turn every method off, server-side', async () => {
+    const t = createTestConvex();
+    const admin = await seedEmployee(t, { email: 'admin@example.com', role: 'admin' });
+    await seedConfig(t);
+    const as = asIdentity(t, admin.identity);
+    await expect(
+      as.mutation(api.features.config.mutations.updateConfig, {
+        magicLinkEnabled: false,
+        socialProviders: [],
+        ssoProviders: [],
+      }),
+    ).rejects.toThrow(/no_sign_in_method/);
+    await as.mutation(api.features.config.mutations.updateConfig, {
+      magicLinkEnabled: false,
+      socialProviders: [{ id: 'google', clientId: 'id', clientSecret: 'secret', enabled: true }],
+    });
+    // The provider stored keeps the door open when the call leaves the providers alone.
+    await as.mutation(api.features.config.mutations.updateConfig, { magicLinkEnabled: false });
+    await expect(
+      as.mutation(api.features.config.mutations.updateConfig, { socialProviders: [] }),
+    ).rejects.toThrow(/no_sign_in_method/);
   });
 });

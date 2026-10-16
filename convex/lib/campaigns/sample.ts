@@ -13,20 +13,28 @@ export async function checkExcludedCampaigns(
 ): Promise<Id<'campaigns'>[] | undefined> {
   if (!ids?.length) return undefined;
   const unique = [...new Set(ids)];
-  if (unique.length > EXCLUDED_CAMPAIGNS_MAX) throw refusal('excluded_campaigns_too_many');
+  if (unique.length > EXCLUDED_CAMPAIGNS_MAX) {
+    throw refusal('excluded_campaigns_too_many', {
+      message: `Au plus ${EXCLUDED_CAMPAIGNS_MAX} campagnes exclues.`,
+    });
+  }
   for (const id of unique) {
     const campaign = await ctx.db.get(id);
-    if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+    if (!campaign || campaign.deletedAt != null) {
+      throw refusal('campaign_not_found', { message: 'Une campagne exclue n’existe plus.' });
+    }
   }
   return unique;
 }
 
 /** A whole number of contacts, out of at least as many. */
 export function checkSample(sample: { size: number; of: number }): void {
+  const message = 'Échantillon : un nombre entier de contacts, au plus le total correspondant.';
   if (!follows(positiveIntSchema, sample.size) || !follows(positiveIntSchema, sample.of)) {
-    throw refusal('campaign_sample_invalid');
+    throw refusal('campaign_sample_invalid', { message });
   }
-  if (sample.size > sample.of) throw refusal('campaign_sample_invalid', { reason: 'size' });
+  if (sample.size > sample.of)
+    throw refusal('campaign_sample_invalid', { reason: 'size', message });
 }
 
 /** Whether one contact has a send in one of the excluded campaigns: one point read per campaign, at most EXCLUDED_CAMPAIGNS_MAX. */

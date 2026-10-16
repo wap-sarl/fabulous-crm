@@ -10,6 +10,7 @@ import {
   mergeSocialProviders,
   mergeSsoProviders,
   nextRetention,
+  assertSignInMethod,
   nextTracking,
   settingsArgs,
 } from '../../lib/config/settings';
@@ -46,6 +47,7 @@ export const updateConfig = settingsMutation({
     await dropReplacedAssets(ctx, cfg, args);
     const mergedSso = await mergeSsoProviders(cfg, args.ssoProviders);
     const mergedSocial = await mergeSocialProviders(cfg, args.socialProviders);
+    assertSignInMethod(cfg, args, mergedSso, mergedSocial);
     const retention = nextRetention(cfg, args);
     const tracking = await nextTracking(ctx, cfg, args);
     const mergedConnectors = await mergeConnectors(cfg, args.connectors);

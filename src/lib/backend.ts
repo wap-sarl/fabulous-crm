@@ -73,7 +73,7 @@ export type { DuplicateReason } from '../../convex/_lib/validators/duplicates';
 export type { DuplicateLeadSummary } from '../../convex/features/duplicates/queries';
 export type { AttachmentEntityType } from '../../convex/_lib/validators/attachments';
 export { RETENTION_BOUNDS, type RetentionKey } from '../../convex/_lib/validators/retention';
-export { HTML_BODY_MAX_CHARS } from '../../convex/_lib/validators/crm';
+export { HTML_BODY_MAX_BYTES } from '../../convex/_lib/validators/crm';
 export {
   ATTACHMENT_MAX_BYTES_CEILING,
   ATTACHMENT_RETENTION_MAX_DAYS,

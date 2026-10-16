@@ -3,6 +3,7 @@ import { useMutation, useQuery } from 'convex/react';
 import { api } from '@crm/lib/backend';
 import { useAuth } from '@crm/widgets';
 import { Button, Card, PageHeader, Spinner } from '@crm/design-system';
+import { describeError } from '@crm/lib/errors';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { AuthMethodsStep } from '../setup/steps/AuthMethodsStep';
 import {
@@ -94,8 +95,8 @@ function AuthManager() {
       // Seeded again from the server: the secret fields empty, the presence flags fresh.
       setDraft(null);
       setSuccess(true);
-    } catch {
-      setError("L'enregistrement a échoué. Veuillez réessayer.");
+    } catch (e) {
+      setError(describeError(e, "L'enregistrement a échoué. Veuillez réessayer."));
     } finally {
       setBusy(false);
     }

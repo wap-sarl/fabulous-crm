@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Doc, Id } from '../../convex/_generated/dataModel';
-import { HTML_BODY_MAX_CHARS } from '../../convex/_lib/validators/crm';
+import { HTML_BODY_MAX_BYTES } from '../../convex/_lib/validators/crm';
 import {
   asIdentity,
   createTestConvex,
@@ -194,10 +194,21 @@ describe('« Relancer les échecs »', () => {
 });
 
 describe('the HTML body', () => {
-  test('is refused past 800 KiB, with the reason', async () => {
+  test('is refused past 800 KiB of UTF-8, the B body of a content test included', async () => {
     const w = await setup();
+    // Three bytes a character: a body of 300 K characters is past the ceiling.
+    const heavy = `<p>${'é'.repeat(HTML_BODY_MAX_BYTES / 2)}</p>`;
+    await expect(create(w, { htmlBody: heavy })).rejects.toThrow(/html_body_too_large/);
     await expect(
-      create(w, { htmlBody: `<p>${'x'.repeat(HTML_BODY_MAX_CHARS)}</p>` }),
+      create(w, {
+        abTest: {
+          kind: 'content',
+          htmlBodyB: heavy,
+          splitPercent: 20,
+          windowHours: 2,
+          metric: 'opens',
+        },
+      }),
     ).rejects.toThrow(/html_body_too_large/);
   });
 });

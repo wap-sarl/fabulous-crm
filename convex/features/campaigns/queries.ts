@@ -37,17 +37,22 @@ const summaryOf = (campaign: Doc<'campaigns'>) => ({
   failedCount: campaign.failedCount,
 });
 
-/** The campaigns newest first, a page at a time and without their content: a typed name goes through the search index, a status through its index. Deleted ones are dropped per page, which may run short. */
-/** The latest campaigns by name, for the exclusion picker of a new campaign. */
+/** The latest campaigns by name, for the exclusion picker of a new campaign: a hundred of those the caller sees, read newest first until that many are found. */
 export const listCampaignChoices = employeeQuery({
   args: {},
   returns: v.array(v.object({ _id: v.id('campaigns'), name: v.string() })),
   handler: async (ctx) => {
-    const rows = await ctx.db.query('campaigns').order('desc').take(100);
-    return rows.filter(isNotDeleted).map((c) => ({ _id: c._id, name: c.name }));
+    const choices: { _id: Id<'campaigns'>; name: string }[] = [];
+    for await (const campaign of ctx.db.query('campaigns').order('desc')) {
+      if (!isNotDeleted(campaign)) continue;
+      choices.push({ _id: campaign._id, name: campaign.name });
+      if (choices.length >= 100) break;
+    }
+    return choices;
   },
 });
 
+/** The campaigns newest first, a page at a time and without their content: a typed name goes through the search index, a status through its index. Deleted ones are dropped per page, which may run short. */
 export const listCampaigns = employeeQuery({
   args: {
     paginationOpts: paginationOptsValidator,
