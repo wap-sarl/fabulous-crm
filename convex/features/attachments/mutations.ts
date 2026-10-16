@@ -76,6 +76,21 @@ export const generateAttachmentUploadUrl = employeeMutation({
   },
 });
 
+/** The upload address of one image of an e-mail (a Claude Design export): no entity, no size cap of the attachments, and the blob stays whether the campaign is created or not. */
+export const generateEmailImageUploadUrl = employeeMutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+});
+
+/** The public URLs of uploaded images, in the order given, for the `<img src>` of the body. */
+export const resolveEmailImageUrls = employeeMutation({
+  args: { storageIds: v.array(v.id('_storage')) },
+  returns: v.array(v.union(v.string(), v.null())),
+  handler: async (ctx, { storageIds }) =>
+    await Promise.all(storageIds.map((id) => ctx.storage.getUrl(id))),
+});
+
 /** Step 2 of an upload: an oversized blob is deleted and reported as `too_large`, not thrown, as a throwing mutation rolls back its writes, the delete included. */
 export const createAttachment = employeeMutation({
   args: {

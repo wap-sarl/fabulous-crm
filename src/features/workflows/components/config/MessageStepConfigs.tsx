@@ -8,7 +8,11 @@ import {
   type EmailBodyEditorHandle,
 } from '../../../campaigns/components/EmailBodyEditor';
 import { PlaceholderChips } from '../../../campaigns/components/PlaceholderChips';
-import { buildPlaceholders, insertAtCaret } from '../../../campaigns/lib/placeholders';
+import {
+  buildPlaceholders,
+  insertAtCaret,
+  SMS_STOP_PLACEHOLDER,
+} from '../../../campaigns/lib/placeholders';
 import type { PropertyDefinitionRow } from '../../../properties/types';
 
 type EmailNode = Extract<WorkflowNode, { type: 'send_email' }>;
@@ -102,7 +106,7 @@ export function SmsStepConfig({ value, onChange, definitions }: SmsStepConfigPro
         placeholder="Bonjour {{ params.firstName }}, …"
       />
       <PlaceholderChips
-        placeholders={placeholders}
+        placeholders={[...placeholders, SMS_STOP_PLACEHOLDER]}
         onInsert={(item) =>
           insertAtCaret(smsRef.current, value.smsBody, item.token, (smsBody) =>
             onChange({ ...value, smsBody }),

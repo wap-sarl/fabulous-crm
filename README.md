@@ -292,7 +292,21 @@ workspaces.
   étape « Changer le statut ». Le placeholder `{{ params.status }}` des
   campagnes renvoie le libellé du statut.
 - **Campagnes** : création de campagnes email Brevo (template + destinataires
-  filtrés), suivi des envois (`campaignSends`), statuts. Envoi **programmé**
+  filtrés), suivi des envois (`campaignSends`), statuts ; **échantillon
+  aléatoire** (une part des contacts correspondants, tirée à la préparation) et
+  **exclusion** des destinataires d'autres campagnes ; **suppression** d'une
+  campagne (douce : ses envois, événements et liens suivis restent, un STOP ou
+  un clic sur un message déjà parti continue d'être reconnu) ; « Relancer les
+  échecs » ne remet en file que les envois en échec. Tout SMS porte la mention
+  « STOP au [STOP_CODE] » (code court Brevo, insérable par un bouton) : Brevo
+  le classe alors en marketing, d'où les deux webhooks SMS, et une réponse STOP
+  reçue comme simple réponse retire le consentement SMS ; un clic Brevo sur le
+  lien de consentement compte comme désinscription. Un corps HTML importé est
+  refusé au-delà de 800 Ko (le document Convex plafonne à 1 Mio) ; le mode
+  « Claude Design » lit un export autonome, héberge ses images dans le stockage
+  de fichiers et réécrit les `<img src>`. Les méthodes de connexion (lien
+  magique, fournisseurs sociaux, SSO) se modifient dans *Paramètres →
+  Connexion* après l'assistant. Envoi **programmé**
   (`scheduledAt`, heure lue dans le fuseau de l'organisation, *Paramètres →
   E-mail & SMS*) annulable et reprogrammable tant que la campagne n'est pas
   partie, les destinataires étant résolus au départ ; **heure d'envoi
@@ -662,7 +676,8 @@ Les deux secrets se tournent indépendamment, sans interruption de service :
    ```bash
    bunx convex env set BREVO_WEBHOOK_SECRET $(openssl rand -hex 32) --prod
    bunx convex run features/campaigns/actions:registerBrevoEmailWebhook --prod
-   bunx convex run features/campaigns/actions:registerBrevoSmsWebhook --prod
+   bunx convex run features/campaigns/actions:registerBrevoSmsWebhook --prod     # les deux types, transactionnel et marketing
+   bunx convex run features/campaigns/actions:backfillBrevoEmailEvents '{"days":2}' --prod   # rejoue les événements e-mail manqués (webhook absent ou mal pointé ; Brevo les garde 90 jours)
    ```
    L'enregistrement met à jour l'en-tête `x-webhook-secret` chez Brevo ; les
    routes comparent en temps constant et acceptent immédiatement la nouvelle

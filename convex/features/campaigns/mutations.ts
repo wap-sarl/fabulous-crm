@@ -1,9 +1,15 @@
 import { refusal } from '../../_lib/refusal';
 import { v } from 'convex/values';
+import { checkExcludedCampaigns, checkSample } from '../../lib/campaigns/sample';
 import { employeeMutation } from '../../_lib/auth';
 import { internal } from '../../_generated/api';
 import { checkTrackedLinks } from '../../lib/campaigns/links';
-import { loadResendContext, requeueSend, requireLinkBase } from '../../lib/campaigns/resend';
+import {
+  loadResendContext,
+  requeueSend,
+  requireLinkBase,
+  settledCampaign,
+} from '../../lib/campaigns/resend';
 import { createAuditFields, updateAuditFields, logAudit } from '../../lib/audit/log';
 import { loadEmailTemplate } from '../../lib/templates/records';
 import {
@@ -17,6 +23,7 @@ import { scheduleDrain } from '../../lib/campaigns/drain';
 import { loadPropertyDefsById } from '../../lib/properties/definitions';
 import {
   campaignChannelValidator,
+  campaignSampleValidator,
   campaignTrackedLinkValidator,
   messageTypeValidator,
 } from '../../_lib/validators/crm';
@@ -55,6 +62,10 @@ export const createCampaign = employeeMutation({
     // Each e-mail at the hour its recipient opens most, within the day that follows the start.
     sendTimeOptimized: v.optional(v.boolean()),
     abTest: v.optional(abTestArgs),
+    // Contacts with a send in these campaigns are left out at preparation.
+    excludeCampaignIds: v.optional(v.array(v.id('campaigns'))),
+    // A random share of the matches: `size` of the `of` the page counted.
+    sample: v.optional(campaignSampleValidator),
   },
   returns: v.id('campaigns'),
   handler: async (ctx, args) => {
@@ -100,6 +111,8 @@ export const createCampaign = employeeMutation({
     );
 
     const abTest = args.abTest ? checkAbTest(args.abTest, htmlBody) : undefined;
+    const excludeCampaignIds = await checkExcludedCampaigns(ctx, args.excludeCampaignIds);
+    if (args.sample) checkSample(args.sample);
 
     // Early gate: an exhausted allowance refuses before any recipient is materialised.
     await requireSendAllowed(ctx, {
@@ -125,6 +138,8 @@ export const createCampaign = employeeMutation({
       filter: args.filter,
       sendTimeOptimized: args.channel === 'email' && args.sendTimeOptimized ? true : undefined,
       abTest,
+      excludeCampaignIds,
+      sample: args.sample,
       status: 'draft',
       totalCount: 0,
       sentCount: 0,
@@ -150,16 +165,7 @@ export const retryCampaignSend = employeeMutation({
     const send = await ctx.db.get(args.sendId);
     if (!send || send.campaignId !== args.campaignId) throw refusal('send_not_found');
     if (send.status === 'pending') throw refusal('send_pending');
-
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) throw refusal('campaign_not_found');
-    // A drain or a resend is already running; its own loop will process pending rows.
-    if (campaign.status === 'sending' || campaign.status === 'preparing') {
-      throw refusal('campaign_sending');
-    }
-
-    const cfg = await loadAppConfig(ctx);
-    await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
+    const campaign = await settledCampaign(ctx, args.campaignId);
 
     const remat = await loadResendContext(ctx, campaign);
     if (!(await requeueSend(ctx, send, remat))) throw refusal('no_contact');
@@ -192,31 +198,25 @@ export const retryCampaignSend = employeeMutation({
   },
 });
 
-/** Resends to every recipient, those who already received it included: the sends are re-queued in scheduled batches, the drain follows, and the campaign reads `preparing` meanwhile. The gate is asked here as a preparation with every recipient, so an exhausted allowance refuses at once; the batches ask with what they re-queue, the last one as the resend. */
+/** Resends to every recipient, those who already received it included, or with `onlyFailed` to the failed sends alone (after a credit top-up, say): the sends are re-queued in scheduled batches, the drain follows, and the campaign reads `preparing` meanwhile. The gate is asked here as a preparation with every recipient, so an exhausted allowance refuses at once; the batches ask with what they re-queue, the last one as the resend. */
 export const resendAllCampaignSends = employeeMutation({
-  args: { campaignId: v.id('campaigns') },
+  args: { campaignId: v.id('campaigns'), onlyFailed: v.optional(v.boolean()) },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const campaign = await ctx.db.get(args.campaignId);
-    if (!campaign) throw refusal('campaign_not_found');
-    if (campaign.status === 'sending' || campaign.status === 'preparing') {
-      throw refusal('campaign_sending');
-    }
-    if (campaign.totalCount === 0) return null;
-
-    const cfg = await loadAppConfig(ctx);
-    await assertChannelDeliverable(cfg, campaign.channel ?? 'email');
+    const campaign = await settledCampaign(ctx, args.campaignId);
+    const count = args.onlyFailed ? campaign.failedCount : campaign.totalCount;
+    if (count === 0) return null;
     requireLinkBase(campaign);
     await requireSendAllowed(ctx, {
       source: 'campaign',
       channel: campaign.channel ?? 'email',
-      count: campaign.totalCount,
+      count,
       stage: 'preparing',
     });
 
-    // Counters reset: the batches count the skipped again, the drain what leaves. Links come back with the sends, so the purge sees the campaign again.
+    // Counters reset: the batches count the skipped again, the drain what leaves. Links come back with the sends, so the purge sees the campaign again. A failed-only resend keeps the sent count and lets the drain re-tally the failures.
     await ctx.db.patch(args.campaignId, {
-      sentCount: 0,
+      ...(args.onlyFailed ? {} : { sentCount: 0 }),
       failedCount: 0,
       status: 'preparing',
       failureReason: undefined,
@@ -225,6 +225,7 @@ export const resendAllCampaignSends = employeeMutation({
     });
     await ctx.scheduler.runAfter(0, internal.features.campaigns.internal.resendCampaignBatch, {
       campaignId: args.campaignId,
+      only: args.onlyFailed ? 'failed' : undefined,
     });
 
     await logAudit({
@@ -233,7 +234,7 @@ export const resendAllCampaignSends = employeeMutation({
       entityType: 'campaign',
       entityId: args.campaignId,
       action: 'update',
-      metadata: { event: 'resend_all', count: campaign.totalCount },
+      metadata: { event: args.onlyFailed ? 'retry_failed' : 'resend_all', count },
     });
     return null;
   },
@@ -298,6 +299,30 @@ export const cancelScheduledCampaign = employeeMutation({
       entityId: args.campaignId,
       action: 'update',
       metadata: { event: 'schedule_cancelled' },
+    });
+    return null;
+  },
+});
+
+/** A soft delete, refused while the campaign prepares or sends; a scheduled start is cancelled first. The sends, events and tracked links stay, so a STOP or a click on a message already out still resolves. */
+export const deleteCampaign = employeeMutation({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const campaign = await settledCampaign(ctx, args.campaignId, false);
+    if (campaign.status === 'scheduled') await cancelStart(ctx, campaign);
+    await ctx.db.patch(args.campaignId, {
+      deletedAt: Date.now(),
+      scheduledAt: undefined,
+      scheduledFnId: undefined,
+      ...updateAuditFields(ctx.userId),
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'campaign',
+      entityId: args.campaignId,
+      action: 'delete',
     });
     return null;
   },

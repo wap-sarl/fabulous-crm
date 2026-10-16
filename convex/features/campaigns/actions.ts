@@ -11,6 +11,7 @@ import {
 } from '../../lib/email/provider';
 import { renderPlaceholders, sendBrevoTemplateEmail, wrapEmailHtml } from '../../lib/email/brevo';
 import { registerBrevoWebhook } from '../../lib/email/brevoWebhooks';
+import { BREVO_EMAIL_EVENT_TYPE } from '../../lib/campaigns/events';
 import { sendBrevoSms, toBrevoRecipient } from '../../lib/sms/brevo';
 import { createEmailDispatcher } from '../email/send';
 import { variantContent } from '../../lib/campaigns/variants';
@@ -62,19 +63,79 @@ export const registerBrevoEmailWebhook = internalAction({
   },
 });
 
-/** The per-message `webUrl` never reports inbound replies: this account-level webhook is what makes a STOP reach the CRM. Run once per deployment, safe to run again. */
+const SMS_WEBHOOK_RESULT = v.object({ action: v.string(), id: v.number(), url: v.string() });
+
+/** The per-message `webUrl` never reports inbound replies: these account-level webhooks are what makes a STOP reach the CRM, one per type since Brevo files a SMS carrying « STOP au [STOP_CODE] » as marketing and reports its STOP there only. Run once per deployment, safe to run again. */
 export const registerBrevoSmsWebhook = internalAction({
   args: {},
-  returns: v.object({ action: v.string(), id: v.number(), url: v.string() }),
-  handler: async (ctx): Promise<{ action: string; id: number; url: string }> => {
+  returns: v.object({ transactional: SMS_WEBHOOK_RESULT, marketing: SMS_WEBHOOK_RESULT }),
+  handler: async (ctx) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    return await registerBrevoWebhook(await resolveBrevo(cfg), {
-      path: '/webhooks/brevo/sms',
-      channel: 'sms',
-      description: 'Fabulous CRM — événements SMS entrants (STOP, réponses)',
-      // Inbound only, the per-message webUrl already reports the outbound ones; these names differ from the payload `msg_status` ("replied", "unsubscribed", "bl") that handleSmsEvent reads.
-      events: ['reply', 'unsubscribe', 'blacklisted'],
-    });
+    const brevo = await resolveBrevo(cfg);
+    // Inbound only, the per-message webUrl already reports the outbound ones; these names differ from the payload `msg_status` ("replied", "unsubscribed", "bl") that handleSmsEvent reads.
+    const register = (type: 'transactional' | 'marketing', events: string[]) =>
+      registerBrevoWebhook(brevo, {
+        path: '/webhooks/brevo/sms',
+        type,
+        channel: 'sms',
+        description: 'Fabulous CRM — événements SMS entrants (STOP, réponses)',
+        events,
+      });
+    return {
+      transactional: await register('transactional', ['reply', 'unsubscribe', 'blacklisted']),
+      marketing: await register('marketing', ['reply', 'unsubscribe']),
+    };
+  },
+});
+
+/** Brevo never re-sends a missed webhook, but its statistics keep the e-mail events for 90 days: this replays them into the campaign events (a replay is dropped by the usual dedup) for a webhook that was missing or pointed at another deployment. */
+export const backfillBrevoEmailEvents = internalAction({
+  args: { days: v.number() },
+  returns: v.object({ recorded: v.number(), skipped: v.number() }),
+  handler: async (ctx, args) => {
+    const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
+    const brevo = await resolveBrevo(cfg);
+    if (!brevo.emailIsBrevo || !brevo.apiKey) throw new Error('Brevo non configuré');
+    const limit = 5000;
+    let offset = 0;
+    let recorded = 0;
+    let skipped = 0;
+    for (;;) {
+      const url = `https://api.brevo.com/v3/smtp/statistics/events?days=${args.days}&limit=${limit}&offset=${offset}&sort=asc`;
+      const response = await fetch(url, {
+        headers: { accept: 'application/json', 'api-key': brevo.apiKey },
+      });
+      if (!response.ok) {
+        throw new Error(`Brevo GET /smtp/statistics/events a échoué : ${await response.text()}`);
+      }
+      const { events = [] } = (await response.json()) as {
+        events?: {
+          event: string;
+          messageId: string;
+          date: string;
+          link?: string;
+          reason?: string;
+        }[];
+      };
+      for (const e of events) {
+        const type = BREVO_EMAIL_EVENT_TYPE[e.event];
+        if (!type) {
+          skipped++;
+          continue;
+        }
+        await ctx.runMutation(internal.features.campaigns.internal.recordBrevoEmailEvent, {
+          brevoMessageId: e.messageId,
+          type,
+          eventAt: Date.parse(e.date),
+          url: e.link,
+          reason: e.reason,
+        });
+        recorded++;
+      }
+      if (events.length < limit) break;
+      offset += limit;
+    }
+    return { recorded, skipped };
   },
 });
 

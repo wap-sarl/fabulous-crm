@@ -254,6 +254,7 @@ export const handleSmsEvent = internalMutation({
     brevoMessageId: v.optional(v.string()),
     // Present on inbound events, and matched against campaignSends.smsRecipient once stripped to digits.
     recipient: v.optional(v.string()),
+    reply: v.optional(v.string()),
     msgStatus: v.string(),
     eventAt: v.number(),
   },
@@ -284,8 +285,8 @@ export const resendCampaignBatch = internalMutation({
     cursor: v.optional(v.string()),
     // Sends re-queued by the pages before, so the last one knows whether there is anything to drain.
     resent: v.optional(v.number()),
-    // A resume: the cancelled sends only.
-    only: v.optional(v.literal('cancelled')),
+    // A resume: the cancelled sends only; « Relancer les échecs »: the failed ones only.
+    only: v.optional(v.union(v.literal('cancelled'), v.literal('failed'))),
     // Tests only: a small page exercises the chain; production keeps the batch of lib/campaigns/resend.ts.
     batchSize: v.optional(v.number()),
   },

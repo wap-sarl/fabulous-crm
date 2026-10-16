@@ -1,21 +1,23 @@
 import type { NavigateFunction } from 'react-router-dom';
 import type { Doc } from '@crm/lib/backend';
 import { Button, PageHeader, StatusBadge } from '@crm/design-system';
-import { OctagonX, Play, RotateCcw } from 'lucide-react';
+import { OctagonX, Play, RotateCcw, Trash2 } from 'lucide-react';
 import { CampaignChannelBadge } from './CampaignChannelBadge';
 import { CAMPAIGN_STATUS_LABEL, CAMPAIGN_STATUS_TONE } from '../../../lib/constants';
 import { describeError } from '@crm/lib/errors';
 import { dateFormat, numberFormat } from '@crm/lib/format';
 
-/** The header of a campaign's page: its name, channel, status, the stop while it sends, and the resend-all action once it is settled. */
+/** The header of a campaign's page: its name, channel, status, the stop while it sends, and once it is settled the resends and the deletion. */
 export function CampaignDetailHeader({
   campaign,
   canRetry,
   canStop,
   retrying,
   handleResendAll,
+  handleRetryFailed,
   handleResume,
   handleStop,
+  handleDelete,
   navigate,
 }: {
   campaign: Doc<'campaigns'>;
@@ -23,8 +25,10 @@ export function CampaignDetailHeader({
   canStop: boolean;
   retrying: boolean;
   handleResendAll: () => Promise<void>;
+  handleRetryFailed: () => Promise<void>;
   handleResume: () => Promise<void>;
   handleStop: () => void;
+  handleDelete: () => void;
   navigate: NavigateFunction;
 }) {
   return (
@@ -59,11 +63,31 @@ export function CampaignDetailHeader({
                 Reprendre l’envoi
               </Button>
             )}
+            {campaign.failedCount > 0 && (
+              <Button onClick={handleRetryFailed} loading={retrying} data-testid="retry-failed">
+                <RotateCcw className="size-4" />
+                Relancer les échecs ({numberFormat.format(campaign.failedCount)})
+              </Button>
+            )}
             <Button variant="outline" onClick={handleResendAll} loading={retrying}>
               <RotateCcw className="size-4" />
               Tout renvoyer
             </Button>
+            <Button
+              variant="outline"
+              color="destructive"
+              onClick={handleDelete}
+              data-testid="delete-campaign"
+            >
+              <Trash2 className="size-4" />
+              Supprimer
+            </Button>
           </>
+        ) : campaign.status === 'scheduled' || campaign.status === 'draft' ? (
+          <Button variant="outline" color="destructive" onClick={handleDelete}>
+            <Trash2 className="size-4" />
+            Supprimer
+          </Button>
         ) : undefined
       }
     />

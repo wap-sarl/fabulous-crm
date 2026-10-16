@@ -3,10 +3,19 @@ import { Button, Input, Label, Switch } from '@crm/design-system';
 import { Plus, Trash2, CheckCircle, Copy } from 'lucide-react';
 import { usePublicConfig } from '@crm/widgets/config/ConfigContext';
 import { ssoProviderIdOf } from '@crm/lib/backend';
-import type { SsoDraft, SocialDraft, StepProps } from './types';
+import type { AuthMethodsData, SsoDraft, SocialDraft } from './types';
 import { emptySsoProvider, withSsoLabel } from './types';
 
-export function AuthMethodsStep({ data, update, error }: StepProps) {
+/** The sign-in methods editor, shared by the setup wizard and Paramètres → Connexion. */
+export function AuthMethodsStep({
+  data,
+  update,
+  error,
+}: {
+  data: AuthMethodsData;
+  update: (patch: Partial<AuthMethodsData>) => void;
+  error: string | null;
+}) {
   const { config } = usePublicConfig();
   const socialProviders = config?.auth.socialProviders ?? [];
   const callbackBase = config?.authCallbackBaseUrl?.replace(/\/+$/, '') ?? null;

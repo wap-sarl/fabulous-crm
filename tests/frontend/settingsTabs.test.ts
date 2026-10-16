@@ -38,7 +38,10 @@ describe('the settings page', () => {
 
   test('a person with the settings right sees every tab, in its group and in order', () => {
     expect(paths(visibleTabGroups(SETTINGS_GROUPS, [], true))).toEqual([
-      ['Organisation', ['/settings/branding', '/settings/team', '/settings/roles']],
+      [
+        'Organisation',
+        ['/settings/branding', '/settings/team', '/settings/roles', '/settings/auth'],
+      ],
       [
         'Données',
         [

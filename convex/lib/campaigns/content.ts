@@ -1,4 +1,5 @@
 import { refusal } from '../../_lib/refusal';
+import { HTML_BODY_MAX_CHARS } from '../../_lib/validators/crm';
 import { follows, positiveIntSchema } from '../../_lib/validators/fields';
 import {
   EMAIL_PROVIDER_REQUIRED,
@@ -33,6 +34,13 @@ export function resolveCampaignContent(
   }
   const htmlBody = args.htmlBody?.trim();
   if (htmlBody) {
+    // Stored inline on the campaign row, which Convex caps at 1 MiB: embedded images must be hosted instead.
+    if (htmlBody.length > HTML_BODY_MAX_CHARS) {
+      throw refusal('html_body_too_large', {
+        message:
+          'Le contenu HTML dépasse 800 Ko. Hébergez les images en ligne plutôt que de les intégrer dans le HTML.',
+      });
+    }
     // Custom (WYSIWYG) email: a subject is required.
     const subject = args.subject?.trim();
     if (!subject) {

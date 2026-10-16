@@ -199,6 +199,25 @@ describe('email events', () => {
     expect(lead?.lastActivityAt).toBe(9_000);
   });
 
+  test('a click on the consent link is an unsubscribe, not a click', async () => {
+    const { t, emp } = await setup();
+    const { sendId } = await seedEmailSend(t, emp, 'msg-unsub');
+    await t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        event: 'click',
+        'message-id': 'msg-unsub',
+        ts_epoch: 1_700_000_000,
+        link: 'https://crm.example.com/consent/abc',
+      }),
+    });
+    const events = await t.run((ctx) => ctx.db.query('campaignEvents').collect());
+    expect(events.map((e) => e.type)).toEqual(['unsubscribed']);
+    const send = await t.run((ctx) => ctx.db.get(sendId));
+    expect(send?.unsubscribedAt).toBe(1_700_000_000);
+    expect(send?.clickedAt).toBeUndefined();
+  });
+
   test('an unknown message id is acknowledged without writing', async () => {
     const { t } = await setup();
     const res = await t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
@@ -257,6 +276,43 @@ describe('SMS STOP', () => {
     expect(signed).toContain('Réponse STOP par SMS');
     expect(signed).toContain('Lien de préférences');
     expect(signed).not.toContain(null);
+  });
+
+  test('a STOP reported as a plain reply, and the registration names, revoke the consent too', async () => {
+    for (const body of [
+      { msg_status: 'replied', reply: ' Stop 36173' },
+      { msg_status: 'unsubscribe' },
+      { msg_status: 'blacklisted' },
+    ]) {
+      const { t, emp } = await setup();
+      const { leadId } = await seedSmsSend(t, emp);
+      const res = await t.fetch(`/webhooks/brevo/sms?secret=${SECRET}`, {
+        method: 'POST',
+        body: JSON.stringify({ ...body, messageId: 42, to: '+33612345678', ts_event: 1_700_000 }),
+      });
+      expect(res.status).toBe(200);
+      const lead = await t.run((ctx) => ctx.db.get(leadId));
+      expect(lead?.marketingConsent).toEqual(['email']);
+    }
+  });
+
+  test('a reply that is not a STOP stays a reply', async () => {
+    const { t, emp } = await setup();
+    const { leadId } = await seedSmsSend(t, emp);
+    await t.fetch(`/webhooks/brevo/sms?secret=${SECRET}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        msg_status: 'replied',
+        reply: 'Merci, je stoppe demain',
+        messageId: 43,
+        to: '+33612345678',
+        ts_event: 1_700_000,
+      }),
+    });
+    const lead = await t.run((ctx) => ctx.db.get(leadId));
+    expect(lead?.marketingConsent).toEqual(['email', 'sms']);
+    const events = await t.run((ctx) => ctx.db.query('campaignEvents').collect());
+    expect(events.map((e) => e.type)).toEqual(['sms_reply']);
   });
 
   test('a tracked-link click that changes the lead is audited, a click that changes nothing is not', async () => {

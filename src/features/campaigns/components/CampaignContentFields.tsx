@@ -3,10 +3,10 @@ import { Input, Label, Textarea, cn } from '@crm/design-system';
 import type { CampaignChannel, CampaignTrackedLink, Id, MessageType } from '@crm/lib/backend';
 import { MousePointerClick, X } from 'lucide-react';
 import type { PropertyDefinitionRow } from '../../properties/types';
-import { insertAtCaret, type PlaceholderItem } from '../lib/placeholders';
+import { insertAtCaret, type PlaceholderItem, SMS_STOP_PLACEHOLDER } from '../lib/placeholders';
 import { CampaignMessagePreview } from './CampaignMessagePreview';
 import { EmailBodyEditor, type EmailBodyEditorHandle } from './EmailBodyEditor';
-import { HtmlImportDropzone } from './HtmlImportDropzone';
+import { HtmlImportField } from './HtmlImportField';
 import { PlaceholderChips } from './PlaceholderChips';
 import { TrackedLinkModal } from './TrackedLinkModal';
 import { TemplateDialog } from '../../templates/components/TemplateDialog';
@@ -17,7 +17,7 @@ import type { EmailTemplateRow } from '../../templates/types';
 import { Button } from '@crm/design-system';
 import { BookOpen, Save } from 'lucide-react';
 
-export type EmailContentMode = 'template' | 'editor' | 'import';
+export type EmailContentMode = 'template' | 'editor' | 'import' | 'claudeDesign';
 
 interface Props {
   channel: CampaignChannel;
@@ -54,6 +54,7 @@ const EMAIL_MODES: { value: EmailContentMode; label: string }[] = [
   { value: 'template', label: 'Template Brevo' },
   { value: 'editor', label: 'Éditeur' },
   { value: 'import', label: 'Importer HTML' },
+  { value: 'claudeDesign', label: 'Claude Design' },
 ];
 
 /** A small segmented (pill) toggle shared by the message-type and email-mode pickers. */
@@ -157,12 +158,7 @@ export function CampaignContentFields({
   };
 
   const handleRemoveLink = (link: CampaignTrackedLink) => {
-    const body =
-      channel === 'sms'
-        ? smsBody
-        : emailMode === 'editor' || emailMode === 'import'
-          ? htmlBody
-          : '';
+    const body = channel === 'sms' ? smsBody : emailMode !== 'template' ? htmlBody : '';
     if (
       body.includes(`params.${link.key}`) &&
       !window.confirm(
@@ -215,9 +211,9 @@ export function CampaignContentFields({
       <p className="text-xs text-muted-foreground">
         « Marketing » ne cible que les inscrits à l’abonnement choisi, ou à défaut les leads ayant
         consenti à ce canal (filtre ajouté automatiquement, modifiable)
-        {channel === 'sms' ? ' et applique les règles d’opt-out Brevo' : ''} et ajoute par défaut{' '}
-        {channel === 'sms' ? 'une ligne STOP' : 'un bloc de désinscription'} avec le lien de
-        consentement (modifiable) ; « Transactionnel » n’applique pas de filtre de consentement.
+        {channel === 'sms'
+          ? ' et applique les règles d’opt-out Brevo ; « Transactionnel » n’applique pas de filtre de consentement. La ligne « STOP au [STOP_CODE] » (code court Brevo) est ajoutée dans les deux cas : Brevo traite alors le SMS en marketing.'
+          : ' et ajoute par défaut un bloc de désinscription avec le lien de consentement (modifiable) ; « Transactionnel » n’applique pas de filtre de consentement.'}
       </p>
     </div>
   );
@@ -237,7 +233,7 @@ export function CampaignContentFields({
             rows={4}
           />
           <PlaceholderChips
-            placeholders={placeholders}
+            placeholders={[...placeholders, SMS_STOP_PLACEHOLDER]}
             onInsert={(item) => insertAtCaret(smsRef.current, smsBody, item.token, onSmsBodyChange)}
           />
           <AddTrackedLinkButton onClick={() => setLinkModalOpen(true)} />
@@ -283,7 +279,7 @@ export function CampaignContentFields({
           <AddTrackedLinkButton onClick={() => setLinkModalOpen(true)} />
           {trackedLinkChips}
         </div>
-      ) : emailMode === 'import' ? (
+      ) : emailMode === 'import' || emailMode === 'claudeDesign' ? (
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label htmlFor="email-subject">Objet</Label>
@@ -303,16 +299,13 @@ export function CampaignContentFields({
             />
           </div>
           <div className="space-y-1.5">
-            <Label>Modèle HTML</Label>
-            <HtmlImportDropzone
+            <HtmlImportField
+              claudeDesign={emailMode === 'claudeDesign'}
               onLoad={onHtmlBodyChange}
               fileName={importFileName}
               onFileNameChange={setImportFileName}
+              tokens={placeholders.map((p) => p.token)}
             />
-            <p className="text-xs text-muted-foreground">
-              Le fichier est envoyé tel quel. Insérez les champs dans votre HTML :{' '}
-              {placeholders.map((p) => p.token).join(', ')}.
-            </p>
             {messageType === 'marketing' && (
               <p className="text-xs text-warning">
                 Campagne marketing : votre modèle doit contenir un lien de désinscription pointant

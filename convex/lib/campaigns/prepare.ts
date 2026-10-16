@@ -20,6 +20,7 @@ import { toBrevoRecipient } from '../sms/brevo';
 import { buildSendParams } from './params';
 import { scheduleDrain } from './drain';
 import { loadSendAt } from './sendTime';
+import { sentByExcluded } from './sample';
 import { assignVariant } from './variants';
 
 // Each recipient writes one campaignSends row plus one campaignLinkTokens row per tracked link: 200 leads stay far below Convex's 8,192 writes per transaction.
@@ -87,12 +88,20 @@ export async function prepareBatch(
   const testUntil = now + (campaign.sendTimeOptimized ? DAY_MS : 0);
   const holdoutAt = test ? testUntil + test.windowHours * HOUR_MS : now;
 
+  const excluded = new Set<string>(campaign.excludeCampaignIds ?? []);
+  const sample = campaign.sample;
   let total = 0;
   let skipped = 0;
   for (const lead of page.page) {
     const filters = { ...args.filter, listMemberIds, advancedListMembers, subscriptionTypes };
     if (!matchesLeadFilters(lead, filters)) continue;
     if (subscription && !isSubscribed(lead, subscription)) continue;
+    if (excluded.size > 0 && (await sentByExcluded(ctx, lead._id, excluded))) continue;
+    // Each match is kept with the share's odds, and none past the size: about `size` recipients, never more.
+    if (sample) {
+      if (campaign.totalCount + total >= sample.size) break;
+      if (Math.random() >= sample.size / sample.of) continue;
+    }
     total++;
 
     // Token rows are inserted only for sends that go out (a skipped recipient gets dead URLs), but params and tokens are built as on a resend.

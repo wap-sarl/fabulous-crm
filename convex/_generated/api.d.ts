@@ -178,6 +178,7 @@ import type * as lib_campaigns_links from "../lib/campaigns/links.js";
 import type * as lib_campaigns_params from "../lib/campaigns/params.js";
 import type * as lib_campaigns_prepare from "../lib/campaigns/prepare.js";
 import type * as lib_campaigns_resend from "../lib/campaigns/resend.js";
+import type * as lib_campaigns_sample from "../lib/campaigns/sample.js";
 import type * as lib_campaigns_schedule from "../lib/campaigns/schedule.js";
 import type * as lib_campaigns_sendTime from "../lib/campaigns/sendTime.js";
 import type * as lib_campaigns_stats from "../lib/campaigns/stats.js";
@@ -446,6 +447,7 @@ declare const fullApi: ApiFromModules<{
   "lib/campaigns/params": typeof lib_campaigns_params;
   "lib/campaigns/prepare": typeof lib_campaigns_prepare;
   "lib/campaigns/resend": typeof lib_campaigns_resend;
+  "lib/campaigns/sample": typeof lib_campaigns_sample;
   "lib/campaigns/schedule": typeof lib_campaigns_schedule;
   "lib/campaigns/sendTime": typeof lib_campaigns_sendTime;
   "lib/campaigns/stats": typeof lib_campaigns_stats;

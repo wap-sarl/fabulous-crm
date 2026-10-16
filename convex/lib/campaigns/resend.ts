@@ -5,6 +5,8 @@ import { refusal } from '../../_lib/refusal';
 import type { CampaignTrackedLink } from '../../_lib/validators/crm';
 import type { LifecycleConfig } from '../../_lib/validators/lifecycle';
 import { consentOrigin } from '../config/appUrl';
+import { loadAppConfig } from '../config/load';
+import { assertChannelDeliverable } from '../email/provider';
 import { deferUnlessAllowed, trySend } from '../extensions/gates';
 import { loadLifecycleConfig } from '../leads/lifecycle';
 import { loadPropertyDefsById, type PropertyDefinitionDoc } from '../properties/definitions';
@@ -98,6 +100,23 @@ export async function requeueSend(
   return true;
 }
 
+/** A live campaign that is settled (a drain or a resend already running would process the rows itself), deliverable on its channel when something is to leave. */
+export async function settledCampaign(
+  ctx: MutationCtx,
+  campaignId: Id<'campaigns'>,
+  sending = true,
+) {
+  const campaign = await ctx.db.get(campaignId);
+  if (!campaign || campaign.deletedAt != null) throw refusal('campaign_not_found');
+  if (campaign.status === 'sending' || campaign.status === 'preparing') {
+    throw refusal('campaign_sending');
+  }
+  if (sending) {
+    await assertChannelDeliverable(await loadAppConfig(ctx), campaign.channel ?? 'email');
+  }
+  return campaign;
+}
+
 /** One page of the sends of a campaign re-queued, the next page scheduled, the drain after the last; `only: 'cancelled'` resumes a stopped campaign, re-queuing what was cancelled and nothing else. The paging state is returned so tests can drive the chain without the scheduler. */
 export async function resendBatch(
   ctx: MutationCtx,
@@ -106,7 +125,7 @@ export async function resendBatch(
     cursor?: string;
     resent?: number;
     batchSize?: number;
-    only?: 'cancelled';
+    only?: 'cancelled' | 'failed';
   },
 ): Promise<{ isDone: boolean; continueCursor: string | null }> {
   const campaign = await ctx.db.get(args.campaignId);
@@ -131,18 +150,18 @@ export async function resendBatch(
     cursor: args.cursor ?? null,
     numItems: args.batchSize ?? (remat.optimized ? RESEND_BATCH_OPTIMIZED : RESEND_BATCH),
   };
-  const page =
-    args.only === 'cancelled'
-      ? await ctx.db
-          .query('campaignSends')
-          .withIndex('by_campaign_status', (q) =>
-            q.eq('campaignId', args.campaignId).eq('status', 'cancelled'),
-          )
-          .paginate(paging)
-      : await ctx.db
-          .query('campaignSends')
-          .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
-          .paginate(paging);
+  const only = args.only;
+  const page = only
+    ? await ctx.db
+        .query('campaignSends')
+        .withIndex('by_campaign_status', (q) =>
+          q.eq('campaignId', args.campaignId).eq('status', only),
+        )
+        .paginate(paging)
+    : await ctx.db
+        .query('campaignSends')
+        .withIndex('by_campaign', (q) => q.eq('campaignId', args.campaignId))
+        .paginate(paging);
 
   let resent = args.resent ?? 0;
   let stillSkipped = 0;

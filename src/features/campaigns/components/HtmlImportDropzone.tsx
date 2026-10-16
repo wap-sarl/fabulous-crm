@@ -1,21 +1,35 @@
 import { useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
-import { Button, toast, cn } from '@crm/design-system';
+import { Button, Spinner, toast, cn } from '@crm/design-system';
+import { HTML_BODY_MAX_CHARS } from '@crm/lib/backend';
 
 /** MIME types browsers report for a `.html`/`.htm` file (some report none). */
 const HTML_MIME = new Set(['text/html', 'application/xhtml+xml', 'text/plain', '']);
 
 interface Props {
-  /** Called with the file's raw text once a valid `.html` file is loaded. */
+  /** Called with the HTML once a valid `.html` file is loaded. */
   onLoad: (html: string) => void;
+  /** Turns the file into the HTML handed to `onLoad`; the raw text by default. */
+  readFile?: (file: File) => Promise<string>;
+  /** The ceiling on the dropped file; the inline-body limit by default. */
+  maxBytes?: number;
+  busyLabel?: string;
   /** Name of the currently loaded file, shown as confirmation. */
   fileName: string | null;
   onFileNameChange: (name: string) => void;
 }
 
-/** The file is read in the browser and handed back verbatim, so a designer-made template keeps full fidelity. */
-export function HtmlImportDropzone({ onLoad, fileName, onFileNameChange }: Props) {
+/** The file is read in the browser and handed back verbatim, so a designer-made template keeps full fidelity; a reader of its own (Claude Design) hands back what it made of it. */
+export function HtmlImportDropzone({
+  onLoad,
+  readFile = (file) => file.text(),
+  maxBytes = HTML_BODY_MAX_CHARS,
+  busyLabel = 'Lecture du fichier…',
+  fileName,
+  onFileNameChange,
+}: Props) {
   const [isDragOver, setIsDragOver] = useState(false);
+  const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadFile = async (file: File) => {
@@ -25,14 +39,26 @@ export function HtmlImportDropzone({ onLoad, fileName, onFileNameChange }: Props
       toast.error('Veuillez sélectionner un fichier .html');
       return;
     }
-    const text = await file.text();
-    onLoad(text);
-    onFileNameChange(file.name);
+    if (file.size > maxBytes) {
+      toast.error(
+        `Fichier trop volumineux (${(file.size / 1024 / 1024).toFixed(1)} Mo, maximum ${Math.round(maxBytes / 1024)} Ko). Hébergez les images en ligne plutôt que de les intégrer dans le HTML.`,
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      onLoad(await readFile(file));
+      onFileNameChange(file.name);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Lecture du fichier impossible.');
+    } finally {
+      setBusy(false);
+    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) void loadFile(file);
+    if (file && !busy) void loadFile(file);
     e.target.value = ''; // allow re-selecting the same file
   };
 
@@ -50,7 +76,7 @@ export function HtmlImportDropzone({ onLoad, fileName, onFileNameChange }: Props
     e.preventDefault();
     setIsDragOver(false);
     const file = e.dataTransfer.files?.[0];
-    if (file) void loadFile(file);
+    if (file && !busy) void loadFile(file);
   };
 
   return (
@@ -64,11 +90,27 @@ export function HtmlImportDropzone({ onLoad, fileName, onFileNameChange }: Props
         isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
       )}
     >
-      <Upload className="h-6 w-6 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">Glissez un fichier HTML ici ou</p>
-      <Button type="button" variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
-        Parcourir
-      </Button>
+      {busy ? (
+        <>
+          <Spinner size="sm" />
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            {busyLabel}
+          </p>
+        </>
+      ) : (
+        <>
+          <Upload className="h-6 w-6 text-muted-foreground" />
+          <p className="text-sm text-muted-foreground">Glissez un fichier HTML ici ou</p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+          >
+            Parcourir
+          </Button>
+        </>
+      )}
       <input
         ref={inputRef}
         type="file"

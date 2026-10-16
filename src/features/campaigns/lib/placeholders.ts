@@ -27,6 +27,14 @@ const FIXED_PLACEHOLDERS: PlaceholderItem[] = [
   },
 ];
 
+/** The STOP mention of a SMS, as a chip of the SMS editors; Brevo fills the code. */
+export const SMS_STOP_PLACEHOLDER: PlaceholderItem = {
+  key: 'stop',
+  label: 'Mention STOP',
+  token: 'STOP au [STOP_CODE]',
+  kind: 'fixed',
+};
+
 /** Must mirror the params built per recipient in createCampaign. */
 export function buildPlaceholders(
   definitions: PropertyDefinitionRow[],

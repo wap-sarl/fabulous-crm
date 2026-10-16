@@ -23,6 +23,7 @@ import { LeadsToolbar } from '../../features/leads/components/LeadsToolbar';
 import { AdvancedFilterBuilder } from '../../features/filters/components/AdvancedFilterBuilder';
 import { applyRecipientFilter } from '../../features/leads/lib/leadFilters';
 import { SubscriptionTypePicker } from '../../features/subscriptions/components/SubscriptionTypePicker';
+import { RecipientExtras } from '../../features/campaigns/components/RecipientExtras';
 import { useLeadFieldCatalog } from '../../features/leads/hooks/useLeadFieldCatalog';
 import {
   withEmailCompliance,
@@ -60,6 +61,9 @@ export function CampaignCreatePage() {
   const propertyDefinitions = usePropertyDefinitions('lead');
   const leadCatalog = useLeadFieldCatalog(propertyDefinitions);
   const matching = useMatchingLeads(filters);
+  const [excludeCampaignIds, setExcludeCampaignIds] = useState<Id<'campaigns'>[]>([]);
+  // Empty: every matching contact; a number: a random share of that size.
+  const [sampleSize, setSampleSize] = useState('');
 
   const [channel, setChannel] = useState<CampaignChannel>('email');
   const [name, setName] = useState('');
@@ -103,7 +107,7 @@ export function CampaignCreatePage() {
   // The RGPD opt-out follows the message type, idempotently, so the author's edits survive; a Brevo template carries its own footer.
   useEffect(() => {
     if (channel === 'sms') {
-      setSmsBody((body) => withSmsCompliance(body, messageType));
+      setSmsBody((body) => withSmsCompliance(body));
     } else if (emailMode === 'editor') {
       setHtmlBody((html) => withEmailCompliance(html, messageType));
     }
@@ -132,6 +136,9 @@ export function CampaignCreatePage() {
 
   const total = matching?.total ?? 0;
   const reachable = channel === 'sms' ? (matching?.withPhone ?? 0) : (matching?.withEmail ?? 0);
+  const sampleN = Number(sampleSize);
+  const useSample = sampleSize.trim() !== '' && Number.isInteger(sampleN) && sampleN > 0;
+  const recipientCount = useSample ? Math.min(sampleN, total) : total;
 
   // Without its delivery provider configured, the campaign would silently never send.
   const channelReady = channel === 'sms' ? smsAvailable : emailConfigured;
@@ -212,6 +219,8 @@ export function CampaignCreatePage() {
         scheduledAt: scheduledAt.value,
         sendTimeOptimized: channel === 'email' && optimized ? true : undefined,
         abTest: test.value,
+        excludeCampaignIds: excludeCampaignIds.length > 0 ? excludeCampaignIds : undefined,
+        sample: useSample && total > 0 ? { size: Math.min(sampleN, total), of: total } : undefined,
         ...content,
       });
       toast.success(
@@ -321,6 +330,13 @@ export function CampaignCreatePage() {
           </div>
         </div>
 
+        <RecipientExtras
+          excludeCampaignIds={excludeCampaignIds}
+          onExcludeChange={setExcludeCampaignIds}
+          sampleSize={sampleSize}
+          onSampleSizeChange={setSampleSize}
+        />
+
         {!channelReady && (
           <Alert variant="warning">
             <AlertTriangle className="size-4" aria-hidden="true" />
@@ -365,7 +381,7 @@ export function CampaignCreatePage() {
           >
             <Send className="h-4 w-4" />
             {schedule.later ? 'Programmer la campagne' : 'Créer la campagne'} (
-            {numberFormat.format(total)})
+            {numberFormat.format(recipientCount)})
           </Button>
         </div>
       </div>

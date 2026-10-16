@@ -38,6 +38,16 @@ const summaryOf = (campaign: Doc<'campaigns'>) => ({
 });
 
 /** The campaigns newest first, a page at a time and without their content: a typed name goes through the search index, a status through its index. Deleted ones are dropped per page, which may run short. */
+/** The latest campaigns by name, for the exclusion picker of a new campaign. */
+export const listCampaignChoices = employeeQuery({
+  args: {},
+  returns: v.array(v.object({ _id: v.id('campaigns'), name: v.string() })),
+  handler: async (ctx) => {
+    const rows = await ctx.db.query('campaigns').order('desc').take(100);
+    return rows.filter(isNotDeleted).map((c) => ({ _id: c._id, name: c.name }));
+  },
+});
+
 export const listCampaigns = employeeQuery({
   args: {
     paginationOpts: paginationOptsValidator,

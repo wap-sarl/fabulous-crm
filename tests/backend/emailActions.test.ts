@@ -195,17 +195,24 @@ describe('the text message webhook registered at Brevo', () => {
     t.action(internal.features.campaigns.actions.registerBrevoSmsWebhook, {});
   const endpoint = `${SITE}/webhooks/brevo/sms`;
 
-  test('with no webhook at Brevo, one is created for what a recipient sends back, even under SMTP', async () => {
+  test('with no webhook at Brevo, one of each type is created for what a recipient sends back, even under SMTP', async () => {
     const t = createTestConvex();
     await seedConfig(t, { email: storedBrevo('smtp') });
     answers.push(
       { status: 404, body: { code: 'document_not_found' } },
       { status: 201, body: { id: 21 } },
+      { status: 404, body: { code: 'document_not_found' } },
+      { status: 201, body: { id: 31 } },
     );
 
-    expect(await register(t)).toEqual({ action: 'created', id: 21, url: endpoint });
+    expect(await register(t)).toEqual({
+      transactional: { action: 'created', id: 21, url: endpoint },
+      marketing: { action: 'created', id: 31, url: endpoint },
+    });
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'GET /webhooks?type=transactional&channel=sms',
+      'POST /webhooks',
+      'GET /webhooks?type=marketing&channel=sms',
       'POST /webhooks',
     ]);
     expect(requests[1].apiKey).toBe('stored-key');
@@ -215,6 +222,12 @@ describe('the text message webhook registered at Brevo', () => {
       url: endpoint,
       headers: [{ key: 'x-webhook-secret', value: 'stored-secret' }],
       events: ['reply', 'unsubscribe', 'blacklisted'],
+    });
+    // A SMS carrying the STOP code is filed as marketing by Brevo, which reports its STOP there only.
+    expect(requests[3].body).toMatchObject({
+      type: 'marketing',
+      channel: 'sms',
+      events: ['reply', 'unsubscribe'],
     });
   });
 
@@ -232,10 +245,16 @@ describe('the text message webhook registered at Brevo', () => {
         },
       },
       { status: 204 },
+      { status: 200, body: { webhooks: [{ id: 32, url: endpoint }] } },
+      { status: 204 },
     );
 
-    expect(await register(t)).toEqual({ action: 'updated', id: 22, url: endpoint });
+    expect(await register(t)).toEqual({
+      transactional: { action: 'updated', id: 22, url: endpoint },
+      marketing: { action: 'updated', id: 32, url: endpoint },
+    });
     expect(requests[1]).toMatchObject({ method: 'PUT', path: '/webhooks/22', apiKey: 'env-key' });
+    expect(requests[3]).toMatchObject({ method: 'PUT', path: '/webhooks/32' });
   });
 
   test('a missing key or secret, and a refusal of Brevo, are errors', async () => {
