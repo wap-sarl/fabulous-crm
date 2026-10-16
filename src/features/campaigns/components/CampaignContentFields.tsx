@@ -133,11 +133,13 @@ export function CampaignContentFields({
   templateAvailable = true,
   onLoadTemplate,
 }: Props) {
+  const [importFileName, setImportFileName] = useState<string | null>(null);
   // Leaving Claude Design drops its body: its images belong to the campaign, not to a template the purge would strip.
   const selectMode = (next: EmailContentMode) => {
     if (emailMode === 'claudeDesign' && next !== 'claudeDesign') {
       onHtmlBodyChange('');
       onEmailImages([]);
+      setImportFileName(null);
     }
     onEmailModeChange(next);
   };
@@ -154,7 +156,6 @@ export function CampaignContentFields({
   const subjectRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<EmailBodyEditorHandle>(null);
   const [linkModalOpen, setLinkModalOpen] = useState(false);
-  const [importFileName, setImportFileName] = useState<string | null>(null);
 
   const handleCreateLink = (link: CampaignTrackedLink) => {
     onTrackedLinksChange([...trackedLinks, link]);
