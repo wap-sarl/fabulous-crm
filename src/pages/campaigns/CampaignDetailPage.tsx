@@ -35,9 +35,14 @@ export function CampaignDetailPage() {
     api.features.campaigns.queries.getCampaignStats,
     campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
   );
+  const failed = useAuthQuery(
+    api.features.campaigns.queries.countFailedCampaignSends,
+    campaignId ? { campaignId: campaignId as Id<'campaigns'> } : 'skip',
+  );
   const timeZone = usePublicConfig().config?.timezone ?? DEFAULT_TIMEZONE;
   const retrySend = useAuthMutation(api.features.campaigns.mutations.retryCampaignSend);
   const resendAll = useAuthMutation(api.features.campaigns.mutations.resendAllCampaignSends);
+  const deleteCampaign = useAuthMutation(api.features.campaigns.mutations.deleteCampaign);
   const stopSending = useAuthMutation(api.features.campaigns.mutations.stopCampaignSending);
   const resumeSending = useAuthMutation(api.features.campaigns.mutations.resumeCampaignSending);
   // Stable for the memoised recipients table.
@@ -120,6 +125,35 @@ export function CampaignDetailPage() {
       setRetrying(false);
     }
   };
+  const failedSends = failed ?? { count: 0, capped: false };
+  const handleRetryFailed = async () => {
+    if (
+      !window.confirm(
+        `Relancer les ${numberFormat.format(failedSends.count)}${failedSends.capped ? '+' : ''} envoi(s) en échec ? Les autres ne bougent pas.`,
+      )
+    )
+      return;
+    setRetrying(true);
+    try {
+      const count = await resendAll({ campaignId: campaign._id, onlyFailed: true });
+      toast.success(`${numberFormat.format(count)} envoi(s) en échec remis en file.`);
+    } catch (err) {
+      toast.error(retryErrorMessage(err));
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Supprimer la campagne « ${campaign.name} » ?`)) return;
+    try {
+      await deleteCampaign({ campaignId: campaign._id });
+      toast.success('Campagne supprimée.');
+      navigate('/campaigns');
+    } catch (err) {
+      toast.error(retryErrorMessage(err));
+    }
+  };
   // Over SMTP there is no provider tracking: only the self-hosted tracked-link clicks are recorded.
   const isSmtp = !isSms && campaign.emailProvider === 'smtp';
 
@@ -127,11 +161,14 @@ export function CampaignDetailPage() {
     <div className="flex flex-col">
       <CampaignDetailHeader
         campaign={campaign}
+        failedSends={failedSends}
         canRetry={canRetry}
         canStop={canStop}
         retrying={retrying}
         handleResendAll={handleResendAll}
+        handleRetryFailed={handleRetryFailed}
         handleResume={handleResume}
+        handleDelete={handleDelete}
         handleStop={() => setConfirmStop(true)}
         navigate={navigate}
       />

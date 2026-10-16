@@ -26,6 +26,7 @@ import {
   Users,
   UsersRound,
   Workflow,
+  LogIn,
 } from 'lucide-react';
 import type { NavItem } from '@crm/widgets';
 import { SETTINGS_ROOT, type TabGroup } from './settingsTabs';
@@ -71,6 +72,7 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
       settings({ label: 'Apparence', icon: <Palette />, path: '/settings/branding' }),
       settings({ label: 'Équipe', icon: <UsersRound />, path: '/settings/team' }),
       settings({ label: 'Rôles et accès', icon: <ShieldCheck />, path: '/settings/roles' }),
+      settings({ label: 'Connexion', icon: <LogIn />, path: '/settings/auth' }),
     ],
   },
   {

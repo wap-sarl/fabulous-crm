@@ -195,17 +195,24 @@ describe('the text message webhook registered at Brevo', () => {
     t.action(internal.features.campaigns.actions.registerBrevoSmsWebhook, {});
   const endpoint = `${SITE}/webhooks/brevo/sms`;
 
-  test('with no webhook at Brevo, one is created for what a recipient sends back, even under SMTP', async () => {
+  test('with no webhook at Brevo, one of each type is created for what a recipient sends back, even under SMTP', async () => {
     const t = createTestConvex();
     await seedConfig(t, { email: storedBrevo('smtp') });
     answers.push(
       { status: 404, body: { code: 'document_not_found' } },
       { status: 201, body: { id: 21 } },
+      { status: 404, body: { code: 'document_not_found' } },
+      { status: 201, body: { id: 31 } },
     );
 
-    expect(await register(t)).toEqual({ action: 'created', id: 21, url: endpoint });
+    expect(await register(t)).toEqual({
+      transactional: { action: 'created', id: 21, url: endpoint },
+      marketing: { action: 'created', id: 31, url: endpoint },
+    });
     expect(requests.map((r) => `${r.method} ${r.path}`)).toEqual([
       'GET /webhooks?type=transactional&channel=sms',
+      'POST /webhooks',
+      'GET /webhooks?type=marketing&channel=sms',
       'POST /webhooks',
     ]);
     expect(requests[1].apiKey).toBe('stored-key');
@@ -215,6 +222,12 @@ describe('the text message webhook registered at Brevo', () => {
       url: endpoint,
       headers: [{ key: 'x-webhook-secret', value: 'stored-secret' }],
       events: ['reply', 'unsubscribe', 'blacklisted'],
+    });
+    // A SMS carrying the STOP code is filed as marketing by Brevo, which reports its STOP there only.
+    expect(requests[3].body).toMatchObject({
+      type: 'marketing',
+      channel: 'sms',
+      events: ['reply', 'unsubscribe'],
     });
   });
 
@@ -232,10 +245,16 @@ describe('the text message webhook registered at Brevo', () => {
         },
       },
       { status: 204 },
+      { status: 200, body: { webhooks: [{ id: 32, url: endpoint }] } },
+      { status: 204 },
     );
 
-    expect(await register(t)).toEqual({ action: 'updated', id: 22, url: endpoint });
+    expect(await register(t)).toEqual({
+      transactional: { action: 'updated', id: 22, url: endpoint },
+      marketing: { action: 'updated', id: 32, url: endpoint },
+    });
     expect(requests[1]).toMatchObject({ method: 'PUT', path: '/webhooks/22', apiKey: 'env-key' });
+    expect(requests[3]).toMatchObject({ method: 'PUT', path: '/webhooks/32' });
   });
 
   test('a missing key or secret, and a refusal of Brevo, are errors', async () => {
@@ -434,5 +453,82 @@ describe('the test e-mail of the settings', () => {
       t.action(api.features.email.actions.sendTestEmail, { to: 'ada@example.com' }),
     ).rejects.toThrow('Unauthorized: employees only');
     expect(requests).toEqual([]);
+  });
+});
+
+describe('the backfill of e-mail events', () => {
+  const backfill = (t: T, days: number, offset?: number) =>
+    t.action(internal.features.campaigns.actions.backfillBrevoEmailEvents, { days, offset });
+
+  test('reads the statistics names, writes the known events once, and refuses a span out of bounds', async () => {
+    const t = createTestConvex();
+    brevoFromEnv();
+    const emp = await seedEmployee(t, { email: 'agent@example.com' });
+    const { sendId } = await t.run(async (ctx) => {
+      const leadId = await ctx.db.insert('leads', {
+        firstName: 'Mail',
+        lastName: 'Lead',
+        email: 'mail@example.com',
+        phone: '',
+        marketingConsent: ['email'],
+        consentToken: 'tok-backfill',
+        isRedFlagged: false,
+        ownerIds: [emp.userId],
+        updatedAt: Date.now(),
+      });
+      const campaignId = await ctx.db.insert('campaigns', {
+        name: 'Backfill',
+        status: 'sent',
+        channel: 'email',
+        totalCount: 1,
+        sentCount: 1,
+        failedCount: 0,
+        updatedAt: Date.now(),
+      });
+      const sendId = await ctx.db.insert('campaignSends', {
+        campaignId,
+        leadId,
+        email: 'mail@example.com',
+        params: {},
+        status: 'sent',
+        brevoMessageId: 'msg-backfill',
+      });
+      return { sendId };
+    });
+    await expect(backfill(t, 0)).rejects.toThrow('days');
+    await expect(backfill(t, 91)).rejects.toThrow('days');
+    answers.push({
+      status: 200,
+      body: {
+        events: [
+          {
+            event: 'clicks',
+            messageId: 'msg-backfill',
+            date: '2026-10-15T10:00:00Z',
+            link: 'https://x',
+          },
+          { event: 'hardBounces', messageId: 'msg-backfill', date: '2026-10-15T11:00:00Z' },
+          { event: 'requests', messageId: 'msg-backfill', date: '2026-10-15T09:00:00Z' },
+        ],
+      },
+    });
+    expect(await backfill(t, 2)).toEqual({ recorded: 2, skipped: 1, more: false });
+    expect(requests.map((r) => r.path)).toEqual([
+      '/smtp/statistics/events?days=2&limit=1000&offset=0&sort=asc',
+    ]);
+    const events = await t.run((ctx) => ctx.db.query('campaignEvents').collect());
+    expect(events.map((e) => e.type).sort()).toEqual(['clicked', 'hard_bounce']);
+    expect((await t.run((ctx) => ctx.db.get(sendId)))?.clickedAt).toBe(
+      Date.parse('2026-10-15T10:00:00Z'),
+    );
+    // Run again: the same events are replays, nothing is written twice.
+    answers.push({
+      status: 200,
+      body: {
+        events: [{ event: 'clicks', messageId: 'msg-backfill', date: '2026-10-15T10:00:00Z' }],
+      },
+    });
+    expect(await backfill(t, 2)).toEqual({ recorded: 1, skipped: 0, more: false });
+    expect(await t.run((ctx) => ctx.db.query('campaignEvents').collect())).toHaveLength(2);
   });
 });

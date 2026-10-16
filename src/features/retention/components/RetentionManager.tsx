@@ -55,6 +55,7 @@ const COUNT_LABELS: Record<string, string> = {
   pageViews: 'pages vues',
   webVisitors: 'navigateurs inactifs',
   auditLogs: 'lignes d’audit',
+  emailImages: 'images d’e-mail non utilisées',
 };
 
 export function RetentionManager() {

@@ -3,6 +3,7 @@ import type { MutationCtx } from '../../_generated/server';
 import type { RetentionPolicy } from '../../_lib/validators/retention';
 import { scheduleViewRefresh } from '../tracking/views';
 import { DAY_MS } from '../../_lib/time';
+import { EMAIL_IMAGE_ORPHAN_MS } from '../../_lib/validators/attachments';
 import {
   PURGE_WRITE_BUDGET,
   PURGE_ENTITY_PAGE,
@@ -161,6 +162,22 @@ export async function purgePage(
       state.budget -= 1;
     }
     if (closed.length >= PURGE_ENTITY_PAGE) state.moreLeft = true;
+  }
+  // The e-mail images no campaign claimed within a day, with their blobs.
+  const imageRoom = room(state, PURGE_ROW_PAGE);
+  if (imageRoom === 0) state.moreLeft = true;
+  else {
+    const images = await ctx.db
+      .query('emailImages')
+      .withIndex('by_campaign_createdAt', (q) =>
+        q.eq('campaignId', undefined).lt('createdAt', at - EMAIL_IMAGE_ORPHAN_MS),
+      )
+      .take(imageRoom);
+    state.counts.emailImages += images.length;
+    await drain(state, images, imageRoom, async (image) => {
+      await ctx.storage.delete(image.storageId);
+      await ctx.db.delete(image._id);
+    });
   }
   // An invitation without an expiry sorts below any number in the index and stays.
   await purgeAged(ctx, state, 'invitations', (limit) =>

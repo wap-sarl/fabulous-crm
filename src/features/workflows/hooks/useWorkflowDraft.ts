@@ -1,4 +1,5 @@
 import { useReducer } from 'react';
+import { withSmsCompliance } from '../../campaigns/lib/marketingCompliance';
 import type {
   LeadAdvancedFilter,
   WorkflowNode,
@@ -29,7 +30,7 @@ function emptyNode(type: WorkflowNodeType, id: string): WorkflowNode {
     case 'send_email':
       return { id, type, subject: '', htmlBody: '' };
     case 'send_sms':
-      return { id, type, smsBody: '' };
+      return { id, type, smsBody: withSmsCompliance('') };
     case 'update_property':
       return { id, type, target: { kind: 'standard', field: 'comment' }, value: '' };
     case 'set_lifecycle_stage':

@@ -1,4 +1,5 @@
 import type { LeadAdvancedFilter, Workflow, WorkflowNode, WorkflowTrigger } from '@crm/lib/backend';
+import { withSmsCompliance } from '../campaigns/lib/marketingCompliance';
 
 /** The editor's working copy, committed on save: nodes are a map for cheap graph edits, while the backend stores an array. */
 export interface WorkflowDraft {
@@ -53,7 +54,10 @@ export function draftToPayload(draft: WorkflowDraft, trigger: WorkflowTrigger): 
     trigger,
     enrollmentCriteria: draft.enrollmentCriteria,
     allowReEnrollment: draft.allowReEnrollment,
-    nodes: Object.values(draft.nodes),
+    // Every SMS leaves with the STOP line, whatever the author did to it.
+    nodes: Object.values(draft.nodes).map((node) =>
+      node.type === 'send_sms' ? { ...node, smsBody: withSmsCompliance(node.smsBody) } : node,
+    ),
     startNodeId: draft.startNodeId ?? undefined,
   };
 }

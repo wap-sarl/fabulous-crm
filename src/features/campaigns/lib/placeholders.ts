@@ -1,5 +1,6 @@
 import { customPropertyParamKey } from '@crm/lib/backend';
 import type { CampaignTrackedLink } from '@crm/lib/backend';
+import { SMS_STOP_LINE } from './marketingCompliance';
 import type { PropertyDefinitionRow } from '../../properties/types';
 
 /** `kind` drives the filtering (a tracked-link URL is kept out of the email subject) and the styling of the chip. */
@@ -26,6 +27,14 @@ const FIXED_PLACEHOLDERS: PlaceholderItem[] = [
     kind: 'fixed',
   },
 ];
+
+/** The STOP mention of a SMS, as a chip of the SMS editors; Brevo fills the code. */
+export const SMS_STOP_PLACEHOLDER: PlaceholderItem = {
+  key: 'stop',
+  label: 'Mention STOP',
+  token: SMS_STOP_LINE,
+  kind: 'fixed',
+};
 
 /** Must mirror the params built per recipient in createCampaign. */
 export function buildPlaceholders(

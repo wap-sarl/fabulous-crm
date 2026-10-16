@@ -59,6 +59,7 @@ const SetupWizardPage = page(() => import('./pages/setup/SetupWizardPage'), 'Set
 const TeamPage = page(() => import('./pages/settings/TeamPage'), 'TeamPage');
 const BrandingPage = page(() => import('./pages/settings/BrandingPage'), 'BrandingPage');
 const EmailPage = page(() => import('./pages/settings/EmailPage'), 'EmailPage');
+const AuthPage = page(() => import('./pages/settings/AuthPage'), 'AuthPage');
 const PropertiesPage = page(() => import('./pages/settings/PropertiesPage'), 'PropertiesPage');
 const DuplicatesPage = page(() => import('./pages/leads/DuplicatesPage'), 'DuplicatesPage');
 const ImportPage = page(() => import('./pages/imports/ImportPage'), 'ImportPage');
@@ -161,6 +162,7 @@ function AppRoutes() {
                 <Route path="/settings/team" element={<TeamPage />} />
                 <Route path="/settings/branding" element={<BrandingPage />} />
                 <Route path="/settings/email" element={<EmailPage />} />
+                <Route path="/settings/auth" element={<AuthPage />} />
                 <Route path="/settings/properties" element={<PropertiesPage />} />
                 <Route path="/settings/lists" element={<LeadListsPage />} />
                 <Route path="/settings/lifecycle" element={<LifecyclePage />} />

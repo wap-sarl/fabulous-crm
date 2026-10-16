@@ -6,6 +6,30 @@ import { insertSystemNote } from '../leads/notes';
 import { BEHAVIOURAL_CAMPAIGN_EVENTS, profilingExcluded, stampLeadSignal } from '../leads/signals';
 import { dispatchWorkflowTrigger } from '../workflows/dispatch';
 
+/** Brevo's payloads vary between snake_case and camelCase, so both spellings are accepted; an unmapped event is acknowledged and dropped. */
+export const BREVO_EMAIL_EVENT_TYPE: Record<string, CampaignEventType> = {
+  delivered: 'delivered',
+  opened: 'opened',
+  unique_opened: 'opened',
+  uniqueOpened: 'opened',
+  click: 'clicked',
+  // The statistics endpoint (the backfill) names the events in the plural.
+  clicks: 'clicked',
+  hardBounces: 'hard_bounce',
+  softBounces: 'soft_bounce',
+  hard_bounce: 'hard_bounce',
+  hardBounce: 'hard_bounce',
+  soft_bounce: 'soft_bounce',
+  softBounce: 'soft_bounce',
+  spam: 'spam',
+  complaint: 'spam',
+  unsubscribed: 'unsubscribed',
+  blocked: 'blocked',
+  invalid: 'invalid',
+  invalid_email: 'invalid',
+  error: 'error',
+};
+
 /** Campaign event → workflow trigger event, per channel. Unmapped types don't trigger. */
 const EMAIL_TRIGGER_EVENT: Partial<Record<CampaignEventType, WorkflowEmailEvent>> = {
   delivered: 'delivered',
@@ -96,11 +120,12 @@ export async function recordEmailEvent(
     return;
   }
 
+  const type = args.type;
   const outcome = await insertCampaignEventIfNew(ctx, {
     campaignId: send.campaignId,
     sendId: send._id,
     leadId: send.leadId,
-    type: args.type,
+    type,
     eventAt: args.eventAt,
     url: args.url,
     reason: args.reason,
@@ -108,12 +133,25 @@ export async function recordEmailEvent(
   // An objection leaves the send unstamped too: nothing says the person opened or clicked.
   if (outcome === 'excluded') return;
 
-  if (args.type === 'opened' && send.openedAt === undefined) {
+  if (type === 'opened' && send.openedAt === undefined) {
     await ctx.db.patch(send._id, { openedAt: args.eventAt });
   }
-  if (args.type === 'clicked' && send.clickedAt === undefined) {
+  if (type === 'clicked' && send.clickedAt === undefined) {
     await ctx.db.patch(send._id, { clickedAt: args.eventAt });
   }
+  // Brevo's own unsubscribe event; a click on the consent link stays a click, the preference centre says what the person decided.
+  if (type === 'unsubscribed' && send.unsubscribedAt === undefined) {
+    await ctx.db.patch(send._id, { unsubscribedAt: args.eventAt });
+  }
+}
+
+/** Brevo's `msg_status` as the maps above key it: a reply that starts with STOP is an opt-out even when reported as a plain reply (transactional SMS), and the registration names `unsubscribe` / `blacklisted` stand for the payload values. */
+function normalizeSmsStatus(msgStatus: string, reply?: string): string {
+  const status = msgStatus.toLowerCase();
+  if (status === 'unsubscribe') return 'unsubscribed';
+  if (status === 'blacklisted') return 'bl';
+  if (status === 'replied' && reply && /^\s*stop\b/i.test(reply)) return 'unsubscribed';
+  return status;
 }
 
 /** Brevo SMS webhook `msg_status` values worth logging as campaign events. */
@@ -142,10 +180,20 @@ const SMS_STATUS_MARKER: Record<
 /** A STOP (`unsubscribed`, or `bl` for blacklisted) revokes the lead's SMS consent; a replay changes nothing, it finds the marker and the consent already set. */
 export async function recordSmsEvent(
   ctx: MutationCtx,
-  args: { brevoMessageId?: string; recipient?: string; msgStatus: string; eventAt: number },
+  args: {
+    brevoMessageId?: string;
+    recipient?: string;
+    reply?: string;
+    msgStatus: string;
+    eventAt: number;
+  },
 ): Promise<void> {
-  const type = SMS_EVENT_TYPE[args.msgStatus];
-  if (!type) return;
+  const msgStatus = normalizeSmsStatus(args.msgStatus, args.reply);
+  const type = SMS_EVENT_TYPE[msgStatus];
+  if (!type) {
+    console.warn('SMS webhook: ignored status', args.msgStatus);
+    return;
+  }
 
   // The message id first, it is precise; the phone as a fallback, as a STOP arrives with a fresh id that matches no send but always carries the recipient.
   let send = args.brevoMessageId
@@ -155,10 +203,12 @@ export async function recordSmsEvent(
         .first()
     : null;
   const recipientDigits = args.recipient?.replace(/\D/g, '');
+  // The latest send to that number: the one the person answers.
   if (!send && recipientDigits) {
     send = await ctx.db
       .query('campaignSends')
       .withIndex('by_smsRecipient', (q) => q.eq('smsRecipient', recipientDigits))
+      .order('desc')
       .first();
   }
   if (!send) {
@@ -178,12 +228,13 @@ export async function recordSmsEvent(
   });
 
   // First-only lifecycle marker on the send, powering the SMS campaign metrics.
-  const marker = SMS_STATUS_MARKER[args.msgStatus];
+  const marker = SMS_STATUS_MARKER[msgStatus];
   if (marker && send[marker] === undefined) {
     await ctx.db.patch(send._id, { [marker]: args.eventAt });
   }
 
-  if (args.msgStatus !== 'unsubscribed' && args.msgStatus !== 'bl') return;
+  // Every SMS carries the STOP mention, so a STOP on any send is an opt-out, whatever the campaign's type.
+  if (msgStatus !== 'unsubscribed' && msgStatus !== 'bl') return;
 
   const lead = await ctx.db.get(send.leadId);
   if (!lead || lead.deletedAt !== undefined) return;

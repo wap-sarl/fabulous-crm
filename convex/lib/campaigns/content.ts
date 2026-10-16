@@ -1,4 +1,5 @@
 import { refusal } from '../../_lib/refusal';
+import { HTML_BODY_MAX_BYTES } from '../../_lib/validators/crm';
 import { follows, positiveIntSchema } from '../../_lib/validators/fields';
 import {
   EMAIL_PROVIDER_REQUIRED,
@@ -6,6 +7,16 @@ import {
   isEmailProviderConfigured,
   SMS_PROVIDER_REQUIRED,
 } from '../email/provider';
+
+/** Stored inline on the campaign row, which Convex caps at 1 MiB: an HTML body past the ceiling, measured in UTF-8 bytes, is refused; embedded images must be hosted instead. */
+export function assertHtmlBodySize(html: string): void {
+  if (new TextEncoder().encode(html).length > HTML_BODY_MAX_BYTES) {
+    throw refusal('html_body_too_large', {
+      message:
+        'Le contenu HTML dépasse 800 Ko. Hébergez les images en ligne plutôt que de les intégrer dans le HTML.',
+    });
+  }
+}
 
 export type CampaignContent = {
   brevoTemplateId?: number;
@@ -33,6 +44,7 @@ export function resolveCampaignContent(
   }
   const htmlBody = args.htmlBody?.trim();
   if (htmlBody) {
+    assertHtmlBodySize(htmlBody);
     // Custom (WYSIWYG) email: a subject is required.
     const subject = args.subject?.trim();
     if (!subject) {

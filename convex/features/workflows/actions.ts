@@ -2,6 +2,7 @@
 import { refusalText } from '../../_lib/refusal';
 
 import { v } from 'convex/values';
+import { withStopLine } from '../../lib/sms/stop';
 import { internalAction } from '../../_generated/server';
 import { internal } from '../../_generated/api';
 import {
@@ -88,7 +89,7 @@ export const runWorkflowActionStep = internalAction({
         }
         const result = await sendBrevoSms(brevo.apiKey, {
           recipient,
-          content: renderPlaceholders(step.smsBody, step.params, false),
+          content: withStopLine(renderPlaceholders(step.smsBody, step.params, false)),
           type: 'marketing',
           sender: brevo.smsSender,
         });

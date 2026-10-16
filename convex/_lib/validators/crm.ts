@@ -98,6 +98,15 @@ export type ConsentSource = Infer<typeof consentSourceValidator>;
 export type SubscriptionStatus = Infer<typeof subscriptionStatusValidator>;
 export type LeadSubscription = Infer<typeof leadSubscriptionValidator>;
 
+/** Campaigns whose recipients one campaign may leave out. */
+export const EXCLUDED_CAMPAIGNS_MAX = 20;
+
+/** A random share of the matching contacts: `size` of the `of` the creation page counted. */
+export const campaignSampleValidator = v.object({ size: v.number(), of: v.number() });
+
+/** Bytes of an inline HTML body, UTF-8: headroom under Convex's 1 MiB document cap for the campaign's other fields; a content A/B test stores both bodies on the row. */
+export const HTML_BODY_MAX_BYTES = 800 * 1024;
+
 export const campaignStatusValidator = v.union(
   // Written but not started: a scheduled send that was cancelled waits here for a new time, or for « Envoyer maintenant ».
   v.literal('draft'),
@@ -246,6 +255,9 @@ export const campaignValidator = v.object({
   // Each recipient is sent at the hour of the day they open most, within the day that follows the start.
   sendTimeOptimized: v.optional(v.boolean()),
   abTest: v.optional(campaignAbTestValidator),
+  // Contacts with a send in these campaigns are no recipients; the share of the matches kept, drawn at preparation.
+  excludeCampaignIds: v.optional(v.array(v.id('campaigns'))),
+  sample: v.optional(campaignSampleValidator),
   totalCount: v.number(),
   sentCount: v.number(),
   failedCount: v.number(),

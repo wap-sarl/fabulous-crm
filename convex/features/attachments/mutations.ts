@@ -7,6 +7,9 @@ import { employeeMutation } from '../../_lib/auth';
 import {
   type AttachmentEntityType,
   attachmentEntityTypeValidator,
+  EMAIL_IMAGE_MAX_BYTES,
+  EMAIL_IMAGE_TYPES,
+  EMAIL_IMAGE_UPLOAD_WINDOW_MS,
 } from '../../_lib/validators/attachments';
 import { createAuditFields, logAudit, updateAuditFields } from '../../lib/audit/log';
 import { isNotDeleted } from '../../lib/shared/db';
@@ -73,6 +76,65 @@ export const generateAttachmentUploadUrl = employeeMutation({
     const maxSizeBytes = await attachmentMaxBytes(ctx);
     assertSize(args.size, maxSizeBytes);
     return { uploadUrl: await fileStore('convex').generateUploadUrl(ctx), maxSizeBytes };
+  },
+});
+
+/** The upload address of one image of an e-mail body (a Claude Design export); the blob is checked and recorded by registerEmailImage right after. */
+export const generateEmailImageUploadUrl = employeeMutation({
+  args: {},
+  returns: v.string(),
+  handler: async (ctx) => await ctx.storage.generateUploadUrl(),
+});
+
+/** Records an upload as an e-mail image, for its uploader, and gives its public URL. Only a blob of the last minutes that no record, setting or image holds is in reach, so an id of someone else's file goes nowhere; one that is not a raster image within bounds is kept as refused, never served, for the purge to delete, since a delete here would be rolled back with a throw and is not this mutation's business either. */
+export const registerEmailImage = employeeMutation({
+  args: { storageId: v.id('_storage'), contentType: v.string() },
+  returns: v.union(
+    v.object({ ok: v.literal(true), imageId: v.id('emailImages'), url: v.string() }),
+    v.object({ ok: v.literal(false), code: v.union(v.literal('type'), v.literal('too_large')) }),
+  ),
+  handler: async (ctx, { storageId, contentType }) => {
+    const blob = await ctx.db.system.get(storageId);
+    if (!blob || blob._creationTime < Date.now() - EMAIL_IMAGE_UPLOAD_WINDOW_MS) {
+      throw refusal('email_image_not_found');
+    }
+    const cfg = await ctx.db.query('appConfig').first();
+    const ownedByRecord = await ctx.db
+      .query('attachments')
+      .withIndex('by_storageId', (q) => q.eq('storageId', storageId))
+      .first();
+    const registered = await ctx.db
+      .query('emailImages')
+      .withIndex('by_storageId', (q) => q.eq('storageId', storageId))
+      .first();
+    if (
+      ownedByRecord ||
+      registered ||
+      cfg?.logoStorageId === storageId ||
+      cfg?.faviconStorageId === storageId
+    ) {
+      throw refusal('email_image_not_found');
+    }
+    // The store keeps the Content-Type of the upload; the declared one stands in where it did not.
+    const type = blob.contentType ?? contentType;
+    const refused =
+      type !== contentType || !EMAIL_IMAGE_TYPES.has(type)
+        ? ('type' as const)
+        : blob.size > EMAIL_IMAGE_MAX_BYTES
+          ? ('too_large' as const)
+          : null;
+    const imageId = await ctx.db.insert('emailImages', {
+      storageId,
+      uploadedBy: ctx.userId,
+      contentType: type,
+      size: blob.size,
+      createdAt: Date.now(),
+      ...(refused ? { refused: true } : {}),
+    });
+    if (refused) return { ok: false as const, code: refused };
+    const url = await ctx.storage.getUrl(storageId);
+    if (!url) throw refusal('email_image_not_found');
+    return { ok: true as const, imageId, url };
   },
 });
 

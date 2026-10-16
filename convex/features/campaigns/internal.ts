@@ -232,18 +232,31 @@ export const recordSendResults = internalMutation({
   },
 });
 
+/** What one Brevo e-mail event carries, by the webhook or the backfill. */
+const brevoEmailEventArgs = {
+  brevoMessageId: v.string(),
+  type: campaignEventTypeValidator,
+  eventAt: v.number(),
+  url: v.optional(v.string()),
+  reason: v.optional(v.string()),
+};
+
 /** A Brevo email webhook event, tied to its send by `brevoMessageId`. */
 export const recordBrevoEmailEvent = internalMutation({
-  args: {
-    brevoMessageId: v.string(),
-    type: campaignEventTypeValidator,
-    eventAt: v.number(),
-    url: v.optional(v.string()),
-    reason: v.optional(v.string()),
-  },
+  args: brevoEmailEventArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
     await recordEmailEvent(ctx, args);
+    return null;
+  },
+});
+
+/** One chunk of the backfill, written in one transaction; each event goes through the webhook's own path, replays included. */
+export const recordBrevoEmailEvents = internalMutation({
+  args: { events: v.array(v.object(brevoEmailEventArgs)) },
+  returns: v.null(),
+  handler: async (ctx, { events }) => {
+    for (const event of events) await recordEmailEvent(ctx, event);
     return null;
   },
 });
@@ -254,6 +267,7 @@ export const handleSmsEvent = internalMutation({
     brevoMessageId: v.optional(v.string()),
     // Present on inbound events, and matched against campaignSends.smsRecipient once stripped to digits.
     recipient: v.optional(v.string()),
+    reply: v.optional(v.string()),
     msgStatus: v.string(),
     eventAt: v.number(),
   },
@@ -284,8 +298,8 @@ export const resendCampaignBatch = internalMutation({
     cursor: v.optional(v.string()),
     // Sends re-queued by the pages before, so the last one knows whether there is anything to drain.
     resent: v.optional(v.number()),
-    // A resume: the cancelled sends only.
-    only: v.optional(v.literal('cancelled')),
+    // A resume: the cancelled sends only; « Relancer les échecs »: the failed ones only.
+    only: v.optional(v.union(v.literal('cancelled'), v.literal('failed'))),
     // Tests only: a small page exercises the chain; production keeps the batch of lib/campaigns/resend.ts.
     batchSize: v.optional(v.number()),
   },

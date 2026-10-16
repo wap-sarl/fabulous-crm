@@ -9,6 +9,7 @@ import {
 import { v } from 'convex/values';
 import { paginationOptsValidator } from 'convex/server';
 import { employeeQuery } from '../../_lib/auth';
+import { countFailedSends } from '../../lib/campaigns/stats';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { isNotDeleted } from '../../_lib/softDelete';
 import { readCampaignStats } from '../../lib/campaigns/stats';
@@ -35,6 +36,31 @@ const summaryOf = (campaign: Doc<'campaigns'>) => ({
   totalCount: campaign.totalCount,
   sentCount: campaign.sentCount,
   failedCount: campaign.failedCount,
+});
+
+/** The failed sends of a campaign, for « Relancer les échecs »: counted up to FAILED_SENDS_CAP. */
+export const countFailedCampaignSends = employeeQuery({
+  args: { campaignId: v.id('campaigns') },
+  returns: v.object({ count: v.number(), capped: v.boolean() }),
+  handler: async (ctx, { campaignId }) => {
+    if (!(await ctx.db.get(campaignId))) return { count: 0, capped: false };
+    return await countFailedSends(ctx, campaignId);
+  },
+});
+
+/** The latest campaigns by name, for the exclusion picker of a new campaign: a hundred of those the caller sees, read newest first until that many are found; a reader who sees few campaigns walks the table, which the deployment's size keeps within the read limit for now. */
+export const listCampaignChoices = employeeQuery({
+  args: {},
+  returns: v.array(v.object({ _id: v.id('campaigns'), name: v.string() })),
+  handler: async (ctx) => {
+    const choices: { _id: Id<'campaigns'>; name: string }[] = [];
+    for await (const campaign of ctx.db.query('campaigns').order('desc')) {
+      if (!isNotDeleted(campaign)) continue;
+      choices.push({ _id: campaign._id, name: campaign.name });
+      if (choices.length >= 100) break;
+    }
+    return choices;
+  },
 });
 
 /** The campaigns newest first, a page at a time and without their content: a typed name goes through the search index, a status through its index. Deleted ones are dropped per page, which may run short. */

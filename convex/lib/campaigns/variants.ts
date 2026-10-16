@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 import type { Doc } from '../../_generated/dataModel';
 import { refusal } from '../../_lib/refusal';
+import { assertHtmlBodySize } from './content';
 import {
   abSplitPercentSchema,
   abWindowHoursSchema,
@@ -32,6 +33,8 @@ export function checkAbTest(
   }
   const subjectB = test.kind === 'subject' ? test.subjectB?.trim() : undefined;
   const htmlBodyB = test.kind === 'content' ? test.htmlBodyB?.trim() : undefined;
+  // Both bodies sit on the campaign row: the B one is bounded like the A one.
+  if (htmlBodyB) assertHtmlBodySize(htmlBodyB);
   if (test.kind === 'subject' ? !subjectB : !htmlBodyB) {
     throw refusal('ab_variant_required', {
       message:

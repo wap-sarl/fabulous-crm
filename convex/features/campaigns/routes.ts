@@ -6,7 +6,7 @@ import { timingSafeEqual } from '../../lib/security/crypto';
 import { randomToken, sha256Base64Url } from '../../lib/security/crypto';
 import { LINK_GRANT_PARAM } from '../../_lib/validators/tracking';
 import { clientIpOf, enforceRateLimit } from '../../lib/security/rateLimits';
-import type { CampaignEventType } from '../../schema';
+import { BREVO_EMAIL_EVENT_TYPE } from '../../lib/campaigns/events';
 
 /** The header keeps the account secret out of URLs and logs; Brevo's per-message SMS `webUrl` cannot send headers, so that path has its own query-string secret. */
 function authorizeWebhook(request: Request, secrets: { header?: string; query?: string }): boolean {
@@ -17,26 +17,6 @@ function authorizeWebhook(request: Request, secrets: { header?: string; query?: 
   const queryValue = new URL(request.url).searchParams.get('secret');
   return !!(secrets.query && queryValue && timingSafeEqual(queryValue, secrets.query));
 }
-
-/** Brevo's payloads vary between snake_case and camelCase, so both spellings are accepted; an unmapped event is acknowledged and dropped. */
-const BREVO_EMAIL_EVENT_TYPE: Record<string, CampaignEventType> = {
-  delivered: 'delivered',
-  opened: 'opened',
-  unique_opened: 'opened',
-  uniqueOpened: 'opened',
-  click: 'clicked',
-  hard_bounce: 'hard_bounce',
-  hardBounce: 'hard_bounce',
-  soft_bounce: 'soft_bounce',
-  softBounce: 'soft_bounce',
-  spam: 'spam',
-  complaint: 'spam',
-  unsubscribed: 'unsubscribed',
-  blocked: 'blocked',
-  invalid: 'invalid',
-  invalid_email: 'invalid',
-  error: 'error',
-};
 
 /** Minimal French page for tracked-link responses (no-redirect thanks / 404). */
 function htmlResponse(message: string, status: number): Response {
@@ -80,12 +60,15 @@ export function registerCampaignsRoutes(http: HttpRouter): void {
         to?: number | string;
         // Unix seconds: the event's own time orders the timeline and sets the first-only markers.
         ts_event?: number;
+        // The text of an inbound reply, "STOP" included.
+        reply?: string;
       } | null;
 
       if (event?.msg_status && (event.messageId !== undefined || event.to !== undefined)) {
         await ctx.runMutation(internal.features.campaigns.internal.handleSmsEvent, {
           brevoMessageId: event.messageId !== undefined ? String(event.messageId) : undefined,
           recipient: event.to !== undefined ? String(event.to) : undefined,
+          reply: typeof event.reply === 'string' ? event.reply : undefined,
           msgStatus: event.msg_status,
           eventAt: typeof event.ts_event === 'number' ? event.ts_event * 1000 : Date.now(),
         });

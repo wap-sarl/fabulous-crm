@@ -52,6 +52,12 @@ export type StepProps = {
   error: string | null;
 };
 
+/** What the auth-methods editor reads and writes: the wizard's data, or the settings page's draft. */
+export type AuthMethodsData = Pick<
+  WizardData,
+  'magicLinkEnabled' | 'socialProviders' | 'ssoProviders'
+>;
+
 export function emptySsoProvider(): SsoDraft {
   return {
     providerId: '',

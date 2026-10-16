@@ -321,7 +321,7 @@ describe('campaign sends: the resend of all', () => {
     const w = await setup();
     const { campaignId, sends } = await sentCampaign(w);
 
-    expect(await resendAll(w, campaignId)).toBeNull();
+    expect(await resendAll(w, campaignId)).toBe(4);
     expect(await get(w, campaignId)).toMatchObject({
       status: 'preparing',
       sentCount: 0,
@@ -426,7 +426,7 @@ describe('campaign sends: the resend of all', () => {
     ).rejects.toThrow(/campaign_sending/);
 
     const empty = await insertCampaign(w, { status: 'sent' });
-    expect(await resendAll(w, empty)).toBeNull();
+    expect(await resendAll(w, empty)).toBe(0);
     expect(await get(w, empty)).toMatchObject({ status: 'sent' });
     expect(await jobsNamed(w, 'resendCampaignBatch')).toHaveLength(1);
   });

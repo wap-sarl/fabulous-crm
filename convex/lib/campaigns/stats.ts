@@ -101,6 +101,25 @@ const shardsOf = (ctx: Pick<QueryCtx, 'db'>, campaignId: Id<'campaigns'>) =>
     .take(STAT_SHARDS);
 
 /** The counters of a campaign, its rows summed; the rows hold changes and only their sum means something, shown at zero should it ever come out below. */
+/** Failed sends counted at most this far: enough to show, and the resend pages through the rest. */
+const FAILED_SENDS_CAP = 1000;
+
+/** The sends that failed, read on their status: `failedCount` holds the skipped too, and the stats' skipped the cancelled, so neither gives it. */
+export async function countFailedSends(
+  ctx: Pick<QueryCtx, 'db'>,
+  campaignId: Id<'campaigns'>,
+): Promise<{ count: number; capped: boolean }> {
+  const rows = await ctx.db
+    .query('campaignSends')
+    .withIndex('by_campaign_status', (q) => q.eq('campaignId', campaignId).eq('status', 'failed'))
+    .take(FAILED_SENDS_CAP + 1);
+  return { count: Math.min(rows.length, FAILED_SENDS_CAP), capped: rows.length > FAILED_SENDS_CAP };
+}
+
+/** The same count alone, for the gate of a failed-only resend; past the cap the gate is asked for the cap, the pages re-queue the rest. */
+export const failedSendCount = async (ctx: Pick<QueryCtx, 'db'>, campaignId: Id<'campaigns'>) =>
+  (await countFailedSends(ctx, campaignId)).count;
+
 export async function readCampaignStats(
   ctx: Pick<QueryCtx, 'db'>,
   campaignId: Id<'campaigns'>,

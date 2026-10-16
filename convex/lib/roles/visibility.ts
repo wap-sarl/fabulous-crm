@@ -222,6 +222,10 @@ function rulesFor(ctx: QueryCtx | MutationCtx, vis: Visibility): Rules<unknown, 
       templateVisible(vis, d),
     ),
     leadListMembers: same((d: { leadId: Id<'leads'> }) => leadOk(d.leadId)),
+    // An e-mail image is its uploader's; the settings right sees them all.
+    emailImages: same(
+      async (d: { uploadedBy: Id<'users'> }) => d.uploadedBy === vis.userId || vis.access.settings,
+    ),
   } as Rules<unknown, DataModel>;
 }
 

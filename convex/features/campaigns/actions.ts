@@ -11,7 +11,9 @@ import {
 } from '../../lib/email/provider';
 import { renderPlaceholders, sendBrevoTemplateEmail, wrapEmailHtml } from '../../lib/email/brevo';
 import { registerBrevoWebhook } from '../../lib/email/brevoWebhooks';
+import { BREVO_EMAIL_EVENT_TYPE } from '../../lib/campaigns/events';
 import { sendBrevoSms, toBrevoRecipient } from '../../lib/sms/brevo';
+import { withStopLine } from '../../lib/sms/stop';
 import { createEmailDispatcher } from '../email/send';
 import { variantContent } from '../../lib/campaigns/variants';
 import type { CampaignSendStatus } from '../../schema';
@@ -62,19 +64,93 @@ export const registerBrevoEmailWebhook = internalAction({
   },
 });
 
-/** The per-message `webUrl` never reports inbound replies: this account-level webhook is what makes a STOP reach the CRM. Run once per deployment, safe to run again. */
+const SMS_WEBHOOK_RESULT = v.object({ action: v.string(), id: v.number(), url: v.string() });
+
+/** The per-message `webUrl` never reports inbound replies: these account-level webhooks are what makes a STOP reach the CRM, one per type since Brevo files a SMS carrying « STOP au [STOP_CODE] » as marketing and reports its STOP there only. Run once per deployment, safe to run again. */
 export const registerBrevoSmsWebhook = internalAction({
   args: {},
-  returns: v.object({ action: v.string(), id: v.number(), url: v.string() }),
-  handler: async (ctx): Promise<{ action: string; id: number; url: string }> => {
+  returns: v.object({ transactional: SMS_WEBHOOK_RESULT, marketing: SMS_WEBHOOK_RESULT }),
+  handler: async (ctx) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    return await registerBrevoWebhook(await resolveBrevo(cfg), {
-      path: '/webhooks/brevo/sms',
-      channel: 'sms',
-      description: 'Fabulous CRM — événements SMS entrants (STOP, réponses)',
-      // Inbound only, the per-message webUrl already reports the outbound ones; these names differ from the payload `msg_status` ("replied", "unsubscribed", "bl") that handleSmsEvent reads.
-      events: ['reply', 'unsubscribe', 'blacklisted'],
+    const brevo = await resolveBrevo(cfg);
+    // Inbound only, the per-message webUrl already reports the outbound ones; these names differ from the payload `msg_status` ("replied", "unsubscribed", "bl") that handleSmsEvent reads.
+    const register = (type: 'transactional' | 'marketing', events: string[]) =>
+      registerBrevoWebhook(brevo, {
+        path: '/webhooks/brevo/sms',
+        type,
+        channel: 'sms',
+        description: 'Fabulous CRM — événements SMS entrants (STOP, réponses)',
+        events,
+      });
+    return {
+      transactional: await register('transactional', ['reply', 'unsubscribe', 'blacklisted']),
+      marketing: await register('marketing', ['reply', 'unsubscribe']),
+    };
+  },
+});
+
+/** Events read from Brevo's statistics per call, and written per mutation. */
+const BACKFILL_PAGE = 1000;
+const BACKFILL_CHUNK = 100;
+const BACKFILL_MAX_DAYS = 90;
+
+/** Brevo never re-sends a missed webhook, but its statistics keep the e-mail events for 90 days: this replays them into the campaign events (a replay is dropped by the usual dedup), one page per call and the next page scheduled, for a webhook that was missing or pointed at another deployment. */
+export const backfillBrevoEmailEvents = internalAction({
+  args: { days: v.number(), offset: v.optional(v.number()) },
+  returns: v.object({ recorded: v.number(), skipped: v.number(), more: v.boolean() }),
+  handler: async (ctx, args): Promise<{ recorded: number; skipped: number; more: boolean }> => {
+    if (!Number.isInteger(args.days) || args.days < 1 || args.days > BACKFILL_MAX_DAYS) {
+      throw new Error(`days : un entier de 1 à ${BACKFILL_MAX_DAYS}`);
+    }
+    const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
+    const brevo = await resolveBrevo(cfg);
+    if (!brevo.emailIsBrevo || !brevo.apiKey) throw new Error('Brevo non configuré');
+    const offset = args.offset ?? 0;
+    const url = `https://api.brevo.com/v3/smtp/statistics/events?days=${args.days}&limit=${BACKFILL_PAGE}&offset=${offset}&sort=asc`;
+    const response = await fetch(url, {
+      headers: { accept: 'application/json', 'api-key': brevo.apiKey },
     });
+    if (!response.ok) {
+      throw new Error(`Brevo GET /smtp/statistics/events a échoué : ${await response.text()}`);
+    }
+    const { events = [] } = (await response.json()) as {
+      events?: { event: string; messageId: string; date: string; link?: string; reason?: string }[];
+    };
+    const known = events.flatMap((e) => {
+      const type = BREVO_EMAIL_EVENT_TYPE[e.event];
+      return type
+        ? [
+            {
+              brevoMessageId: e.messageId,
+              type,
+              eventAt: Date.parse(e.date),
+              url: e.link,
+              reason: e.reason,
+            },
+          ]
+        : [];
+    });
+    for (let i = 0; i < known.length; i += BACKFILL_CHUNK) {
+      await ctx.runMutation(internal.features.campaigns.internal.recordBrevoEmailEvents, {
+        events: known.slice(i, i + BACKFILL_CHUNK),
+      });
+    }
+    const more = events.length >= BACKFILL_PAGE;
+    // One line per page: a run through `convex run` only returns its first page's counts.
+    console.log(
+      `Brevo backfill: offset ${offset}, ${known.length} recorded, ${events.length - known.length} skipped${more ? ', next page scheduled' : ''}`,
+    );
+    if (more) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.features.campaigns.actions.backfillBrevoEmailEvents,
+        {
+          days: args.days,
+          offset: offset + BACKFILL_PAGE,
+        },
+      );
+    }
+    return { recorded: known.length, skipped: events.length - known.length, more };
   },
 });
 
@@ -187,7 +263,7 @@ export const sendCampaignBatch = internalAction({
             continue;
           }
 
-          const content = renderPlaceholders(batch.smsBody ?? '', send.params, false);
+          const content = withStopLine(renderPlaceholders(batch.smsBody ?? '', send.params, false));
           const result = await sendBrevoSms(brevo.apiKey, {
             recipient,
             content,
