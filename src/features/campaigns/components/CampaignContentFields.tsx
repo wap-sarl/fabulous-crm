@@ -133,6 +133,14 @@ export function CampaignContentFields({
   templateAvailable = true,
   onLoadTemplate,
 }: Props) {
+  // Leaving Claude Design drops its body: its images belong to the campaign, not to a template the purge would strip.
+  const selectMode = (next: EmailContentMode) => {
+    if (emailMode === 'claudeDesign' && next !== 'claudeDesign') {
+      onHtmlBodyChange('');
+      onEmailImages([]);
+    }
+    onEmailModeChange(next);
+  };
   const smsRef = useRef<HTMLTextAreaElement>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [saveAsOpen, setSaveAsOpen] = useState(false);
@@ -257,7 +265,7 @@ export function CampaignContentFields({
             templateAvailable ? EMAIL_MODES : EMAIL_MODES.filter((m) => m.value !== 'template')
           }
           value={emailMode}
-          onChange={onEmailModeChange}
+          onChange={selectMode}
         />
         {!templateAvailable && (
           <p className="text-xs text-warning">

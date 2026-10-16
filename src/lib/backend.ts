@@ -74,7 +74,7 @@ export type { DuplicateLeadSummary } from '../../convex/features/duplicates/quer
 export type { AttachmentEntityType } from '../../convex/_lib/validators/attachments';
 export { RETENTION_BOUNDS, type RetentionKey } from '../../convex/_lib/validators/retention';
 export { HTML_BODY_MAX_BYTES } from '../../convex/_lib/validators/crm';
-export { SMS_STOP_LINE } from '../../convex/lib/sms/stop';
+export { SMS_STOP_LINE, SMS_STOP_RE } from '../../convex/lib/sms/stop';
 export {
   ATTACHMENT_MAX_BYTES_CEILING,
   ATTACHMENT_RETENTION_MAX_DAYS,
