@@ -7,6 +7,35 @@ import { describeError } from '../../lib/errors';
 import { PluginCard } from '../../features/plugins/components/PluginCard';
 import type { PluginRow } from '../../features/plugins/types';
 
+/** What an uninstall does, with the public addresses it closes when there are some. */
+function UninstallNotice({ plugin }: { plugin: PluginRow | null }) {
+  const urls = plugin?.publicUrls ?? [];
+  const closes =
+    urls.length === 0
+      ? 'ses adresses publiques ne répondent plus.'
+      : urls.length === 1
+        ? 'cette adresse publique ne répond plus :'
+        : plugin?.morePublicUrls
+          ? 'ces adresses publiques, parmi d’autres, ne répondent plus :'
+          : 'ces adresses publiques ne répondent plus :';
+  return (
+    <span className="flex flex-col gap-2">
+      <span>Le plugin disparaît du menu et {closes}</span>
+      {urls.length > 0 && (
+        <span
+          className="flex flex-col gap-0.5 font-mono text-xs text-ink"
+          data-testid="uninstall-urls"
+        >
+          {urls.map((url) => (
+            <span key={url}>{url}</span>
+          ))}
+        </span>
+      )}
+      <span>Ses données sont conservées : une réinstallation les retrouve telles quelles.</span>
+    </span>
+  );
+}
+
 /** Settings → Plugins: the optional features, installed or not, each with its button. */
 export function PluginsPage() {
   usePageTitle('Plugins');
@@ -67,7 +96,7 @@ export function PluginsPage() {
           if (!open) setToUninstall(null);
         }}
         title={`Désinstaller « ${toUninstall?.name ?? ''} » ?`}
-        description="Le plugin disparaît du menu et ses adresses publiques ne répondent plus. Ses données sont conservées : une réinstallation les retrouve telles quelles."
+        description={<UninstallNotice plugin={toUninstall} />}
         confirmLabel="Désinstaller"
         destructive
         onConfirm={onUninstall}

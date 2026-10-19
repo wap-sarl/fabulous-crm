@@ -91,6 +91,7 @@ export function registerFormsRoutes(http: HttpRouter): void {
       const userAgent = request.headers.get('user-agent') ?? undefined;
       const page = typeof body.page === 'string' ? body.page : undefined;
       // The bucket is drawn here, where the address is: the mutation gets a number, and no argument of it holds the address.
+      // Null for an unknown page, or while the pages plugin is off: a page a browser still holds submits its form, uncounted for the page.
       const slug =
         page === undefined
           ? null

@@ -61,11 +61,31 @@ describe('the catalogue', () => {
     expect(new Set(PLUGINS.map((plugin) => plugin.name)).size).toBe(PLUGINS.length);
   });
 
-  test('is shown to the settings right with each plugin’s state, and refused to the others', async () => {
+  test('is shown to the settings right with each plugin’s state and the public addresses an uninstall closes, and refused to the others', async () => {
     const { admin, member } = await setup(['landing-pages']);
     expect(await admin.query(api.features.plugins.queries.listPlugins, {})).toEqual([
-      { key: 'landing-pages', name: 'Pages', description: PLUGINS[0].description, installed: true },
+      {
+        key: 'landing-pages',
+        name: 'Pages',
+        description: PLUGINS[0].description,
+        installed: true,
+        publicUrls: [],
+        morePublicUrls: false,
+      },
     ]);
+    const live = await createPage(admin, 'live');
+    await admin.mutation(api.features.landingPages.mutations.setLandingPageStatus, {
+      pageId: live,
+      status: 'published',
+    });
+    // A draft and a deleted page close no address.
+    await createPage(admin, 'draft');
+    const gone = await createPage(admin, 'gone');
+    await admin.mutation(api.features.landingPages.mutations.deleteLandingPage, { pageId: gone });
+    expect((await admin.query(api.features.plugins.queries.listPlugins, {}))[0]).toMatchObject({
+      publicUrls: [`${SITE}/p/live`],
+      morePublicUrls: false,
+    });
     await expect(member.query(api.features.plugins.queries.listPlugins, {})).rejects.toThrow(
       'Unauthorized',
     );
