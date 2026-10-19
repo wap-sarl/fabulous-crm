@@ -1,12 +1,15 @@
 import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Spinner } from '@crm/design-system';
-import { DashboardLayout, useAuth } from '@crm/widgets';
+import { DashboardLayout, useAuth, usePublicConfig } from '@crm/widgets';
 import type { RoleAccess } from '@crm/lib/backend';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
 import { frontendExtensions } from '../lib/frontendExtensions';
 import { NAV_ITEMS, type ShellNavItem } from '../lib/navigation';
-import { sidebarEntries } from '../lib/settingsTabs';
+import { pluginAllows, sidebarEntries } from '../lib/settingsTabs';
+
+// One empty list while the public config loads, so nothing downstream re-renders for a new array each time.
+const NO_PLUGINS: readonly string[] = [];
 
 /** Declarative: a page sets the document title by calling this hook. */
 export function usePageTitle(title: string) {
@@ -18,8 +21,13 @@ export function usePageTitle(title: string) {
   }, [title]);
 }
 
-/** Module pages follow the role's access matrix; `requires: 'settings'` follows its settings switch. */
-function canSee(item: ShellNavItem, access: RoleAccess | undefined): boolean {
+/** Module pages follow the role's access matrix; `requires: 'settings'` follows its settings switch; a plugin's entry, its installation. */
+function canSee(
+  item: ShellNavItem,
+  access: RoleAccess | undefined,
+  installedPlugins: readonly string[],
+): boolean {
+  if (!pluginAllows(item, installedPlugins)) return false;
   if (item.requires === 'settings' && !access?.settings) return false;
   const module = moduleOfPath(item.path);
   return !module || canAccessModule(access, module);
@@ -29,13 +37,15 @@ export function DashboardShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { config } = usePublicConfig();
+  const installedPlugins = config?.plugins ?? NO_PLUGINS;
 
   // Highlight the top-level nav item even on nested/detail routes
   const currentPath = `/${location.pathname.split('/')[1] ?? ''}`;
 
   // One list for everyone, built-in and overlay items alike; visibility is per item. An overlay's settings entries are tabs of the settings page.
   const navItems = [...NAV_ITEMS, ...sidebarEntries(frontendExtensions().navItems)].filter((item) =>
-    canSee(item, user?.access),
+    canSee(item, user?.access, installedPlugins),
   );
 
   const Guard = frontendExtensions().ShellGuard;

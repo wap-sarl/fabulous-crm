@@ -12,6 +12,8 @@ type PublicConfig = {
   faviconUrl: string | null;
   /** Brand accent color (`#rrggbb`); null when the deployment uses the theme default. */
   primaryColor: string | null;
+  /** The installed plugins' keys: the shell shows their entries, their pages open. */
+  plugins: string[];
   /** `.convex.site` origin serving Better Auth routes; null if unavailable. */
   authCallbackBaseUrl: string | null;
   auth: {

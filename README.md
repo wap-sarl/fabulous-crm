@@ -132,7 +132,17 @@ workspaces.
   ligne d'audit (`retention` / `purge`) avec ses compteurs, affichée sur la page,
   et relance le recalcul complet des listes dynamiques par sécurité. Une
   extension peut différer la purge (`beforeScheduledWork`, `retention_purge`).
-- **Pages** : des pages hébergées par le déploiement (`GET /p/<slug>`,
+- **Plugins** : des fonctionnalités en option, installées par un administrateur
+  depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue
+  (`convex/_lib/validators/plugins.ts`) est fermé et fait partie du code : rien
+  n'est téléchargé, un plugin est une fonctionnalité du dépôt activée par
+  déploiement (`appConfig.plugins`). Un plugin non installé n'apparaît ni dans le
+  menu ni dans les paramètres, ses fonctions refusent (`plugin_not_installed`) et
+  ses adresses publiques répondent 404 ; le désinstaller conserve ses données,
+  le réinstaller les retrouve telles quelles. Premier plugin : les pages
+  hébergées ci-dessous. Un déploiement neuf n'en a aucun ; un déploiement
+  antérieur aux plugins garde ceux dont il tient des données.
+- **Pages** (plugin) : des pages hébergées par le déploiement (`GET /p/<slug>`,
   servies sous une politique de sécurité stricte, écrite dans le document
   lui-même pour que l'aperçu de l'éditeur se comporte comme la page, limitées
   en débit par adresse et en vues comptées pour tout le déploiement),
@@ -893,6 +903,13 @@ Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
 
 ### Après une mise à jour
 
+- `bunx convex run migrations:installPluginsInUse --prod` une fois, à la
+  première version qui connaît les plugins, pour inscrire dans la configuration
+  la liste des plugins installés. Rien ne dépend de ce moment : une
+  configuration antérieure aux plugins compte comme installés ceux dont le
+  déploiement tient des données (des pages hébergées vivantes), la première
+  écriture d'un plugin inscrit cette liste, et la migration ne fait que
+  l'inscrire sans attendre.
 - `bunx convex run migrations:backfillCampaignStats --prod` une fois, à la
   première version qui tient les compteurs d'une campagne (en attente, ignorés,
   ouverts, cliqués…) : chaque campagne antérieure est comptée depuis ses

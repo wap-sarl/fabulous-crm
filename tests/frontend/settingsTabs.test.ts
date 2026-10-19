@@ -5,6 +5,7 @@ import { NAV_ITEMS, SETTINGS_GROUPS } from '../../src/lib/navigation';
 import {
   activeTabPath,
   OVERLAY_GROUP,
+  pluginAllows,
   sidebarEntries,
   visibleTabGroups,
 } from '../../src/lib/settingsTabs';
@@ -37,10 +38,16 @@ describe('the settings page', () => {
   });
 
   test('a person with the settings right sees every tab, in its group and in order', () => {
-    expect(paths(visibleTabGroups(SETTINGS_GROUPS, [], true))).toEqual([
+    expect(paths(visibleTabGroups(SETTINGS_GROUPS, [], true, []))).toEqual([
       [
         'Organisation',
-        ['/settings/branding', '/settings/team', '/settings/roles', '/settings/auth'],
+        [
+          '/settings/branding',
+          '/settings/team',
+          '/settings/roles',
+          '/settings/auth',
+          '/settings/plugins',
+        ],
       ],
       [
         'Données',
@@ -70,7 +77,7 @@ describe('the settings page', () => {
   });
 
   test('without the settings right, the three tabs every employee has; a group left empty is not shown', () => {
-    expect(paths(visibleTabGroups(SETTINGS_GROUPS, [], false))).toEqual([
+    expect(paths(visibleTabGroups(SETTINGS_GROUPS, [], false, []))).toEqual([
       ['Données', ['/settings/lists']],
       ['Canaux', ['/settings/templates']],
       ['Connexions et conformité', ['/settings/integrations']],
@@ -87,7 +94,7 @@ describe('the settings page', () => {
 
   test('an overlay’s settings entries are tabs of the groups they name, under the same right; its others stay in the sidebar', () => {
     const overlay = [billing, webhooks, reports];
-    expect(paths(visibleTabGroups(SETTINGS_GROUPS, overlay, true)).at(-1)).toEqual([
+    expect(paths(visibleTabGroups(SETTINGS_GROUPS, overlay, true, [])).at(-1)).toEqual([
       OVERLAY_GROUP,
       ['/settings/billing', '/settings/webhooks'],
     ]);
@@ -96,7 +103,7 @@ describe('the settings page', () => {
       { ...webhooks, group: 'Développeurs' },
       { ...reports },
     ];
-    expect(paths(visibleTabGroups(SETTINGS_GROUPS, named, true)).slice(4)).toEqual([
+    expect(paths(visibleTabGroups(SETTINGS_GROUPS, named, true, [])).slice(4)).toEqual([
       ['Abonnement', ['/settings/billing']],
       ['Développeurs', ['/settings/webhooks']],
     ]);
@@ -105,7 +112,7 @@ describe('the settings page', () => {
       { ...billing, group: 'Données' },
       { ...webhooks, group: 'Développeurs' },
     ];
-    const joined = paths(visibleTabGroups(SETTINGS_GROUPS, sameName, true));
+    const joined = paths(visibleTabGroups(SETTINGS_GROUPS, sameName, true, []));
     expect(joined.map(([name]) => name)).toEqual([
       'Organisation',
       'Données',
@@ -125,6 +132,24 @@ describe('the settings page', () => {
     expect(sidebarEntries(overlay)).toEqual([reports]);
     // `/settings` alone is the page, not a tab of it.
     expect(sidebarEntries([{ ...reports, path: '/settings' }])).toHaveLength(1);
+  });
+
+  test('an entry of a plugin is shown while the plugin is installed, in the sidebar as among the tabs', () => {
+    const pages = NAV_ITEMS.find((item) => item.path === '/pages');
+    expect(pages?.plugin).toBe('landing-pages');
+    expect(pluginAllows(pages ?? {}, [])).toBe(false);
+    expect(pluginAllows(pages ?? {}, ['landing-pages'])).toBe(true);
+    expect(pluginAllows({}, [])).toBe(true);
+    const pagesTab = {
+      label: 'Pages',
+      icon: null,
+      path: '/settings/pages',
+      plugin: 'landing-pages' as const,
+    };
+    const tabs = (installed: string[]) =>
+      visibleTabGroups(SETTINGS_GROUPS, [pagesTab], true, installed).flatMap((g) => g.tabs);
+    expect(tabs([]).map((tab) => tab.path)).not.toContain('/settings/pages');
+    expect(tabs(['landing-pages']).map((tab) => tab.path)).toContain('/settings/pages');
   });
 
   test('the tab of an address is the one it is, or is under: the longest that fits', () => {

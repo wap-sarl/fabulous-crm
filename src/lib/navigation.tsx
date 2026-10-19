@@ -1,4 +1,5 @@
 import {
+  Blocks,
   Building2,
   ClipboardList,
   Gauge,
@@ -29,6 +30,7 @@ import {
   LogIn,
 } from 'lucide-react';
 import type { NavItem } from '@crm/widgets';
+import type { PluginKey } from '@crm/lib/backend';
 import { SETTINGS_ROOT, type TabGroup } from './settingsTabs';
 
 /** A sidebar entry; module pages derive their access check from the path, settings pages declare it. */
@@ -36,7 +38,11 @@ export interface ShellNavItem extends NavItem {
   requires?: 'settings';
   /** The group of the settings page an entry under /settings/ is shown in; an overlay names its own, or takes the default. */
   group?: string;
+  /** The plugin the entry belongs to: shown only while it is installed. */
+  plugin?: PluginKey;
 }
+
+export const PLUGINS_SETTINGS_PATH = '/settings/plugins';
 
 const settings = (item: NavItem): ShellNavItem => ({ ...item, requires: 'settings' });
 
@@ -46,7 +52,7 @@ export const NAV_ITEMS: ShellNavItem[] = [
   { label: 'Transactions', icon: <Handshake />, path: '/deals' },
   { label: 'Tâches', icon: <ListTodo />, path: '/tasks' },
   { label: 'Campagnes', icon: <Megaphone />, path: '/campaigns' },
-  { label: 'Pages', icon: <PanelsTopLeft />, path: '/pages' },
+  { label: 'Pages', icon: <PanelsTopLeft />, path: '/pages', plugin: 'landing-pages' },
   { label: 'Workflows', icon: <Workflow />, path: '/workflows' },
   ...(import.meta.env.DEV
     ? [
@@ -73,6 +79,7 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
       settings({ label: 'Équipe', icon: <UsersRound />, path: '/settings/team' }),
       settings({ label: 'Rôles et accès', icon: <ShieldCheck />, path: '/settings/roles' }),
       settings({ label: 'Connexion', icon: <LogIn />, path: '/settings/auth' }),
+      settings({ label: 'Plugins', icon: <Blocks />, path: PLUGINS_SETTINGS_PATH }),
     ],
   },
   {

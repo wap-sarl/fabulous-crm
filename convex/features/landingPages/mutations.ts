@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { employeeMutation } from '../../_lib/auth';
+import { requirePluginForWrite } from '../../lib/plugins/installed';
 import { refusal } from '../../_lib/refusal';
 import {
   formOfPage,
@@ -29,6 +30,7 @@ export const createLandingPage = employeeMutation({
   args: pageInput,
   returns: v.id('landingPages'),
   handler: async (ctx, args) => {
+    await requirePluginForWrite(ctx, 'landing-pages');
     const slug = args.slug.trim();
     const page = { ...args, name: args.name.trim(), slug };
     const shape = validateLandingPageShape(page);
@@ -58,6 +60,7 @@ export const updateLandingPage = employeeMutation({
   args: { pageId: v.id('landingPages'), ...pageInput },
   returns: v.null(),
   handler: async (ctx, { pageId, ...args }) => {
+    await requirePluginForWrite(ctx, 'landing-pages');
     const existing = await ctx.db.get(pageId);
     if (!existing || !isNotDeleted(existing)) throw refusal('page_not_found');
     const slug = args.slug.trim();
@@ -92,6 +95,7 @@ export const setLandingPageStatus = employeeMutation({
   args: { pageId: v.id('landingPages'), status: landingStatusValidator },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requirePluginForWrite(ctx, 'landing-pages');
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) throw refusal('page_not_found');
     if (page.status === args.status) return null;
@@ -126,6 +130,7 @@ export const deleteLandingPage = employeeMutation({
   args: { pageId: v.id('landingPages') },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requirePluginForWrite(ctx, 'landing-pages');
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) throw refusal('page_not_found');
     await ctx.db.patch(args.pageId, {
@@ -150,6 +155,7 @@ export const setLandingPageTest = employeeMutation({
   args: { pageId: v.id('landingPages'), test: v.union(landingTestInputValidator, v.null()) },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requirePluginForWrite(ctx, 'landing-pages');
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) throw refusal('page_not_found');
     if (args.test) {
@@ -186,6 +192,7 @@ export const chooseLandingPageWinner = employeeMutation({
   args: { pageId: v.id('landingPages'), winner: landingVariantValidator },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await requirePluginForWrite(ctx, 'landing-pages');
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) throw refusal('page_not_found');
     if (!page.abTest) throw refusal('page_no_test');
