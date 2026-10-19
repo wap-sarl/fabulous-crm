@@ -37,19 +37,21 @@ export async function isPluginInstalled(
   return (await loadInstalledPlugins(ctx)).includes(key);
 }
 
-const canWrite = (ctx: Pick<QueryCtx, 'db'>): ctx is Pick<MutationCtx, 'db'> => 'patch' in ctx.db;
+const notInstalled = (key: PluginKey) =>
+  refusal('plugin_not_installed', { plugin: key, message: 'Ce plugin n’est pas installé.' });
 
-/** A function of a plugin refuses while the plugin is not installed: its data stays, nothing reads or writes it. A mutation on a config from before the plugins first writes the resolved list down, so that deleting a plugin's last data never reads as an uninstall. */
+/** A query of a plugin refuses while the plugin is not installed: its data stays, nothing reads it. */
 export async function requirePlugin(ctx: Pick<QueryCtx, 'db'>, key: PluginKey): Promise<void> {
+  if (!(await isPluginInstalled(ctx, key))) throw notInstalled(key);
+}
+
+/** The same for a mutation, which first writes the resolved list down on a config from before the plugins (that field alone: written, not decided), so that deleting a plugin's last data never reads as an uninstall. */
+export async function requirePluginForWrite(
+  ctx: Pick<MutationCtx, 'db'>,
+  key: PluginKey,
+): Promise<void> {
   const cfg = await loadAppConfig(ctx);
   const installed = await resolveInstalledPlugins(ctx, cfg);
-  if (cfg && cfg.plugins === undefined && canWrite(ctx)) {
-    await ctx.db.patch(cfg._id, { plugins: installed });
-  }
-  if (!installed.includes(key)) {
-    throw refusal('plugin_not_installed', {
-      plugin: key,
-      message: 'Ce plugin n’est pas installé.',
-    });
-  }
+  if (cfg && cfg.plugins === undefined) await ctx.db.patch(cfg._id, { plugins: installed });
+  if (!installed.includes(key)) throw notInstalled(key);
 }
