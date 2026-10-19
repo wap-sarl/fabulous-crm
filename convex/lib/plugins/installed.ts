@@ -4,13 +4,30 @@ import { refusal } from '../../_lib/refusal';
 import { isPluginKey, type PluginKey } from '../../_lib/validators/plugins';
 import { loadAppConfig } from '../config/load';
 
-/** The installed plugins a config names, those of the catalogue only: a key the catalogue dropped is ignored, not an error. */
-export const installedPlugins = (
-  cfg: Pick<Doc<'appConfig'>, 'plugins'> | null | undefined,
-): PluginKey[] => (cfg?.plugins ?? []).filter(isPluginKey);
+type PluginsField = Pick<Doc<'appConfig'>, 'plugins'> | null | undefined;
+
+/** The keys of the catalogue a config names: a key the catalogue dropped is ignored, not an error. */
+const namedPlugins = (cfg: PluginsField): PluginKey[] => (cfg?.plugins ?? []).filter(isPluginKey);
+
+/** The plugins whose data a deployment holds, live rows only: what a deployment from before the catalogue was using. */
+export async function pluginsWithData(ctx: Pick<QueryCtx, 'db'>): Promise<PluginKey[]> {
+  const page = await ctx.db
+    .query('landingPages')
+    .withIndex('by_deletedAt', (q) => q.eq('deletedAt', undefined))
+    .first();
+  return page ? ['landing-pages'] : [];
+}
+
+/** The installed plugins: those the config names; a config without the field is from before the catalogue (the wizard writes an empty list), and counts the plugins whose data exists, so an upgrade takes nothing offline. */
+export async function resolveInstalledPlugins(
+  ctx: Pick<QueryCtx, 'db'>,
+  cfg: PluginsField,
+): Promise<PluginKey[]> {
+  return cfg?.plugins === undefined ? await pluginsWithData(ctx) : namedPlugins(cfg);
+}
 
 export async function loadInstalledPlugins(ctx: Pick<QueryCtx, 'db'>): Promise<PluginKey[]> {
-  return installedPlugins(await loadAppConfig(ctx));
+  return await resolveInstalledPlugins(ctx, await loadAppConfig(ctx));
 }
 
 export async function isPluginInstalled(
@@ -28,17 +45,4 @@ export async function requirePlugin(ctx: Pick<QueryCtx, 'db'>, key: PluginKey): 
       message: 'Ce plugin n’est pas installé.',
     });
   }
-}
-
-/** The plugins a deployment upgraded from before the catalogue was already using: those whose data exists. */
-export async function pluginsInUse(
-  ctx: Pick<QueryCtx, 'db'>,
-  cfg: Pick<Doc<'appConfig'>, 'plugins'>,
-): Promise<PluginKey[]> {
-  const installed = installedPlugins(cfg);
-  const missing: PluginKey[] = [];
-  if (!installed.includes('landing-pages') && (await ctx.db.query('landingPages').first())) {
-    missing.push('landing-pages');
-  }
-  return missing;
 }

@@ -6,7 +6,7 @@ import { refusal } from '../../_lib/refusal';
 import { pluginKeySchema } from '../../_lib/validators/plugins';
 import { logAudit } from '../../lib/audit/log';
 import { loadAppConfig } from '../../lib/config/load';
-import { installedPlugins } from '../../lib/plugins/installed';
+import { resolveInstalledPlugins } from '../../lib/plugins/installed';
 
 const installedValidator = v.object({ installed: v.array(v.string()) });
 
@@ -20,7 +20,7 @@ async function setInstalled(
   if (!parsed.success) throw refusal('plugin_unknown', { reason: key });
   const cfg = await loadAppConfig(ctx);
   if (!cfg) throw new Error('Config not initialized');
-  const current = installedPlugins(cfg);
+  const current = await resolveInstalledPlugins(ctx, cfg);
   if (current.includes(parsed.data) === installed) return { installed: current };
   const next = installed
     ? [...current, parsed.data]

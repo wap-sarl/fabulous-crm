@@ -140,7 +140,8 @@ workspaces.
   menu ni dans les paramètres, ses fonctions refusent (`plugin_not_installed`) et
   ses adresses publiques répondent 404 ; le désinstaller conserve ses données,
   le réinstaller les retrouve telles quelles. Premier plugin : les pages
-  hébergées ci-dessous. Un déploiement neuf n'en a aucun.
+  hébergées ci-dessous. Un déploiement neuf n'en a aucun ; un déploiement
+  antérieur aux plugins garde ceux dont il tient des données.
 - **Pages** (plugin) : des pages hébergées par le déploiement (`GET /p/<slug>`,
   servies sous une politique de sécurité stricte, écrite dans le document
   lui-même pour que l'aperçu de l'éditeur se comporte comme la page, limitées
@@ -903,11 +904,11 @@ Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
 ### Après une mise à jour
 
 - `bunx convex run migrations:installPluginsInUse --prod` une fois, à la
-  première version qui connaît les plugins : chaque plugin dont le déploiement
-  tient déjà des données (des pages hébergées) est installé, et rien ne change
-  pour un déploiement qui n'en a pas. Jusque-là, l'entrée « Pages » a disparu
-  du menu et ses adresses publiques répondent 404 ; un administrateur peut
-  aussi l'installer depuis Paramètres → Plugins.
+  première version qui connaît les plugins, pour inscrire dans la configuration
+  la liste des plugins installés. Rien ne dépend de ce moment : une
+  configuration antérieure aux plugins compte comme installés ceux dont le
+  déploiement tient des données (des pages hébergées vivantes), et la
+  migration ne fait qu'écrire cette liste.
 - `bunx convex run migrations:backfillCampaignStats --prod` une fois, à la
   première version qui tient les compteurs d'une campagne (en attente, ignorés,
   ouverts, cliqués…) : chaque campagne antérieure est comptée depuis ses

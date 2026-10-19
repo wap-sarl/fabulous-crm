@@ -123,6 +123,8 @@ export const completeSetup = mutation({
       ...(args.logoStorageId && { logoStorageId: args.logoStorageId }),
       ...(args.faviconStorageId && { faviconStorageId: args.faviconStorageId }),
       ...(args.primaryColor && { primaryColor: args.primaryColor.toLowerCase() }),
+      // Written empty on purpose: a config without the field is from before the plugins and counts the plugins whose data exists.
+      plugins: [],
       // Secrets are stored as ciphertext (lib/security/crypto.ts).
       auth: {
         ...args.auth,

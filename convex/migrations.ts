@@ -3,7 +3,7 @@ import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import type { AppConfig } from './_lib/validators/appConfig';
 import { startStatsCount } from './lib/campaigns/stats';
-import { installedPlugins, pluginsInUse } from './lib/plugins/installed';
+import { pluginsWithData } from './lib/plugins/installed';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from './lib/security/crypto';
 
 // Online migrations (@convex-dev/migrations): `bunx convex run migrations:run '{"fn":"migrations:<name>"}'`.
@@ -101,13 +101,11 @@ export const countCampaignStats = migrations.define({
 
 export const backfillCampaignStats = migrations.runner(internal.migrations.countCampaignStats);
 
-/** A deployment upgraded with hosted pages keeps them in view: the plugins whose data exists are installed; a fresh deployment starts with none. */
+/** A config from before the plugins gets the list it was resolved to (the plugins whose data exists) written down; nothing changes for the person, with or without this run. */
 export const addPluginsInUse = migrations.define({
   table: 'appConfig',
-  migrateOne: async (ctx, config) => {
-    const missing = await pluginsInUse(ctx, config);
-    return missing.length > 0 ? { plugins: [...installedPlugins(config), ...missing] } : undefined;
-  },
+  migrateOne: async (ctx, config) =>
+    config.plugins === undefined ? { plugins: await pluginsWithData(ctx) } : undefined,
 });
 
 export const installPluginsInUse = migrations.runner(internal.migrations.addPluginsInUse);

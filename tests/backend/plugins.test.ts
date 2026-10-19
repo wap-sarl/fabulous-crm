@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import { PLUGINS, pluginKeySchema } from '../../convex/_lib/validators/plugins';
-import { pluginsInUse } from '../../convex/lib/plugins/installed';
+import { pluginsWithData } from '../../convex/lib/plugins/installed';
 import {
   asIdentity,
   createTestConvex,
@@ -20,16 +20,18 @@ beforeEach(() => {
   process.env.CONVEX_SITE_URL = SITE;
 });
 
-async function setup(plugins?: string[]) {
+/** `plugins` as the row holds it: a list, or undefined for a row from before the catalogue. */
+async function setup(plugins: string[] | undefined) {
   const t = createTestConvex();
   const admin = await seedEmployee(t, { email: 'admin@example.com', role: 'admin' });
   const member = await seedEmployee(t, { email: 'member@example.com', role: 'member' });
-  await seedConfig(t, plugins ? { plugins } : {});
+  await seedConfig(t, { plugins });
   return { t, admin: asIdentity(t, admin.identity), member: asIdentity(t, member.identity) };
 }
 
+// `t.run` hands an absent field back as null: name it, so a test can tell it from a list.
 const installed = (t: T) =>
-  t.run(async (ctx) => (await ctx.db.query('appConfig').first())?.plugins);
+  t.run(async (ctx) => (await ctx.db.query('appConfig').first())?.plugins ?? 'absent');
 
 const pluginAudits = (t: T) =>
   t.run((ctx) =>
@@ -72,7 +74,7 @@ describe('the catalogue', () => {
 
 describe('installing a plugin', () => {
   test('a fresh deployment has none; the settings right installs one, audited, and the public config says so', async () => {
-    const { t, admin } = await setup();
+    const { t, admin } = await setup([]);
     expect(await publicPlugins(t)).toEqual([]);
     expect(
       await admin.mutation(api.features.plugins.mutations.installPlugin, { key: 'landing-pages' }),
@@ -97,7 +99,7 @@ describe('installing a plugin', () => {
   });
 
   test('a key outside the catalogue is refused, and so is a person without the settings right', async () => {
-    const { admin, member } = await setup();
+    const { admin, member } = await setup([]);
     await expect(
       admin.mutation(api.features.plugins.mutations.installPlugin, { key: 'quotes' }),
     ).rejects.toMatchObject({ data: { code: 'plugin_unknown', reason: 'quotes' } });
@@ -149,21 +151,69 @@ describe('an uninstalled plugin', () => {
   });
 });
 
-describe('the upgrade of a deployment from before the catalogue', () => {
-  test('installs the plugins whose data exists and nothing on a fresh one', async () => {
+describe('a deployment from before the catalogue', () => {
+  /** The row as the upgrade finds it: no `plugins` field. */
+  const forget = (t: T) =>
+    t.run(async (ctx) => {
+      const cfg = (await ctx.db.query('appConfig').first())!;
+      await ctx.db.patch(cfg._id, { plugins: undefined });
+    });
+
+  test('keeps serving its published pages, lists the plugin as installed, and the migration only writes that down', async () => {
     const { t, admin } = await setup(['landing-pages']);
-    const cfg = await t.run(async (ctx) => (await ctx.db.query('appConfig').first())!);
-    expect(await t.run((ctx) => pluginsInUse(ctx, { plugins: [] }))).toEqual([]);
-    await createPage(admin, 'ancienne');
-    // The row as the upgrade finds it: pages, no plugin named.
-    await t.run((ctx) => ctx.db.patch(cfg._id, { plugins: undefined }));
-    expect(await t.run((ctx) => pluginsInUse(ctx, { plugins: undefined }))).toEqual([
-      'landing-pages',
+    const pageId = await createPage(admin);
+    await admin.mutation(api.features.landingPages.mutations.setLandingPageStatus, {
+      pageId,
+      status: 'published',
+    });
+    await forget(t);
+    expect(await installed(t)).toBe('absent');
+    expect(await publicPlugins(t)).toEqual(['landing-pages']);
+    expect((await t.fetch('/p/demo', { method: 'GET' })).status).toBe(200);
+    expect(await admin.query(api.features.landingPages.queries.listLandingPages, {})).toHaveLength(
+      1,
+    );
+    expect(await admin.query(api.features.plugins.queries.listPlugins, {})).toMatchObject([
+      { key: 'landing-pages', installed: true },
     ]);
-    expect(await t.run((ctx) => pluginsInUse(ctx, { plugins: ['landing-pages'] }))).toEqual([]);
 
     await t.mutation(internal.migrations.addPluginsInUse, {});
     expect(await installed(t)).toEqual(['landing-pages']);
-    expect(await publicPlugins(t)).toEqual(['landing-pages']);
+    expect((await t.fetch('/p/demo', { method: 'GET' })).status).toBe(200);
+  });
+
+  test('uninstalling from that state writes the list without the plugin', async () => {
+    const { t, admin } = await setup(['landing-pages']);
+    await createPage(admin);
+    await forget(t);
+    await admin.mutation(api.features.plugins.mutations.uninstallPlugin, { key: 'landing-pages' });
+    expect(await installed(t)).toEqual([]);
+    expect(await publicPlugins(t)).toEqual([]);
+  });
+
+  test('with no page, or deleted pages only, has nothing installed, and the migration writes an empty list', async () => {
+    const { t, admin } = await setup(['landing-pages']);
+    expect(await t.run((ctx) => pluginsWithData(ctx))).toEqual([]);
+    const pageId = await createPage(admin);
+    expect(await t.run((ctx) => pluginsWithData(ctx))).toEqual(['landing-pages']);
+    await admin.mutation(api.features.landingPages.mutations.deleteLandingPage, { pageId });
+    expect(await t.run((ctx) => pluginsWithData(ctx))).toEqual([]);
+    await forget(t);
+    expect(await publicPlugins(t)).toEqual([]);
+    await expect(
+      admin.query(api.features.landingPages.queries.listLandingPages, {}),
+    ).rejects.toMatchObject({ data: { code: 'plugin_not_installed' } });
+
+    await t.mutation(internal.migrations.addPluginsInUse, {});
+    expect(await installed(t)).toEqual([]);
+  });
+
+  test('a list once written is the whole truth: pages do not reinstall a plugin taken out', async () => {
+    const { t, admin } = await setup(['landing-pages']);
+    await createPage(admin);
+    await admin.mutation(api.features.plugins.mutations.uninstallPlugin, { key: 'landing-pages' });
+    await t.mutation(internal.migrations.addPluginsInUse, {});
+    expect(await installed(t)).toEqual([]);
+    expect(await publicPlugins(t)).toEqual([]);
   });
 });
