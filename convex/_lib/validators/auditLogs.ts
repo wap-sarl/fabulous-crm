@@ -29,6 +29,7 @@ const auditLogEntityTypeValidator = v.union(
   v.literal('subscriptionType'),
   v.literal('emailTemplate'),
   v.literal('snippet'),
+  v.literal('plugin'),
 );
 
 const auditLogActionValidator = v.union(

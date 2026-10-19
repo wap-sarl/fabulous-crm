@@ -6,6 +6,7 @@ import { connectorProviderValidator } from '../../_lib/validators/connectors';
 import { lifecycleConfigValidator } from '../../_lib/validators/lifecycle';
 import { retentionPolicyOf } from '../../_lib/validators/retention';
 import { trackingConfigOf } from '../../lib/tracking/config';
+import { installedPlugins } from '../../lib/plugins/installed';
 import { CONNECTOR_PROVIDERS } from '../../_lib/validators/connectors';
 import { credentialsSource, PROVIDERS, redirectUriOrNull } from '../../lib/connectors/oauth';
 import { query } from '../../_generated/server';
@@ -39,6 +40,8 @@ export const getPublicConfig = query({
       faviconUrl: cfg?.faviconStorageId ? await ctx.storage.getUrl(cfg.faviconStorageId) : null,
       // Brand accent color; null when unset so the client keeps the theme default.
       primaryColor: cfg?.primaryColor ?? null,
+      // The installed plugins' keys: the shell shows their entries, their pages open.
+      plugins: installedPlugins(cfg),
       // The origin serving Better Auth's routes (`.convex.site`): the setup wizard builds the OAuth callback URLs it shows from it.
       authCallbackBaseUrl: process.env.CONVEX_SITE_URL ?? null,
       auth: {

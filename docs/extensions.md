@@ -191,7 +191,9 @@ rolls the caller back. Keep them cheap; they run on every call.
   An item whose path is under `/settings/` becomes a tab of the settings page, in the group its
   `group` names: one of the core's (Organisation, Données, Canaux, Connexions et conformité),
   after its tabs, or a group of the overlay's own after the core's (« Autres » when it names
-  none); the others are appended to the sidebar.
+  none); the others are appended to the sidebar. An item may name the `plugin` it belongs to
+  (a key of the core's catalogue, `convex/_lib/validators/plugins.ts`): it is shown only while
+  that plugin is installed. The catalogue is the core's; an overlay adds no plugin to it.
 - `ShellGuard`: a component wrapping the shell; render `children` to show the app, or
   something else (a billing page, a maintenance notice) to replace it.
 - `describeRefusal`: optional; turns one of the overlay's refusal codes (with the ConvexError

@@ -33,12 +33,12 @@ async function setup(tracking = false) {
     sessionTtlMs: 3 * DAY_MS,
   });
   const as = asIdentity(t, emp.identity);
-  await seedConfig(
-    t,
-    tracking
-      ? { tracking: { enabled: true, mode: 'anonymous', retentionDays: 90, allowedOrigins: [] } }
-      : {},
-  );
+  await seedConfig(t, {
+    plugins: ['landing-pages'],
+    ...(tracking && {
+      tracking: { enabled: true, mode: 'anonymous', retentionDays: 90, allowedOrigins: [] },
+    }),
+  });
   return { t, as };
 }
 

@@ -38,6 +38,7 @@ import type * as _lib_validators_invitations from "../_lib/validators/invitation
 import type * as _lib_validators_landingPages from "../_lib/validators/landingPages.js";
 import type * as _lib_validators_leadLists from "../_lib/validators/leadLists.js";
 import type * as _lib_validators_lifecycle from "../_lib/validators/lifecycle.js";
+import type * as _lib_validators_plugins from "../_lib/validators/plugins.js";
 import type * as _lib_validators_properties from "../_lib/validators/properties.js";
 import type * as _lib_validators_propertyTypes from "../_lib/validators/propertyTypes.js";
 import type * as _lib_validators_retention from "../_lib/validators/retention.js";
@@ -124,6 +125,8 @@ import type * as features_leadLists_mutations from "../features/leadLists/mutati
 import type * as features_leadLists_queries from "../features/leadLists/queries.js";
 import type * as features_leads_mutations from "../features/leads/mutations.js";
 import type * as features_leads_queries from "../features/leads/queries.js";
+import type * as features_plugins_mutations from "../features/plugins/mutations.js";
+import type * as features_plugins_queries from "../features/plugins/queries.js";
 import type * as features_practitionerInfo_actions from "../features/practitionerInfo/actions.js";
 import type * as features_properties_mutations from "../features/properties/mutations.js";
 import type * as features_properties_queries from "../features/properties/queries.js";
@@ -228,6 +231,7 @@ import type * as lib_leads_search from "../lib/leads/search.js";
 import type * as lib_leads_signals from "../lib/leads/signals.js";
 import type * as lib_leads_tableFilters from "../lib/leads/tableFilters.js";
 import type * as lib_leads_targets from "../lib/leads/targets.js";
+import type * as lib_plugins_installed from "../lib/plugins/installed.js";
 import type * as lib_properties_definitions from "../lib/properties/definitions.js";
 import type * as lib_retention_budget from "../lib/retention/budget.js";
 import type * as lib_retention_purge from "../lib/retention/purge.js";
@@ -309,6 +313,7 @@ declare const fullApi: ApiFromModules<{
   "_lib/validators/landingPages": typeof _lib_validators_landingPages;
   "_lib/validators/leadLists": typeof _lib_validators_leadLists;
   "_lib/validators/lifecycle": typeof _lib_validators_lifecycle;
+  "_lib/validators/plugins": typeof _lib_validators_plugins;
   "_lib/validators/properties": typeof _lib_validators_properties;
   "_lib/validators/propertyTypes": typeof _lib_validators_propertyTypes;
   "_lib/validators/retention": typeof _lib_validators_retention;
@@ -395,6 +400,8 @@ declare const fullApi: ApiFromModules<{
   "features/leadLists/queries": typeof features_leadLists_queries;
   "features/leads/mutations": typeof features_leads_mutations;
   "features/leads/queries": typeof features_leads_queries;
+  "features/plugins/mutations": typeof features_plugins_mutations;
+  "features/plugins/queries": typeof features_plugins_queries;
   "features/practitionerInfo/actions": typeof features_practitionerInfo_actions;
   "features/properties/mutations": typeof features_properties_mutations;
   "features/properties/queries": typeof features_properties_queries;
@@ -499,6 +506,7 @@ declare const fullApi: ApiFromModules<{
   "lib/leads/signals": typeof lib_leads_signals;
   "lib/leads/tableFilters": typeof lib_leads_tableFilters;
   "lib/leads/targets": typeof lib_leads_targets;
+  "lib/plugins/installed": typeof lib_plugins_installed;
   "lib/properties/definitions": typeof lib_properties_definitions;
   "lib/retention/budget": typeof lib_retention_budget;
   "lib/retention/purge": typeof lib_retention_purge;

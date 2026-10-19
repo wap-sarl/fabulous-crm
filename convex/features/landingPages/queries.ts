@@ -1,5 +1,6 @@
 import { v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
+import { requirePlugin } from '../../lib/plugins/installed';
 import {
   landingStatusValidator,
   landingVariantValidator,
@@ -27,6 +28,7 @@ export const listLandingPages = employeeQuery({
     }),
   ),
   handler: async (ctx) => {
+    await requirePlugin(ctx, 'landing-pages');
     const pages = await ctx.db
       .query('landingPages')
       .withIndex('by_deletedAt', (q) => q.eq('deletedAt', undefined))
@@ -54,6 +56,7 @@ export const getLandingPage = employeeQuery({
   args: { pageId: v.id('landingPages') },
   returns: v.union(v.object({ page: docOf('landingPages'), url: v.string() }), v.null()),
   handler: async (ctx, args) => {
+    await requirePlugin(ctx, 'landing-pages');
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) return null;
     return { page, url: `${process.env.CONVEX_SITE_URL ?? ''}/p/${page.slug}` };
@@ -81,6 +84,7 @@ export const getLandingPageStats = employeeQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
+    await requirePlugin(ctx, 'landing-pages');
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) return null;
     return {
@@ -95,6 +99,7 @@ export const previewLandingPage = employeeQuery({
   args: { pageId: v.id('landingPages'), variant: v.optional(landingVariantValidator) },
   returns: v.union(v.string(), v.null()),
   handler: async (ctx, args) => {
+    await requirePlugin(ctx, 'landing-pages');
     const page = await ctx.db.get(args.pageId);
     if (!page || !isNotDeleted(page)) return null;
     const variant = args.variant ?? 'a';

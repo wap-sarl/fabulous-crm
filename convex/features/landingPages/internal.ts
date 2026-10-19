@@ -5,6 +5,7 @@ import { landingVariantValidator, variantFor } from '../../_lib/validators/landi
 import { pageById, pageBySlug, renderContextOf } from '../../lib/landingPages/pages';
 import { renderLandingPage, sectionsOf } from '../../lib/landingPages/render';
 import { countForPage } from '../../lib/landingPages/stats';
+import { isPluginInstalled } from '../../lib/plugins/installed';
 
 /** The document of the published page at a slug for the visitor's bucket (0–99, the same at every visit), the variant it is, and the origin its policy names; null for a draft or none: nothing says which drafts exist. */
 export const getPublishedPage = internalQuery({
@@ -20,6 +21,8 @@ export const getPublishedPage = internalQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
+    // An uninstalled plugin serves nothing: the route answers 404 as for no page.
+    if (!(await isPluginInstalled(ctx, 'landing-pages'))) return null;
     const page = await pageBySlug(ctx, args.slug);
     if (page?.status !== 'published') return null;
     const variant = variantFor(page.abTest, args.bucket);
@@ -38,7 +41,10 @@ export const getPublishedPage = internalQuery({
 export const getPageSlug = internalQuery({
   args: { page: v.string() },
   returns: v.union(v.string(), v.null()),
-  handler: async (ctx, args) => (await pageById(ctx, args.page))?.slug ?? null,
+  handler: async (ctx, args) =>
+    (await isPluginInstalled(ctx, 'landing-pages'))
+      ? ((await pageById(ctx, args.page))?.slug ?? null)
+      : null,
 });
 
 /** A visitor opened the page: one view, cookieless, on the variant shown. */

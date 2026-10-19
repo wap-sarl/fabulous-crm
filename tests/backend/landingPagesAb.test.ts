@@ -33,7 +33,7 @@ async function setup() {
     role: 'admin',
     sessionTtlMs: 3 * DAY_MS,
   });
-  await seedConfig(t);
+  await seedConfig(t, { plugins: ['landing-pages'] });
   return { t, as: asIdentity(t, emp.identity) };
 }
 

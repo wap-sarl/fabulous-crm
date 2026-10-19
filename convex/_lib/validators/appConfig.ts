@@ -100,6 +100,8 @@ export const appConfigValidator = v.object({
   tracking: v.optional(trackingConfigValidator),
   // The deployment's own OAuth apps for connectors; absent, the environment may supply managed ones (lib/connectors/oauth.ts).
   connectors: v.optional(v.array(connectorConfigValidator)),
+  // The installed plugins' keys (validators/plugins.ts); strings, so that a key the catalogue drops leaves the row valid.
+  plugins: v.optional(v.array(v.string())),
   updatedAt: v.number(),
   updatedBy: v.optional(v.id('users')),
 });

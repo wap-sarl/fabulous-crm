@@ -16,6 +16,7 @@ import { DashboardShell } from './layouts/DashboardShell';
 import { SettingsLayout } from './layouts/SettingsLayout';
 import { isSettingsPath, SETTINGS_ROOT } from './lib/settingsTabs';
 import { RequireModule } from './features/access/components/RequireModule';
+import { RequirePlugin } from './features/plugins/components/RequirePlugin';
 import { frontendExtensions } from './lib/frontendExtensions';
 
 /** A page is loaded when its route is first opened: the first screen carries the shell and nothing of the pages it does not show. */
@@ -65,6 +66,7 @@ const DuplicatesPage = page(() => import('./pages/leads/DuplicatesPage'), 'Dupli
 const ImportPage = page(() => import('./pages/imports/ImportPage'), 'ImportPage');
 const ImportJobPage = page(() => import('./pages/imports/ImportJobPage'), 'ImportJobPage');
 const TrackingPage = page(() => import('./pages/settings/TrackingPage'), 'TrackingPage');
+const PluginsPage = page(() => import('./pages/settings/PluginsPage'), 'PluginsPage');
 const FilesPage = page(() => import('./pages/settings/FilesPage'), 'FilesPage');
 const RetentionPage = page(() => import('./pages/settings/RetentionPage'), 'RetentionPage');
 const RolesPage = page(() => import('./pages/settings/RolesPage'), 'RolesPage');
@@ -150,8 +152,10 @@ function AppRoutes() {
                 <Route path="/campaigns" element={<CampaignsPage />} />
                 <Route path="/campaigns/new" element={<CampaignCreatePage />} />
                 <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
-                <Route path="/pages" element={<LandingPagesPage />} />
-                <Route path="/pages/:pageId" element={<LandingPageEditorPage />} />
+                <Route element={<RequirePlugin plugin="landing-pages" />}>
+                  <Route path="/pages" element={<LandingPagesPage />} />
+                  <Route path="/pages/:pageId" element={<LandingPageEditorPage />} />
+                </Route>
                 <Route path="/workflows" element={<WorkflowsPage />} />
                 <Route path="/workflows/new" element={<WorkflowEditorPage />} />
                 <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />
@@ -176,6 +180,7 @@ function AppRoutes() {
                 <Route path="/settings/files" element={<FilesPage />} />
                 <Route path="/settings/retention" element={<RetentionPage />} />
                 <Route path="/settings/tracking" element={<TrackingPage />} />
+                <Route path="/settings/plugins" element={<PluginsPage />} />
                 <Route path="/settings/roles" element={<RolesPage />} />
                 {frontendExtensions()
                   .routes.filter(inSettings)
