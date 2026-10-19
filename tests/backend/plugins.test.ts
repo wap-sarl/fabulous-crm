@@ -228,6 +228,21 @@ describe('a deployment from before the catalogue', () => {
     expect(await installed(t)).toEqual([]);
   });
 
+  test('its first plugin write records the list, so deleting its last page leaves « Pages » in place', async () => {
+    const { t, admin } = await setup(['landing-pages']);
+    const pageId = await createPage(admin);
+    await forget(t);
+    // A read records nothing.
+    await admin.query(api.features.landingPages.queries.listLandingPages, {});
+    expect(await installed(t)).toBe('absent');
+    await admin.mutation(api.features.landingPages.mutations.deleteLandingPage, { pageId });
+    expect(await installed(t)).toEqual(['landing-pages']);
+    expect(await publicPlugins(t)).toEqual(['landing-pages']);
+    expect(await admin.query(api.features.landingPages.queries.listLandingPages, {})).toEqual([]);
+    // Written down, not decided: no audit row, the settings' own stamp untouched.
+    expect(await pluginAudits(t)).toHaveLength(0);
+  });
+
   test('a list once written is the whole truth: pages do not reinstall a plugin taken out', async () => {
     const { t, admin } = await setup(['landing-pages']);
     await createPage(admin);

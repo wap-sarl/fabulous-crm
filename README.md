@@ -907,8 +907,9 @@ Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
   première version qui connaît les plugins, pour inscrire dans la configuration
   la liste des plugins installés. Rien ne dépend de ce moment : une
   configuration antérieure aux plugins compte comme installés ceux dont le
-  déploiement tient des données (des pages hébergées vivantes), et la
-  migration ne fait qu'écrire cette liste.
+  déploiement tient des données (des pages hébergées vivantes), la première
+  écriture d'un plugin inscrit cette liste, et la migration ne fait que
+  l'inscrire sans attendre.
 - `bunx convex run migrations:backfillCampaignStats --prod` une fois, à la
   première version qui tient les compteurs d'une campagne (en attente, ignorés,
   ouverts, cliqués…) : chaque campagne antérieure est comptée depuis ses
