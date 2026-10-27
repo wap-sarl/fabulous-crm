@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Dropzone,
   FunnelBar,
   IconButton,
   InitialsAvatar,
@@ -34,7 +35,7 @@ import {
   TimeSeriesChart,
   toast,
 } from '@crm/design-system';
-import { Eye, Pencil, Send } from 'lucide-react';
+import { Eye, FileSpreadsheet, Pencil, Send } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { CAMPAIGN_STATUSES, DEAL_STATUSES, SEND_STATUSES } from '../../lib/constants';
 
@@ -90,6 +91,15 @@ const TIME_SERIES = [
 ];
 
 const TAGS = ['Pharmacien', 'Newsletter', 'Import CSV', 'Prioritaire'];
+
+/** A stand-in for an uploaded image: the frame of the zone fits it like a logo or a favicon. */
+function SampleImage() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-10 text-primary" role="img" aria-label="Aperçu">
+      <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" />
+    </svg>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -253,6 +263,81 @@ export function DesignSystemPage() {
               <Switch id="ds-switch" checked={switched} onCheckedChange={setSwitched} />
               <Label htmlFor="ds-switch">Notifications activées</Label>
             </div>
+          </div>
+        </Section>
+
+        <Section title="Zones de dépôt">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Field
+              label="Vide : formats et taille annoncés avant la sélection"
+              htmlFor="ds-drop-empty"
+            >
+              <Dropzone
+                id="ds-drop-empty"
+                accept={['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp']}
+                maxBytes={1024 * 1024}
+                hint="Fond transparent recommandé."
+                onFiles={(files) => toast.success(`${files.length} fichier(s) reçu(s).`)}
+              />
+            </Field>
+            <Field label="Plusieurs fichiers, sans format imposé" htmlFor="ds-drop-multiple">
+              <Dropzone
+                id="ds-drop-multiple"
+                multiple
+                maxBytes={10 * 1024 * 1024}
+                onFiles={(files) => toast.success(`${files.length} fichier(s) reçu(s).`)}
+              />
+            </Field>
+            <Field label="Image chargée, variante logo (large)" htmlFor="ds-drop-wide">
+              <Dropzone
+                id="ds-drop-wide"
+                accept={['image/png', 'image/svg+xml']}
+                maxBytes={1024 * 1024}
+                preview={<SampleImage />}
+                previewShape="wide"
+                onFiles={() => toast.success('Image remplacée.')}
+              />
+            </Field>
+            <Field label="Image chargée, variante favicon (carré)" htmlFor="ds-drop-square">
+              <Dropzone
+                id="ds-drop-square"
+                accept={['image/png', 'image/svg+xml', 'image/x-icon']}
+                maxBytes={1024 * 1024}
+                preview={<SampleImage />}
+                previewShape="square"
+                hint="Image carrée, 32×32 ou plus."
+                onFiles={() => toast.success('Image remplacée.')}
+              />
+            </Field>
+            <Field label="Fichier chargé, avec ce qu'on en sait" htmlFor="ds-drop-file">
+              <Dropzone
+                id="ds-drop-file"
+                accept={['.csv', '.xlsx']}
+                icon={<FileSpreadsheet aria-hidden="true" />}
+                actionLabel="Remplacer"
+                description={
+                  <>
+                    <span className="font-mono">contacts.csv</span> · 1 240 ligne(s)
+                  </>
+                }
+                onFiles={() => toast.success('Fichier remplacé.')}
+              />
+            </Field>
+            <Field label="Chargement : rien n'est accepté pendant l'envoi" htmlFor="ds-drop-busy">
+              <Dropzone id="ds-drop-busy" busy busyLabel="Envoi… 2/3" onFiles={() => undefined} />
+            </Field>
+            <Field label="Erreur, à côté du champ" htmlFor="ds-drop-error">
+              <Dropzone
+                id="ds-drop-error"
+                accept={['.html', '.htm']}
+                maxBytes={800 * 1024}
+                error="L'envoi du fichier a échoué ; l'image précédente est conservée. Réessayez."
+                onFiles={() => toast.success('Fichier reçu.')}
+              />
+            </Field>
+            <Field label="Désactivée" htmlFor="ds-drop-disabled">
+              <Dropzone id="ds-drop-disabled" disabled onFiles={() => undefined} />
+            </Field>
           </div>
         </Section>
 

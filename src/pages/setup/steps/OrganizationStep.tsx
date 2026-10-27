@@ -60,7 +60,7 @@ export function OrganizationStep({ data, update, error }: StepProps) {
         <ImageUploadField
           label="Logo"
           shape="wide"
-          hint="PNG ou SVG, fond transparent recommandé."
+          hint="Fond transparent recommandé."
           currentUrl={data.logoPreviewUrl}
           onGetUploadUrl={getUploadUrl}
           onUploaded={(storageId, previewUrl) =>
@@ -71,7 +71,7 @@ export function OrganizationStep({ data, update, error }: StepProps) {
           label="Favicon"
           shape="square"
           accept={['image/png', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon']}
-          hint="PNG, SVG ou ICO carré (32×32 ou plus)."
+          hint="Image carrée, 32×32 ou plus."
           currentUrl={data.faviconPreviewUrl}
           onGetUploadUrl={getUploadUrl}
           onUploaded={(storageId, previewUrl) =>

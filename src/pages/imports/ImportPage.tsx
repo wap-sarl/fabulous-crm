@@ -93,10 +93,6 @@ export function ImportPage() {
   };
 
   const loadFile = async (file: File) => {
-    if (!/\.(csv|txt|xlsx)$/i.test(file.name)) {
-      toast.error('Choisissez un fichier .csv ou .xlsx.');
-      return;
-    }
     try {
       const rows = (await readSpreadsheet(file, parseCsv)).filter((cells) =>
         cells.some((c) => c.trim() !== ''),

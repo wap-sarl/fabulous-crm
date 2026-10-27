@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
-import { Button, cn } from '@crm/design-system';
+import { Dropzone } from '@crm/design-system';
 import { numberFormat } from '@crm/lib/format';
 import type { EntityImportSpec } from '../lib/registry';
 
@@ -16,54 +16,24 @@ export function FileDropZone({
   parsed: string[][];
   spec: Pick<EntityImportSpec, 'sample'>;
 }) {
-  const [isDragOver, setIsDragOver] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [reading, setReading] = useState(false);
+  const read = async (file: File) => {
+    setReading(true);
+    try {
+      await loadFile(file);
+    } finally {
+      setReading(false);
+    }
+  };
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: a drop target for dragged files; the button beside it is the keyboard path
-    <div
-      onDragOver={(e) => {
-        e.preventDefault();
-        setIsDragOver(true);
-      }}
-      onDragLeave={(e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-      }}
-      onDrop={(e) => {
-        e.preventDefault();
-        setIsDragOver(false);
-        const file = e.dataTransfer.files?.[0];
-        if (file) void loadFile(file);
-      }}
-      className={cn(
-        'flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed p-6 text-center transition-colors',
-        isDragOver ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
-      )}
-    >
-      <FileSpreadsheet className="h-6 w-6 text-muted-foreground" />
-      <p className="text-sm text-muted-foreground">Glissez un fichier .csv ou .xlsx ici ou</p>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={() => fileInputRef.current?.click()}
-      >
-        Parcourir
-      </Button>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".csv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void loadFile(file);
-          e.target.value = '';
-        }}
-      />
-      <p className="text-xs text-muted-foreground">
-        {fileName ? (
+    <Dropzone
+      accept={['.csv', '.xlsx', '.txt']}
+      icon={<FileSpreadsheet aria-hidden="true" />}
+      instruction="Glissez votre fichier CSV ou Excel ici ou choisissez un fichier"
+      actionLabel={fileName ? 'Remplacer' : undefined}
+      description={
+        fileName ? (
           <>
             <span className="font-mono">{fileName}</span> · {numberFormat.format(parsed.length - 1)}{' '}
             ligne(s)
@@ -73,8 +43,11 @@ export function FileDropZone({
             La première ligne contient les en-têtes, par exemple{' '}
             <span className="font-mono">{spec.sample}</span>.
           </>
-        )}
-      </p>
-    </div>
+        )
+      }
+      busy={reading}
+      busyLabel="Lecture du fichier…"
+      onFiles={([file]) => file && void read(file)}
+    />
   );
 }

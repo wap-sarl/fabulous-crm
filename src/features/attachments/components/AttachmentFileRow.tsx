@@ -6,10 +6,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   IconButton,
+  formatFileSize,
 } from '@crm/design-system';
 import { Download, Eye, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { dateFormat } from '@crm/lib/format';
-import { fileIconOf, formatFileSize, previewKindOf } from '../lib/files';
+import { fileIconOf, previewKindOf } from '../lib/files';
 
 interface AttachmentFileRowProps {
   file: AttachmentRow;

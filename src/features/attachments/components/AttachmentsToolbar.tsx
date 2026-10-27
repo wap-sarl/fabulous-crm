@@ -1,5 +1,5 @@
 import type { Dispatch, RefObject, SetStateAction } from 'react';
-import { Button } from '@crm/design-system';
+import { Button, type DropzoneHandle } from '@crm/design-system';
 import { Folder, FolderPlus, Trash2, Upload } from 'lucide-react';
 
 interface AttachmentsToolbarProps {
@@ -7,9 +7,8 @@ interface AttachmentsToolbarProps {
   setShowTrash: Dispatch<SetStateAction<boolean>>;
   trashCount: number;
   setNewFolderOpen: (open: boolean) => void;
-  inputRef: RefObject<HTMLInputElement | null>;
+  dropzone: RefObject<DropzoneHandle | null>;
   uploading: { done: number; total: number } | null;
-  handleFiles: (list: FileList | File[]) => Promise<void>;
 }
 
 export function AttachmentsToolbar({
@@ -17,9 +16,8 @@ export function AttachmentsToolbar({
   setShowTrash,
   trashCount,
   setNewFolderOpen,
-  inputRef,
+  dropzone,
   uploading,
-  handleFiles,
 }: AttachmentsToolbarProps) {
   return (
     <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -54,7 +52,7 @@ export function AttachmentsToolbar({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => inputRef.current?.click()}
+              onClick={() => dropzone.current?.open()}
               disabled={uploading !== null}
               data-testid="add-attachment"
             >
@@ -63,16 +61,6 @@ export function AttachmentsToolbar({
             </Button>
           </>
         ) : null}
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files) void handleFiles(e.target.files);
-            e.target.value = '';
-          }}
-        />
       </div>
     </div>
   );

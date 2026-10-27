@@ -1,14 +1,14 @@
-import { useId, useRef, useState } from 'react';
-import { Button, Label, Spinner, toast } from '@crm/design-system';
+import { useId, useState } from 'react';
+import { Dropzone, Label } from '@crm/design-system';
 import type { Id } from '@crm/lib/backend';
-import { ImageIcon, Upload } from 'lucide-react';
+import { ImageIcon } from 'lucide-react';
 
 const DEFAULT_ACCEPT = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp'];
 const DEFAULT_MAX_BYTES = 1024 * 1024; // 1 MB
 
 export interface ImageUploadFieldProps {
   label: string;
-  /** Human hint under the field (e.g. recommended format/size). */
+  /** A recommendation the field does not check (a transparent background, a square); the formats and the ceiling are said by the zone. */
   hint?: string;
   /** Currently stored asset URL, shown as the initial preview. */
   currentUrl?: string | null;
@@ -35,23 +35,15 @@ export function ImageUploadField({
   onUploaded,
   shape = 'square',
 }: ImageUploadFieldProps) {
-  const inputId = useId();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const triggerId = useId();
   const [preview, setPreview] = useState<string | null>(currentUrl ?? null);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleFile = async (file: File) => {
-    if (!accept.includes(file.type)) {
-      toast.error('Format non pris en charge.');
-      return;
-    }
-    if (file.size > maxBytes) {
-      toast.error(`Fichier trop volumineux (max ${Math.round(maxBytes / 1024)} Ko).`);
-      return;
-    }
-
     const objectUrl = URL.createObjectURL(file);
     setUploading(true);
+    setError(null);
     try {
       const uploadUrl = await onGetUploadUrl();
       const res = await fetch(uploadUrl, {
@@ -69,7 +61,7 @@ export function ImageUploadField({
       onUploaded(storageId, objectUrl);
     } catch {
       URL.revokeObjectURL(objectUrl);
-      toast.error("L'envoi du fichier a échoué.");
+      setError('L’envoi du fichier a échoué ; l’image précédente est conservée. Réessayez.');
     } finally {
       setUploading(false);
     }
@@ -77,44 +69,19 @@ export function ImageUploadField({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={inputId}>{label}</Label>
-      <div className="flex items-center gap-4">
-        <div
-          className={`flex ${shape === 'square' ? 'size-16' : 'h-16 w-28'} shrink-0 items-center justify-center overflow-hidden rounded-lg border border-dashed border-border bg-canvas`}
-        >
-          {uploading ? (
-            <Spinner size="sm" />
-          ) : preview ? (
-            <img src={preview} alt="" className="size-full object-contain" />
-          ) : (
-            <ImageIcon className="size-6 text-placeholder" aria-hidden="true" />
-          )}
-        </div>
-        <div className="space-y-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={uploading}
-            onClick={() => inputRef.current?.click()}
-          >
-            <Upload className="mr-2 size-4" aria-hidden="true" />
-            {preview ? 'Remplacer' : 'Choisir un fichier'}
-          </Button>
-          {hint && <p className="text-xs text-faint">{hint}</p>}
-        </div>
-      </div>
-      <input
-        id={inputId}
-        ref={inputRef}
-        type="file"
-        accept={accept.join(',')}
-        className="sr-only"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleFile(file);
-          e.target.value = ''; // allow re-selecting the same file
-        }}
+      <Label htmlFor={triggerId}>{label}</Label>
+      <Dropzone
+        id={triggerId}
+        accept={accept}
+        maxBytes={maxBytes}
+        icon={<ImageIcon aria-hidden="true" />}
+        instruction="Glissez votre image ici ou choisissez un fichier"
+        preview={preview ? <img src={preview} alt="" className="size-full object-contain" /> : null}
+        previewShape={shape}
+        hint={hint}
+        error={error}
+        busy={uploading}
+        onFiles={([file]) => file && void handleFile(file)}
       />
     </div>
   );

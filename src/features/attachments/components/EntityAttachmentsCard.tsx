@@ -2,9 +2,16 @@ import { memo, useRef, useState } from 'react';
 import { useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { AttachmentEntityType, AttachmentRow, TrashedAttachmentRow } from '@crm/lib/backend';
-import { Card, ConfirmDialog, Spinner, cn, toast } from '@crm/design-system';
+import {
+  Card,
+  ConfirmDialog,
+  Dropzone,
+  type DropzoneHandle,
+  Spinner,
+  toast,
+} from '@crm/design-system';
 import { attachmentErrorMessage, useAttachmentActions } from '../hooks/useAttachmentActions';
-import { ROOT_LABEL, allFolders, folderContents, formatFileSize } from '../lib/files';
+import { ROOT_LABEL, allFolders, folderContents } from '../lib/files';
 import { AttachmentList } from './AttachmentList';
 import { AttachmentsToolbar } from './AttachmentsToolbar';
 import { AttachmentsTrash } from './AttachmentsTrash';
@@ -40,13 +47,12 @@ export const EntityAttachmentsCard = memo(function EntityAttachmentsCard({
   const [purging, setPurging] = useState<TrashedAttachmentRow | null>(null);
   // Folders exist only through their files; a freshly created one lives here until a file lands in it.
   const [draftFolders, setDraftFolders] = useState<string[]>([]);
-  const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState<{ done: number; total: number } | null>(null);
   const [previewing, setPreviewing] = useState<AttachmentRow | null>(null);
   const [editing, setEditing] = useState<AttachmentRow | null>(null);
   const [deleting, setDeleting] = useState<AttachmentRow | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const dropzone = useRef<DropzoneHandle>(null);
 
   const all = rows ?? [];
   const { subfolders, files } = folderContents(all, folder);
@@ -57,18 +63,8 @@ export const EntityAttachmentsCard = memo(function EntityAttachmentsCard({
     .filter((f) => !subfolders.includes(f));
   const visibleFolders = [...subfolders, ...draftHere].sort((a, b) => a.localeCompare(b, 'fr'));
 
-  const handleFiles = async (list: FileList | File[]) => {
-    const picked = Array.from(list);
-    if (picked.length === 0) return;
-    const max = limits?.maxSizeBytes;
-    const tooBig = max ? picked.filter((f) => f.size > max) : [];
-    if (tooBig.length > 0) {
-      toast.error(
-        `${tooBig.map((f) => f.name).join(', ')} : fichier trop volumineux (maximum ${formatFileSize(max ?? 0)}).`,
-      );
-    }
-    const accepted = picked.filter((f) => !tooBig.includes(f));
-    if (accepted.length === 0) return;
+  // The zone has already refused what is over the ceiling; the server's own check still answers for a limit that changed since.
+  const handleFiles = async (accepted: File[]) => {
     setUploading({ done: 0, total: accepted.length });
     let failed = 0;
     for (const [i, file] of accepted.entries()) {
@@ -125,9 +121,8 @@ export const EntityAttachmentsCard = memo(function EntityAttachmentsCard({
         setShowTrash={setShowTrash}
         trashCount={trashCount}
         setNewFolderOpen={setNewFolderOpen}
-        inputRef={inputRef}
+        dropzone={dropzone}
         uploading={uploading}
-        handleFiles={handleFiles}
       />
 
       {showTrash ? (
@@ -136,48 +131,31 @@ export const EntityAttachmentsCard = memo(function EntityAttachmentsCard({
 
       <FolderBreadcrumbs showTrash={showTrash} folder={folder} setFolder={setFolder} />
 
-      <section
-        aria-label="Dépôt de fichiers"
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          void handleFiles(e.dataTransfer.files);
-        }}
-        className={cn(
-          'rounded-md border border-dashed p-2 transition-colors',
-          dragOver ? 'border-primary bg-primary/5' : 'border-border',
-          showTrash && 'hidden',
-        )}
-        data-testid="attachments-dropzone"
-      >
-        {rows === undefined ? (
-          <Spinner size="sm" />
-        ) : visibleFolders.length === 0 && files.length === 0 ? (
-          <p className="py-4 text-center text-sm text-faint">
-            Glissez des fichiers ici{limits ? ` (max ${formatFileSize(limits.maxSizeBytes)})` : ''}.
-          </p>
-        ) : (
-          <AttachmentList
-            visibleFolders={visibleFolders}
-            files={files}
-            prefix={prefix}
-            setFolder={setFolder}
-            setPreviewing={setPreviewing}
-            setEditing={setEditing}
-            setDeleting={setDeleting}
-          />
-        )}
-        {uploading && (
-          <p className="mt-2 flex items-center gap-2 text-xs text-faint">
-            <Spinner size="sm" /> Envoi… {uploading.done}/{uploading.total}
-          </p>
-        )}
-      </section>
+      {!showTrash && (
+        <Dropzone
+          ref={dropzone}
+          multiple
+          maxBytes={limits?.maxSizeBytes}
+          busy={uploading !== null}
+          busyLabel={uploading ? `Envoi… ${uploading.done}/${uploading.total}` : undefined}
+          onFiles={handleFiles}
+          data-testid="attachments-dropzone"
+        >
+          {rows === undefined ? (
+            <Spinner size="sm" />
+          ) : visibleFolders.length === 0 && files.length === 0 ? undefined : (
+            <AttachmentList
+              visibleFolders={visibleFolders}
+              files={files}
+              prefix={prefix}
+              setFolder={setFolder}
+              setPreviewing={setPreviewing}
+              setEditing={setEditing}
+              setDeleting={setDeleting}
+            />
+          )}
+        </Dropzone>
+      )}
 
       <PreviewDialog file={previewing} onClose={() => setPreviewing(null)} />
       {editing && (
