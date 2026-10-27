@@ -18,6 +18,9 @@ import {
   runAll,
 } from './helpers';
 
+/** Where the clock starts; `runAll` lands it on the real time, which outlives the seeded sessions, so it is put back here. */
+const NOW = Date.parse('2026-09-18T10:00:00Z');
+
 const ENV = [
   'BETTER_AUTH_SECRET',
   'OAUTH_STATE_SECRET',
@@ -55,7 +58,7 @@ beforeEach(() => {
   process.env.CONVEX_SITE_URL = 'https://crm-123.convex.site';
   process.env.SITE_URL = 'https://crm.example.com';
   process.env.SECRETS_KEY = 'a'.repeat(64);
-  pinClock(Date.parse('2026-09-18T10:00:00Z'));
+  pinClock(NOW);
   const mine: typeof requests = [];
   requests = mine;
   tokenAnswer = { status: 200, body: GRANT };
@@ -242,7 +245,7 @@ describe('connecting an account', () => {
     // Burnt for everyone, the attacker included.
     expect(await finish(as, token)).toEqual({ ok: false, error: 'invalid_finish' });
     expect(await accounts(t)).toEqual([]);
-    await runAll(t);
+    await runAll(t, NOW);
     expect(requests.at(-1)).toEqual({
       url: 'https://oauth2.googleapis.com/revoke',
       form: { token: 'refresh-1' },
@@ -270,7 +273,7 @@ describe('connecting an account', () => {
     await callback(t, { code: 'c', state: (await start(as)).searchParams.get('state')! });
     expect(await pendings(t)).toHaveLength(1);
     requests.length = 0;
-    await runAll(t);
+    await runAll(t, NOW);
     expect(requests.filter((r) => r.url.endsWith('/revoke'))).toHaveLength(2);
     expect(await accounts(t)).toHaveLength(1);
   });
@@ -625,7 +628,7 @@ describe('tokens', () => {
     await as.mutation(api.features.connectors.mutations.disconnect, { provider: 'google' });
     const overview = await as.query(api.features.connectors.queries.overview, {});
     expect(overview.find((p) => p.provider === 'google')!.account).toBeNull();
-    await runAll(t);
+    await runAll(t, NOW);
     expect(requests).toEqual([
       { url: 'https://oauth2.googleapis.com/revoke', form: { token: 'refresh-1' } },
     ]);
@@ -647,7 +650,7 @@ describe('tokens', () => {
     tokenAnswer = { status: 200, body: { ...GRANT, refresh_token: 'refresh-new' } };
     await connect(t, as, (await start(as)).searchParams.get('state')!);
     requests.length = 0;
-    await runAll(t);
+    await runAll(t, NOW);
     expect(requests).toEqual([]);
     expect(await accounts(t)).toMatchObject([{ _id: accountId, status: 'active' }]);
     // The revocation had already read the old token when the user reconnected: the row stays all the same.
