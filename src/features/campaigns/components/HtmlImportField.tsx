@@ -39,6 +39,7 @@ export function HtmlImportField({
       ) : (
         <HtmlImportDropzone
           onLoad={onLoad}
+          hint="Hébergez les images en ligne plutôt que de les intégrer dans le HTML."
           fileName={fileName}
           onFileNameChange={onFileNameChange}
         />

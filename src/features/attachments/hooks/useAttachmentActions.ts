@@ -1,8 +1,8 @@
 import { useAuthMutation } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import type { AttachmentEntityType, Id } from '@crm/lib/backend';
-import { formatFileSize } from '../lib/files';
 import { errorText } from '@crm/lib/errors';
+import { formatFileSize } from '@crm/design-system';
 
 /** Attachment mutations plus the two-step upload (URL, POST, register). */
 export function useAttachmentActions() {

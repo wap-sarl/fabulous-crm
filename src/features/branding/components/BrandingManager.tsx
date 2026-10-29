@@ -63,7 +63,7 @@ export function BrandingManager() {
         <ImageUploadField
           label="Logo"
           shape="wide"
-          hint="PNG ou SVG, fond transparent recommandé."
+          hint="Fond transparent recommandé."
           currentUrl={config?.logoUrl}
           onGetUploadUrl={getUploadUrl}
           onUploaded={(storageId) => {
@@ -75,7 +75,7 @@ export function BrandingManager() {
           label="Favicon"
           shape="square"
           accept={['image/png', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon']}
-          hint="PNG, SVG ou ICO carré (32×32 ou plus)."
+          hint="Image carrée, 32×32 ou plus."
           currentUrl={config?.faviconUrl}
           onGetUploadUrl={getUploadUrl}
           onUploaded={(storageId) => {

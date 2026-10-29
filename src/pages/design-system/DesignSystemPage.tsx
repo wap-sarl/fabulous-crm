@@ -11,6 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Dropzone,
   FunnelBar,
   IconButton,
   InitialsAvatar,
@@ -90,6 +91,15 @@ const TIME_SERIES = [
 ];
 
 const TAGS = ['Pharmacien', 'Newsletter', 'Import CSV', 'Prioritaire'];
+
+/** A stand-in for an uploaded image: the frame of the zone fits it like a logo or a favicon. */
+function SampleImage() {
+  return (
+    <svg viewBox="0 0 24 24" className="size-10 text-primary" role="img" aria-label="Aperçu">
+      <rect x="3" y="3" width="18" height="18" rx="5" fill="currentColor" />
+    </svg>
+  );
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -254,6 +264,37 @@ export function DesignSystemPage() {
               <Label htmlFor="ds-switch">Notifications activées</Label>
             </div>
           </div>
+        </Section>
+
+        <Section title="Zones de dépôt">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <Field
+              label="Vide : formats et taille annoncés avant la sélection"
+              htmlFor="ds-drop-empty"
+            >
+              <Dropzone
+                id="ds-drop-empty"
+                accept={['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp']}
+                maxBytes={1024 * 1024}
+                hint="Fond transparent recommandé."
+                onFiles={(files) => toast.success(`${files.length} fichier(s) reçu(s).`)}
+              />
+            </Field>
+            <Field label="Image chargée, variante logo (large)" htmlFor="ds-drop-wide">
+              <Dropzone
+                id="ds-drop-wide"
+                accept={['image/png', 'image/svg+xml']}
+                maxBytes={1024 * 1024}
+                preview={<SampleImage />}
+                previewShape="wide"
+                onFiles={() => toast.success('Image remplacée.')}
+              />
+            </Field>
+          </div>
+          <p className="mt-4 text-xs text-soft">
+            Tous les états et variantes sont dans le Storybook :{' '}
+            <span className="font-mono">bun run storybook</span>.
+          </p>
         </Section>
 
         <Section title="Segmented & tags">

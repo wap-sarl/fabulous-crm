@@ -446,7 +446,7 @@ convex/              Backend Convex
   lib/<domaine>/     Le code partagé d'un domaine (leads, email, security, extensions…), sans fonction Convex
   seed/, setup/      Premier employé, assistant de configuration initiale
 src/
-  design-system/     Composants d'interface
+  design-system/     Composants d'interface ; la story à côté d'un composant est la référence de ses états (`bun run storybook`), la page `/design-system` montre les fondations et un aperçu dans l'application
   widgets/           Auth, layouts, providers
   features/<nom>/    Une fonctionnalité : components/, hooks/, lib/, types.ts
   pages/             Une page par route : elle compose les composants de sa fonctionnalité, elle n'en définit pas
@@ -559,6 +559,9 @@ proxy de l'hôte route vers `wap-crm-dev:4202` (vite écoute sur `0.0.0.0:4202`)
 Sans reverse proxy, remplacer `--network proxy` par `-p 4202:4202` et ouvrir
 <http://localhost:4202>. L'entrypoint du conteneur est inerte (`tail -f`) :
 relancer `docker exec -d wap-crm-dev bun run dev:frontend` après un redémarrage.
+Le Storybook écoute sur `localhost:6006` ; dans le conteneur, le lancer avec
+`bun run storybook --host 0.0.0.0`, puis même règle : une route du reverse proxy
+ou `-p 6006:6006`.
 
 ### Directement sur la machine
 
@@ -581,6 +584,8 @@ bun run dev
 | `bun run unused` | knip : exports, types, fichiers et dépendances que rien n'utilise (`knip.ts`) ; la CI échoue s'il en trouve. Ce qu'une surcouche importe est listé dans `tests/*/extensionSurface.test.ts` et compte comme utilisé |
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
+| `bun run storybook` | Storybook du design system sur `localhost:6006`, la référence pour les états et variantes des composants (`src/design-system/**/*.stories.tsx`, config dans `.storybook/`) |
+| `bun run storybook:build` | la version statique de ce Storybook → `storybook-static/` (non commité) |
 
 ### Tests
 

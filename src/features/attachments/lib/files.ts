@@ -4,14 +4,6 @@ import type { AttachmentRow } from '@crm/lib/backend';
 
 export const ROOT_LABEL = 'Fichiers';
 
-/** « 1,2 Mo » style size. */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} o`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
-  const mb = bytes / (1024 * 1024);
-  return `${mb < 10 ? mb.toFixed(1).replace('.', ',') : Math.round(mb)} Mo`;
-}
-
 export type PreviewKind = 'image' | 'pdf' | null;
 
 /** What the preview dialog can render inline. */

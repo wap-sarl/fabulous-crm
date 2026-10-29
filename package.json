@@ -16,7 +16,9 @@
     "test:stand-in": "OVERLAY_STAND_IN=1 bun test --randomize",
     "lint": "biome check --error-on-warnings .",
     "unused": "KNIP_DISABLE_RAW_TRANSFER=1 knip",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "storybook": "storybook dev -p 6006 --no-open",
+    "storybook:build": "storybook build -o storybook-static"
   },
   "dependencies": {
     "@convex-dev/aggregate": "^0.2.2",
@@ -66,6 +68,8 @@
   "devDependencies": {
     "@apidevtools/swagger-parser": "^13.0.0",
     "@biomejs/biome": "^2.5.9",
+    "@storybook/addon-docs": "10.6.5",
+    "@storybook/react-vite": "10.6.5",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "4.3.0",
     "@types/bun": "^1.4.0",
@@ -77,6 +81,7 @@
     "concurrently": "^9.2.0",
     "convex-test": "0.0.54",
     "knip": "^6.38.0",
+    "storybook": "10.6.5",
     "tailwindcss": "4.3.0",
     "typescript": "6.0.3",
     "vite": "^8.0.14"
