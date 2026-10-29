@@ -61,7 +61,8 @@ function PageHeader({
           </button>
         )}
         {leading}
-        <div className="min-w-0 flex-1">
+        {/* A fixed basis: whether the row wraps depends on the width and the actions, never on what the subtitle holds. */}
+        <div className="min-w-0 flex-[1_1_12rem]">
           <div className="flex flex-wrap items-center gap-2.5">
             <h1 className="truncate text-xl font-bold tracking-[-0.02em] text-ink">{title}</h1>
             {titleExtra}
@@ -78,7 +79,8 @@ function PageHeader({
       className={cn('flex flex-wrap items-end justify-between gap-3 pb-4 pt-6', className)}
       {...props}
     >
-      <div className="min-w-0">
+      {/* A fixed basis: whether the row wraps depends on the width and the actions, never on what the subtitle holds. */}
+      <div className="min-w-0 flex-[1_1_12rem]">
         <h1 className="text-[23px] font-bold tracking-[-0.02em] text-ink">{title}</h1>
         {subtitleLine('text-[13.5px]/5')}
       </div>

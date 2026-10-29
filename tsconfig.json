@@ -22,6 +22,6 @@
       "@crm/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", ".storybook/**/*"],
+  "include": ["src/**/*", ".storybook/**/*", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

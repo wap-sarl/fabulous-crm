@@ -18,7 +18,8 @@
     "unused": "KNIP_DISABLE_RAW_TRANSFER=1 knip",
     "format": "biome format --write .",
     "storybook": "storybook dev -p 6006 --no-open",
-    "storybook:build": "storybook build -o storybook-static"
+    "storybook:build": "storybook build -o storybook-static",
+    "test:stories": "vitest run"
   },
   "dependencies": {
     "@convex-dev/aggregate": "^0.2.2",
@@ -69,6 +70,7 @@
     "@apidevtools/swagger-parser": "^13.0.0",
     "@biomejs/biome": "^2.5.9",
     "@storybook/addon-docs": "10.6.5",
+    "@storybook/addon-vitest": "10.6.5",
     "@storybook/react-vite": "10.6.5",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "4.3.0",
@@ -78,12 +80,16 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "@vitest/browser": "5.0.5",
+    "@vitest/browser-playwright": "5.0.5",
     "concurrently": "^9.2.0",
     "convex-test": "0.0.54",
     "knip": "^6.38.0",
+    "playwright": "1.64.1",
     "storybook": "10.6.5",
     "tailwindcss": "4.3.0",
     "typescript": "6.0.3",
-    "vite": "^8.0.14"
+    "vite": "^8.0.14",
+    "vitest": "5.0.5"
   }
 }

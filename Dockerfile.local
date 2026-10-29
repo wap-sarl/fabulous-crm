@@ -6,8 +6,10 @@ FROM oven/bun:${BUN_VERSION}
 ARG UID=$UID
 ARG GID=$GID
 
+# The second line: what Playwright's Chromium needs to run (`bun run test:stories`); Chromium itself is fetched once, see the README.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl git unzip && \
+    apt-get install -y --no-install-recommends ca-certificates curl git unzip \
+      libasound2t64 libatk-bridge2.0-0t64 libatk1.0-0t64 libatspi2.0-0t64 libcairo2 libcups2t64 libdbus-1-3 libdrm2 libgbm1 libglib2.0-0t64 libnspr4 libnss3 libpango-1.0-0 libx11-6 libxcb1 libxcomposite1 libxdamage1 libxext6 libxfixes3 libxkbcommon0 libxrandr2 && \
     rm -rf /var/lib/apt/lists/*
 
 # Recreate the `node` user with host UID/GID so the bind-mounted /app gets

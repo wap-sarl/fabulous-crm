@@ -3,7 +3,7 @@ import type { StorybookConfig } from '@storybook/react-vite';
 /** The components of the design system, one story file next to each component it documents. */
 const config: StorybookConfig = {
   stories: ['../src/design-system/**/*.stories.tsx'],
-  addons: ['@storybook/addon-docs'],
+  addons: ['@storybook/addon-docs', '@storybook/addon-vitest'],
   framework: '@storybook/react-vite',
   core: { disableTelemetry: true },
   viteFinal: (viteConfig) => ({

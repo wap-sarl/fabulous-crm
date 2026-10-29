@@ -50,6 +50,20 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Cache Playwright's Chromium
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+
+      # Through the runner's node: bun's fetch fails on Playwright's download (TLS name check on an IP).
+      - name: Install Chromium
+        run: node node_modules/playwright/cli.js install chromium --with-deps
+
+      # The stories whose `play` asserts geometry run in a real browser: what the static-markup tests cannot see.
+      - name: Test the stories
+        run: bun run test:stories
+
   secrets:
     runs-on: ubuntu-latest
     timeout-minutes: 5
