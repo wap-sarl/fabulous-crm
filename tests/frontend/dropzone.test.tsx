@@ -140,6 +140,7 @@ describe('the drop zone, state by state', () => {
     // Said disabled, not set so: a disabled button would drop the focus to the page.
     expect(html).toMatch(/<button[^>]*aria-disabled="true"/);
     expect(html).not.toMatch(/<button[^>]*\sdisabled=""/);
+    expect(html).toContain('cursor-not-allowed');
     expect(html).toMatch(/<input[^>]*disabled=""/);
     expect(html).not.toContain('Glissez votre fichier');
   });

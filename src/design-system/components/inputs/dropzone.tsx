@@ -137,7 +137,7 @@ export function Dropzone({
       disabled={disabled}
       // Busy is said, not set: a disabled button drops the focus to the page, and `open` already refuses meanwhile.
       aria-disabled={busy || undefined}
-      className="aria-disabled:opacity-50"
+      className="aria-disabled:pointer-events-none aria-disabled:opacity-50"
       aria-describedby={describedBy || undefined}
       aria-invalid={shownError ? true : undefined}
       onClick={open}
@@ -182,7 +182,8 @@ export function Dropzone({
           !inert && !children && 'cursor-pointer hover:border-border-strong hover:bg-accent/60',
           dragOver && 'border-primary bg-primary-soft/60',
           shownError && !dragOver && 'border-destructive',
-          disabled && 'cursor-not-allowed opacity-60',
+          inert && 'cursor-not-allowed',
+          disabled && 'opacity-60',
         )}
       >
         <input
