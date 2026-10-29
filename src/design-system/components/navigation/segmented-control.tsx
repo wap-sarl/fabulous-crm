@@ -52,7 +52,8 @@ function SegmentedControl<T extends string>({
       // The pill is the first child; the buttons follow in the order of the items.
       const selected =
         selectedIndex < 0 ? null : (list.children[selectedIndex + 1] as HTMLElement | undefined);
-      if (!selected) return;
+      // A control inside something hidden measures 0: not a place; the observer measures again when it is shown.
+      if (!selected || selected.offsetWidth === 0) return;
       const place = { left: selected.offsetLeft, width: selected.offsetWidth };
       setPill((current) => (samePlace(current, place) ? current : place));
     };

@@ -44,3 +44,25 @@ export const LabelsOnly: Story = {
 export const Overflowing: Story = {
   args: { className: 'max-w-xs' },
 };
+
+/** Inside something hidden at first (`display: none`, a collapsed section): the pill appears in place when the control is shown, and slides only from then on. */
+export const RevealedLater: Story = {
+  render: (args) => {
+    const [value, setValue] = useState(args.value);
+    const [shown, setShown] = useState(false);
+    return (
+      <div className="space-y-3">
+        <button
+          type="button"
+          className="cursor-pointer text-sm text-soft underline"
+          onClick={() => setShown((v) => !v)}
+        >
+          {shown ? 'Masquer le filtre' : 'Afficher le filtre'}
+        </button>
+        <div className={shown ? undefined : 'hidden'}>
+          <SegmentedControl {...args} value={value} onChange={setValue} />
+        </div>
+      </div>
+    );
+  },
+};
