@@ -24,7 +24,7 @@ interface PillPlace {
 const samePlace = (a: PillPlace | null, b: PillPlace) =>
   a !== null && a.left === b.left && a.width === b.width;
 
-/** A row of buttons, one selected: the light pill slides from the old one to the new, the selection itself changes at once. */
+/** A row of buttons, one pressed: a filter, not tabs, so each button is a plain tab stop that says whether it is pressed; the light pill slides from the old one to the new, the selection itself changes at once. */
 function SegmentedControl<T extends string>({
   items,
   value,
@@ -32,7 +32,7 @@ function SegmentedControl<T extends string>({
   className,
   ...props
 }: SegmentedControlProps<T>) {
-  const listRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLFieldSetElement>(null);
   const [pill, setPill] = useState<PillPlace | null>(null);
   // The pill moves only once it has been placed: on the first display it must appear where it is, not slide in from the left.
   const [placed, setPlaced] = useState(false);
@@ -68,11 +68,11 @@ function SegmentedControl<T extends string>({
   }, [pill]);
 
   return (
-    <div
+    <fieldset
       ref={listRef}
-      role="tablist"
       className={cn(
-        'relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[11px] bg-secondary p-1',
+        // `min-w-0`: a fieldset refuses to shrink below its content by default, which would defeat the scrolling.
+        'relative inline-flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto rounded-[11px] bg-secondary p-1',
         className,
       )}
       {...props}
@@ -94,8 +94,7 @@ function SegmentedControl<T extends string>({
           <button
             key={item.value}
             type="button"
-            role="tab"
-            aria-selected={active}
+            aria-pressed={active}
             onClick={() => onChange(item.value)}
             className={cn(
               'relative z-10 inline-flex h-[30px] cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors',
@@ -109,7 +108,7 @@ function SegmentedControl<T extends string>({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }
 

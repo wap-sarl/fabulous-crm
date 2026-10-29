@@ -9,7 +9,7 @@ const ITEMS = [
 ];
 
 describe('the segmented control', () => {
-  test('one tab is selected, said so to assistive technology; the moving pill is decoration', () => {
+  test('a group of buttons, one pressed, said so to assistive technology: a filter, not tabs; the moving pill is decoration', () => {
     const html = renderToStaticMarkup(
       <SegmentedControl
         aria-label="Période"
@@ -18,11 +18,12 @@ describe('the segmented control', () => {
         onChange={() => undefined}
       />,
     );
-    expect(html).toContain('role="tablist"');
-    expect(html).toContain('aria-label="Période"');
-    expect(html.match(/role="tab"/g)).toHaveLength(3);
-    expect(html.match(/aria-selected="true"/g)).toHaveLength(1);
-    expect(html).toMatch(/aria-selected="true"[^>]*>Aujourd’hui<span[^>]*>12<\/span>/);
+    expect(html).toMatch(/<fieldset[^>]*aria-label="Période"/);
+    expect(html).not.toContain('role="tab');
+    expect(html.match(/<button/g)).toHaveLength(3);
+    expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
+    expect(html.match(/aria-pressed="false"/g)).toHaveLength(2);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Aujourd’hui<span[^>]*>12<\/span>/);
     expect(html).toContain('data-slot="segmented-pill"');
     expect(html).toMatch(/<span aria-hidden="true" data-slot="segmented-pill"/);
   });
