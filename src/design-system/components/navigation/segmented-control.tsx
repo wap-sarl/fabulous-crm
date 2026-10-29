@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../../theme/utils';
 
 interface SegmentedControlItem<T extends string> {
@@ -33,6 +33,7 @@ function SegmentedControl<T extends string>({
   ...props
 }: SegmentedControlProps<T>) {
   const listRef = useRef<HTMLFieldSetElement>(null);
+  const pillRef = useRef<HTMLSpanElement>(null);
   const [pill, setPill] = useState<PillPlace | null>(null);
   // The pill moves only once it has been placed: on the first display it must appear where it is, not slide in from the left.
   const [placed, setPlaced] = useState(false);
@@ -63,9 +64,12 @@ function SegmentedControl<T extends string>({
     return () => observer.disconnect();
   }, [selectedIndex, buttonsKey]);
 
-  useEffect(() => {
-    if (pill) setPlaced(true);
-  }, [pill]);
+  // Before the transition is turned on, the browser is made to compute the pill in place: what it last computed was the pill at width 0 during the measurement, and a transition turned on in the same style computation as the placement would animate from there, paint or not.
+  useLayoutEffect(() => {
+    if (!pill || placed) return;
+    pillRef.current?.getBoundingClientRect();
+    setPlaced(true);
+  }, [pill, placed]);
 
   return (
     <fieldset
@@ -78,6 +82,7 @@ function SegmentedControl<T extends string>({
       {...props}
     >
       <span
+        ref={pillRef}
         aria-hidden="true"
         data-slot="segmented-pill"
         className={cn(
