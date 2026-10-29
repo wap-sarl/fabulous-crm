@@ -126,7 +126,7 @@ describe('the drop zone, state by state', () => {
     expect(html).not.toContain('Glissez votre fichier');
   });
 
-  test('busy: a status says so, the preview stays, the button keeps its place but takes nothing, nor does the input', () => {
+  test('busy: a status says so, the preview stays, the button keeps its place and its focus but takes nothing, nor does the input', () => {
     const html = render({
       busy: true,
       busyLabel: 'Envoi… 2/3',
@@ -137,7 +137,9 @@ describe('the drop zone, state by state', () => {
     expect(html).toContain('role="status"');
     expect(html).toContain('Envoi… 2/3');
     expect(html).toContain('<img src="x.png" alt=""/>');
-    expect(html).toMatch(/<button[^>]*disabled=""/);
+    // Said disabled, not set so: a disabled button would drop the focus to the page.
+    expect(html).toMatch(/<button[^>]*aria-disabled="true"/);
+    expect(html).not.toMatch(/<button[^>]*\sdisabled=""/);
     expect(html).toMatch(/<input[^>]*disabled=""/);
     expect(html).not.toContain('Glissez votre fichier');
   });

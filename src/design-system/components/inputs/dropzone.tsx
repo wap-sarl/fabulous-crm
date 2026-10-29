@@ -134,7 +134,10 @@ export function Dropzone({
       variant="outline"
       size="sm"
       data-slot="dropzone-trigger"
-      disabled={inert}
+      disabled={disabled}
+      // Busy is said, not set: a disabled button drops the focus to the page, and `open` already refuses meanwhile.
+      aria-disabled={busy || undefined}
+      className="aria-disabled:opacity-50"
       aria-describedby={describedBy || undefined}
       aria-invalid={shownError ? true : undefined}
       onClick={open}
@@ -225,7 +228,7 @@ export function Dropzone({
                 <p className="text-xs text-soft break-words">{description}</p>
               )}
             </div>
-            {/* Kept while busy, disabled: the keyboard user who just picked a file keeps their place. */}
+            {/* Kept while busy: the keyboard user who just picked a file keeps their place. */}
             {trigger}
           </>
         )}
