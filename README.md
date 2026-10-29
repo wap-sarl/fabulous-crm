@@ -562,6 +562,14 @@ relancer `docker exec -d wap-crm-dev bun run dev:frontend` après un redémarrag
 Le Storybook écoute sur `localhost:6006` ; dans le conteneur, le lancer avec
 `bun run storybook --host 0.0.0.0`, puis même règle : une route du reverse proxy
 ou `-p 6006:6006`.
+L'image installe les bibliothèques système de Chromium ; Chromium lui-même se
+télécharge une fois. Sous bun, le téléchargement de Playwright échoue (contrôle
+TLS du nom sur une IP) : le lancer avec le `node` de l'hôte, dans le volume
+partagé, où `vitest.config.ts` le retrouve :
+
+```bash
+PLAYWRIGHT_BROWSERS_PATH=node_modules/.cache/ms-playwright node node_modules/playwright/cli.js install chromium
+```
 
 ### Directement sur la machine
 
@@ -586,6 +594,7 @@ bun run dev
 | `bun run test:watch` | idem, en mode watch |
 | `bun run storybook` | Storybook du design system sur `localhost:6006`, la référence pour les états et variantes des composants (`src/design-system/**/*.stories.tsx`, config dans `.storybook/`) |
 | `bun run storybook:build` | la version statique de ce Storybook → `storybook-static/` (non commité) |
+| `bun run test:stories` | les stories dans un Chromium headless (vitest, `vitest.config.ts`) : ce qu'une story vérifie dans `play` (géométrie, animation) a besoin d'un moteur de rendu (voir Tests) |
 
 ### Tests
 
@@ -609,6 +618,13 @@ aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
   décrit un point d'extension le pose ; à la fin de chaque test, les deux
   côtés retrouvent les extensions installées. Aucun test n'écrit sur
   `src/extensions.tsx`.
+
+Les stories du design system (`src/design-system/**/*.stories.tsx`) sont aussi
+des tests : `bun run test:stories` les ouvre une à une dans un Chromium headless
+(vitest en mode navigateur, Playwright) et exécute leur `play`. C'est là que se
+vérifie ce qui a besoin d'un moteur de rendu, une géométrie qui ne bouge pas
+entre chargement et chargé, une transition qui ne part pas au premier affichage.
+La CI les lance après `bun run build`.
 
 Les tests sont typés comme le reste (`tests/tsconfig.json`, dans
 `bun run typecheck`). La suite ne dépend pas de l'ordre : la CI la lance dans

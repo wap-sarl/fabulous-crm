@@ -54,7 +54,8 @@ export function WorkflowsPage() {
       <PageHeader
         className="px-5 sm:px-7"
         title="Workflows"
-        subtitle={workflows ? `${workflows.length} workflow(s)` : 'Chargement…'}
+        subtitle={workflows ? `${workflows.length} workflow(s)` : undefined}
+        loading={workflows === undefined}
         actions={
           <Button onClick={() => navigate('/workflows/new')} data-testid="new-workflow">
             <Plus className="h-4 w-4" />

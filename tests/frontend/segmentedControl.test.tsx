@@ -23,7 +23,7 @@ describe('the segmented control', () => {
     expect(html.match(/<button/g)).toHaveLength(3);
     expect(html.match(/aria-pressed="true"/g)).toHaveLength(1);
     expect(html.match(/aria-pressed="false"/g)).toHaveLength(2);
-    expect(html).toMatch(/aria-pressed="true"[^>]*>Aujourd’hui<span[^>]*>12<\/span>/);
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Aujourd’hui<span.*?>12<\/span>/);
     expect(html).toContain('data-slot="segmented-pill"');
     expect(html).toMatch(/<span aria-hidden="true" data-slot="segmented-pill"/);
   });

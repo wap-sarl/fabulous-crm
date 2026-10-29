@@ -48,11 +48,12 @@ export function LeadsToolbar({ filters, setParam, statusCounts }: LeadsToolbarPr
       <SegmentedControl
         aria-label="Filtrer par statut"
         items={[
-          { value: 'all', label: 'Tous', count: statusCounts?.all },
+          { value: 'all', label: 'Tous', count: statusCounts ? statusCounts.all : null },
           ...lifecycle.stages.map((s) => ({
             value: s.key,
             label: s.label,
-            count: statusCounts?.byStage[s.key],
+            // A stage the counts do not know (added since they were computed) is zero, not pending.
+            count: statusCounts ? (statusCounts.byStage[s.key] ?? 0) : null,
           })),
         ]}
         value={segmentedValue}
