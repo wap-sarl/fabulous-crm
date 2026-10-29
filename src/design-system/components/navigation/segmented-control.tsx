@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../../theme/utils';
 
 interface SegmentedControlItem<T extends string> {
@@ -14,6 +15,16 @@ interface SegmentedControlProps<T extends string> {
   'aria-label'?: string;
 }
 
+/** Where the selected button sits in the list: what the moving pill is given. */
+interface PillPlace {
+  left: number;
+  width: number;
+}
+
+const samePlace = (a: PillPlace | null, b: PillPlace) =>
+  a !== null && a.left === b.left && a.width === b.width;
+
+/** A row of buttons, one selected: the light pill slides from the old one to the new, the selection itself changes at once. */
 function SegmentedControl<T extends string>({
   items,
   value,
@@ -21,15 +32,48 @@ function SegmentedControl<T extends string>({
   className,
   ...props
 }: SegmentedControlProps<T>) {
+  const listRef = useRef<HTMLDivElement>(null);
+  const [pill, setPill] = useState<PillPlace | null>(null);
+
+  // Measured before paint, so the pill is in place on the first frame; measured again when the list is resized (a count that grows, a font that loads).
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    const measure = () => {
+      // The pill is the first child; the buttons follow in the order of the items.
+      const at = items.findIndex((item) => item.value === value);
+      const selected = at < 0 ? null : (list.children[at + 1] as HTMLElement | undefined);
+      if (!selected) return;
+      const place = { left: selected.offsetLeft, width: selected.offsetWidth };
+      setPill((current) => (samePlace(current, place) ? current : place));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    // The list and each button: a list that overflows keeps its width when a button changes its own.
+    for (const child of [list, ...list.children]) observer.observe(child);
+    return () => observer.disconnect();
+  }, [value, items]);
+
   return (
     <div
+      ref={listRef}
       role="tablist"
       className={cn(
-        'inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[11px] bg-secondary p-1',
+        'relative inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-[11px] bg-secondary p-1',
         className,
       )}
       {...props}
     >
+      <span
+        aria-hidden="true"
+        data-slot="segmented-pill"
+        className={cn(
+          'absolute inset-y-1 left-0 rounded-lg bg-card shadow-[0_1px_2px_rgba(16,18,28,0.12)] transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
+          pill === null && 'opacity-0',
+        )}
+        style={pill ? { transform: `translateX(${pill.left}px)`, width: pill.width } : undefined}
+      />
       {items.map((item) => {
         const active = item.value === value;
         return (
@@ -40,10 +84,8 @@ function SegmentedControl<T extends string>({
             aria-selected={active}
             onClick={() => onChange(item.value)}
             className={cn(
-              'inline-flex h-[30px] cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-all',
-              active
-                ? 'bg-card text-ink shadow-[0_1px_2px_rgba(16,18,28,0.12)]'
-                : 'text-soft hover:text-ink',
+              'relative z-10 inline-flex h-[30px] cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-lg px-3 text-[13px] font-semibold transition-colors',
+              active ? 'text-ink' : 'text-soft hover:text-ink',
             )}
           >
             {item.label}
