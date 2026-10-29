@@ -201,8 +201,6 @@ export function Dropzone({
             {children}
             {status && <div className="mt-2">{status}</div>}
           </>
-        ) : busy ? (
-          status
         ) : (
           <>
             {filled ? (
@@ -220,9 +218,14 @@ export function Dropzone({
               </div>
             )}
             <div className="space-y-1">
-              {!filled && <p className="text-sm font-medium text-body">{instruction}</p>}
-              {description && <p className="text-xs text-soft break-words">{description}</p>}
+              {busy
+                ? status
+                : !filled && <p className="text-sm font-medium text-body">{instruction}</p>}
+              {!busy && description && (
+                <p className="text-xs text-soft break-words">{description}</p>
+              )}
             </div>
+            {/* Kept while busy, disabled: the keyboard user who just picked a file keeps their place. */}
             {trigger}
           </>
         )}

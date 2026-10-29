@@ -46,7 +46,7 @@ export function HtmlImportDropzone({
 
   return (
     <Dropzone
-      accept={['.html', '.htm']}
+      accept={['.html', '.htm', 'text/html']}
       maxBytes={maxBytes}
       icon={<FileCode aria-hidden="true" />}
       instruction="Glissez votre fichier HTML ici ou choisissez un fichier"

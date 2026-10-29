@@ -30,7 +30,7 @@ export function FileDropZone({
     <Dropzone
       accept={['.csv', '.xlsx', '.txt']}
       icon={<FileSpreadsheet aria-hidden="true" />}
-      instruction="Glissez votre fichier CSV ou Excel ici ou choisissez un fichier"
+      instruction="Glissez votre fichier CSV, TXT ou Excel ici ou choisissez un fichier"
       actionLabel={fileName ? 'Remplacer' : undefined}
       description={
         fileName ? (

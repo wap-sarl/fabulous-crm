@@ -17,7 +17,7 @@
     "lint": "biome check --error-on-warnings .",
     "unused": "KNIP_DISABLE_RAW_TRANSFER=1 knip",
     "format": "biome format --write .",
-    "storybook": "storybook dev -p 6006 --host 0.0.0.0 --no-open",
+    "storybook": "storybook dev -p 6006 --no-open",
     "storybook:build": "storybook build -o storybook-static"
   },
   "dependencies": {

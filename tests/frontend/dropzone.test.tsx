@@ -126,14 +126,20 @@ describe('the drop zone, state by state', () => {
     expect(html).not.toContain('Glissez votre fichier');
   });
 
-  test('busy: a status says so, the button and the input take nothing', () => {
-    const html = render({ busy: true, busyLabel: 'Envoi… 2/3' });
+  test('busy: a status says so, the preview stays, the button keeps its place but takes nothing, nor does the input', () => {
+    const html = render({
+      busy: true,
+      busyLabel: 'Envoi… 2/3',
+      preview: <img src="x.png" alt="" />,
+    });
     expect(html).toContain('data-state="busy"');
     expect(html).toContain('aria-busy="true"');
     expect(html).toContain('role="status"');
     expect(html).toContain('Envoi… 2/3');
-    expect(html).not.toContain('<button');
+    expect(html).toContain('<img src="x.png" alt=""/>');
+    expect(html).toMatch(/<button[^>]*disabled=""/);
     expect(html).toMatch(/<input[^>]*disabled=""/);
+    expect(html).not.toContain('Glissez votre fichier');
   });
 
   test('error: said once, next to the field, announced, and the button names it', () => {

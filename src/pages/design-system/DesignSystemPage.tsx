@@ -35,7 +35,7 @@ import {
   TimeSeriesChart,
   toast,
 } from '@crm/design-system';
-import { Eye, FileSpreadsheet, Pencil, Send } from 'lucide-react';
+import { Eye, Pencil, Send } from 'lucide-react';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { CAMPAIGN_STATUSES, DEAL_STATUSES, SEND_STATUSES } from '../../lib/constants';
 
@@ -280,14 +280,6 @@ export function DesignSystemPage() {
                 onFiles={(files) => toast.success(`${files.length} fichier(s) reçu(s).`)}
               />
             </Field>
-            <Field label="Plusieurs fichiers, sans format imposé" htmlFor="ds-drop-multiple">
-              <Dropzone
-                id="ds-drop-multiple"
-                multiple
-                maxBytes={10 * 1024 * 1024}
-                onFiles={(files) => toast.success(`${files.length} fichier(s) reçu(s).`)}
-              />
-            </Field>
             <Field label="Image chargée, variante logo (large)" htmlFor="ds-drop-wide">
               <Dropzone
                 id="ds-drop-wide"
@@ -298,47 +290,11 @@ export function DesignSystemPage() {
                 onFiles={() => toast.success('Image remplacée.')}
               />
             </Field>
-            <Field label="Image chargée, variante favicon (carré)" htmlFor="ds-drop-square">
-              <Dropzone
-                id="ds-drop-square"
-                accept={['image/png', 'image/svg+xml', 'image/x-icon']}
-                maxBytes={1024 * 1024}
-                preview={<SampleImage />}
-                previewShape="square"
-                hint="Image carrée, 32×32 ou plus."
-                onFiles={() => toast.success('Image remplacée.')}
-              />
-            </Field>
-            <Field label="Fichier chargé, avec ce qu'on en sait" htmlFor="ds-drop-file">
-              <Dropzone
-                id="ds-drop-file"
-                accept={['.csv', '.xlsx']}
-                icon={<FileSpreadsheet aria-hidden="true" />}
-                actionLabel="Remplacer"
-                description={
-                  <>
-                    <span className="font-mono">contacts.csv</span> · 1 240 ligne(s)
-                  </>
-                }
-                onFiles={() => toast.success('Fichier remplacé.')}
-              />
-            </Field>
-            <Field label="Chargement : rien n'est accepté pendant l'envoi" htmlFor="ds-drop-busy">
-              <Dropzone id="ds-drop-busy" busy busyLabel="Envoi… 2/3" onFiles={() => undefined} />
-            </Field>
-            <Field label="Erreur, à côté du champ" htmlFor="ds-drop-error">
-              <Dropzone
-                id="ds-drop-error"
-                accept={['.html', '.htm']}
-                maxBytes={800 * 1024}
-                error="L'envoi du fichier a échoué ; l'image précédente est conservée. Réessayez."
-                onFiles={() => toast.success('Fichier reçu.')}
-              />
-            </Field>
-            <Field label="Désactivée" htmlFor="ds-drop-disabled">
-              <Dropzone id="ds-drop-disabled" disabled onFiles={() => undefined} />
-            </Field>
           </div>
+          <p className="mt-4 text-xs text-soft">
+            Tous les états et variantes sont dans le Storybook :{' '}
+            <span className="font-mono">bun run storybook</span>.
+          </p>
         </Section>
 
         <Section title="Segmented & tags">

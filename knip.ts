@@ -17,7 +17,9 @@ const seam = [
 const config: KnipConfig = {
   entry: [...convexEntries, ...seam, 'scripts/*.ts', 'tests/**/*.test.ts'],
   project: [
-    'src/**/*.{ts,tsx,css}',
+    // `.mdx`: the docs addon of Storybook reads it; none is written yet, the tool asks for the extension all the same.
+    'src/**/*.{ts,tsx,css,mdx}',
+    '.storybook/**/*.ts',
     'convex/**/*.ts',
     '!convex/_generated/**',
     'scripts/**/*.ts',
