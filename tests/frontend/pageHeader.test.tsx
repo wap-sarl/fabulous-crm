@@ -52,9 +52,10 @@ describe('the segmented control while its counts load', () => {
         onChange={() => undefined}
       />,
     );
-    expect(html.match(/min-w-\[3ch\]/g)).toHaveLength(2);
+    // The slot's width comes from an invisible « 000 » shaped in the same font as the count.
+    expect(html.match(/<span class="invisible[^"]*">000<\/span>/g)).toHaveLength(2);
     expect(html.match(/data-slot="count-placeholder"/g)).toHaveLength(1);
-    expect(html).toMatch(/Cette semaine<span[^>]*min-w-\[3ch\][^>]*>27<\/span>/);
+    expect(html).toMatch(/Cette semaine<span[^>]*><span[^>]*>000<\/span><span[^>]*>27<\/span>/);
     expect(html).toMatch(/Terminées<\/button>/);
   });
 });
