@@ -16,6 +16,7 @@ import {
   toast,
 } from '@crm/design-system';
 import { Plus, Upload } from 'lucide-react';
+import { useLastDefined } from '@crm/design-system/hooks/useLastDefined';
 import { usePageTitle } from '../../layouts/DashboardShell';
 import { useEmployees } from '../../lib/hooks/useEmployees';
 import { useTeams } from '../../lib/hooks/useTeams';
@@ -59,11 +60,10 @@ export function TasksPage() {
   const bounds = useMemo(() => dayBounds(), []);
   const window = bucketWindow(bucket, bounds);
 
-  const counts = useAuthQuery(api.features.activities.queries.countTaskBuckets, {
-    ownerId,
-    teamId,
-    ...bounds,
-  });
+  // The counts follow the scope: the last ones stand in while the new ones load, so the buttons do not blink to placeholders.
+  const counts = useLastDefined(
+    useAuthQuery(api.features.activities.queries.countTaskBuckets, { ownerId, teamId, ...bounds }),
+  );
   const { results, status, loadMore } = useAuthPaginatedQuery(
     api.features.activities.queries.listTasks,
     { ownerId, teamId, ...window },
@@ -90,7 +90,7 @@ export function TasksPage() {
   };
 
   // Null while the counts load: the button keeps a count's width. « Terminées » is never counted.
-  const countOf = (b: TaskBucket) => (b === 'done' ? undefined : (counts?.[b] ?? null));
+  const countOf = (b: TaskBucket) => (b === 'done' ? undefined : counts ? counts[b] : null);
   const ownerLabel = ownerId
     ? (employees.find((e) => e._id === ownerId)?.firstName ?? 'ce collaborateur')
     : 'moi';

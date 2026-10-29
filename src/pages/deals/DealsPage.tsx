@@ -68,9 +68,11 @@ export function DealsPage() {
         subtitle={
           stats
             ? `${stats.open.count} en cours · ${formatMoney(stats.open.amount, 'EUR')} · ${stats.won.count} gagnée(s)`
-            : !isLoading && !pipeline
-              ? 'Aucun pipeline'
-              : undefined
+            : stats === null
+              ? 'Aucune donnée'
+              : !isLoading && !pipeline
+                ? 'Aucun pipeline'
+                : undefined
         }
         loading={stats === undefined && (isLoading || pipeline !== undefined)}
         actions={

@@ -33,11 +33,16 @@ function PageHeader({
   ...props
 }: PageHeaderProps) {
   const resolved = variant ?? (onBack ? 'detail' : 'list');
-  // One line box whether the subtitle is text or still a placeholder; a longer subtitle wraps and grows it as text does.
+  // One line box whether the subtitle is text or still a placeholder; a longer subtitle wraps and grows it as text does. A plain block, not a flex container: text mixed with elements keeps its spaces.
   const subtitleLine = (size: string) =>
     (subtitle || loading) && (
-      <div className={cn('mt-0.5 flex min-h-5 items-center text-faint', size)}>
-        {subtitle ?? <Skeleton className="h-3 w-56 max-w-full" data-slot="subtitle-placeholder" />}
+      <div className={cn('mt-0.5 min-h-5 text-faint', size)}>
+        {subtitle ?? (
+          <Skeleton
+            className="inline-block h-3 w-56 max-w-full align-middle"
+            data-slot="subtitle-placeholder"
+          />
+        )}
       </div>
     );
 

@@ -66,6 +66,29 @@ export const ListWrapping: Story = {
   },
 };
 
+/** Text mixed with elements: the line is a plain block, so the spaces between them stay. */
+export const ListRichSubtitle: Story = {
+  name: 'List, rich subtitle',
+  args: {
+    subtitle: (
+      <>
+        Créée le <b className="font-medium text-body">12 mars</b> par Lou
+      </>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const line = canvasElement.querySelector('[class*="min-h-5"]')!;
+    const text = line.firstChild as Text;
+    // The text up to its last letter: what follows it must be a space's width, not the next element.
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, text.length - 1);
+    const gap =
+      line.querySelector('b')!.getBoundingClientRect().left - range.getBoundingClientRect().right;
+    await expect(gap).toBeGreaterThan(2);
+  },
+};
+
 export const Detail: Story = {
   args: {
     title: 'Camille Roux',

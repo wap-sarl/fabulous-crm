@@ -4,7 +4,7 @@ import { cn } from '../../theme/utils';
 interface SegmentedControlItem<T extends string> {
   value: T;
   label: string;
-  /** A count beside the label; `null` while it is on its way, which keeps the button's width. */
+  /** A count beside the label; `null` while it is on its way, which keeps the button's width: the slot holds three digits, so a count up to 999 lands without widening it. */
   count?: number | null;
 }
 
@@ -110,7 +110,7 @@ function SegmentedControl<T extends string>({
           >
             {item.label}
             {item.count !== undefined && (
-              <span className="inline-block min-w-[2ch] text-center font-mono text-[11px] font-medium opacity-65">
+              <span className="inline-block min-w-[3ch] text-center font-mono text-[11px] font-medium opacity-65">
                 {item.count ?? (
                   <span
                     aria-hidden="true"

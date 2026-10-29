@@ -3,9 +3,9 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { PageHeader } from '../../src/design-system/components/layout/page-header';
 import { SegmentedControl } from '../../src/design-system/components/navigation/segmented-control';
 
-/** The subtitle's line box: one line of 20px whatever it holds, the text's size with its line height. */
+/** The subtitle's line box: a plain block of one 20px line whatever it holds, the text's size with its line height. */
 const lineOf = (html: string) =>
-  /<div class="mt-0\.5 flex min-h-5 items-center text-faint text-\[13(?:\.5)?px\]\/5"/.exec(html);
+  /<div class="mt-0\.5 min-h-5 text-faint text-\[13(?:\.5)?px\]\/5"/.exec(html);
 
 describe('the page header while its data loads', () => {
   test('a subtitle on its way keeps its line, with a placeholder, in the same box as the text will take', () => {
@@ -40,7 +40,7 @@ describe('the page header while its data loads', () => {
 });
 
 describe('the segmented control while its counts load', () => {
-  test('a count on its way keeps a count’s width; a button that never counts has no slot', () => {
+  test('a count on its way keeps a three-digit count’s width; a button that never counts has no slot', () => {
     const html = renderToStaticMarkup(
       <SegmentedControl
         items={[
@@ -52,9 +52,9 @@ describe('the segmented control while its counts load', () => {
         onChange={() => undefined}
       />,
     );
-    expect(html.match(/min-w-\[2ch\]/g)).toHaveLength(2);
+    expect(html.match(/min-w-\[3ch\]/g)).toHaveLength(2);
     expect(html.match(/data-slot="count-placeholder"/g)).toHaveLength(1);
-    expect(html).toMatch(/Cette semaine<span[^>]*min-w-\[2ch\][^>]*>27<\/span>/);
+    expect(html).toMatch(/Cette semaine<span[^>]*min-w-\[3ch\][^>]*>27<\/span>/);
     expect(html).toMatch(/Terminées<\/button>/);
   });
 });
