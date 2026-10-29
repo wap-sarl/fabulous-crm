@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { cn } from '../../theme/utils';
 
 interface SegmentedControlItem<T extends string> {
@@ -34,15 +34,23 @@ function SegmentedControl<T extends string>({
 }: SegmentedControlProps<T>) {
   const listRef = useRef<HTMLDivElement>(null);
   const [pill, setPill] = useState<PillPlace | null>(null);
+  // The pill moves only once it has been placed: on the first display it must appear where it is, not slide in from the left.
+  const [placed, setPlaced] = useState(false);
+  const selectedIndex = items.findIndex((item) => item.value === value);
+  // What the buttons are made of: callers build `items` on each render, the observer is rebuilt only when a button changes.
+  const buttonsKey = items
+    .map((item) => `${item.value}:${item.label}:${item.count ?? ''}`)
+    .join('|');
 
-  // Measured before paint, so the pill is in place on the first frame; measured again when the list is resized (a count that grows, a font that loads).
+  // Measured before paint, so the pill is in place on the first frame; measured again when a button is resized (a count that grows, a font that loads).
+  // biome-ignore lint/correctness/useExhaustiveDependencies(buttonsKey): the buttons changed, the observer must watch the new ones
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
     const measure = () => {
       // The pill is the first child; the buttons follow in the order of the items.
-      const at = items.findIndex((item) => item.value === value);
-      const selected = at < 0 ? null : (list.children[at + 1] as HTMLElement | undefined);
+      const selected =
+        selectedIndex < 0 ? null : (list.children[selectedIndex + 1] as HTMLElement | undefined);
       if (!selected) return;
       const place = { left: selected.offsetLeft, width: selected.offsetWidth };
       setPill((current) => (samePlace(current, place) ? current : place));
@@ -53,7 +61,11 @@ function SegmentedControl<T extends string>({
     // The list and each button: a list that overflows keeps its width when a button changes its own.
     for (const child of [list, ...list.children]) observer.observe(child);
     return () => observer.disconnect();
-  }, [value, items]);
+  }, [selectedIndex, buttonsKey]);
+
+  useEffect(() => {
+    if (pill) setPlaced(true);
+  }, [pill]);
 
   return (
     <div
@@ -69,7 +81,9 @@ function SegmentedControl<T extends string>({
         aria-hidden="true"
         data-slot="segmented-pill"
         className={cn(
-          'absolute inset-y-1 left-0 rounded-lg bg-card shadow-[0_1px_2px_rgba(16,18,28,0.12)] transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
+          'absolute inset-y-1 left-0 rounded-lg bg-card shadow-[0_1px_2px_rgba(16,18,28,0.12)]',
+          placed &&
+            'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
           pill === null && 'opacity-0',
         )}
         style={pill ? { transform: `translateX(${pill.left}px)`, width: pill.width } : undefined}

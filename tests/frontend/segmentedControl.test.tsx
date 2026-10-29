@@ -27,19 +27,17 @@ describe('the segmented control', () => {
     expect(html).toMatch(/<span aria-hidden="true" data-slot="segmented-pill"/);
   });
 
-  test('the pill moves in 200 ms, not at all for someone who asked for less motion, and takes no place until measured', () => {
+  test('the pill takes no place until measured and does not move before it has been placed: on a first display it appears where it is', () => {
     const html = renderToStaticMarkup(
       <SegmentedControl items={ITEMS} value="undated" onChange={() => undefined} />,
     );
     const pill = /<span aria-hidden="true" data-slot="segmented-pill" class="([^"]*)"/.exec(
       html,
     )![1]!;
-    expect(pill).toContain('transition-[transform,width]');
-    expect(pill).toContain('duration-200');
-    expect(pill).toContain('motion-reduce:transition-none');
     expect(pill).toContain('absolute');
-    // Nothing measured on the server: the pill is there, invisible, and no button paints its own background.
+    // Nothing measured on the server: the pill is there, invisible, without a transition yet, and no button paints its own background.
     expect(pill).toContain('opacity-0');
+    expect(pill).not.toContain('transition');
     expect(html).not.toMatch(/<button[^>]*bg-card/);
   });
 });
