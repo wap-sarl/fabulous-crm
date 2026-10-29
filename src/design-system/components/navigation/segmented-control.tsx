@@ -4,7 +4,8 @@ import { cn } from '../../theme/utils';
 interface SegmentedControlItem<T extends string> {
   value: T;
   label: string;
-  count?: number;
+  /** A count beside the label; `null` while it is on its way, which keeps the button's width. */
+  count?: number | null;
 }
 
 interface SegmentedControlProps<T extends string> {
@@ -109,7 +110,15 @@ function SegmentedControl<T extends string>({
           >
             {item.label}
             {item.count !== undefined && (
-              <span className="font-mono text-[11px] font-medium opacity-65">{item.count}</span>
+              <span className="inline-block min-w-[2ch] text-center font-mono text-[11px] font-medium opacity-65">
+                {item.count ?? (
+                  <span
+                    aria-hidden="true"
+                    data-slot="count-placeholder"
+                    className="inline-block h-2.5 w-[2ch] rounded-sm bg-ghost/60 align-middle"
+                  />
+                )}
+              </span>
             )}
           </button>
         );

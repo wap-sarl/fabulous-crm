@@ -90,6 +90,7 @@ export function CompaniesPage() {
         className="px-5 sm:px-7"
         title="Entreprises"
         subtitle={counts ? `${counts.total} entreprise(s)` : undefined}
+        loading={counts === undefined}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/import?entity=company')}>

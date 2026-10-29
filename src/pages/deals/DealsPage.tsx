@@ -68,8 +68,11 @@ export function DealsPage() {
         subtitle={
           stats
             ? `${stats.open.count} en cours · ${formatMoney(stats.open.amount, 'EUR')} · ${stats.won.count} gagnée(s)`
-            : undefined
+            : !isLoading && !pipeline
+              ? 'Aucun pipeline'
+              : undefined
         }
+        loading={stats === undefined && (isLoading || pipeline !== undefined)}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/import?entity=deal')}>

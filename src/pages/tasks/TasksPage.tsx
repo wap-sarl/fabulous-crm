@@ -89,7 +89,8 @@ export function TasksPage() {
     }
   };
 
-  const countOf = (b: TaskBucket) => (counts && b !== 'done' ? counts[b] : undefined);
+  // Null while the counts load: the button keeps a count's width. « Terminées » is never counted.
+  const countOf = (b: TaskBucket) => (b === 'done' ? undefined : (counts?.[b] ?? null));
   const ownerLabel = ownerId
     ? (employees.find((e) => e._id === ownerId)?.firstName ?? 'ce collaborateur')
     : 'moi';
@@ -125,6 +126,7 @@ export function TasksPage() {
             ? `${counts.overdue} en retard · ${counts.today} aujourd’hui · ${counts.week} cette semaine`
             : undefined
         }
+        loading={counts === undefined}
         actions={
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => navigate('/import?entity=activity')}>
