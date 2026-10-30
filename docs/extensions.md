@@ -196,9 +196,12 @@ rolls the caller back. Keep them cheap; they run on every call.
   that plugin is installed. The catalogue is the core's; an overlay adds no plugin to it.
 - `ShellGuard`: a component wrapping the shell; render `children` to show the app, or
   something else (a billing page, a maintenance notice) to replace it. It renders inside a
-  column of the viewport's height: a banner rendered before `children` takes its own height
-  and the shell takes the rest, so nothing scrolls the document; a replacement takes the
-  whole column (`flex-1`, not `min-h-screen`).
+  flex column of the viewport's height (`ShellFrame`): a banner rendered before `children`
+  takes its own height and the shell takes the rest, so nothing scrolls the document. That
+  holds while the banner and `children` are direct children of the column, a fragment
+  (`<>{banner}{children}</>`), or sit in a wrapper that is itself `flex min-h-0 flex-1
+  flex-col`; in a plain `<div>` the shell has no height to fill and ends where the page
+  ends. A replacement takes the whole column (`flex-1`, not `min-h-screen`).
 - `describeRefusal`: optional; turns one of the overlay's refusal codes (with the ConvexError
   data) into a user message, null for codes it does not own. The login page asks it first for
   every sign-in error (`describeSignInError`), with the error's message then its code: a

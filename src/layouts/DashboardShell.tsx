@@ -1,7 +1,7 @@
 import { Suspense, useEffect } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Spinner } from '@crm/design-system';
-import { DashboardLayout, useAuth, usePublicConfig } from '@crm/widgets';
+import { DashboardLayout, ShellFrame, useAuth, usePublicConfig } from '@crm/widgets';
 import type { RoleAccess } from '@crm/lib/backend';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
 import { frontendExtensions } from '../lib/frontendExtensions';
@@ -70,6 +70,6 @@ export function DashboardShell() {
       </Suspense>
     </DashboardLayout>
   );
-  // The column owns the viewport's height: what a guard renders above the shell takes its own height, the shell takes the rest.
-  return <div className="flex h-dvh flex-col">{Guard ? <Guard>{shell}</Guard> : shell}</div>;
+  // The frame owns the viewport's height: what a guard renders above the shell takes its own height, the shell takes the rest.
+  return <ShellFrame>{Guard ? <Guard>{shell}</Guard> : shell}</ShellFrame>;
 }

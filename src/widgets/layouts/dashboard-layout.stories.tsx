@@ -1,8 +1,10 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import type { ReactNode } from 'react';
 import { expect } from 'storybook/test';
 import { Settings, Users } from 'lucide-react';
 import { StaticPublicConfigProvider } from '../config/ConfigContext';
 import { DashboardLayout, type NavItem } from './DashboardLayout';
+import { ShellFrame } from './ShellFrame';
 
 const CONFIG = {
   setupComplete: true,
@@ -21,37 +23,60 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Paramètres', icon: <Settings />, path: '/settings', position: 'bottom' },
 ];
 
-/** The shell as `DashboardShell` composes it: a column of the viewport's height, the guard's banner above when there is one, the layout filling the rest. */
-function Shell({ banner, rows }: { banner: boolean; rows: number }) {
+type Guard = 'none' | 'fragment' | 'wrapper';
+
+/** A guard's banner, as the SaaS overlay shows one in free mode. */
+const Banner = () => (
+  <div
+    data-testid="banner"
+    className="flex flex-wrap items-center justify-between gap-x-4 bg-primary-soft px-4 py-2 text-sm text-ink"
+  >
+    <span>Mode test : 1 / 3 sièges.</span>
+    <a href="/settings/subscription" className="font-medium underline">
+      Passer en illimité
+    </a>
+  </div>
+);
+
+/** The two forms the contract allows: banner and children side by side, or inside a wrapper that is itself the flex column. */
+const GUARDS: Record<Guard, (children: ReactNode) => ReactNode> = {
+  none: (children) => children,
+  fragment: (children) => (
+    <>
+      <Banner />
+      {children}
+    </>
+  ),
+  wrapper: (children) => (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <Banner />
+      {children}
+    </div>
+  ),
+};
+
+/** The shell as `DashboardShell` composes it: the frame, the guard's output, the layout filling the rest. */
+function Shell({ guard, rows }: { guard: Guard; rows: number }) {
   return (
     <StaticPublicConfigProvider config={CONFIG}>
-      <div className="flex h-dvh flex-col">
-        {banner && (
-          <div
-            data-testid="banner"
-            className="flex flex-wrap items-center justify-between gap-x-4 bg-primary-soft px-4 py-2 text-sm text-ink"
+      <ShellFrame>
+        {GUARDS[guard](
+          <DashboardLayout
+            navItems={NAV_ITEMS}
+            currentPath="/leads"
+            onNavigate={() => undefined}
+            userName="Camille Roux"
+            userEmail="camille.roux@example.com"
+            onLogout={() => undefined}
           >
-            <span>Mode test : 1 / 3 sièges.</span>
-            <a href="/settings/subscription" className="font-medium underline">
-              Passer en illimité
-            </a>
-          </div>
+            <div className="space-y-3 p-7">
+              {Array.from({ length: rows }, (_, i) => (
+                <div key={String(i)} className="h-10 rounded-lg bg-secondary" />
+              ))}
+            </div>
+          </DashboardLayout>,
         )}
-        <DashboardLayout
-          navItems={NAV_ITEMS}
-          currentPath="/leads"
-          onNavigate={() => undefined}
-          userName="Camille Roux"
-          userEmail="camille.roux@example.com"
-          onLogout={() => undefined}
-        >
-          <div className="space-y-3 p-7">
-            {Array.from({ length: rows }, (_, i) => (
-              <div key={String(i)} className="h-10 rounded-lg bg-secondary" />
-            ))}
-          </div>
-        </DashboardLayout>
-      </div>
+      </ShellFrame>
     </StaticPublicConfigProvider>
   );
 }
@@ -59,7 +84,8 @@ function Shell({ banner, rows }: { banner: boolean; rows: number }) {
 const meta = {
   title: 'Layout/DashboardLayout',
   component: Shell,
-  args: { banner: false, rows: 6 },
+  args: { guard: 'none', rows: 6 },
+  argTypes: { guard: { control: 'radio', options: ['none', 'fragment', 'wrapper'] } },
   parameters: { layout: 'fullscreen' },
 } satisfies Meta<typeof Shell>;
 
@@ -81,16 +107,26 @@ export const Alone: Story = {
   play: ({ canvasElement }) => fits(canvasElement),
 };
 
-/** A guard's banner above the shell: the shell takes what is left, so the sidebar's bottom entries and the user block stay in view. */
+/** A long page under a guard's banner: the banner ends where the sidebar starts, the page scrolls inside its main column, the user block stays in view. */
+const underABanner = async (canvasElement: HTMLElement) => {
+  await fits(canvasElement);
+  const banner = canvasElement.querySelector('[data-testid="banner"]')!.getBoundingClientRect();
+  const aside = canvasElement.querySelector('aside')!.getBoundingClientRect();
+  await expect(Math.round(aside.top)).toBe(Math.round(banner.bottom));
+  const main = canvasElement.querySelector('main')!;
+  await expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
+};
+
+/** A guard rendering its banner and the shell side by side, as the SaaS overlay does. */
 export const UnderABanner: Story = {
   name: 'Under a banner',
-  args: { banner: true, rows: 40 },
-  play: async ({ canvasElement }) => {
-    await fits(canvasElement);
-    const banner = canvasElement.querySelector('[data-testid="banner"]')!.getBoundingClientRect();
-    const aside = canvasElement.querySelector('aside')!.getBoundingClientRect();
-    await expect(Math.round(aside.top)).toBe(Math.round(banner.bottom));
-    const main = canvasElement.querySelector('main')!;
-    await expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
-  },
+  args: { guard: 'fragment', rows: 40 },
+  play: ({ canvasElement }) => underABanner(canvasElement),
+};
+
+/** A guard wrapping its banner and the shell in an element of its own: the wrapper must be the flex column itself. */
+export const UnderAWrappingGuard: Story = {
+  name: 'Under a wrapping guard',
+  args: { guard: 'wrapper', rows: 40 },
+  play: ({ canvasElement }) => underABanner(canvasElement),
 };
