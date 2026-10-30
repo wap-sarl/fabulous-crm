@@ -20,7 +20,8 @@ import { appOrigin, appOrigins } from './lib/config/appUrl';
 import { isEmailWhitelisted } from './lib/shared/devWhitelist';
 import { logAudit } from './lib/audit/log';
 import { serializeUser } from './lib/users/serialize';
-import { LOGIN_ACCENT, LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
+import { LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
+import { emailBrandOf } from './lib/email/brand';
 import { internalAction, internalMutation, internalQuery, query } from './_generated/server';
 import { resolveRoleAccess } from './lib/roles/access';
 import { gateInvitation, gateSignInCode } from './lib/extensions/gates';
@@ -218,16 +219,16 @@ export const deliverSignInCode = internalAction({
       return null;
     }
 
-    const appUrl = (cfg?.appUrl || appOrigin()).replace(/\/+$/, '');
+    const brand = await emailBrandOf(ctx, cfg);
     const params = new URLSearchParams({ email, otp });
     // Dispatch through the active email provider (Brevo API or SMTP); the sender is resolved inside the action.
     await ctx.runAction(internal.features.email.actions.sendProviderEmail, {
       to: email,
       subject: LOGIN_EMAIL.subject,
       htmlContent: generateEmailHtml(
-        `${appUrl}/auth/continue?${params.toString()}`,
         LOGIN_EMAIL,
-        LOGIN_ACCENT,
+        brand,
+        `${brand.appUrl}/auth/continue?${params.toString()}`,
       ),
     });
     return null;

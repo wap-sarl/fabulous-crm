@@ -4,11 +4,11 @@ import { v } from 'convex/values';
 import type { MutationCtx } from '../../_generated/server';
 import { internal } from '../../_generated/api';
 import { settingsMutation } from '../../_lib/auth';
-import { appOrigin } from '../../lib/config/appUrl';
 import { isEmailWhitelisted } from '../../lib/shared/devWhitelist';
 import { isEmailProviderConfigured, resolveEmailProvider } from '../../lib/email/provider';
 import { logAudit } from '../../lib/audit/log';
-import { INVITE_EMAIL, LOGIN_ACCENT, generateEmailHtml } from '../../auth/emailTemplates';
+import { INVITE_EMAIL, generateEmailHtml } from '../../auth/emailTemplates';
+import { emailBrandOf } from '../../lib/email/brand';
 import { invitationRoleValidator } from '../../_lib/validators/invitations';
 import { DEFAULT_ROLES } from '../../_lib/validators/roles';
 import { gateInvitation } from '../../lib/extensions/gates';
@@ -18,12 +18,11 @@ import { findRole } from '../../lib/roles/access';
 /** The invite carries no token: the recipient signs in with the allowlisted email; the dev whitelist keeps real people from being emailed in dev. */
 async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
   if (!isEmailWhitelisted(email, process.env.DEV_WHITELIST_EMAILS)) return;
-  const cfg = await ctx.db.query('appConfig').first();
-  const appUrl = (cfg?.appUrl || appOrigin()).replace(/\/+$/, '');
+  const brand = await emailBrandOf(ctx, await ctx.db.query('appConfig').first());
   await ctx.scheduler.runAfter(0, internal.features.email.actions.sendProviderEmail, {
     to: email,
     subject: INVITE_EMAIL.subject,
-    htmlContent: generateEmailHtml(appUrl, INVITE_EMAIL, LOGIN_ACCENT),
+    htmlContent: generateEmailHtml(INVITE_EMAIL, brand, brand.appUrl),
   });
 }
 

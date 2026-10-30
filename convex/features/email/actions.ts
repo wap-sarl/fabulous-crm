@@ -6,6 +6,8 @@ import { v } from 'convex/values';
 import { internalAction } from '../../_generated/server';
 import { internal } from '../../_generated/api';
 import { employeeAction } from '../../_lib/auth';
+import { TEST_EMAIL, generateEmailHtml } from '../../auth/emailTemplates';
+import { emailBrandOf } from '../../lib/email/brand';
 import { resolveEmailProvider } from '../../lib/email/provider';
 import { sendEmail } from './send';
 
@@ -48,9 +50,8 @@ export const sendTestEmail = employeeAction({
     const provider = await resolveEmailProvider(cfg);
     const result = await sendEmail(provider, {
       to: [{ email: args.to }],
-      subject: '[CRM] E-mail de test',
-      htmlContent:
-        '<p>Ceci est un e-mail de test du CRM. Si vous le recevez, l’envoi d’e-mails fonctionne.</p>',
+      subject: TEST_EMAIL.subject,
+      htmlContent: generateEmailHtml(TEST_EMAIL, await emailBrandOf(ctx, cfg)),
     });
     return {
       to: args.to,
