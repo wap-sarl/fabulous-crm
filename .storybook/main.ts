@@ -1,8 +1,8 @@
 import type { StorybookConfig } from '@storybook/react-vite';
 
-/** The components of the design system, one story file next to each component it documents. */
+/** One story file next to what it documents: the components of the design system, the system e-mails beside the auth widget. */
 const config: StorybookConfig = {
-  stories: ['../src/design-system/**/*.stories.tsx'],
+  stories: ['../src/**/*.stories.tsx'],
   addons: ['@storybook/addon-docs', '@storybook/addon-vitest'],
   framework: '@storybook/react-vite',
   core: { disableTelemetry: true },

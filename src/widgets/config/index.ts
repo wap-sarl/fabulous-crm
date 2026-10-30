@@ -1,5 +1,5 @@
 export { PublicConfigProvider, usePublicConfig } from './ConfigContext';
-export { ImageUploadField } from './ImageUploadField';
+export { ImageUploadField, type UploadedImage } from './ImageUploadField';
 export { ColorPickerField } from './ColorPickerField';
 export {
   applyPrimaryColor,

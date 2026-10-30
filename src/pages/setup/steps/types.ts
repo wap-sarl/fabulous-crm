@@ -1,4 +1,5 @@
 import type { Id } from '@crm/lib/backend';
+import type { UploadedImage } from '@crm/widgets';
 import {
   MAX_SSO_PROVIDER_ID_LENGTH,
   ssoProviderIdOf,
@@ -39,6 +40,7 @@ export type WizardData = {
   admin: { email: string; firstName: string; lastName: string };
   // The storage ids go to `completeSetup`; the preview URLs are transient object URLs, for display in the wizard only.
   logoStorageId?: Id<'_storage'>;
+  logoImage?: UploadedImage;
   logoPreviewUrl?: string;
   faviconStorageId?: Id<'_storage'>;
   faviconPreviewUrl?: string;

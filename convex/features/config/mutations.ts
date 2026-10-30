@@ -59,7 +59,11 @@ export const updateConfig = settingsMutation({
       ...(args.appUrl !== undefined && { appUrl: args.appUrl.replace(/\/+$/, '') }),
       ...(args.senderEmail !== undefined && { senderEmail: args.senderEmail.trim().toLowerCase() }),
       ...(args.senderName !== undefined && { senderName: args.senderName }),
-      ...(args.logoStorageId !== undefined && { logoStorageId: args.logoStorageId }),
+      // A new logo brings what the browser read of it, or clears what was read of the previous one.
+      ...(args.logoStorageId !== undefined && {
+        logoStorageId: args.logoStorageId,
+        logoImage: args.logoImage,
+      }),
       ...(args.faviconStorageId !== undefined && { faviconStorageId: args.faviconStorageId }),
       ...(args.primaryColor !== undefined && { primaryColor: args.primaryColor.toLowerCase() }),
       auth: {

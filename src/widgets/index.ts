@@ -17,7 +17,7 @@ export {
   ContinuePage,
 } from './auth';
 export { PublicConfigProvider, usePublicConfig } from './config';
-export { BrandingHead, ImageUploadField } from './config';
+export { BrandingHead, ImageUploadField, type UploadedImage } from './config';
 export {
   ColorPickerField,
   applyPrimaryColor,

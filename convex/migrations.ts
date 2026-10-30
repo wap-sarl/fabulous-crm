@@ -3,6 +3,7 @@ import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 import type { AppConfig } from './_lib/validators/appConfig';
 import { startStatsCount } from './lib/campaigns/stats';
+import { recordedLogoImage } from './lib/config/logoImage';
 import { pluginsWithData } from './lib/plugins/installed';
 import { decryptSecret, encryptSecret, isEncryptedSecret } from './lib/security/crypto';
 
@@ -109,3 +110,11 @@ export const addPluginsInUse = migrations.define({
 });
 
 export const installPluginsInUse = migrations.runner(internal.migrations.addPluginsInUse);
+
+/** A logo uploaded before its type was recorded keeps its place in the system e-mails: the type is read from the stored file (lib/config/logoImage.ts). */
+export const addLogoType = migrations.define({
+  table: 'appConfig',
+  migrateOne: async (ctx, config) => await recordedLogoImage(ctx, config),
+});
+
+export const recordLogoType = migrations.runner(internal.migrations.addLogoType);

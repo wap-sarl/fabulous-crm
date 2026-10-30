@@ -1,8 +1,4 @@
-const BRAND_COLORS = {
-  primary: '#2dd4bf',
-  secondary: '#003C55',
-  brandGreen: '#0EC17C',
-};
+import { EMAIL_FONT, EMAIL_PALETTE } from './palette';
 
 /** The sender set per deployment (EMAIL_SENDER_NAME, EMAIL_SENDER_EMAIL); the email domain must be a verified Brevo sender. */
 const SENDER = {
@@ -42,8 +38,8 @@ export function wrapEmailHtml(bodyHtml: string): string {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f5;">
-<div style="max-width:600px;margin:0 auto;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:${BRAND_COLORS.secondary};background-color:#ffffff;">
+<body style="margin:0;padding:0;background-color:${EMAIL_PALETTE.canvas};">
+<div style="max-width:600px;margin:0 auto;padding:24px;font-family:${EMAIL_FONT};font-size:16px;line-height:1.5;color:${EMAIL_PALETTE.body};background-color:${EMAIL_PALETTE.card};">
 ${bodyHtml}
 </div>
 </body>

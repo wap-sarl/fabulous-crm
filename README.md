@@ -592,7 +592,7 @@ bun run dev
 | `bun run unused` | knip : exports, types, fichiers et dépendances que rien n'utilise (`knip.ts`) ; la CI échoue s'il en trouve. Ce qu'une surcouche importe est listé dans `tests/*/extensionSurface.test.ts` et compte comme utilisé |
 | `bun run test` | lance les suites `bun:test` |
 | `bun run test:watch` | idem, en mode watch |
-| `bun run storybook` | Storybook du design system sur `localhost:6006`, la référence pour les états et variantes des composants (`src/design-system/**/*.stories.tsx`, config dans `.storybook/`) |
+| `bun run storybook` | Storybook sur `localhost:6006`, la référence pour les états et variantes des composants du design system et pour les aperçus des e-mails système (`src/**/*.stories.tsx`, config dans `.storybook/`) |
 | `bun run storybook:build` | la version statique de ce Storybook → `storybook-static/` (non commité) |
 | `bun run test:stories` | les stories dans un Chromium headless (vitest, `vitest.config.ts`) : ce qu'une story vérifie dans `play` (géométrie, animation) a besoin d'un moteur de rendu (voir Tests) |
 
@@ -619,7 +619,7 @@ aucun dans `convex/` ni `src/`. `tests/setup.ts`, chargé avant chaque fichier
   côtés retrouvent les extensions installées. Aucun test n'écrit sur
   `src/extensions.tsx`.
 
-Les stories du design system (`src/design-system/**/*.stories.tsx`) sont aussi
+Les stories (`src/**/*.stories.tsx`) sont aussi
 des tests : `bun run test:stories` les ouvre une à une dans un Chromium headless
 (vitest en mode navigateur, Playwright) et exécute leur `play`. C'est là que se
 vérifie ce qui a besoin d'un moteur de rendu, une géométrie qui ne bouge pas
@@ -742,6 +742,18 @@ qu'employé existant).
 
 La configuration est stockée dans la table singleton `appConfig` ; les secrets
 (client secrets sociaux et SSO) ne sont jamais renvoyés au navigateur.
+
+Les e-mails système (lien de connexion, invitation, e-mail de test des
+paramètres) partagent un gabarit (`convex/auth/emailTemplates.ts`, palette dans
+`convex/lib/email/palette.ts`) qui prend l'identité du déploiement : le nom de
+l'organisation (ou son logo, s'il est défini dans un format que les messageries
+affichent, PNG, JPEG ou GIF ; un SVG ou un WebP laisse place au nom, et l'objet
+nomme aussi l'organisation), la couleur d'accent des réglages
+d'apparence sur le liseré de la carte et le bouton, dont le texte passe en noir
+sur un accent clair pour garder son contraste, et l'adresse de l'application en
+pied. Tableaux et styles en ligne seulement, lisible sans images ; les aperçus
+sont les stories « E-mails » du Storybook, dont l'une vérifie l'absence de
+débordement à 375 px.
 
 ### SSO / OpenID Connect
 
@@ -931,6 +943,12 @@ Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
   déploiement tient des données (des pages hébergées vivantes), la première
   écriture d'un plugin inscrit cette liste, et la migration ne fait que
   l'inscrire sans attendre.
+- `bunx convex run migrations:recordLogoType --prod` une fois, à la première
+  version dont les e-mails système portent le logo : un logo envoyé avant
+  qu'on en note le type (`logoImage`) ne figurerait dans aucun e-mail. La
+  migration lit le type du fichier stocké ; les proportions restent inconnues
+  (le logo s'affiche par sa hauteur seule) jusqu'au prochain envoi du logo
+  dans les réglages d'apparence, qui les note.
 - `bunx convex run migrations:backfillCampaignStats --prod` une fois, à la
   première version qui tient les compteurs d'une campagne (en attente, ignorés,
   ouverts, cliqués…) : chaque campagne antérieure est comptée depuis ses

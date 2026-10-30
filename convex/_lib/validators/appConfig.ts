@@ -70,6 +70,18 @@ export const timezoneSchema = z.string().refine((name) => {
   }
 });
 
+/** What the browser read of the uploaded logo: its type says whether a mail client can show it, its proportions size it there; an SVG without a size has none. */
+export const logoImageValidator = v.object({
+  contentType: v.string(),
+  width: v.optional(v.number()),
+  height: v.optional(v.number()),
+});
+export const logoImageSchema = z.object({
+  contentType: z.string().regex(/^image\/[\w.+-]+$/),
+  width: z.int().positive().optional(),
+  height: z.int().positive().optional(),
+});
+
 export const appConfigValidator = v.object({
   setupCompletedAt: v.optional(v.number()),
   organizationName: v.string(),
@@ -80,6 +92,7 @@ export const appConfigValidator = v.object({
   senderName: v.string(),
   // Optional so older config docs stay valid under strict schemaValidation; the browser sees resolved URLs, never the storage ids.
   logoStorageId: v.optional(v.id('_storage')),
+  logoImage: v.optional(logoImageValidator),
   faviconStorageId: v.optional(v.id('_storage')),
   // The `--primary` accent as a `#rrggbb` string; unset, theme.css decides, and the derived shades are computed client-side.
   primaryColor: v.optional(v.string()),

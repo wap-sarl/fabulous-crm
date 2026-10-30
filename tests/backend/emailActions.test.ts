@@ -355,7 +355,7 @@ describe('the test e-mail of the settings', () => {
       body: {
         sender: { name: 'Fabulous', email: 'hello@example.com' },
         to: [{ email: 'ada@example.com' }],
-        subject: '[CRM] E-mail de test',
+        subject: '[WAP] E-mail de test',
       },
     });
   });
@@ -421,7 +421,7 @@ describe('the test e-mail of the settings', () => {
     });
     expect(mail.lines).toContain('MAIL FROM:<crm@example.com>');
     expect(mail.lines).toContain('RCPT TO:<ada@example.com>');
-    expect(mail.lines).toContain('Subject: [CRM] E-mail de test');
+    expect(mail.lines).toContain('Subject: [WAP] E-mail de test');
     expect(requests).toEqual([]);
   });
 

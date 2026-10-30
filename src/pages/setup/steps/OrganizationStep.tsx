@@ -63,8 +63,8 @@ export function OrganizationStep({ data, update, error }: StepProps) {
           hint="Fond transparent recommandé."
           currentUrl={data.logoPreviewUrl}
           onGetUploadUrl={getUploadUrl}
-          onUploaded={(storageId, previewUrl) =>
-            update({ logoStorageId: storageId, logoPreviewUrl: previewUrl })
+          onUploaded={(storageId, previewUrl, image) =>
+            update({ logoStorageId: storageId, logoImage: image, logoPreviewUrl: previewUrl })
           }
         />
         <ImageUploadField

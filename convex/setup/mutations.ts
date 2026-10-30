@@ -1,4 +1,5 @@
 import { emailSchema, follows, hexColorSchema, httpUrlSchema } from '../_lib/validators/fields';
+import { logoImageSchema, logoImageValidator } from '../_lib/validators/appConfig';
 import { refusal } from '../_lib/refusal';
 import { v } from 'convex/values';
 import { mutation } from '../_generated/server';
@@ -47,6 +48,7 @@ export const completeSetup = mutation({
       lastName: v.string(),
     }),
     logoStorageId: v.optional(v.id('_storage')),
+    logoImage: v.optional(logoImageValidator),
     faviconStorageId: v.optional(v.id('_storage')),
     primaryColor: v.optional(v.string()),
   },
@@ -70,6 +72,9 @@ export const completeSetup = mutation({
     if (!follows(httpUrlSchema, args.appUrl)) throw refusal('invalid_app_url');
     if (args.primaryColor !== undefined && !follows(hexColorSchema, args.primaryColor)) {
       throw refusal('invalid_primary_color');
+    }
+    if (args.logoImage !== undefined && !follows(logoImageSchema, args.logoImage)) {
+      throw refusal('invalid_logo_image');
     }
     const hasSocial = (args.auth.socialProviders ?? []).some((sp) => sp.enabled);
     const hasSso = args.auth.ssoProviders.some((p) => p.enabled);
@@ -120,7 +125,10 @@ export const completeSetup = mutation({
       appUrl: args.appUrl.replace(/\/+$/, ''),
       senderEmail,
       senderName: args.senderName.trim(),
-      ...(args.logoStorageId && { logoStorageId: args.logoStorageId }),
+      ...(args.logoStorageId && {
+        logoStorageId: args.logoStorageId,
+        ...(args.logoImage && { logoImage: args.logoImage }),
+      }),
       ...(args.faviconStorageId && { faviconStorageId: args.faviconStorageId }),
       ...(args.primaryColor && { primaryColor: args.primaryColor.toLowerCase() }),
       // Written empty on purpose: a config without the field is from before the plugins and counts the plugins whose data exists.
