@@ -5,12 +5,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* The viewport's height: the dynamic one where the browser knows it (the bars of a phone come and go), the static one before. */
-@utility h-viewport {
-  height: 100vh;
-  height: 100dvh;
-}
-
 @plugin "@tailwindcss/typography";
 
 /* Dark mode is class-driven only; no `.dark` class is ever applied, so the
