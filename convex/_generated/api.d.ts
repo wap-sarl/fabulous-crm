@@ -194,6 +194,7 @@ import type * as lib_companies_lookup from "../lib/companies/lookup.js";
 import type * as lib_companies_search from "../lib/companies/search.js";
 import type * as lib_config_appUrl from "../lib/config/appUrl.js";
 import type * as lib_config_load from "../lib/config/load.js";
+import type * as lib_config_logoImage from "../lib/config/logoImage.js";
 import type * as lib_config_settings from "../lib/config/settings.js";
 import type * as lib_connectors_oauth from "../lib/connectors/oauth.js";
 import type * as lib_consent_choice from "../lib/consent/choice.js";
@@ -471,6 +472,7 @@ declare const fullApi: ApiFromModules<{
   "lib/companies/search": typeof lib_companies_search;
   "lib/config/appUrl": typeof lib_config_appUrl;
   "lib/config/load": typeof lib_config_load;
+  "lib/config/logoImage": typeof lib_config_logoImage;
   "lib/config/settings": typeof lib_config_settings;
   "lib/connectors/oauth": typeof lib_connectors_oauth;
   "lib/consent/choice": typeof lib_consent_choice;

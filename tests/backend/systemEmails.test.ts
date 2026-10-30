@@ -8,6 +8,7 @@ import {
   generateEmailHtml,
   subjectOf,
 } from '../../convex/auth/emailTemplates';
+import { recordedLogoImage } from '../../convex/lib/config/logoImage';
 import { emailBrandOf } from '../../convex/lib/email/brand';
 import { EMAIL_PALETTE, accentOf, contrastOf, readableOn } from '../../convex/lib/email/palette';
 
@@ -174,5 +175,40 @@ describe('the brand read from the configuration', () => {
     expect(brand.organizationName).toBe('CRM');
     expect(brand.logo).toBeNull();
     expect(brand.primaryColor).toBeNull();
+  });
+});
+
+describe('the migration that records the type of a logo stored before logoImage', () => {
+  const storageId = 'kg2logo' as Id<'_storage'>;
+  const withFile = (file: { contentType?: string } | null) =>
+    ({ db: { system: { get: async () => file } } }) as never;
+  const config = (fields: Partial<Doc<'appConfig'>>) =>
+    ({ organizationName: 'Clinique Nord', ...fields }) as Doc<'appConfig'>;
+
+  test('the stored file’s type is written, proportions unknown', async () => {
+    expect(
+      await recordedLogoImage(
+        withFile({ contentType: 'image/svg+xml' }),
+        config({ logoStorageId: storageId }),
+      ),
+    ).toEqual({ logoImage: { contentType: 'image/svg+xml' } });
+  });
+
+  test('nothing for a config without a logo, one already described, or a file without a type', async () => {
+    expect(
+      await recordedLogoImage(withFile({ contentType: 'image/png' }), config({})),
+    ).toBeUndefined();
+    expect(
+      await recordedLogoImage(
+        withFile({ contentType: 'image/png' }),
+        config({ logoStorageId: storageId, logoImage: { contentType: 'image/webp' } }),
+      ),
+    ).toBeUndefined();
+    expect(
+      await recordedLogoImage(withFile({}), config({ logoStorageId: storageId })),
+    ).toBeUndefined();
+    expect(
+      await recordedLogoImage(withFile(null), config({ logoStorageId: storageId })),
+    ).toBeUndefined();
   });
 });

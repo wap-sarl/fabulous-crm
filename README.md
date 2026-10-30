@@ -943,6 +943,12 @@ Image multi-stage : build bun (tsc + vite) → `caddy:2-alpine` servant `dist/`
   déploiement tient des données (des pages hébergées vivantes), la première
   écriture d'un plugin inscrit cette liste, et la migration ne fait que
   l'inscrire sans attendre.
+- `bunx convex run migrations:recordLogoType --prod` une fois, à la première
+  version dont les e-mails système portent le logo : un logo envoyé avant
+  qu'on en note le type (`logoImage`) ne figurerait dans aucun e-mail. La
+  migration lit le type du fichier stocké ; les proportions restent inconnues
+  (le logo s'affiche par sa hauteur seule) jusqu'au prochain envoi du logo
+  dans les réglages d'apparence, qui les note.
 - `bunx convex run migrations:backfillCampaignStats --prod` une fois, à la
   première version qui tient les compteurs d'une campagne (en attente, ignorés,
   ouverts, cliqués…) : chaque campagne antérieure est comptée depuis ses
