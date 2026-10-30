@@ -5,8 +5,13 @@ import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import { cn } from '../../theme/utils';
 import { usePortalContainer } from '../portal-container';
 
-function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />;
+/** Inside a form, Radix renders a hidden native select after the trigger, a sibling in the trigger's column; Tailwind's `space-y-*` would then give the trigger the margin of a non-last child and push it up beside an input. The children sit in a box-less wrapper (`display: contents`), so the native select is the wrapper's sibling, not the trigger's. */
+function Select({ children, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
+  return (
+    <SelectPrimitive.Root data-slot="select" {...props}>
+      <div className="contents">{children}</div>
+    </SelectPrimitive.Root>
+  );
 }
 
 function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.Group>) {
