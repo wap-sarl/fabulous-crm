@@ -23,7 +23,7 @@ const DEFAULT_BRAND: EmailBrand = {
 
 const CONFIGURED_BRAND: EmailBrand = {
   organizationName: 'Clinique Nord',
-  logoUrl: LOGO,
+  logo: { url: LOGO, width: 160, height: 32 },
   primaryColor: '#003c55',
   appUrl: 'https://crm.clinique-nord.example',
 };
@@ -78,7 +78,7 @@ export const LoginLightAccent: Story = {
 /** With images off, the logo's place shows the organisation's name; the accent edge is a border, not an image. */
 export const LoginImagesOff: Story = {
   name: 'Login, images off',
-  args: { brand: { ...CONFIGURED_BRAND, logoUrl: 'https://images.invalid/logo.png' } },
+  args: { brand: { ...CONFIGURED_BRAND, logo: { url: 'https://images.invalid/logo.png' } } },
 };
 
 export const Invitation: Story = {

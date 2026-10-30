@@ -38,9 +38,9 @@ export function contrastOf(a: string, b: string): number {
   return (light + 0.05) / (dark + 0.05);
 }
 
-/** The text colour that reads best on an accent: white on a dark one, ink on a light one. */
+/** The text colour that reads best on an accent: white on a dark one, black on a light one. Black, not ink: with it the worse of the two is 4.58:1 on the worst accent, 4.25:1 with ink. */
 export function readableOn(background: string): string {
-  return contrastOf(background, '#ffffff') >= contrastOf(background, EMAIL_PALETTE.ink)
+  return contrastOf(background, '#ffffff') >= contrastOf(background, '#000000')
     ? '#ffffff'
-    : EMAIL_PALETTE.ink;
+    : '#000000';
 }

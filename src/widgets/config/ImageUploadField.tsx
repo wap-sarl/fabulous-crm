@@ -6,6 +6,27 @@ import { ImageIcon } from 'lucide-react';
 const DEFAULT_ACCEPT = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp'];
 const DEFAULT_MAX_BYTES = 1024 * 1024; // 1 MB
 
+/** What the browser knows of an uploaded image: the type it sent, the intrinsic size when the image has one (an SVG may not). */
+export interface UploadedImage {
+  contentType: string;
+  width?: number;
+  height?: number;
+}
+
+/** The intrinsic size, from the browser's own decoding; nothing for an image it cannot size. */
+const sizeOf = (url: string) =>
+  new Promise<Pick<UploadedImage, 'width' | 'height'>>((resolve) => {
+    const image = new Image();
+    image.onload = () =>
+      resolve(
+        image.naturalWidth && image.naturalHeight
+          ? { width: image.naturalWidth, height: image.naturalHeight }
+          : {},
+      );
+    image.onerror = () => resolve({});
+    image.src = url;
+  });
+
 export interface ImageUploadFieldProps {
   label: string;
   /** A recommendation the field does not check (a transparent background, a square); the formats and the ceiling are said by the zone. */
@@ -19,7 +40,7 @@ export interface ImageUploadFieldProps {
   /** Returns a fresh Convex upload URL (setup-token or admin mutation). */
   onGetUploadUrl: () => Promise<string>;
   /** Called once the upload succeeds; the preview is a local object URL, valid until the page reloads. */
-  onUploaded: (storageId: Id<'_storage'>, previewUrl: string) => void;
+  onUploaded: (storageId: Id<'_storage'>, previewUrl: string, image: UploadedImage) => void;
   /** Preview shape: 'square' (favicon) or 'wide' (logo). */
   shape?: 'square' | 'wide';
 }
@@ -58,7 +79,7 @@ export function ImageUploadField({
         if (prev?.startsWith('blob:')) URL.revokeObjectURL(prev);
         return objectUrl;
       });
-      onUploaded(storageId, objectUrl);
+      onUploaded(storageId, objectUrl, { contentType: file.type, ...(await sizeOf(objectUrl)) });
     } catch {
       URL.revokeObjectURL(objectUrl);
       setError('L’envoi du fichier a échoué ; l’image précédente est conservée. Réessayez.');

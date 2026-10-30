@@ -149,7 +149,7 @@ export function SetupWizardPage() {
             .map(socialDraftToConfig),
         },
         admin: data.admin,
-        ...(data.logoStorageId && { logoStorageId: data.logoStorageId }),
+        ...(data.logoStorageId && { logoStorageId: data.logoStorageId, logoImage: data.logoImage }),
         ...(data.faviconStorageId && { faviconStorageId: data.faviconStorageId }),
         ...(data.primaryColor && { primaryColor: data.primaryColor }),
       });

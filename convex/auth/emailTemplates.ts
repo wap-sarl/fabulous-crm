@@ -2,11 +2,18 @@ import { EMAIL_FONT, EMAIL_PALETTE, accentOf, readableOn } from '../lib/email/pa
 
 /** Kept free of `'use node'` and of business logic, so standalone tooling (the Storybook previews, the tests) can import the templates without the Convex action runtime. */
 
+/** A logo a mail client displays, with the proportions the browser read at upload when it could. */
+export interface EmailLogo {
+  url: string;
+  width?: number;
+  height?: number;
+}
+
 /** How the deployment presents itself in a system e-mail; `emailBrandOf` (lib/email/brand.ts) reads it from the config. */
 export interface EmailBrand {
   organizationName: string;
   /** Shown 32px high above the card; without one the organisation's name stands as a wordmark. */
-  logoUrl?: string | null;
+  logo?: EmailLogo | null;
   /** The `#rrggbb` accent of the branding settings; absent or malformed, the theme's default. */
   primaryColor?: string | null;
   /** The app's origin, without a trailing slash: named in the footer. */
@@ -14,6 +21,7 @@ export interface EmailBrand {
 }
 
 export interface EmailContent {
+  /** Without the organisation: `subjectOf` puts it in front, as the body carries it. */
   subject: string;
   title: string;
   intro: string;
@@ -25,7 +33,7 @@ export interface EmailContent {
 }
 
 export const LOGIN_EMAIL: EmailContent = {
-  subject: '[CRM] Votre lien de connexion',
+  subject: 'Votre lien de connexion',
   title: 'Connexion à votre espace CRM',
   intro: 'Cliquez sur le bouton ci-dessous pour accéder à votre espace CRM.',
   cta: 'Se connecter',
@@ -34,7 +42,7 @@ export const LOGIN_EMAIL: EmailContent = {
 };
 
 export const INVITE_EMAIL: EmailContent = {
-  subject: '[CRM] Vous êtes invité·e à rejoindre l’espace CRM',
+  subject: 'Vous êtes invité·e à rejoindre l’espace CRM',
   title: 'Invitation à l’espace CRM',
   intro:
     'Vous avez été invité·e à rejoindre l’espace CRM. Cliquez sur le bouton ci-dessous, puis connectez-vous avec cette adresse e-mail pour activer votre accès.',
@@ -43,11 +51,24 @@ export const INVITE_EMAIL: EmailContent = {
 };
 
 export const TEST_EMAIL: EmailContent = {
-  subject: '[CRM] E-mail de test',
+  subject: 'E-mail de test',
   title: 'E-mail de test',
   intro:
     'Cet e-mail a été envoyé depuis les paramètres du CRM pour vérifier l’envoi. Si vous le lisez, la configuration fonctionne.',
   disclaimer: 'Aucune action n’est attendue de votre part.',
+};
+
+/** « [Organisation] Objet »: the subject names the organisation as the body does. */
+export const subjectOf = (content: EmailContent, brand: EmailBrand) =>
+  `[${brand.organizationName}] ${content.subject}`;
+
+/** 32 px high and 240 px wide at most, as attributes: Outlook sizes an image by them, not by its CSS, and shows a logo of unknown proportions at its natural width. */
+const logoSizeOf = (logo: EmailLogo) => {
+  if (!logo.width || !logo.height) return { height: 32 };
+  const width = Math.round((32 * logo.width) / logo.height);
+  return width > 240
+    ? { width: 240, height: Math.round((240 * logo.height) / logo.width) }
+    : { width, height: 32 };
 };
 
 /** For text and attribute values alike: the organisation's name and the URLs come from the configuration, not from the template. */
@@ -75,9 +96,11 @@ export function generateEmailHtml(content: EmailContent, brand: EmailBrand, link
   const accent = accentOf(brand.primaryColor);
   const name = escapeHtml(brand.organizationName);
   const href = link ? escapeHtml(link) : null;
-  const mark = brand.logoUrl
-    ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${name}" height="32" style="display: block; height: 32px; width: auto; max-width: 240px; border: 0; font-family: ${EMAIL_FONT}; font-size: 17px; font-weight: 700; color: ${EMAIL_PALETTE.ink};">`
-    : `<span style="font-family: ${EMAIL_FONT}; font-size: 17px; line-height: 32px; font-weight: 700; letter-spacing: -0.01em; color: ${EMAIL_PALETTE.ink};">${name}</span>`;
+  const size = brand.logo ? logoSizeOf(brand.logo) : null;
+  const mark =
+    brand.logo && size
+      ? `<img src="${escapeHtml(brand.logo.url)}" alt="${name}" height="${size.height}"${size.width ? ` width="${size.width}"` : ''} style="display: block; height: ${size.height}px; width: ${size.width ? `${size.width}px` : 'auto'}; max-width: 240px; border: 0; font-family: ${EMAIL_FONT}; font-size: 17px; font-weight: 700; color: ${EMAIL_PALETTE.ink};">`
+      : `<span style="font-family: ${EMAIL_FONT}; font-size: 17px; line-height: 32px; font-weight: 700; letter-spacing: -0.01em; color: ${EMAIL_PALETTE.ink};">${name}</span>`;
   const button =
     content.cta && href
       ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate; margin: 0 0 20px;">

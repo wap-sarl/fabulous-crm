@@ -7,7 +7,7 @@ import { settingsMutation } from '../../_lib/auth';
 import { isEmailWhitelisted } from '../../lib/shared/devWhitelist';
 import { isEmailProviderConfigured, resolveEmailProvider } from '../../lib/email/provider';
 import { logAudit } from '../../lib/audit/log';
-import { INVITE_EMAIL, generateEmailHtml } from '../../auth/emailTemplates';
+import { INVITE_EMAIL, generateEmailHtml, subjectOf } from '../../auth/emailTemplates';
 import { emailBrandOf } from '../../lib/email/brand';
 import { invitationRoleValidator } from '../../_lib/validators/invitations';
 import { DEFAULT_ROLES } from '../../_lib/validators/roles';
@@ -21,7 +21,7 @@ async function scheduleInviteEmail(ctx: MutationCtx, email: string) {
   const brand = await emailBrandOf(ctx, await ctx.db.query('appConfig').first());
   await ctx.scheduler.runAfter(0, internal.features.email.actions.sendProviderEmail, {
     to: email,
-    subject: INVITE_EMAIL.subject,
+    subject: subjectOf(INVITE_EMAIL, brand),
     htmlContent: generateEmailHtml(INVITE_EMAIL, brand, brand.appUrl),
   });
 }

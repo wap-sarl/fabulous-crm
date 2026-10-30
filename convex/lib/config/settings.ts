@@ -1,4 +1,5 @@
 import { boundedInt, follows, hexColorSchema } from '../../_lib/validators/fields';
+import { logoImageSchema, logoImageValidator } from '../../_lib/validators/appConfig';
 import { refusal } from '../../_lib/refusal';
 import { type ObjectType, v } from 'convex/values';
 import { internal } from '../../_generated/api';
@@ -79,6 +80,7 @@ export const settingsArgs = {
   ssoProviders: v.optional(v.array(ssoProviderInput)),
   socialProviders: v.optional(v.array(socialProviderInput)),
   logoStorageId: v.optional(v.id('_storage')),
+  logoImage: v.optional(logoImageValidator),
   faviconStorageId: v.optional(v.id('_storage')),
   primaryColor: v.optional(v.string()),
   email: v.optional(emailConfigInput),
@@ -107,6 +109,9 @@ const keepSecret = async (incoming: string | undefined, existing: string | undef
 export function checkSettings(cfg: Config, args: SettingsArgs): void {
   if (args.primaryColor !== undefined && !follows(hexColorSchema, args.primaryColor)) {
     throw refusal('invalid_primary_color');
+  }
+  if (args.logoImage !== undefined && !follows(logoImageSchema, args.logoImage)) {
+    throw refusal('invalid_logo_image');
   }
   if (args.timezone !== undefined && !follows(timezoneSchema, args.timezone)) {
     throw refusal('invalid_timezone');

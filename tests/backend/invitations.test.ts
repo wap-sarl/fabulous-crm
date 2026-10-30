@@ -163,11 +163,16 @@ describe('sending an invitation again', () => {
         metadata: { email: GUEST, event: 'resent' },
       },
     ]);
-    expect(await pendingMails(t)).toMatchObject([{ to: GUEST, subject: INVITE_EMAIL.subject }]);
+    expect(await pendingMails(t)).toMatchObject([
+      { to: GUEST, subject: `[WAP] ${INVITE_EMAIL.subject}` },
+    ]);
 
     await runDue(t);
     expect(mails).toHaveLength(1);
-    expect(mails[0]).toMatchObject({ to: [{ email: GUEST }], subject: INVITE_EMAIL.subject });
+    expect(mails[0]).toMatchObject({
+      to: [{ email: GUEST }],
+      subject: `[WAP] ${INVITE_EMAIL.subject}`,
+    });
     // The button leads to the app, its trailing slash dropped.
     expect(mails[0].htmlContent).toContain('href="https://crm.example.com"');
   });

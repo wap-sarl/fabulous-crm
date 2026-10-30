@@ -20,7 +20,7 @@ import { appOrigin, appOrigins } from './lib/config/appUrl';
 import { isEmailWhitelisted } from './lib/shared/devWhitelist';
 import { logAudit } from './lib/audit/log';
 import { serializeUser } from './lib/users/serialize';
-import { LOGIN_EMAIL, generateEmailHtml } from './auth/emailTemplates';
+import { LOGIN_EMAIL, generateEmailHtml, subjectOf } from './auth/emailTemplates';
 import { emailBrandOf } from './lib/email/brand';
 import { internalAction, internalMutation, internalQuery, query } from './_generated/server';
 import { resolveRoleAccess } from './lib/roles/access';
@@ -224,7 +224,7 @@ export const deliverSignInCode = internalAction({
     // Dispatch through the active email provider (Brevo API or SMTP); the sender is resolved inside the action.
     await ctx.runAction(internal.features.email.actions.sendProviderEmail, {
       to: email,
-      subject: LOGIN_EMAIL.subject,
+      subject: subjectOf(LOGIN_EMAIL, brand),
       htmlContent: generateEmailHtml(
         LOGIN_EMAIL,
         brand,

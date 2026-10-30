@@ -118,6 +118,28 @@ describe('settings: the plain fields', () => {
     expect(await audits(t)).toEqual([]);
   });
 
+  test('a logo comes with what the browser read of it, which a next logo replaces or clears; nonsense is refused', async () => {
+    const { t, update } = await setup();
+    const blob = () => t.run((ctx) => ctx.storage.store(new Blob(['x'])));
+    const logo = await blob();
+    await update({
+      logoStorageId: logo,
+      logoImage: { contentType: 'image/png', width: 600, height: 120 },
+    });
+    expect(await stored(t)).toMatchObject({
+      logoStorageId: logo,
+      logoImage: { contentType: 'image/png', width: 600, height: 120 },
+    });
+    await update({ logoStorageId: await blob() });
+    expect((await stored(t)).logoImage).toBeUndefined();
+    await expect(
+      update({ logoStorageId: await blob(), logoImage: { contentType: 'text/html', width: 1 } }),
+    ).rejects.toThrow(/invalid_logo_image/);
+    await expect(
+      update({ logoStorageId: await blob(), logoImage: { contentType: 'image/png', width: 0.5 } }),
+    ).rejects.toThrow(/invalid_logo_image/);
+  });
+
   test('a new logo or favicon removes the file it replaces, the same one is kept', async () => {
     const { t, update } = await setup();
     const blob = () => t.run((ctx) => ctx.storage.store(new Blob(['x'])));

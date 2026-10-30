@@ -6,7 +6,7 @@ import { v } from 'convex/values';
 import { internalAction } from '../../_generated/server';
 import { internal } from '../../_generated/api';
 import { employeeAction } from '../../_lib/auth';
-import { TEST_EMAIL, generateEmailHtml } from '../../auth/emailTemplates';
+import { TEST_EMAIL, generateEmailHtml, subjectOf } from '../../auth/emailTemplates';
 import { emailBrandOf } from '../../lib/email/brand';
 import { resolveEmailProvider } from '../../lib/email/provider';
 import { sendEmail } from './send';
@@ -48,10 +48,11 @@ export const sendTestEmail = employeeAction({
   handler: async (ctx, args) => {
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
     const provider = await resolveEmailProvider(cfg);
+    const brand = await emailBrandOf(ctx, cfg);
     const result = await sendEmail(provider, {
       to: [{ email: args.to }],
-      subject: TEST_EMAIL.subject,
-      htmlContent: generateEmailHtml(TEST_EMAIL, await emailBrandOf(ctx, cfg)),
+      subject: subjectOf(TEST_EMAIL, brand),
+      htmlContent: generateEmailHtml(TEST_EMAIL, brand),
     });
     return {
       to: args.to,

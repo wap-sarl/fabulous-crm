@@ -746,7 +746,9 @@ La configuration est stockée dans la table singleton `appConfig` ; les secrets
 Les e-mails système (lien de connexion, invitation, e-mail de test des
 paramètres) partagent un gabarit (`convex/auth/emailTemplates.ts`, palette dans
 `convex/lib/email/palette.ts`) qui prend l'identité du déploiement : le nom de
-l'organisation (ou son logo, s'il est défini), la couleur d'accent des réglages
+l'organisation (ou son logo, s'il est défini dans un format que les messageries
+affichent, PNG, JPEG ou GIF ; un SVG ou un WebP laisse place au nom, et l'objet
+nomme aussi l'organisation), la couleur d'accent des réglages
 d'apparence sur le liseré de la carte et le bouton, dont le texte passe en noir
 sur un accent clair pour garder son contraste, et l'adresse de l'application en
 pied. Tableaux et styles en ligne seulement, lisible sans images ; les aperçus

@@ -7,6 +7,7 @@ import {
   ColorPickerField,
   applyPrimaryColor,
   resetPrimaryColor,
+  type UploadedImage,
 } from '@crm/widgets';
 import { Button, Card, Spinner } from '@crm/design-system';
 
@@ -18,6 +19,7 @@ export function BrandingManager() {
   // Uploaded storage ids / picked color not yet persisted.
   const [pending, setPending] = useState<{
     logoStorageId?: Id<'_storage'>;
+    logoImage?: UploadedImage;
     faviconStorageId?: Id<'_storage'>;
     primaryColor?: string;
   }>({});
@@ -66,8 +68,8 @@ export function BrandingManager() {
           hint="Fond transparent recommandé."
           currentUrl={config?.logoUrl}
           onGetUploadUrl={getUploadUrl}
-          onUploaded={(storageId) => {
-            setPending((p) => ({ ...p, logoStorageId: storageId }));
+          onUploaded={(storageId, _previewUrl, image) => {
+            setPending((p) => ({ ...p, logoStorageId: storageId, logoImage: image }));
             setSuccess(false);
           }}
         />
