@@ -93,30 +93,53 @@ export const InAFormRow: Story = {
   },
 };
 
-/** Stacked fields: a select field takes the same height as an input field, so the rhythm of a form does not change where a select stands. */
+/** Stacked fields in a block column (`space-y-4`) and in a flex column (`flex-col gap-4`, the invite form on a phone): the gap after a select field is the gap after an input field. */
 export const StackedInAForm: Story = {
   name: 'Stacked in a form',
   render: () => (
-    <form className="max-w-sm space-y-4" noValidate>
-      <div className="space-y-2" data-field="input">
-        <Label htmlFor="stacked-email">Adresse e-mail</Label>
-        <Input id="stacked-email" type="email" />
-      </div>
-      <div className="space-y-2" data-field="select">
-        <Label>Rôle</Label>
-        <RoleSelect />
-      </div>
-      <div className="space-y-2" data-field="input-after">
-        <Label htmlFor="stacked-name">Nom</Label>
-        <Input id="stacked-name" />
-      </div>
-    </form>
+    <div className="flex gap-8">
+      {(['block', 'flex'] as const).map((layout) => (
+        <form
+          key={layout}
+          data-layout={layout}
+          className={layout === 'block' ? 'w-64 space-y-4' : 'flex w-64 flex-col gap-4'}
+          noValidate
+        >
+          <div className="space-y-2" data-field="input">
+            <Label htmlFor={`stacked-email-${layout}`}>Adresse e-mail</Label>
+            <Input id={`stacked-email-${layout}`} type="email" />
+          </div>
+          <div className="space-y-2" data-field="after-input">
+            <Label htmlFor={`stacked-name-${layout}`}>Nom</Label>
+            <Input id={`stacked-name-${layout}`} />
+          </div>
+          <div className="space-y-2" data-field="select">
+            <Label>Rôle</Label>
+            <RoleSelect />
+          </div>
+          <div className="space-y-2" data-field="after-select">
+            <Label htmlFor={`stacked-city-${layout}`}>Ville</Label>
+            <Input id={`stacked-city-${layout}`} />
+          </div>
+        </form>
+      ))}
+    </div>
   ),
   play: async ({ canvasElement }) => {
-    const heightOf = (field: string) =>
-      Math.round(
-        canvasElement.querySelector(`[data-field="${field}"]`)!.getBoundingClientRect().height,
-      );
-    await expect(heightOf('select')).toBe(heightOf('input'));
+    for (const form of canvasElement.querySelectorAll('form')) {
+      const control = (field: string) =>
+        form.querySelector(`[data-field="${field}"] :is(input, [data-slot="select-trigger"])`)!;
+      const gapAfter = (field: string, next: string) =>
+        Math.round(
+          control(next).getBoundingClientRect().top - control(field).getBoundingClientRect().bottom,
+        );
+      await expect({
+        layout: form.dataset.layout,
+        gap: gapAfter('select', 'after-select'),
+      }).toEqual({
+        layout: form.dataset.layout,
+        gap: gapAfter('input', 'after-input'),
+      });
+    }
   },
 };
