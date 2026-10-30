@@ -229,7 +229,7 @@ export function DashboardLayout({
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden">
+    <div className="flex min-h-0 flex-1 overflow-hidden">
       {/* Desktop sidebar */}
       <aside className="hidden w-[236px] shrink-0 border-r border-[#EAECF0] bg-card lg:block">
         <SidebarContent

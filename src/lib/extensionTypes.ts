@@ -12,7 +12,7 @@ export interface FrontendExtensions {
   routes: ExtensionRoute[];
   /** Same visibility rules as the built-in items: `requires: 'settings'` hides it from non-admins. */
   navItems: ShellNavItem[];
-  /** Wraps the whole authenticated shell; may render something else instead of its children. */
+  /** Wraps the whole authenticated shell, inside a column of the viewport's height: what it renders before or after `children` takes its own height and the shell takes the rest; it may render something else instead of its children, which then takes the whole column. */
   ShellGuard: ComponentType<{ children: ReactNode }> | null;
   /** A user message for one of the overlay's refusal codes (`describeError`), null for the rest: match codes exactly, other errors' messages pass through here too. */
   describeRefusal?: (refusal: Refusal) => string | null;

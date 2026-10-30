@@ -70,5 +70,6 @@ export function DashboardShell() {
       </Suspense>
     </DashboardLayout>
   );
-  return Guard ? <Guard>{shell}</Guard> : shell;
+  // The column owns the viewport's height: what a guard renders above the shell takes its own height, the shell takes the rest.
+  return <div className="flex h-dvh flex-col">{Guard ? <Guard>{shell}</Guard> : shell}</div>;
 }

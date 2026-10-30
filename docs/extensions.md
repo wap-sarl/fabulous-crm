@@ -195,7 +195,10 @@ rolls the caller back. Keep them cheap; they run on every call.
   (a key of the core's catalogue, `convex/_lib/validators/plugins.ts`): it is shown only while
   that plugin is installed. The catalogue is the core's; an overlay adds no plugin to it.
 - `ShellGuard`: a component wrapping the shell; render `children` to show the app, or
-  something else (a billing page, a maintenance notice) to replace it.
+  something else (a billing page, a maintenance notice) to replace it. It renders inside a
+  column of the viewport's height: a banner rendered before `children` takes its own height
+  and the shell takes the rest, so nothing scrolls the document; a replacement takes the
+  whole column (`flex-1`, not `min-h-screen`).
 - `describeRefusal`: optional; turns one of the overlay's refusal codes (with the ConvexError
   data) into a user message, null for codes it does not own. The login page asks it first for
   every sign-in error (`describeSignInError`), with the error's message then its code: a

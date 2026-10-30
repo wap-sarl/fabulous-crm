@@ -38,6 +38,17 @@ export function usePublicConfig() {
   return ctx;
 }
 
+/** The same context with a config given: the stories and tests of what reads it, with no deployment behind. */
+export function StaticPublicConfigProvider({
+  config,
+  children,
+}: {
+  config: PublicConfig | undefined;
+  children: ReactNode;
+}) {
+  return <ConfigContext.Provider value={{ config }}>{children}</ConfigContext.Provider>;
+}
+
 /** The public config is readable before sign-in, and reactive: when setup completes in another tab, every consumer re-renders. */
 export function PublicConfigProvider({ children }: { children: ReactNode }) {
   const config = useQuery(api.features.config.queries.getPublicConfig);
