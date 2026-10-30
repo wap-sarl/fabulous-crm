@@ -1,4 +1,5 @@
 export { DashboardLayout, type NavItem } from './layouts/DashboardLayout';
+export { ShellFrame } from './layouts/ShellFrame';
 export { ErrorNotFoundPage } from './pages/ErrorNotFoundPage';
 export { ConvexProvider } from './providers/ConvexProvider';
 export {
