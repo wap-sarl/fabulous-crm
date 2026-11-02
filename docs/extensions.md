@@ -25,7 +25,7 @@ tables; everything else in the repository stays untouched.
 | `beforeSend(ctx, info)` | campaigns at four stages — `create` (`count: 1`, before any recipient is materialised, and again when a scheduled campaign starts: refused, it goes back to `draft` with the code in `failureReason`), `preparing` (each 200-lead preparation page, `count` = recipients with a contact so far; also the start of a resend of all, `count` = the campaign's recipients, and each of its 200-send pages but the last, `count` = sends re-queued so far), `prepared` (last preparation page, final count) and `resend` (retry of one send, `count: 1`, or the last page of a resend of all, `count` = sends re-queued) — and each workflow send step (`count: 1`) | throw to refuse: `create`, a retry and the start of a resend propagate the error to the caller; a preparation or resend page marks the campaign `failed` with the code in `failureReason` (a resend page first fails what it re-queued, with the code); a workflow step is logged `skipped` with the code |
 | `beforeWorkflowRun(ctx, workflow)` | every enrollment | `false` skips the enrollment; the host write succeeds |
 | `beforeApiRequest(ctx, key, method)` | after API authentication and rate limits | a `{ status, code, message, details? }` answers instead of the route |
-| `beforeScheduledWork(ctx, { kind })` | the background entry points: `campaign_prepare` (`prepareCampaignBatch`, and `resendCampaignBatch` which re-queues the sends of a resend), `campaign_drain` (`sendCampaignBatch`), `workflow_step` (`executeStep`), `workflow_action` (`runWorkflowActionStep`), `retention_purge` (the nightly purge, `features/retention/internal.ts`; deferred, it deletes nothing) | `false` defers: the same function is rescheduled `SCHEDULED_WORK_RETRY_MS` (15 min) later and nothing changes, so background work pauses and resumes on its own |
+| `beforeScheduledWork(ctx, { kind })` | the background entry points: `campaign_prepare` (`prepareCampaignBatch`, and `resendCampaignBatch` which re-queues the sends of a resend), `campaign_drain` (`sendCampaignBatch`), `workflow_step` (`executeStep`), `workflow_action` (`runWorkflowActionStep`), `retention_purge` (the nightly purge, `features/retention/internal.ts`; deferred, it deletes nothing), `notification_fan_out` (`features/notifications/internal.ts`, the fan-out that turns the facts of `notificationEvents` into inbox rows; deferred, the facts wait) | `false` defers: the same function is rescheduled `SCHEDULED_WORK_RETRY_MS` (15 min) later and nothing changes, so background work pauses and resumes on its own |
 | `afterChange(ctx, change)` | through `notifyChange` in `convex/lib/extensions/observers.ts`: `logAudit` (every audited write of any entity: UI, public API, CSV import, workflows, system events) and `insertLifecycleHistory` (every lifecycle transition, whatever moved the lead) | none: an observer. It runs in the writer's transaction; what it throws is swallowed and traced, the write stands (see Changes) |
 | `registerHttpRoutes(http)` | `convex/http.ts`, after the features' own routes and before the `/api/v1/` routes | register extra routes |
 
@@ -102,6 +102,13 @@ The core does not alert. A failure is logged (`afterChange failed`) and leaves o
 hour so a failing hook under a large import cannot flood the table, and the cap is looked up
 once per mutation, so that import does not pay one read per row either. An overlay that must not
 lose events watches that row, or its own outbox, itself.
+
+**The core listens too.** `notifyChange` first hands the change to the core's own listener,
+`lib/notifications/observe.ts`, which turns the assignments, the stage changes and the accepted
+invitations into notifications for the people they concern (one `notificationEvents` row in the
+transaction, the fan-out scheduled once per mutation), then to `afterChange`. The two are
+independent: what one throws is logged and never reaches the other nor the writer. Record-level
+events for machines stay the overlay's; the core's kinds are people's notifications.
 
 **Imports.** `lib/audit/log.ts` and `lib/leads/lifecycle.ts` reach the overlay through `lib/extensions/observers.ts` and
 `convex/extensions.ts`. The hook is looked up when it is called, not when the modules load, so

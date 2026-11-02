@@ -77,6 +77,7 @@ export { SortableList } from './components/data-display/sortable-list';
 export { Sparkline } from './components/data-display/sparkline';
 export { TimeSeriesChart } from './components/data-display/time-series-chart';
 export { Badge } from './components/data-display/badge';
+export { NotificationItem } from './components/data-display/notification-item';
 export {
   Table,
   TableHeader,
@@ -88,6 +89,7 @@ export {
 
 // UI Components - Surfaces
 export { Card } from './components/surfaces/card';
+export { Popover, PopoverContent, PopoverTrigger } from './components/surfaces/popover';
 export { Collapse } from './components/surfaces/collapse';
 
 // UI Components - Navigation
@@ -109,6 +111,7 @@ export {
 } from './components/navigation/sheet';
 export { Tabs, TabsList, TabsTrigger, TabsContent } from './components/navigation/tabs';
 export { SegmentedControl } from './components/navigation/segmented-control';
+export { NotificationBell } from './components/navigation/notification-bell';
 // UI Components - Layout
 export { PageHeader } from './components/layout/page-header';
 

@@ -4,6 +4,7 @@ import type { Doc } from '../../_generated/dataModel';
 import { internalMutation } from '../../_lib/functions';
 import type { ImportCounts } from '../../_lib/validators/imports';
 import { logAudit } from '../../lib/audit/log';
+import { emitEvent } from '../../lib/notifications/emit';
 import { IMPORTERS } from './entities';
 
 /** Rows deleted per call when a job is dropped. */
@@ -101,6 +102,11 @@ export const runBatch = internalMutation({
       entityId: jobId,
       action: 'create',
       metadata: { entity: job.entity, fileName: job.fileName, counts },
+    });
+    await emitEvent(ctx, {
+      kind: 'import.finished',
+      entity: { type: 'importJob', id: jobId },
+      actorId: job.createdBy,
     });
     return { more: false };
   },

@@ -31,6 +31,8 @@ export const PURGE_COUNT_KEYS = [
   'webVisitors',
   'auditLogs',
   'emailImages',
+  'notifications',
+  'notificationDeliveries',
 ] as const;
 export type PurgeCounts = Record<(typeof PURGE_COUNT_KEYS)[number], number>;
 export const purgeCountsValidator = v.object(

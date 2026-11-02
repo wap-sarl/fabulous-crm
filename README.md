@@ -121,7 +121,8 @@ workspaces.
   ou une activité encore vivante perd seulement son lien), les événements de
   campagne, le journal des étapes de workflow et les liens suivis des campagnes
   terminées (365 jours par défaut, 30 à 3650), le journal d'audit (730 jours par
-  défaut, 90 à 3650), ainsi que les invitations expirées et les clés
+  défaut, 90 à 3650), les notifications et leurs envois (90 jours par défaut, 7 à
+  365), ainsi que les invitations expirées et les clés
   d'idempotence de l'API périmées. Les compteurs des pages hébergées
   (`landingPageStats`, huit lignes par page et par jour, aucune donnée
   personnelle) ne sont pas purgés. La purge travaille par lots bornés (un budget de 2 000 écritures par lot, 20
@@ -132,6 +133,26 @@ workspaces.
   ligne d'audit (`retention` / `purge`) avec ses compteurs, affichée sur la page,
   et relance le recalcul complet des listes dynamiques par sécurité. Une
   extension peut différer la purge (`beforeScheduledWork`, `retention_purge`).
+- **Notifications** : chaque employé est prévenu, dans l'application, de ce qui le
+  concerne : un lead ou une transaction qui lui est attribué, une de ses transactions
+  qui change de stade, une transaction de son équipe gagnée ou perdue, une tâche qui
+  lui est confiée, un envoi sur un formulaire qu'il possède, la fin de son import,
+  la fin ou l'échec d'une campagne qu'il a créée ; les titulaires du droit
+  « paramètres » apprennent l'échec d'une étape de workflow et l'arrivée d'une
+  personne invitée. Les faits sont produits dans la transaction qui écrit
+  (`convex/lib/notifications` : un écouteur du journal d'audit à côté de
+  `afterChange`, et quatre sites explicites), adressés par une fonction
+  planifiée (`notificationEvents` → `notifications`, cinquante faits par lot,
+  l'auteur n'étant jamais prévenu de sa propre action sauf de la fin de son propre
+  travail long ; un import de milliers de lignes ne produit qu'un fait), et lus
+  par la cloche de la barre latérale (compteur borné à 100, « 99+ » au-delà), son
+  panneau (les vingt derniers, « Tout marquer comme lu ») et la page
+  `/notifications` (historique paginé, filtre non lus). Le même fait deux fois
+  (une transaction glissée puis ramenée) ne sonne qu'une fois tant que le premier
+  n'est pas lu. Les notifications et leurs envois suivent leur propre durée dans
+  *Paramètres → Conservation* (`notificationDays`, 90 jours par défaut, 7 à 365).
+  Les préférences par personne et les canaux externes (e-mail, Slack, Discord)
+  arrivent avec les lots suivants.
 - **Plugins** : des fonctionnalités en option, installées par un administrateur
   depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue
   (`convex/_lib/validators/plugins.ts`) est fermé et fait partie du code : rien

@@ -90,6 +90,7 @@ export const settingsArgs = {
   retentionSoftDeleteDays: v.optional(v.number()),
   retentionEventDays: v.optional(v.number()),
   retentionAuditDays: v.optional(v.number()),
+  retentionNotificationDays: v.optional(v.number()),
   trackingEnabled: v.optional(v.boolean()),
   trackingMode: v.optional(trackingModeValidator),
   trackingRetentionDays: v.optional(v.number()),
@@ -211,6 +212,7 @@ export function nextRetention(cfg: Config, args: SettingsArgs): Config['retentio
     softDeleteDays: args.retentionSoftDeleteDays,
     eventDays: args.retentionEventDays,
     auditDays: args.retentionAuditDays,
+    notificationDays: args.retentionNotificationDays,
   };
   for (const key of RETENTION_KEYS) {
     const days = retentionArgs[key];

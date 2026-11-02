@@ -2,6 +2,7 @@ import type { MutationCtx } from '../../_generated/server';
 import type { Doc, Id } from '../../_generated/dataModel';
 import { internal } from '../../_generated/api';
 import type { WorkflowNode, WorkflowStepOutcome } from '../../_lib/validators/workflows';
+import { emitEvent } from '../notifications/emit';
 
 /** What a step works on, read by `executeStep` before the node runs; `source` names the run to the triggers its writes fire. */
 export type StepContext = {
@@ -23,7 +24,7 @@ export async function logStep(
   extra?: { detail?: string; branchResult?: boolean },
 ): Promise<Id<'workflowRunSteps'>> {
   const now = Date.now();
-  return await ctx.db.insert('workflowRunSteps', {
+  const stepId = await ctx.db.insert('workflowRunSteps', {
     runId: run._id,
     workflowId: run.workflowId,
     leadId: run.leadId,
@@ -34,6 +35,21 @@ export async function logStep(
     finishedAt: status === 'pending' ? undefined : now,
     branchResult: extra?.branchResult,
     detail: extra?.detail,
+  });
+  if (status === 'failed') await notifyRunFailed(ctx, run, extra?.detail);
+  return stepId;
+}
+
+/** The settings-right holders are told of a run that fails, once per run while they have not read it. */
+async function notifyRunFailed(
+  ctx: MutationCtx,
+  run: Doc<'workflowRuns'>,
+  reason: string | undefined,
+): Promise<void> {
+  await emitEvent(ctx, {
+    kind: 'workflow.run_failed',
+    entity: { type: 'workflowRun', id: run._id },
+    data: reason ? { reason } : undefined,
   });
 }
 
@@ -91,6 +107,7 @@ export async function endRun(
   if (workflow) {
     await ctx.db.patch(workflow._id, { activeCount: Math.max(0, workflow.activeCount - 1) });
   }
+  if (status === 'failed') await notifyRunFailed(ctx, run, error);
 }
 
 /** How many runs one transaction resumes or stops; the rest follows in a scheduled one. */

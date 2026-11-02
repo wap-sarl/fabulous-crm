@@ -49,7 +49,9 @@ async function purgeAged(
         | Id<'apiIdempotencyKeys'>
         | Id<'importRows'>
         | Id<'webVisitors'>
-        | Id<'auditLogs'>;
+        | Id<'auditLogs'>
+        | Id<'notifications'>
+        | Id<'notificationDeliveries'>;
     }[]
   >,
 ): Promise<void> {
@@ -73,6 +75,7 @@ export async function purgePage(
   const trashCutoff = at - policy.softDeleteDays * DAY_MS;
   const eventCutoff = at - policy.eventDays * DAY_MS;
   const auditCutoff = at - policy.auditDays * DAY_MS;
+  const notificationCutoff = at - policy.notificationDays * DAY_MS;
 
   for (const lead of await trashOf(ctx, 'leads', trashCutoff, room(state, PURGE_ENTITY_PAGE))) {
     if (state.budget <= 0) break;
@@ -245,5 +248,14 @@ export async function purgePage(
       .withIndex('by_timestamp', (q) => q.lt('timestamp', auditCutoff))
       .take(limit),
   );
+  // The inbox and its deliveries past their own duration, read or not: the audit log is the history.
+  for (const table of ['notifications', 'notificationDeliveries'] as const) {
+    await purgeAged(ctx, state, table, (limit) =>
+      ctx.db
+        .query(table)
+        .withIndex('by_createdAt', (q) => q.lt('createdAt', notificationCutoff))
+        .take(limit),
+    );
+  }
   return state;
 }

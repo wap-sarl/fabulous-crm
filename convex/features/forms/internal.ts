@@ -10,6 +10,7 @@ import { internalMutation } from '../../_lib/functions';
 import { MAX_FILL_MS, MIN_FILL_MS } from '../../_lib/validators/forms';
 import { propertyValueValidator, type PropertyValue } from '../../_lib/validators/properties';
 import { computeChanges, logAudit } from '../../lib/audit/log';
+import { emitEvent } from '../../lib/notifications/emit';
 import {
   buildPublicForm,
   cleanSubmissionValues,
@@ -258,6 +259,11 @@ export const submitForm = internalMutation({
       landingPageId,
     });
     if (from) await countForPage(ctx, from.pageId, 'submissions', from.variant, from.test);
+    await emitEvent(ctx, {
+      kind: 'lead.form_submitted',
+      entity: { type: 'lead', id: leadId },
+      data: { formId: form._id },
+    });
     await dispatchWorkflowTrigger(
       ctx,
       leadId,

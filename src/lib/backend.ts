@@ -23,6 +23,11 @@ export {
 } from '../../convex/_lib/validators/crm';
 export { DEFAULT_TIMEZONE } from '../../convex/_lib/validators/appConfig';
 export { PLUGINS, type PluginKey } from '../../convex/_lib/validators/plugins';
+export { notificationGroupOf } from '../../convex/_lib/validators/notifications';
+export type {
+  NotificationGroup,
+  NotificationKind,
+} from '../../convex/_lib/validators/notifications';
 export type {
   LifecycleStage,
   LifecycleConfig,

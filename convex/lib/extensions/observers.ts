@@ -1,5 +1,6 @@
 import { extensions } from '../../extensions';
 import type { MutationCtx } from '../../_generated/server';
+import { observeChange } from '../notifications/observe';
 import { type RecordChange, refusalCode } from './types';
 
 // The observers of the extension seam: hooks the core tells, never asks (the gates are in gates.ts).
@@ -11,8 +12,13 @@ export const HOOK_FAILURE_ENTITY_ID = 'extensions:afterChange';
 /** Mutations whose failure is already dealt with: a broken hook under a large import costs one read, not one per row. */
 const traced = new WeakSet<object>();
 
-/** Tells the overlay a record changed; an overlay bug must never cost the CRM its write, nor go unseen. */
+/** Tells the core's notifications and the overlay a record changed; a bug in either must never cost the CRM its write, nor go unseen. */
 export async function notifyChange(ctx: MutationCtx, change: RecordChange): Promise<void> {
+  try {
+    await observeChange(ctx, change);
+  } catch (error) {
+    console.error('notification observer failed', change.type, refusalCode(error));
+  }
   try {
     await extensions.afterChange(ctx, change);
   } catch (error) {

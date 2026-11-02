@@ -21,6 +21,11 @@ const FIELDS: { key: RetentionKey; label: string; hint: string }[] = [
     label: 'Journal d’audit (jours)',
     hint: 'Historique des modifications ; la trace des purges elle-même suit cette durée.',
   },
+  {
+    key: 'notificationDays',
+    label: 'Notifications (jours)',
+    hint: 'Les notifications de la cloche, lues ou non, et leurs envois sur les canaux externes.',
+  },
 ];
 
 const days = (key: RetentionKey) => {
@@ -35,6 +40,7 @@ const schema = z.object({
   softDeleteDays: days('softDeleteDays'),
   eventDays: days('eventDays'),
   auditDays: days('auditDays'),
+  notificationDays: days('notificationDays'),
 });
 type Form = Record<RetentionKey, string>;
 
@@ -56,6 +62,8 @@ const COUNT_LABELS: Record<string, string> = {
   webVisitors: 'navigateurs inactifs',
   auditLogs: 'lignes d’audit',
   emailImages: 'images d’e-mail non utilisées',
+  notifications: 'notifications',
+  notificationDeliveries: 'envois de notifications',
 };
 
 export function RetentionManager() {
@@ -72,6 +80,7 @@ export function RetentionManager() {
         softDeleteDays: String(config.retention.softDeleteDays),
         eventDays: String(config.retention.eventDays),
         auditDays: String(config.retention.auditDays),
+        notificationDays: String(config.retention.notificationDays),
       });
     }
   }, [config, form]);
@@ -95,6 +104,7 @@ export function RetentionManager() {
         retentionSoftDeleteDays: parsed.data.softDeleteDays,
         retentionEventDays: parsed.data.eventDays,
         retentionAuditDays: parsed.data.auditDays,
+        retentionNotificationDays: parsed.data.notificationDays,
       });
       toast.success('Durées de conservation enregistrées.');
       setSubmitted(false);

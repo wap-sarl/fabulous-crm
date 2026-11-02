@@ -14,7 +14,13 @@ import {
 } from './helpers';
 
 const NOW = Date.parse('2026-09-22T03:30:00Z');
-const DEFAULT_POLICY = { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 };
+const DEFAULT_POLICY = {
+  softDeleteDays: 30,
+  eventDays: 365,
+  auditDays: 730,
+  notificationDays: 90,
+  trackingDays: 90,
+};
 beforeEach(() => {
   pinClock(NOW);
 });

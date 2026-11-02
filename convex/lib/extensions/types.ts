@@ -11,7 +11,8 @@ export type ScheduledWorkKind =
   | 'campaign_drain'
   | 'workflow_step'
   | 'workflow_action'
-  | 'retention_purge';
+  | 'retention_purge'
+  | 'notification_fan_out';
 
 /** A deferred background function runs again this much later. */
 export const SCHEDULED_WORK_RETRY_MS = 15 * 60 * 1000;

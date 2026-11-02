@@ -11,6 +11,8 @@ export const RETENTION_BOUNDS = {
   eventDays: { min: 30, max: 3650, default: 365 },
   // The audit journal.
   auditDays: { min: 90, max: 3650, default: 730 },
+  // The notifications of the inbox and their deliveries.
+  notificationDays: { min: 7, max: 365, default: 90 },
 } as const;
 export type RetentionKey = keyof typeof RETENTION_BOUNDS;
 export const RETENTION_KEYS = Object.keys(RETENTION_BOUNDS) as RetentionKey[];
@@ -19,6 +21,7 @@ export const retentionConfigValidator = v.object({
   softDeleteDays: v.optional(v.number()),
   eventDays: v.optional(v.number()),
   auditDays: v.optional(v.number()),
+  notificationDays: v.optional(v.number()),
 });
 /** The policy in force, the tracking's own duration included (appConfig.tracking). */
 export type RetentionPolicy = Record<RetentionKey, number> & { trackingDays: number };
@@ -27,6 +30,7 @@ export const retentionPolicyValidator = v.object({
   softDeleteDays: v.number(),
   eventDays: v.number(),
   auditDays: v.number(),
+  notificationDays: v.number(),
   trackingDays: v.number(),
 });
 

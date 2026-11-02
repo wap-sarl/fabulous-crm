@@ -93,6 +93,10 @@ const DealsPage = page(() => import('./pages/deals/DealsPage'), 'DealsPage');
 const DealDetailPage = page(() => import('./pages/deals/DealDetailPage'), 'DealDetailPage');
 const PipelinesPage = page(() => import('./pages/settings/PipelinesPage'), 'PipelinesPage');
 const TasksPage = page(() => import('./pages/tasks/TasksPage'), 'TasksPage');
+const NotificationsPage = page(
+  () => import('./pages/notifications/NotificationsPage'),
+  'NotificationsPage',
+);
 
 function NotFoundPage() {
   const navigate = useNavigate();
@@ -149,6 +153,7 @@ function AppRoutes() {
                 <Route path="/deals" element={<DealsPage />} />
                 <Route path="/deals/:dealId" element={<DealDetailPage />} />
                 <Route path="/tasks" element={<TasksPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/campaigns" element={<CampaignsPage />} />
                 <Route path="/campaigns/new" element={<CampaignCreatePage />} />
                 <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />

@@ -27,6 +27,8 @@ interface SidebarContentProps {
   userName?: string;
   userEmail?: string;
   onLogout?: () => void;
+  /** What sits beside the logo: the notifications bell. */
+  headerActions?: ReactNode;
 }
 
 function NavItemButton({
@@ -84,6 +86,7 @@ function SidebarContent({
   userName,
   userEmail,
   onLogout,
+  headerActions,
 }: SidebarContentProps) {
   const topItems = navItems.filter((item) => item.position !== 'bottom');
   const bottomItems = navItems.filter((item) => item.position === 'bottom');
@@ -91,8 +94,9 @@ function SidebarContent({
 
   return (
     <div className="flex h-full flex-col px-3.5 py-[18px]">
-      <div className="px-1">
+      <div className="flex items-center justify-between gap-2 px-1">
         <Logo src={config?.logoUrl} label={config?.organizationName} />
+        {headerActions}
       </div>
 
       <nav className="mt-6 flex min-h-0 flex-1 flex-col">
@@ -164,6 +168,8 @@ interface DashboardLayoutProps {
   userAvatar?: string;
   userEmail?: string;
   onLogout?: () => void;
+  /** Shown beside the logo on desktop and in the mobile top bar: the notifications bell. */
+  headerActions?: ReactNode;
 }
 
 export function DashboardLayout({
@@ -174,6 +180,7 @@ export function DashboardLayout({
   userName,
   userEmail,
   onLogout,
+  headerActions,
 }: DashboardLayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { config } = usePublicConfig();
@@ -239,6 +246,7 @@ export function DashboardLayout({
           userName={userName}
           userEmail={userEmail}
           onLogout={onLogout}
+          headerActions={headerActions}
         />
       </aside>
 
@@ -269,15 +277,18 @@ export function DashboardLayout({
           {/* Slim mobile topbar — the only Sheet trigger */}
           <header className="flex h-14 shrink-0 items-center justify-between border-b bg-card px-4 lg:hidden">
             <Logo src={config?.logoUrl} label={config?.organizationName} />
-            <SheetTrigger asChild>
-              <button
-                type="button"
-                aria-label="Ouvrir la navigation"
-                className="flex size-9 cursor-pointer items-center justify-center rounded-lg text-soft hover:bg-accent"
-              >
-                <Menu className="size-5" />
-              </button>
-            </SheetTrigger>
+            <div className="flex items-center gap-1">
+              {headerActions}
+              <SheetTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Ouvrir la navigation"
+                  className="flex size-9 cursor-pointer items-center justify-center rounded-lg text-soft hover:bg-accent"
+                >
+                  <Menu className="size-5" />
+                </button>
+              </SheetTrigger>
+            </div>
           </header>
 
           {/* Page content — pages own their headers */}
