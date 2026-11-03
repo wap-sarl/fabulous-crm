@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { WorkflowNode } from '../../convex/_lib/validators/workflows';
+import { setExtensionsForTests } from '../../convex/extensions';
 import { logAudit } from '../../convex/lib/audit/log';
+import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensions/types';
 import { emitEvent } from '../../convex/lib/notifications/emit';
 import { fanOutEvent } from '../../convex/lib/notifications/fanOut';
 import { logStep } from '../../convex/lib/workflows/runs';
@@ -10,6 +12,7 @@ import {
   asIdentity,
   createTestConvex,
   pinClock,
+  runAfter,
   runDue,
   seedEmployee,
   seedLead,
@@ -288,6 +291,71 @@ describe('the producer', () => {
     expect(await inboxOf(t, left.userId)).toEqual([]);
     await t.run((ctx) => ctx.db.delete(leadId));
     expect(await t.run((ctx) => fanOutEvent(ctx, stale))).toBe(0);
+  });
+
+  test('mutations writing facts at once queue one fan-out run, and a deferred run comes back as the one pending run', async () => {
+    const { t, lou, camille } = await setup();
+    const leadId = await seedLead(t, { email: 'once@example.com' });
+    const fact = {
+      kind: 'lead.assigned' as const,
+      entity: { type: 'lead' as const, id: leadId },
+      actorId: lou.userId,
+      data: { assigned: [camille.userId] },
+    };
+    await t.run((ctx) => emitEvent(ctx, fact));
+    await t.run((ctx) => emitEvent(ctx, fact));
+    const pending = () =>
+      t.run(async (ctx) =>
+        (await ctx.db.system.query('_scheduled_functions').collect()).filter(
+          (j) => j.name === 'features/notifications/internal:fanOut' && j.state.kind === 'pending',
+        ),
+      );
+    expect(await pending()).toHaveLength(1);
+    // Suspended: the run defers itself once, and a new fact adds no run.
+    setExtensionsForTests({ beforeScheduledWork: async () => false });
+    await runDue(t);
+    expect(await events(t)).toHaveLength(2);
+    await t.run((ctx) => emitEvent(ctx, { ...fact, entity: { type: 'lead', id: leadId } }));
+    const deferred = await pending();
+    expect(deferred).toHaveLength(1);
+    // Scheduled a retry away (the fake clock moves a few ms while the run executes).
+    expect(deferred[0]!.scheduledTime).toBeGreaterThan(Date.now() + SCHEDULED_WORK_RETRY_MS - 1000);
+    setExtensionsForTests(defaultExtensions);
+    await runAfter(t, SCHEDULED_WORK_RETRY_MS);
+    expect(await events(t)).toEqual([]);
+    expect(await inboxOf(t, camille.userId)).toHaveLength(1);
+  });
+
+  test('a change by the person who has an unread row refreshes it, without telling them', async () => {
+    const { t, lou, camille, asLou } = await setup();
+    const asCamille = asIdentity(t, camille.identity);
+    const pipelineId = await asLou.mutation(api.features.deals.mutations.ensureDefaultPipeline, {});
+    const dealId = await asLou.mutation(api.features.deals.mutations.createDeal, {
+      title: 'Cabinet Sud',
+      pipelineId,
+      ownerIds: [camille.userId],
+    });
+    await asLou.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId,
+      stageKey: 'qualified',
+    });
+    await runDue(t);
+    expect((await inboxOf(t, camille.userId)).map((n) => n.title)).toEqual([
+      'Transaction attribuée : Cabinet Sud',
+      'Cabinet Sud : Qualifiée',
+    ]);
+    await asCamille.mutation(api.features.deals.mutations.moveDealStage, {
+      dealId,
+      stageKey: 'proposal',
+    });
+    await runDue(t);
+    const rows = await inboxOf(t, camille.userId);
+    expect(rows.map((n) => n.title)).toEqual([
+      'Transaction attribuée : Cabinet Sud',
+      'Cabinet Sud : Proposition envoyée',
+    ]);
+    expect(rows[1]).toMatchObject({ actorId: camille.userId });
+    expect(await inboxOf(t, lou.userId)).toEqual([]);
   });
 
   test('a run drains fifty facts and schedules the next for the rest', async () => {

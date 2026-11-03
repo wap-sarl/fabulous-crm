@@ -2,25 +2,21 @@ import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
 import { internalMutation } from '../../_lib/functions';
 import { NOTIFICATION_FAN_OUT_BATCH } from '../../_lib/validators/notifications';
-import { deferUnlessAllowed } from '../../lib/extensions/gates';
+import { scheduledWorkAllowed } from '../../lib/extensions/gates';
+import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensions/types';
+import { ensureFanOut } from '../../lib/notifications/emit';
 import { fanOutEvent, type VisibilityCache } from '../../lib/notifications/fanOut';
 
 /** The unread rows one run marks read; a person with more gets another run. */
 const MARK_READ_BATCH = 200;
 
-/** Drains the pending facts, oldest first, a batch at a time; a full batch means more may wait, so the next run is scheduled. */
+/** Drains the pending facts, oldest first, a batch at a time; whatever is left afterwards, arrived meanwhile included, gets the next run. Deferred, it comes back later as the one pending run. */
 export const fanOut = internalMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
-    if (
-      await deferUnlessAllowed(
-        ctx,
-        'notification_fan_out',
-        internal.features.notifications.internal.fanOut,
-        {},
-      )
-    ) {
+    if (!(await scheduledWorkAllowed(ctx, 'notification_fan_out'))) {
+      await ensureFanOut(ctx, SCHEDULED_WORK_RETRY_MS);
       return null;
     }
     const events = await ctx.db
@@ -33,9 +29,8 @@ export const fanOut = internalMutation({
       await fanOutEvent(ctx, event, visibilities);
       await ctx.db.delete(event._id);
     }
-    if (events.length >= NOTIFICATION_FAN_OUT_BATCH) {
-      await ctx.scheduler.runAfter(0, internal.features.notifications.internal.fanOut, {});
-    }
+    const left = await ctx.db.query('notificationEvents').withIndex('by_at').first();
+    if (left) await ensureFanOut(ctx, 0);
     return null;
   },
 });

@@ -6,6 +6,7 @@ import { userValidator } from './_lib/validators/users';
 import {
   notificationDeliveryValidator,
   notificationEventValidator,
+  notificationFanOutValidator,
   notificationPreferencesValidator,
   notificationValidator,
 } from './_lib/validators/notifications';
@@ -543,6 +544,8 @@ const tables = {
 
   // The facts to tell, a queue the fan-out drains oldest first (lib/notifications).
   notificationEvents: defineTable(notificationEventValidator).index('by_at', ['at']),
+  // Singleton: the pending fan-out run. Read with `.first()`.
+  notificationFanOut: defineTable(notificationFanOutValidator),
   // One row per person told; every read starts with the person.
   notifications: defineTable(notificationValidator)
     .index('by_user_unread', ['userId', 'readAt', 'deliveredAt'])

@@ -150,6 +150,11 @@ export const notificationPreferencesValidator = v.object({
   updatedAt: v.number(),
 });
 
+/** The one pending fan-out run, so that mutations writing facts at once queue one run, not one each. */
+export const notificationFanOutValidator = v.object({
+  scheduledFnId: v.id('_scheduled_functions'),
+});
+
 /** The fan-out drains this many events per run; a run that drained a full batch schedules the next. */
 export const NOTIFICATION_FAN_OUT_BATCH = 50;
 /** The unread count is read up to here and shown as « 99+ » past 99. */

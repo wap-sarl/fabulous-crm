@@ -1,4 +1,4 @@
-import type { Doc } from '../../_generated/dataModel';
+import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import {
   type NotificationKind,
@@ -81,24 +81,36 @@ export async function fanOutEvent(
     actorId: event.actorId,
     tellActor: rendered.tellActor,
   });
+  const news = {
+    title: rendered.title,
+    body: rendered.body,
+    path: rendered.path,
+    actorId: event.actorId,
+    createdAt: event.at,
+    deliveredAt: Date.now(),
+  };
+  const unreadOf = (userId: Id<'users'>) =>
+    ctx.db
+      .query('notifications')
+      .withIndex('by_dedupe_unread', (q) =>
+        q.eq('dedupeKey', dedupeKeyOf(event.kind, event.entity.id, userId)).eq('readAt', undefined),
+      )
+      .first();
   let written = 0;
+  // The actor is not told of their own change, but a row they have not read yet must not keep an older state of the record.
+  if (event.actorId && !rendered.tellActor && rendered.recipients.includes(event.actorId)) {
+    const own = await unreadOf(event.actorId);
+    if (own) {
+      await ctx.db.patch(own._id, news);
+      written += 1;
+    }
+  }
   for (const user of recipients) {
     if (!wants(user, event.kind)) continue;
     // The record's own access rules bound the inbox: a person who could not open it is not told of it.
     if (rendered.record && !(await canOpen(ctx, cache, user, rendered.record))) continue;
     const dedupeKey = dedupeKeyOf(event.kind, event.entity.id, user._id);
-    const news = {
-      title: rendered.title,
-      body: rendered.body,
-      path: rendered.path,
-      actorId: event.actorId,
-      createdAt: event.at,
-      deliveredAt: Date.now(),
-    };
-    const unread = await ctx.db
-      .query('notifications')
-      .withIndex('by_dedupe_unread', (q) => q.eq('dedupeKey', dedupeKey).eq('readAt', undefined))
-      .first();
+    const unread = await unreadOf(user._id);
     if (unread) {
       // One row, the latest news: a deal moved twice while unread shows where it is now.
       await ctx.db.patch(unread._id, news);
