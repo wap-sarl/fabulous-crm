@@ -101,7 +101,7 @@ export async function fanOutEvent(
   if (event.actorId && !rendered.tellActor && rendered.recipients.includes(event.actorId)) {
     const own = await unreadOf(event.actorId);
     if (own) {
-      await ctx.db.patch(own._id, news);
+      await ctx.db.patch(own._id, { ...news, body: rendered.ownBody ?? rendered.body });
       written += 1;
     }
   }

@@ -354,7 +354,11 @@ describe('the producer', () => {
       'Transaction attribuée : Cabinet Sud',
       'Cabinet Sud : Proposition envoyée',
     ]);
-    expect(rows[1]).toMatchObject({ actorId: camille.userId });
+    // Her own change, worded for her: no need to name her to herself.
+    expect(rows[1]).toMatchObject({
+      actorId: camille.userId,
+      body: 'Vous avez déplacé la transaction au stade « Proposition envoyée ».',
+    });
     expect(await inboxOf(t, lou.userId)).toEqual([]);
   });
 

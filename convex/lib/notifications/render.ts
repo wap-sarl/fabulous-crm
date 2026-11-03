@@ -16,6 +16,8 @@ export interface Rendered {
   path: string;
   /** The actor is told too: the kind reports the end of their own long work. */
   tellActor?: boolean;
+  /** The body for the actor's own unread row, refreshed by their change: no need to name them to themselves. */
+  ownBody?: string;
   /** The record a recipient must be able to open, read through their own scoped reader: the inbox never shows what the record's access rules hide. Absent, everyone in the audience may be told. */
   record?: { table: 'leads' | 'deals' | 'activities' | 'campaigns' | 'workflows'; id: string };
 }
@@ -107,6 +109,7 @@ export async function renderDealStageChanged(
     record: { table: 'deals', id: deal._id },
     title: `${deal.title} : ${label}`,
     body: `${await actorName(ctx, event.actorId)} a déplacé la transaction au stade « ${label} ».`,
+    ownBody: `Vous avez déplacé la transaction au stade « ${label} ».`,
     path: `/deals/${deal._id}`,
   };
 }
@@ -125,6 +128,7 @@ export async function renderDealClosed(
     record: { table: 'deals', id: deal._id },
     title: `Transaction ${won ? 'gagnée' : 'perdue'} : ${deal.title}`,
     body: `${await actorName(ctx, event.actorId)} a marqué la transaction ${won ? 'gagnée' : 'perdue'}.`,
+    ownBody: `Vous avez marqué la transaction ${won ? 'gagnée' : 'perdue'}.`,
     path: `/deals/${deal._id}`,
   };
 }
