@@ -161,17 +161,19 @@ describe('the producer', () => {
     await t.run(async (ctx) => {
       for (const row of read) await ctx.db.patch(row._id, { readAt: NOW });
     });
-    // Won, then reopened before the fan-out runs: the facts keep what each move did.
-    for (const stageKey of ['proposal', 'negotiation', 'won', 'negotiation']) {
+    // Won, reopened, then lost before the fan-out runs: each fact keeps what its move did.
+    for (const stageKey of ['proposal', 'negotiation', 'won', 'negotiation', 'lost']) {
       await asLou.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey });
     }
+    // The facts carry the won, then the lost, whatever the deal shows now.
+    const closings = (await events(t)).filter((e) => e.kind === 'deal.closed');
+    expect(closings.map((e) => e.data?.status)).toEqual(['won', 'lost']);
     await runDue(t);
-    const closed = (await inboxOf(t, sam.userId)).map((n) => n.kind);
-    expect(closed).toEqual(['deal.closed']);
-    expect((await inboxOf(t, sam.userId))[0]).toMatchObject({
-      title: 'Transaction gagnée : Clinique Nord',
-    });
-    // Three stage changes while the first is unread ring once: the dedupe key is the kind, the deal and the person.
+    // Two closings while the first is unread: one row, refreshed with the latest.
+    const samRows = await inboxOf(t, sam.userId);
+    expect(samRows.map((n) => n.kind)).toEqual(['deal.closed']);
+    expect(samRows[0]).toMatchObject({ title: 'Transaction perdue : Clinique Nord' });
+    // The stage changes while unread share one row too, which names the last stage, never one the deal left.
     const camilleRows = await inboxOf(t, camille.userId);
     expect(camilleRows.map((n) => n.kind)).toEqual([
       'deal.assigned',
@@ -179,8 +181,7 @@ describe('the producer', () => {
       'deal.stage_changed',
       'deal.closed',
     ]);
-    // The row names the stage of its fact, not the stage the deal is in now.
-    expect(camilleRows[2]).toMatchObject({ title: 'Clinique Nord : Proposition envoyée' });
+    expect(camilleRows[2]).toMatchObject({ title: 'Clinique Nord : Négociation' });
     expect(await inboxOf(t, alex.userId)).toEqual([]);
   });
 
@@ -250,7 +251,7 @@ describe('the producer', () => {
     expect(await inboxOf(t, camille.userId)).toEqual([]);
   });
 
-  test('the same fact twice rings once while the first is unread, and again once it was read', async () => {
+  test('the same fact twice refreshes the unread row instead of adding one, and rings again once it was read', async () => {
     const { t, lou, camille } = await setup();
     const leadId = await seedLead(t, { email: 'twice@example.com' });
     const fact = {

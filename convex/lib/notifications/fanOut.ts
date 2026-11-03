@@ -4,7 +4,7 @@ import {
   type NotificationKind,
   notificationKindOnByDefault,
 } from '../../_lib/validators/notifications';
-import { loadVisibility } from '../roles/visibility';
+import { loadVisibility, scopedReader, type Visibility } from '../roles/visibility';
 import { recipientsOf } from './audience';
 import {
   type Rendered,
@@ -44,10 +44,36 @@ const dedupeKeyOf = (kind: NotificationKind, entityId: string, userId: string): 
 const wants = (_user: Doc<'users'>, kind: NotificationKind): boolean =>
   notificationKindOnByDefault(kind);
 
-/** Writes the inbox rows of one fact: the text rendered once from the record, one row per recipient, none for a recipient whose unread row of the same key is still there. */
+/** The visibilities loaded during one run, one per person: a batch addressed to the settings right reads each once. */
+export type VisibilityCache = Map<string, Promise<Visibility>>;
+
+const visibilityOf = (ctx: MutationCtx, cache: VisibilityCache, user: Doc<'users'>) => {
+  let loading = cache.get(user._id);
+  if (!loading) {
+    loading = loadVisibility(ctx, user);
+    cache.set(user._id, loading);
+  }
+  return loading;
+};
+
+/** Whether the person could open the record: read through their own scoped reader, the rules the record's page applies. */
+async function canOpen(
+  ctx: MutationCtx,
+  cache: VisibilityCache,
+  user: Doc<'users'>,
+  record: NonNullable<Rendered['record']>,
+): Promise<boolean> {
+  const id = ctx.db.normalizeId(record.table, record.id);
+  if (!id) return false;
+  const visibility = await visibilityOf(ctx, cache, user);
+  return (await scopedReader(ctx, visibility).get(id)) !== null;
+}
+
+/** Writes the inbox rows of one fact: the text rendered once from the record, one row per recipient; a recipient whose unread row of the same key is still there gets that row refreshed with the latest news instead of a second one. */
 export async function fanOutEvent(
   ctx: MutationCtx,
   event: Doc<'notificationEvents'>,
+  cache: VisibilityCache = new Map(),
 ): Promise<number> {
   const rendered = await RENDERERS[event.kind](ctx, event);
   if (!rendered) return 0;
@@ -59,25 +85,32 @@ export async function fanOutEvent(
   for (const user of recipients) {
     if (!wants(user, event.kind)) continue;
     // The record's own access rules bound the inbox: a person who could not open it is not told of it.
-    if (rendered.visible && !rendered.visible(await loadVisibility(ctx, user))) continue;
+    if (rendered.record && !(await canOpen(ctx, cache, user, rendered.record))) continue;
     const dedupeKey = dedupeKeyOf(event.kind, event.entity.id, user._id);
+    const news = {
+      title: rendered.title,
+      body: rendered.body,
+      path: rendered.path,
+      actorId: event.actorId,
+      createdAt: event.at,
+      deliveredAt: Date.now(),
+    };
     const unread = await ctx.db
       .query('notifications')
       .withIndex('by_dedupe_unread', (q) => q.eq('dedupeKey', dedupeKey).eq('readAt', undefined))
       .first();
-    if (unread) continue;
-    await ctx.db.insert('notifications', {
-      userId: user._id,
-      kind: event.kind,
-      title: rendered.title,
-      body: rendered.body,
-      path: rendered.path,
-      entity: event.entity,
-      actorId: event.actorId,
-      dedupeKey,
-      createdAt: event.at,
-      deliveredAt: Date.now(),
-    });
+    if (unread) {
+      // One row, the latest news: a deal moved twice while unread shows where it is now.
+      await ctx.db.patch(unread._id, news);
+    } else {
+      await ctx.db.insert('notifications', {
+        userId: user._id,
+        kind: event.kind,
+        entity: event.entity,
+        dedupeKey,
+        ...news,
+      });
+    }
     written += 1;
   }
   return written;

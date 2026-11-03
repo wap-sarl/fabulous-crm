@@ -3,7 +3,7 @@ import { internal } from '../../_generated/api';
 import { internalMutation } from '../../_lib/functions';
 import { NOTIFICATION_FAN_OUT_BATCH } from '../../_lib/validators/notifications';
 import { deferUnlessAllowed } from '../../lib/extensions/gates';
-import { fanOutEvent } from '../../lib/notifications/fanOut';
+import { fanOutEvent, type VisibilityCache } from '../../lib/notifications/fanOut';
 
 /** The unread rows one run marks read; a person with more gets another run. */
 const MARK_READ_BATCH = 200;
@@ -28,8 +28,9 @@ export const fanOut = internalMutation({
       .withIndex('by_at')
       .order('asc')
       .take(NOTIFICATION_FAN_OUT_BATCH);
+    const visibilities: VisibilityCache = new Map();
     for (const event of events) {
-      await fanOutEvent(ctx, event);
+      await fanOutEvent(ctx, event, visibilities);
       await ctx.db.delete(event._id);
     }
     if (events.length >= NOTIFICATION_FAN_OUT_BATCH) {
