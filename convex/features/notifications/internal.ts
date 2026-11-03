@@ -39,7 +39,7 @@ export const fanOut = internalMutation({
   },
 });
 
-/** Marks read what a person had unread when they asked, one batch per run; nothing that arrived since. */
+/** Marks read what a person had in their inbox when they asked, one batch per run; a row delivered since, whatever the age of its fact, stays unread. */
 export const markAllReadFor = internalMutation({
   args: { userId: v.id('users'), before: v.number(), at: v.number() },
   returns: v.null(),
@@ -47,7 +47,7 @@ export const markAllReadFor = internalMutation({
     const unread = await ctx.db
       .query('notifications')
       .withIndex('by_user_unread', (q) =>
-        q.eq('userId', args.userId).eq('readAt', undefined).lte('createdAt', args.before),
+        q.eq('userId', args.userId).eq('readAt', undefined).lte('deliveredAt', args.before),
       )
       .take(MARK_READ_BATCH);
     for (const row of unread) await ctx.db.patch(row._id, { readAt: args.at });

@@ -3,6 +3,7 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import { DAY_MS } from '../../convex/_lib/time';
 import { logAudit } from '../../convex/lib/audit/log';
+import { emitEvent } from '../../convex/lib/notifications/emit';
 import { purgePage } from '../../convex/lib/retention/purge';
 import {
   asIdentity,
@@ -11,6 +12,7 @@ import {
   runDue,
   seedConfig,
   seedEmployee,
+  seedLead,
   type T,
 } from './helpers';
 
@@ -46,7 +48,7 @@ async function seedInbox(
   t: T,
   userId: Id<'users'>,
   count: number,
-  opts: { readAt?: number; from?: number } = {},
+  opts: { readAt?: number; from?: number; deliveredAt?: number } = {},
 ): Promise<Id<'notifications'>[]> {
   return await t.run(async (ctx) => {
     const ids: Id<'notifications'>[] = [];
@@ -63,12 +65,21 @@ async function seedInbox(
           dedupeKey: `lead.assigned:lead-${i}:${userId}`,
           readAt: opts.readAt,
           createdAt,
+          deliveredAt: opts.deliveredAt ?? createdAt,
         }),
       );
     }
     return ids;
   });
 }
+
+const inboxOf = (t: T, userId: Id<'users'>) =>
+  t.run((ctx) =>
+    ctx.db
+      .query('notifications')
+      .withIndex('by_user_created', (q) => q.eq('userId', userId))
+      .collect(),
+  );
 
 const unreadOf = (t: T, userId: Id<'users'>) =>
   t.run(
@@ -170,6 +181,32 @@ describe('the inbox', () => {
     await runDue(t);
     expect(await unreadOf(t, camille.userId)).toBe(1);
     expect(await unreadOf(t, lou.userId)).toBe(1);
+  });
+
+  test('a fact delivered after the click stays unread, however old the fact is', async () => {
+    const { t, lou, camille, asCamille } = await setup();
+    await seedInbox(t, camille.userId, 1);
+    // A fact from before the click, still waiting for its fan-out.
+    const leadId = await seedLead(t, { email: 'late@example.com' });
+    await t.run((ctx) =>
+      emitEvent(ctx, {
+        kind: 'lead.assigned',
+        entity: { type: 'lead', id: leadId },
+        actorId: lou.userId,
+        data: { assigned: [camille.userId] },
+      }),
+    );
+    await asCamille.mutation(api.features.notifications.mutations.markAllRead, {});
+    // The fan-out, scheduled first, delivers a moment later (running the timers moves the clock on); the batch then reads only what was there at the click.
+    await runDue(t);
+    const rows = await inboxOf(t, camille.userId);
+    expect(rows.map((r) => [r.kind, r.readAt === undefined])).toEqual([
+      ['lead.assigned', false],
+      ['lead.assigned', true],
+    ]);
+    // The fact's time is the click's or before; the delivery came after it.
+    expect(rows[1]!.createdAt).toBe(NOW);
+    expect(rows[1]!.deliveredAt).toBeGreaterThan(NOW);
   });
 
   test('the purge drops the notifications and their deliveries past their own duration, read or not', async () => {

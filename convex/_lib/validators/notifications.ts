@@ -115,7 +115,10 @@ export const notificationValidator = v.object({
   // `kind:entityId:userId`: the same fact twice rings once while the first is unread.
   dedupeKey: v.string(),
   readAt: v.optional(v.number()),
+  // When the fact happened, shown to the person.
   createdAt: v.number(),
+  // When the row reached the inbox: later than `createdAt` when the fan-out was deferred.
+  deliveredAt: v.number(),
 });
 
 const notificationDeliveryStatusValidator = v.union(

@@ -80,11 +80,12 @@ export async function observeChange(ctx: MutationCtx, change: RecordChange): Pro
         // The stage's kind is the deal's status, written by the same move.
         const deal = await ctx.db.get(change.entityId as Id<'deals'>);
         if (!deal) return;
+        // What the move did, kept with the fact: the deal may move again before the fan-out runs.
         await emitEvent(ctx, {
           kind: deal.status === 'open' ? 'deal.stage_changed' : 'deal.closed',
           entity,
           actorId,
-          data: { stageKey: stage.new },
+          data: { stageKey: stage.new, status: deal.status },
         });
       }
       return;

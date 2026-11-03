@@ -22,7 +22,7 @@ beforeEach(() => pinClock(NOW));
 // Running the scheduled work lands the fake clock on the real time: the sessions must outlive that.
 const SESSION_TTL_MS = 365 * 24 * 60 * 60 * 1000;
 
-/** Lou (admin) acts, Camille and Sam (members) are told. */
+/** Lou (admin) acts; Camille (member, sees her own records) and Sam (manager, sees his team's) are told. */
 async function setup() {
   const t = createTestConvex();
   const lou = await seedEmployee(t, {
@@ -40,7 +40,7 @@ async function setup() {
   });
   const sam = await seedEmployee(t, {
     email: 'sam@example.com',
-    role: 'member',
+    role: 'manager',
     firstName: 'Sam',
     sessionTtlMs: SESSION_TTL_MS,
   });
@@ -121,11 +121,17 @@ describe('the producer', () => {
     expect(await events(t)).toEqual([]);
   });
 
-  test('a deal: assigned at creation, then its stage change tells the owner and its closing tells the owner’s team', async () => {
+  test('a deal: assigned at creation, then its stage change tells the owner and its closing tells the teammates who may see it', async () => {
     const { t, camille, sam, asLou } = await setup();
+    // Alex is in the team too, but a member sees their own deals only: the inbox must not show them Camille's.
+    const alex = await seedEmployee(t, {
+      email: 'alex@example.com',
+      role: 'member',
+      sessionTtlMs: SESSION_TTL_MS,
+    });
     await asLou.mutation(api.features.teams.mutations.createTeam, {
       name: 'Ventes',
-      memberIds: [camille.userId, sam.userId],
+      memberIds: [camille.userId, sam.userId, alex.userId],
     });
     const pipelineId = await asLou.mutation(api.features.deals.mutations.ensureDefaultPipeline, {});
     const dealId = await asLou.mutation(api.features.deals.mutations.createDeal, {
@@ -150,21 +156,32 @@ describe('the producer', () => {
     });
     expect(await inboxOf(t, sam.userId)).toEqual([]);
 
-    for (const stageKey of ['proposal', 'negotiation', 'won']) {
+    // Camille reads her inbox: what follows is not coalesced with it.
+    const read = await inboxOf(t, camille.userId);
+    await t.run(async (ctx) => {
+      for (const row of read) await ctx.db.patch(row._id, { readAt: NOW });
+    });
+    // Won, then reopened before the fan-out runs: the facts keep what each move did.
+    for (const stageKey of ['proposal', 'negotiation', 'won', 'negotiation']) {
       await asLou.mutation(api.features.deals.mutations.moveDealStage, { dealId, stageKey });
     }
     await runDue(t);
     const closed = (await inboxOf(t, sam.userId)).map((n) => n.kind);
     expect(closed).toEqual(['deal.closed']);
-    // Three stage changes while the first is unread ring once: the dedupe key is the kind, the deal and the person.
-    expect((await inboxOf(t, camille.userId)).map((n) => n.kind)).toEqual([
-      'deal.assigned',
-      'deal.stage_changed',
-      'deal.closed',
-    ]);
     expect((await inboxOf(t, sam.userId))[0]).toMatchObject({
       title: 'Transaction gagnée : Clinique Nord',
     });
+    // Three stage changes while the first is unread ring once: the dedupe key is the kind, the deal and the person.
+    const camilleRows = await inboxOf(t, camille.userId);
+    expect(camilleRows.map((n) => n.kind)).toEqual([
+      'deal.assigned',
+      'deal.stage_changed',
+      'deal.stage_changed',
+      'deal.closed',
+    ]);
+    // The row names the stage of its fact, not the stage the deal is in now.
+    expect(camilleRows[2]).toMatchObject({ title: 'Clinique Nord : Proposition envoyée' });
+    expect(await inboxOf(t, alex.userId)).toEqual([]);
   });
 
   test('a task handed to someone tells them, at creation and when it changes hands', async () => {

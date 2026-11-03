@@ -4,6 +4,7 @@ import {
   type NotificationKind,
   notificationKindOnByDefault,
 } from '../../_lib/validators/notifications';
+import { loadVisibility } from '../roles/visibility';
 import { recipientsOf } from './audience';
 import {
   type Rendered,
@@ -57,6 +58,8 @@ export async function fanOutEvent(
   let written = 0;
   for (const user of recipients) {
     if (!wants(user, event.kind)) continue;
+    // The record's own access rules bound the inbox: a person who could not open it is not told of it.
+    if (rendered.visible && !rendered.visible(await loadVisibility(ctx, user))) continue;
     const dedupeKey = dedupeKeyOf(event.kind, event.entity.id, user._id);
     const unread = await ctx.db
       .query('notifications')
@@ -73,6 +76,7 @@ export async function fanOutEvent(
       actorId: event.actorId,
       dedupeKey,
       createdAt: event.at,
+      deliveredAt: Date.now(),
     });
     written += 1;
   }

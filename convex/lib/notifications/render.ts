@@ -2,6 +2,7 @@ import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { pipelineStage } from '../../_lib/validators/deals';
 import type { NotificationEventData } from '../../_lib/validators/notifications';
+import { moduleAllows, type Visibility } from '../roles/visibility';
 import { settingsUsers, teamMatesOf } from './audience';
 
 // What a fact says to the people it concerns, read from the record when the fan-out runs.
@@ -16,7 +17,11 @@ export interface Rendered {
   path: string;
   /** The actor is told too: the kind reports the end of their own long work. */
   tellActor?: boolean;
+  /** Whether a recipient may see the record: the inbox never shows what the record's own access rules hide. Absent, everyone in the audience may. */
+  visible?: (visibility: Visibility) => boolean;
 }
+
+const byCreator = (doc: { createdBy?: Id<'users'> }) => (doc.createdBy ? [doc.createdBy] : []);
 
 const personName = (user: Pick<Doc<'users'>, 'firstName' | 'lastName'> | null | undefined) =>
   user ? `${user.firstName} ${user.lastName}`.trim() : 'Quelqu’un';
@@ -43,6 +48,7 @@ export async function renderLeadAssigned(
   const name = leadName(lead);
   return {
     recipients: assignedOf(event.data),
+    visible: (vis) => moduleAllows(vis, 'leads', lead.ownerIds),
     title: `Lead attribué : ${name}`,
     body: `${await actorName(ctx, event.actorId)} vous a attribué le lead ${name}.`,
     path: `/leads/${lead._id}`,
@@ -59,6 +65,7 @@ export async function renderFormSubmitted(
   if (!lead || !form) return null;
   return {
     recipients: form.createdBy ? [form.createdBy] : await settingsUsers(ctx),
+    visible: (vis) => moduleAllows(vis, 'leads', lead.ownerIds),
     title: `Nouvel envoi du formulaire « ${form.name} »`,
     body: `${leadName(lead)} a rempli le formulaire.`,
     path: `/leads/${lead._id}`,
@@ -73,15 +80,22 @@ export async function renderDealAssigned(
   if (!deal) return null;
   return {
     recipients: assignedOf(event.data),
+    visible: (vis) => moduleAllows(vis, 'deals', deal.ownerIds),
     title: `Transaction attribuée : ${deal.title}`,
     body: `${await actorName(ctx, event.actorId)} vous a attribué la transaction ${deal.title}.`,
     path: `/deals/${deal._id}`,
   };
 }
 
-async function stageLabel(ctx: Ctx, deal: Doc<'deals'>): Promise<string> {
+/** The stage the fact names, not the one the deal is in now: it may have moved again since. */
+async function stageLabel(
+  ctx: Ctx,
+  deal: Doc<'deals'>,
+  data: NotificationEventData | undefined,
+): Promise<string> {
+  const stageKey = typeof data?.stageKey === 'string' ? data.stageKey : deal.stageKey;
   const pipeline = await ctx.db.get(deal.pipelineId);
-  return (pipeline && pipelineStage(pipeline, deal.stageKey)?.label) ?? deal.stageKey;
+  return (pipeline && pipelineStage(pipeline, stageKey)?.label) ?? stageKey;
 }
 
 export async function renderDealStageChanged(
@@ -90,9 +104,10 @@ export async function renderDealStageChanged(
 ): Promise<Rendered | null> {
   const deal = live(await ctx.db.get(event.entity.id as Id<'deals'>));
   if (!deal) return null;
-  const label = await stageLabel(ctx, deal);
+  const label = await stageLabel(ctx, deal, event.data);
   return {
     recipients: deal.ownerIds,
+    visible: (vis) => moduleAllows(vis, 'deals', deal.ownerIds),
     title: `${deal.title} : ${label}`,
     body: `${await actorName(ctx, event.actorId)} a déplacé la transaction au stade « ${label} ».`,
     path: `/deals/${deal._id}`,
@@ -105,9 +120,12 @@ export async function renderDealClosed(
 ): Promise<Rendered | null> {
   const deal = live(await ctx.db.get(event.entity.id as Id<'deals'>));
   if (!deal) return null;
-  const won = deal.status === 'won';
+  // The outcome recorded with the fact: the deal may have been reopened since.
+  const won = (event.data?.status ?? deal.status) === 'won';
   return {
     recipients: await teamMatesOf(ctx, deal.ownerIds),
+    // A teammate whose role sees only their own deals is not told of this one.
+    visible: (vis) => moduleAllows(vis, 'deals', deal.ownerIds),
     title: `Transaction ${won ? 'gagnée' : 'perdue'} : ${deal.title}`,
     body: `${await actorName(ctx, event.actorId)} a marqué la transaction ${won ? 'gagnée' : 'perdue'}.`,
     path: `/deals/${deal._id}`,
@@ -122,6 +140,7 @@ export async function renderActivityAssigned(
   if (!activity) return null;
   return {
     recipients: assignedOf(event.data),
+    visible: (vis) => vis.access.activities !== 'none',
     title: `Tâche attribuée : ${activity.title}`,
     body: `${await actorName(ctx, event.actorId)} vous a attribué la tâche ${activity.title}.`,
     path: '/tasks',
@@ -138,6 +157,7 @@ export async function renderCampaignFinished(
   return {
     recipients: [campaign.createdBy],
     tellActor: true,
+    visible: (vis) => moduleAllows(vis, 'campaigns', byCreator(campaign)),
     title: `Campagne ${failed ? 'en échec' : 'terminée'} : ${campaign.name}`,
     body: `${campaign.sentCount} envoi(s) réussi(s), ${campaign.failedCount} en échec.`,
     path: `/campaigns/${campaign._id}`,
@@ -154,6 +174,7 @@ export async function renderWorkflowRunFailed(
   const reason = typeof event.data?.reason === 'string' ? event.data.reason : '';
   return {
     recipients: await settingsUsers(ctx),
+    visible: (vis) => moduleAllows(vis, 'workflows', byCreator(workflow)),
     title: `Échec du workflow « ${workflow.name} »`,
     body: reason ? `Une étape a échoué : ${reason}.` : 'Une étape a échoué.',
     path: `/workflows/${workflow._id}`,

@@ -19,7 +19,7 @@ export const unreadCount = employeeQuery({
   },
 });
 
-/** The popover: the latest unread first, then the most recently read ones up to twenty. */
+/** The popover: the unread first, the last delivered first, then the most recently read ones up to twenty. */
 export const latest = employeeQuery({
   args: {},
   returns: v.array(notificationRow),
@@ -39,7 +39,7 @@ export const latest = employeeQuery({
   },
 });
 
-/** The page: the whole history newest first, or the unread alone, one cursor page at a time. */
+/** The page: the whole history newest first, or the unread alone by delivery, one cursor page at a time. */
 export const listMine = employeeQuery({
   args: { paginationOpts: paginationOptsValidator, unreadOnly: v.optional(v.boolean()) },
   returns: paginationResultValidator(notificationRow),

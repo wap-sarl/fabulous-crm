@@ -545,7 +545,7 @@ const tables = {
   notificationEvents: defineTable(notificationEventValidator).index('by_at', ['at']),
   // One row per person told; every read starts with the person.
   notifications: defineTable(notificationValidator)
-    .index('by_user_unread', ['userId', 'readAt', 'createdAt'])
+    .index('by_user_unread', ['userId', 'readAt', 'deliveredAt'])
     .index('by_user_created', ['userId', 'createdAt'])
     // The same fact twice rings once while the first is unread.
     .index('by_dedupe_unread', ['dedupeKey', 'readAt'])
