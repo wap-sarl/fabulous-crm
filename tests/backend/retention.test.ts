@@ -51,7 +51,8 @@ type Setup = Awaited<ReturnType<typeof setup>>;
 /** One run, its continuation pages included. */
 async function purge(t: T) {
   await t.mutation(internal.features.retention.internal.runPurge, {});
-  await runAll(t);
+  // Running every timer lands the clock on the real time: back to NOW, where the sessions live.
+  await runAll(t, NOW);
 }
 const reports = (t: T) =>
   t.run(async (ctx) =>
@@ -486,6 +487,7 @@ describe('retention purge', () => {
       softDeleteDays: 30,
       eventDays: 365,
       auditDays: 730,
+      notificationDays: 90,
       trackingDays: 90,
     });
     await expect(
@@ -506,6 +508,7 @@ describe('retention purge', () => {
       softDeleteDays: 5,
       eventDays: 365,
       auditDays: 730,
+      notificationDays: 90,
       trackingDays: 90,
     });
     const week = await seedLead(t, { email: 'week@example.com' });
@@ -517,7 +520,13 @@ describe('retention purge', () => {
     expect(await t.run((ctx) => ctx.db.get(days3))).not.toBeNull();
     const [report] = await reports(t);
     expect(report).toMatchObject({
-      policy: { softDeleteDays: 5, eventDays: 365, auditDays: 730, trackingDays: 90 },
+      policy: {
+        softDeleteDays: 5,
+        eventDays: 365,
+        auditDays: 730,
+        notificationDays: 90,
+        trackingDays: 90,
+      },
     });
   });
 
@@ -589,7 +598,13 @@ describe('retention purge', () => {
       await sendWith(t, id, leadId, NOW);
       closed.push(id);
     }
-    const policy = { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 };
+    const policy = {
+      softDeleteDays: 30,
+      eventDays: 365,
+      auditDays: 730,
+      notificationDays: 90,
+      trackingDays: 90,
+    };
     const pageOf = () => countDb(() => t.run(async (ctx) => purgePage(ctx, policy, NOW)));
 
     // One page: the twenty oldest, their links gone, each marked, and more left.
@@ -627,7 +642,13 @@ describe('retention purge', () => {
       await trash(t, id, 40);
     }
     const rowsBefore = (await count(t, 'leads')) + (await count(t, 'leadNotes'));
-    const policy = { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 };
+    const policy = {
+      softDeleteDays: 30,
+      eventDays: 365,
+      auditDays: 730,
+      notificationDays: 90,
+      trackingDays: 90,
+    };
     const page = await t.run((ctx) => purgePage(ctx, policy, NOW));
     const rowsAfter = (await count(t, 'leads')) + (await count(t, 'leadNotes'));
     expect(rowsBefore - rowsAfter).toBeLessThanOrEqual(PURGE_WRITE_BUDGET);
@@ -651,7 +672,13 @@ describe('retention purge', () => {
       startedAt: NOW,
       page: 2,
       counts: emptyCounts(),
-      policy: { softDeleteDays: 30, eventDays: 365, auditDays: 730, trackingDays: 90 },
+      policy: {
+        softDeleteDays: 30,
+        eventDays: 365,
+        auditDays: 730,
+        notificationDays: 90,
+        trackingDays: 90,
+      },
     });
     await runAll(t);
     expect(await t.run((ctx) => ctx.db.get(week))).not.toBeNull();

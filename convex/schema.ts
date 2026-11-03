@@ -3,6 +3,13 @@ import { landingPageStatsValidator, landingPageValidator } from './_lib/validato
 import { defineSchema, defineTable } from 'convex/server';
 import { extensionTables } from './extensionsSchema';
 import { userValidator } from './_lib/validators/users';
+import {
+  notificationDeliveryValidator,
+  notificationEventValidator,
+  notificationFanOutValidator,
+  notificationPreferencesValidator,
+  notificationValidator,
+} from './_lib/validators/notifications';
 import { auditLogValidator } from './_lib/validators/auditLogs';
 import {
   leadValidator,
@@ -534,6 +541,26 @@ const tables = {
     .index('by_job_index', ['jobId', 'index'])
     // The report lists one outcome at a time: the duplicates to decide on, the rows in error to export.
     .index('by_job_outcome_index', ['jobId', 'outcome', 'index']),
+
+  // The facts to tell, a queue the fan-out drains oldest first (lib/notifications).
+  notificationEvents: defineTable(notificationEventValidator).index('by_at', ['at']),
+  // Singleton: the pending fan-out run. Read with `.first()`.
+  notificationFanOut: defineTable(notificationFanOutValidator),
+  // One row per person told; every read starts with the person.
+  notifications: defineTable(notificationValidator)
+    .index('by_user_unread', ['userId', 'readAt', 'deliveredAt'])
+    .index('by_user_created', ['userId', 'createdAt'])
+    // The same fact twice rings once while the first is unread.
+    .index('by_dedupe_unread', ['dedupeKey', 'readAt'])
+    // The purge reads the aged rows straight from the index.
+    .index('by_createdAt', ['createdAt']),
+  // The deliveries on external channels; written from the preferences issue on, purged with the notifications.
+  notificationDeliveries: defineTable(notificationDeliveryValidator)
+    .index('by_status_next', ['status', 'nextAt'])
+    .index('by_createdAt', ['createdAt']),
+  notificationPreferences: defineTable(notificationPreferencesValidator).index('by_user', [
+    'userId',
+  ]),
 
   // Singleton runtime config (org basics + SSO providers). Read with `.first()`.
   appConfig: defineTable(appConfigValidator),

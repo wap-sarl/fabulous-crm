@@ -6,6 +6,7 @@ import type { RoleAccess } from '@crm/lib/backend';
 import { canAccessModule, moduleOfPath } from '../features/access/lib/constants';
 import { frontendExtensions } from '../lib/frontendExtensions';
 import { NAV_ITEMS, type ShellNavItem } from '../lib/navigation';
+import { NotificationsMenu } from '../features/notifications/components/NotificationsMenu';
 import { pluginAllows, sidebarEntries } from '../lib/settingsTabs';
 
 // One empty list while the public config loads, so nothing downstream re-renders for a new array each time.
@@ -57,6 +58,7 @@ export function DashboardShell() {
       userName={user?.name}
       userEmail={user?.email}
       onLogout={logout}
+      headerActions={<NotificationsMenu />}
     >
       {/* The shell stays while the page of the route is being loaded. */}
       <Suspense

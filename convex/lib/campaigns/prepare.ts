@@ -1,5 +1,6 @@
 import type { ObjectType } from 'convex/values';
 import { internal } from '../../_generated/api';
+import { emitEvent } from '../notifications/emit';
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { DAY_MS } from '../../_lib/time';
@@ -174,6 +175,10 @@ export async function prepareBatch(
       failedCount,
       status: 'failed',
       failureReason: refused,
+    });
+    await emitEvent(ctx, {
+      kind: 'campaign.finished',
+      entity: { type: 'campaign', id: args.campaignId },
     });
     return { isDone: true, continueCursor: page.continueCursor };
   }

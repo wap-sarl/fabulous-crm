@@ -2,8 +2,8 @@ import { campaignChannelValidator } from '../../_lib/validators/crm';
 import { messageTypeValidator } from '../../_lib/validators/crm';
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
-import type { Id } from '../../_generated/dataModel';
-import { internalQuery, type MutationCtx } from '../../_generated/server';
+
+import { internalQuery } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { refusal } from '../../_lib/refusal';
 import {
@@ -22,6 +22,7 @@ import { cancelPendingSends as cancelPending } from '../../lib/campaigns/stop';
 import { countStatsPage, readCampaignStats, startStatsCount } from '../../lib/campaigns/stats';
 import { pickWinner } from '../../lib/campaigns/variants';
 import { logAudit } from '../../lib/audit/log';
+import { completeCampaign } from '../../lib/campaigns/complete';
 import { stampLeadSignal } from '../../lib/leads/signals';
 import { leadFilterArgs } from '../../lib/leads/tableFilters';
 
@@ -318,16 +319,6 @@ export const handleTrackedLinkClick = internalMutation({
   }),
   handler: (ctx, args) => clickTrackedLink(ctx, args),
 });
-
-/** A campaign with no pending send left ends sent when something left, failed otherwise; one stopped meanwhile keeps its word. */
-async function completeCampaign(ctx: MutationCtx, campaignId: Id<'campaigns'>): Promise<void> {
-  const campaign = await ctx.db.get(campaignId);
-  if (campaign?.status !== 'sending') return;
-  await ctx.db.patch(campaignId, {
-    status: campaign.sentCount > 0 ? 'sent' : 'failed',
-    updatedAt: Date.now(),
-  });
-}
 
 /** Finalize a campaign once no pending sends remain. */
 export const markCampaignComplete = internalMutation({

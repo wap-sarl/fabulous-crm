@@ -24,6 +24,8 @@ const SMALL: Record<string, string> = {
   'snippets.by_shortcut': 'the text blocks of the settings',
   teams: 'the teams of the settings',
   'users.by_type': 'the employees',
+  'users.by_type_deleted':
+    'the live employees, for the notifications addressed to the settings right',
   workflows: 'the workflows people built; read where all of them are listed',
   'workflows.by_status': 'the workflows that run',
   'importMappings.by_entity': 'the saved mappings of one entity',
