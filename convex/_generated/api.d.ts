@@ -240,6 +240,7 @@ import type * as lib_leads_search from "../lib/leads/search.js";
 import type * as lib_leads_signals from "../lib/leads/signals.js";
 import type * as lib_leads_tableFilters from "../lib/leads/tableFilters.js";
 import type * as lib_leads_targets from "../lib/leads/targets.js";
+import type * as lib_notifications_access from "../lib/notifications/access.js";
 import type * as lib_notifications_audience from "../lib/notifications/audience.js";
 import type * as lib_notifications_channels_email from "../lib/notifications/channels/email.js";
 import type * as lib_notifications_channels_index from "../lib/notifications/channels/index.js";
@@ -533,6 +534,7 @@ declare const fullApi: ApiFromModules<{
   "lib/leads/signals": typeof lib_leads_signals;
   "lib/leads/tableFilters": typeof lib_leads_tableFilters;
   "lib/leads/targets": typeof lib_leads_targets;
+  "lib/notifications/access": typeof lib_notifications_access;
   "lib/notifications/audience": typeof lib_notifications_audience;
   "lib/notifications/channels/email": typeof lib_notifications_channels_email;
   "lib/notifications/channels/index": typeof lib_notifications_channels_index;

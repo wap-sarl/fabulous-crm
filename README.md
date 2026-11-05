@@ -165,13 +165,19 @@ workspaces.
   bouton qui ouvre la fiche. Un envoi attend une minute avant de partir : une
   fiche modifiée deux fois dans la minute ne donne qu'un message, qui dit où elle
   en est. Un envoi en échec est retenté après 1, 5, 15 puis 60 minutes, puis
-  abandonné (`notificationDeliveries`, statuts `pending`, `sent`, `failed`,
-  `skipped`) ; un refus qui ne peut pas changer (canal désactivé entre-temps,
-  fournisseur retiré, personne supprimée) est `skipped` aussitôt. En dev,
-  `DEV_WHITELIST_EMAILS` s'applique comme aux autres envois. Limite connue : une
-  personne qui perd l'accès à une fiche après avoir été prévenue garde la ligne
-  non lue, avec son titre, jusqu'à sa lecture ou sa purge ; la fiche elle-même
-  reste fermée. Slack et Discord arrivent avec les lots suivants, comme plugins.
+  abandonné (`notificationDeliveries`, statuts `pending`, `sending`, `sent`,
+  `failed`, `skipped`). Au moment de partir, à la fin de l'attente comme à chaque
+  nouvelle tentative, tout est redemandé tel que c'est alors : un canal ou un
+  type désactivé entre-temps, un fournisseur retiré, une personne supprimée, une
+  fiche que la personne ne peut plus ouvrir donnent `skipped` aussitôt, et rien
+  ne sort. Tant qu'un envoi est `pending`, une notification rafraîchie n'en
+  ajoute pas ; s'il est déjà `sending`, il a lu son texte et le changement a son
+  propre envoi. En dev, `DEV_WHITELIST_EMAILS` s'applique comme aux autres
+  envois. Limite connue, dans l'application seulement : une personne qui perd
+  l'accès à une fiche après avoir été prévenue garde la ligne non lue, avec son
+  titre, jusqu'à sa lecture ou sa purge ; la fiche elle-même reste fermée, et
+  aucun envoi externe ne part plus pour elle. Slack et Discord arrivent avec les
+  lots suivants, comme plugins.
 - **Plugins** : des fonctionnalités en option, installées par un administrateur
   depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue
   (`convex/_lib/validators/plugins.ts`) est fermé et fait partie du code : rien

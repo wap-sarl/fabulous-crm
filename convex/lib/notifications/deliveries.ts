@@ -6,9 +6,11 @@ import {
 } from '../../_lib/validators/notifications';
 import { scheduledWorkAllowed } from '../extensions/gates';
 import { SCHEDULED_WORK_RETRY_MS } from '../extensions/types';
+import { loadVisibility } from '../roles/visibility';
 import { decryptSecret } from '../security/crypto';
+import { canOpenRecord } from './access';
 import { availableChannels, channelOf, type NotificationChannel } from './channels';
-import { channelIsOn, preferencesOf } from './preferences';
+import { channelIsOn, kindIsOn, preferencesOf } from './preferences';
 
 // One row per notification and channel; the scheduler carries the hold and the retries, no cron polls them.
 
@@ -21,7 +23,7 @@ export interface DeliveryJob {
   to: string;
 }
 
-/** Queues one delivery of an inbox row per channel its reader turned on; a row refreshed while a delivery still waits adds none, that one reads the row when it leaves. */
+/** Queues one delivery of an inbox row per channel its reader turned on; a row refreshed while a delivery is still pending adds none, whatever its deadline: that one reads the row when it leaves. One already sending has read its text, so the change gets a delivery of its own. */
 export async function queueDeliveries(
   ctx: MutationCtx,
   channels: NotificationChannel[],
@@ -36,9 +38,8 @@ export async function queueDeliveries(
       .withIndex('by_notification', (q) =>
         q.eq('notificationId', notificationId).eq('channel', channel.key).eq('status', 'pending'),
       )
-      .order('desc')
       .first();
-    if (waiting && waiting.nextAt > now) continue;
+    if (waiting) continue;
     const deliveryId = await ctx.db.insert('notificationDeliveries', {
       notificationId,
       channel: channel.key,
@@ -51,7 +52,7 @@ export async function queueDeliveries(
   }
 }
 
-/** What a delivery about to leave sends, or null when it must not leave: deferred by the gate, it comes back later; refused for a reason that cannot change, it is `skipped` at once. */
+/** What a delivery about to leave sends, or null when it must not leave: deferred by the gate, it comes back later; refused for a reason that cannot change, it is `skipped` at once. Everything is asked again here, as it stands now: the hold, a retry or a deferral may have let the person change their mind or lose the record. */
 export async function beginDelivery(
   ctx: MutationCtx,
   deliveryId: Id<'notificationDeliveries'>,
@@ -75,9 +76,16 @@ export async function beginDelivery(
   if (!user || user.deletedAt !== undefined) return await skip('recipient_gone');
   const available = await availableChannels(ctx);
   if (!available.includes(channel)) return await skip('channel_not_available');
-  // The person may have turned the channel off while the delivery waited.
   const preferences = await preferencesOf(ctx, user._id);
   if (!channelIsOn(preferences, channel.key)) return await skip('channel_disabled');
+  if (!kindIsOn(preferences, notification.kind)) return await skip('kind_disabled');
+  // Outside the app the record's name cannot be taken back: a reader who lost the record is not written to.
+  if (notification.record) {
+    const visibility = await loadVisibility(ctx, user);
+    if (!(await canOpenRecord(ctx, visibility, notification.record))) {
+      return await skip('access_lost');
+    }
+  }
   const stored = preferences?.channels[channel.key]?.target;
   const to = !channel.target
     ? user.email
@@ -85,6 +93,7 @@ export async function beginDelivery(
       ? await decryptSecret(stored)
       : stored;
   if (!to) return await skip('no_target');
+  await ctx.db.patch(deliveryId, { status: 'sending' });
   return { title: notification.title, body: notification.body, path: notification.path, to };
 }
 
@@ -96,7 +105,7 @@ export async function finishDelivery(
   error?: string,
 ): Promise<void> {
   const delivery = await ctx.db.get(deliveryId);
-  if (delivery?.status !== 'pending') return;
+  if (delivery?.status !== 'sending') return;
   if (result === 'skipped') {
     await ctx.db.patch(deliveryId, { status: 'skipped', error });
     return;
@@ -112,6 +121,11 @@ export async function finishDelivery(
     await ctx.db.patch(deliveryId, { status: 'failed', attempts, error });
     return;
   }
-  await ctx.db.patch(deliveryId, { attempts, nextAt: Date.now() + wait, error });
+  await ctx.db.patch(deliveryId, {
+    status: 'pending',
+    attempts,
+    nextAt: Date.now() + wait,
+    error,
+  });
   await ctx.scheduler.runAfter(wait, channel.deliver, { deliveryId });
 }

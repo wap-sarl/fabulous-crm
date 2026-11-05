@@ -1,7 +1,8 @@
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import type { NotificationKind } from '../../_lib/validators/notifications';
-import { loadVisibility, scopedReader, type Visibility } from '../roles/visibility';
+import { loadVisibility, type Visibility } from '../roles/visibility';
+import { canOpenRecord } from './access';
 import { recipientsOf } from './audience';
 import { availableChannels, type NotificationChannel } from './channels';
 import { queueDeliveries } from './deliveries';
@@ -58,19 +59,6 @@ function once<V>(cache: Map<string, Promise<V>>, key: string, load: () => Promis
   return loading;
 }
 
-/** Whether the person could open the record: read through their own scoped reader, the rules the record's page applies. */
-async function canOpen(
-  ctx: MutationCtx,
-  run: FanOutRun,
-  user: Doc<'users'>,
-  record: NonNullable<Rendered['record']>,
-): Promise<boolean> {
-  const id = ctx.db.normalizeId(record.table, record.id);
-  if (!id) return false;
-  const visibility = await once(run.visibilities, user._id, () => loadVisibility(ctx, user));
-  return (await scopedReader(ctx, visibility).get(id)) !== null;
-}
-
 /** Writes the inbox rows of one fact: the text rendered once from the record, one row per recipient who wants the kind; a recipient whose unread row of the same key is still there gets that row refreshed with the latest news instead of a second one. Each row written is queued on the external channels its reader turned on. */
 export async function fanOutEvent(
   ctx: MutationCtx,
@@ -87,6 +75,7 @@ export async function fanOutEvent(
     title: rendered.title,
     body: rendered.body,
     path: rendered.path,
+    record: rendered.record,
     actorId: event.actorId,
     createdAt: event.at,
     deliveredAt: Date.now(),
@@ -112,7 +101,10 @@ export async function fanOutEvent(
     const preferences = await once(run.preferences, user._id, () => preferencesOf(ctx, user._id));
     if (!kindIsOn(preferences, event.kind)) continue;
     // The record's own access rules bound the inbox: a person who could not open it is not told of it.
-    if (rendered.record && !(await canOpen(ctx, run, user, rendered.record))) continue;
+    if (rendered.record) {
+      const visibility = await once(run.visibilities, user._id, () => loadVisibility(ctx, user));
+      if (!(await canOpenRecord(ctx, visibility, rendered.record))) continue;
+    }
     const dedupeKey = dedupeKeyOf(event.kind, event.entity.id, user._id);
     const unread = await unreadOf(user._id);
     // One row, the latest news: a deal moved twice while unread shows where it is now.

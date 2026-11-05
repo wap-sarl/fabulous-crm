@@ -110,6 +110,19 @@ export const notificationEventValidator = v.object({
   data: v.optional(notificationEventDataValidator),
 });
 
+/** The record whose access rules bound a notification: the one its reader must be able to open. */
+const notificationRecordValidator = v.object({
+  table: v.union(
+    v.literal('leads'),
+    v.literal('deals'),
+    v.literal('activities'),
+    v.literal('campaigns'),
+    v.literal('workflows'),
+  ),
+  id: v.string(),
+});
+export type NotificationRecord = Infer<typeof notificationRecordValidator>;
+
 /** A fact addressed to one person, with its own read state. */
 export const notificationValidator = v.object({
   userId: v.id('users'),
@@ -118,6 +131,8 @@ export const notificationValidator = v.object({
   body: v.string(),
   path: v.string(),
   entity: notificationEntityValidator,
+  // Kept so a delivery that leaves later asks again whether its reader can still open it.
+  record: v.optional(notificationRecordValidator),
   actorId: v.optional(v.id('users')),
   // `kind:entityId:userId`: the same fact twice rings once while the first is unread.
   dedupeKey: v.string(),
@@ -128,8 +143,10 @@ export const notificationValidator = v.object({
   deliveredAt: v.number(),
 });
 
+// `pending` waits for its time, `sending` has read its text and left: only the first is one a refreshed notification can still ride.
 const notificationDeliveryStatusValidator = v.union(
   v.literal('pending'),
+  v.literal('sending'),
   v.literal('sent'),
   v.literal('failed'),
   v.literal('skipped'),

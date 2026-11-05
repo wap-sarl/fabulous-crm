@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { api } from '../../convex/_generated/api';
+import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import {
   NOTIFICATION_DELIVERY_BACKOFF_MS,
@@ -7,6 +7,8 @@ import {
 } from '../../convex/_lib/validators/notifications';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensions/types';
+import { emailChannel } from '../../convex/lib/notifications/channels/email';
+import { queueDeliveries } from '../../convex/lib/notifications/deliveries';
 import {
   asIdentity,
   createTestConvex,
@@ -286,12 +288,12 @@ describe('a delivery', () => {
 
   const skippedWhen = async (
     reason: string,
-    change: (ctx: Awaited<ReturnType<typeof setup>>) => Promise<void>,
+    change: (ctx: Awaited<ReturnType<typeof setup>>, leadId: Id<'leads'>) => Promise<void>,
   ) => {
     const ctx = await setup();
     await emailOn(ctx.asCamille);
-    await assignLead(ctx);
-    await change(ctx);
+    const leadId = await assignLead(ctx);
+    await change(ctx, leadId);
     await runAfter(ctx.t, NOTIFICATION_DELIVERY_HOLD_MS);
     expect(mails).toEqual([]);
     expect((await deliveries(ctx.t))[0]).toMatchObject({
@@ -308,6 +310,90 @@ describe('a delivery', () => {
     await skippedWhen('channel_disabled', async ({ asCamille }) => {
       await choose(asCamille, { channels: { email: { enabled: false } } });
     });
+  });
+
+  test('is skipped when the person turned its kind off while it waited', async () => {
+    await skippedWhen('kind_disabled', async ({ asCamille }) => {
+      await choose(asCamille, { kinds: { 'lead.assigned': false } });
+    });
+  });
+
+  test('is skipped when the person lost the record while it waited: its name does not leave the app', async () => {
+    await skippedWhen('access_lost', async ({ lou, asLou, asCamille }, leadId) => {
+      await asLou.mutation(api.features.leads.mutations.updateLead, {
+        leadId,
+        ownerIds: [lou.userId],
+      });
+      expect(await asCamille.query(api.features.leads.queries.getLead, { leadId })).toBeNull();
+    });
+  });
+
+  test('asks again at each retry: a record lost between two attempts ends the delivery', async () => {
+    const ctx = await setup();
+    const { t, lou, asLou, asCamille } = ctx;
+    await emailOn(asCamille);
+    statuses.push(500);
+    const leadId = await assignLead(ctx);
+    await runAfter(t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(mails).toHaveLength(1);
+    await asLou.mutation(api.features.leads.mutations.updateLead, {
+      leadId,
+      ownerIds: [lou.userId],
+    });
+    await runAfter(t, MINUTE);
+    expect(mails).toHaveLength(1);
+    expect((await deliveries(t))[0]).toMatchObject({
+      status: 'skipped',
+      attempts: 1,
+      error: 'access_lost',
+    });
+  });
+
+  test('still pending past its time is the one a refreshed notification rides: no second delivery, one mail', async () => {
+    const ctx = await setup();
+    const { t, camille, asCamille } = ctx;
+    await emailOn(asCamille);
+    await assignLead(ctx);
+    const [first] = await deliveries(t);
+    const requeue = () =>
+      t.run(async (run) => {
+        const preferences = await run.db
+          .query('notificationPreferences')
+          .withIndex('by_user', (q) => q.eq('userId', camille.userId))
+          .first();
+        await queueDeliveries(run, [emailChannel], preferences, first!.notificationId);
+      });
+    // The scheduler is late: the deadline has passed, the action has not started.
+    await t.run((run) => run.db.patch(first!._id, { nextAt: Date.now() - MINUTE }));
+    await requeue();
+    expect(await deliveries(t)).toHaveLength(1);
+    await runAfter(t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(mails).toHaveLength(1);
+    expect((await deliveries(t)).map((d) => d.status)).toEqual(['sent']);
+  });
+
+  test('already sending has read its text: a notification refreshed then gets a delivery of its own', async () => {
+    const ctx = await setup();
+    const { t, camille, asCamille } = ctx;
+    await emailOn(asCamille);
+    await assignLead(ctx);
+    const [first] = await deliveries(t);
+    const begin = () =>
+      t.mutation(internal.features.notifications.internal.beginNotificationDelivery, {
+        deliveryId: first!._id,
+      });
+    expect(await begin()).toMatchObject({ to: CAMILLE });
+    expect((await deliveries(t))[0]).toMatchObject({ status: 'sending', attempts: 0 });
+    // Begun once: a second start of the same delivery sends nothing.
+    expect(await begin()).toBeNull();
+    await t.run(async (run) => {
+      const preferences = await run.db
+        .query('notificationPreferences')
+        .withIndex('by_user', (q) => q.eq('userId', camille.userId))
+        .first();
+      await queueDeliveries(run, [emailChannel], preferences, first!.notificationId);
+    });
+    expect((await deliveries(t)).map((d) => d.status)).toEqual(['sending', 'pending']);
   });
 
   test('is skipped when the deployment no longer has an e-mail provider', async () => {
