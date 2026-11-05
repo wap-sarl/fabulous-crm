@@ -80,6 +80,19 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 
+/** A notification as a system e-mail: the title and the body carry the record's own words, so they are escaped here; the note says where the channel is turned off. */
+export const notificationEmail = (
+  title: string,
+  body: string,
+  preferencesUrl: string,
+): EmailContent => ({
+  subject: title,
+  title: escapeHtml(title),
+  intro: escapeHtml(body),
+  cta: 'Ouvrir dans le CRM',
+  disclaimer: `Vous recevez cet e-mail parce que vous avez activé les notifications par e-mail. Vous pouvez les désactiver dans <a href="${escapeHtml(preferencesUrl)}" style="color: ${EMAIL_PALETTE.soft};">vos préférences de notification</a>.`,
+});
+
 const hostOf = (url: string) => {
   try {
     return new URL(url).host;

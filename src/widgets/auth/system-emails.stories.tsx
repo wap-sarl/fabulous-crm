@@ -7,6 +7,7 @@ import {
   LOGIN_EMAIL,
   TEST_EMAIL,
   generateEmailHtml,
+  notificationEmail,
 } from '../../../convex/auth/emailTemplates';
 
 /** A wordmark drawn in SVG, so the preview needs no hosted file. */
@@ -89,6 +90,19 @@ export const Invitation: Story = {
 export const TestEmail: Story = {
   name: 'Test e-mail',
   args: { content: TEST_EMAIL, brand: CONFIGURED_BRAND, link: undefined },
+};
+
+/** A notification on the e-mail channel: the record's own words as title and message, the button opening the record, the note saying where the channel is turned off. */
+export const Notification: Story = {
+  args: {
+    content: notificationEmail(
+      'Lead attribué : Camille Roux',
+      'Lou Martin vous a attribué le lead Camille Roux.',
+      `${CONFIGURED_BRAND.appUrl}/settings/notifications`,
+    ),
+    brand: CONFIGURED_BRAND,
+    link: `${CONFIGURED_BRAND.appUrl}/leads/k57e6erhcktjxnqc4475dp7fr18d93yb`,
+  },
 };
 
 /** The document inside the preview, once the browser has laid it out. */

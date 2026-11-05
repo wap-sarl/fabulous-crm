@@ -1,7 +1,8 @@
 import { type Infer, v } from 'convex/values';
+import { z } from 'zod';
 
 /** What a person can be told about: a closed catalogue, like the plugins'; `defaultOn` is the choice until the person sets theirs. */
-const NOTIFICATION_KINDS = [
+export const NOTIFICATION_KINDS = [
   { key: 'lead.assigned', group: 'leads', label: 'Un lead vous est attribué', defaultOn: true },
   {
     key: 'lead.form_submitted',
@@ -70,7 +71,13 @@ export const notificationKindOnByDefault = (kind: NotificationKind): boolean =>
   NOTIFICATION_KINDS.find((entry) => entry.key === kind)?.defaultOn ?? true;
 
 // A kind the catalogue drops fails loudly at deploy, never silently in a row.
-const notificationKindValidator = v.union(...KIND_KEYS.map((key) => v.literal(key)));
+export const notificationKindValidator = v.union(...KIND_KEYS.map((key) => v.literal(key)));
+
+const GROUP_KEYS = [...new Set(NOTIFICATION_KINDS.map((kind) => kind.group))];
+export const notificationGroupValidator = v.union(...GROUP_KEYS.map((key) => v.literal(key)));
+
+/** The kinds a person turns on or off in one call: known kinds only, any subset of them. */
+export const notificationKindChoicesSchema = z.partialRecord(z.enum(KIND_KEYS), z.boolean());
 
 /** The record a notification is about; `path` on the notification is where it opens. */
 const notificationEntityValidator = v.object({
@@ -139,14 +146,18 @@ export const notificationDeliveryValidator = v.object({
   createdAt: v.number(),
 });
 
-/** One row per person: the kinds they turned on or off (absent = the catalogue's default) and the channels they chose. */
+/** A person's choice for one external channel; `target` is what the channel reaches them at, ciphertext when the channel says it is a secret. */
+export const notificationChannelChoiceValidator = v.object({
+  enabled: v.boolean(),
+  target: v.optional(v.string()),
+});
+export type NotificationChannelChoice = Infer<typeof notificationChannelChoiceValidator>;
+
+/** One row per person: the kinds they turned on or off (absent = the catalogue's default) and the channels they chose (absent = off). */
 export const notificationPreferencesValidator = v.object({
   userId: v.id('users'),
   kinds: v.record(v.string(), v.boolean()),
-  channels: v.record(
-    v.string(),
-    v.object({ enabled: v.boolean(), target: v.optional(v.string()) }),
-  ),
+  channels: v.record(v.string(), notificationChannelChoiceValidator),
   updatedAt: v.number(),
 });
 
@@ -161,3 +172,7 @@ export const NOTIFICATION_FAN_OUT_BATCH = 50;
 export const NOTIFICATION_UNREAD_CAP = 100;
 /** The popover shows the latest this many. */
 export const NOTIFICATION_LATEST = 20;
+/** A delivery waits this long before it leaves: a record changed twice in the minute is one message, carrying where it is now. */
+export const NOTIFICATION_DELIVERY_HOLD_MS = 60_000;
+/** A delivery that failed is tried again after each of these, then given up. */
+export const NOTIFICATION_DELIVERY_BACKOFF_MS = [1, 5, 15, 60].map((minutes) => minutes * 60_000);

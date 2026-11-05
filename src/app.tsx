@@ -70,6 +70,10 @@ const PluginsPage = page(() => import('./pages/settings/PluginsPage'), 'PluginsP
 const FilesPage = page(() => import('./pages/settings/FilesPage'), 'FilesPage');
 const RetentionPage = page(() => import('./pages/settings/RetentionPage'), 'RetentionPage');
 const RolesPage = page(() => import('./pages/settings/RolesPage'), 'RolesPage');
+const NotificationSettingsPage = page(
+  () => import('./pages/settings/NotificationSettingsPage'),
+  'NotificationSettingsPage',
+);
 const LeadListsPage = page(() => import('./pages/settings/LeadListsPage'), 'LeadListsPage');
 const LifecyclePage = page(() => import('./pages/settings/LifecyclePage'), 'LifecyclePage');
 const ScoringPage = page(() => import('./pages/settings/ScoringPage'), 'ScoringPage');
@@ -187,6 +191,7 @@ function AppRoutes() {
                 <Route path="/settings/tracking" element={<TrackingPage />} />
                 <Route path="/settings/plugins" element={<PluginsPage />} />
                 <Route path="/settings/roles" element={<RolesPage />} />
+                <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
                 {frontendExtensions()
                   .routes.filter(inSettings)
                   .map((route) => (

@@ -151,8 +151,27 @@ workspaces.
   (une transaction glissée puis ramenée) ne sonne qu'une fois tant que le premier
   n'est pas lu. Les notifications et leurs envois suivent leur propre durée dans
   *Paramètres → Conservation* (`notificationDays`, 90 jours par défaut, 7 à 365).
-  Les préférences par personne et les canaux externes (e-mail, Slack, Discord)
-  arrivent avec les lots suivants.
+  Chacun règle les siennes dans *Paramètres → Notifications* (groupe
+  « Personnel », ouvert à tous les employés) : les types dont il veut être
+  informé, par groupe (un type désactivé n'écrit plus rien pour lui, ni dans
+  l'application ni ailleurs), et les canaux externes où il les reçoit en plus de
+  la cloche, qui reste toujours active (`notificationPreferences`, une ligne par
+  personne ; sans ligne, le catalogue décide et aucun canal externe n'est actif).
+  Les canaux viennent d'un registre (`convex/lib/notifications/channels`) que la
+  page, l'adressage et la mutation lisent tous : un canal n'est proposé que s'il
+  peut livrer. Le seul canal du cœur est l'**e-mail**, désactivé par défaut,
+  proposé dès qu'un fournisseur (Brevo ou SMTP) est configuré : la notification
+  part à l'adresse du compte, dans la mise en page des e-mails système, avec un
+  bouton qui ouvre la fiche. Un envoi attend une minute avant de partir : une
+  fiche modifiée deux fois dans la minute ne donne qu'un message, qui dit où elle
+  en est. Un envoi en échec est retenté après 1, 5, 15 puis 60 minutes, puis
+  abandonné (`notificationDeliveries`, statuts `pending`, `sent`, `failed`,
+  `skipped`) ; un refus qui ne peut pas changer (canal désactivé entre-temps,
+  fournisseur retiré, personne supprimée) est `skipped` aussitôt. En dev,
+  `DEV_WHITELIST_EMAILS` s'applique comme aux autres envois. Limite connue : une
+  personne qui perd l'accès à une fiche après avoir été prévenue garde la ligne
+  non lue, avec son titre, jusqu'à sa lecture ou sa purge ; la fiche elle-même
+  reste fermée. Slack et Discord arrivent avec les lots suivants, comme plugins.
 - **Plugins** : des fonctionnalités en option, installées par un administrateur
   depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue
   (`convex/_lib/validators/plugins.ts`) est fermé et fait partie du code : rien

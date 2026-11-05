@@ -554,9 +554,10 @@ const tables = {
     .index('by_dedupe_unread', ['dedupeKey', 'readAt'])
     // The purge reads the aged rows straight from the index.
     .index('by_createdAt', ['createdAt']),
-  // The deliveries on external channels; written from the preferences issue on, purged with the notifications.
+  // The deliveries on external channels, purged with the notifications.
   notificationDeliveries: defineTable(notificationDeliveryValidator)
-    .index('by_status_next', ['status', 'nextAt'])
+    // A notification refreshed while its delivery still waits adds none.
+    .index('by_notification', ['notificationId', 'channel', 'status'])
     .index('by_createdAt', ['createdAt']),
   notificationPreferences: defineTable(notificationPreferencesValidator).index('by_user', [
     'userId',

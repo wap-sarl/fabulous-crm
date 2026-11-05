@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Settings } from 'lucide-react';
 import { useAuthMutation, useAuthPaginatedQuery, useAuthQuery } from '@crm/widgets';
 import { api } from '@crm/lib/backend';
 import { Button, Card, PageHeader, SegmentedControl, Skeleton } from '@crm/design-system';
@@ -32,14 +34,22 @@ export function NotificationsPage() {
         }
         loading={count === undefined}
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!count}
-            onClick={() => void markAllRead({}).catch(() => undefined)}
-          >
-            Tout marquer comme lu
-          </Button>
+          <>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/settings/notifications">
+                <Settings className="size-4" aria-hidden="true" />
+                Préférences
+              </Link>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!count}
+              onClick={() => void markAllRead({}).catch(() => undefined)}
+            >
+              Tout marquer comme lu
+            </Button>
+          </>
         }
       />
       <div className="mt-6 space-y-4">

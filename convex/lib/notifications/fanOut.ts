@@ -1,11 +1,11 @@
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
-import {
-  type NotificationKind,
-  notificationKindOnByDefault,
-} from '../../_lib/validators/notifications';
+import type { NotificationKind } from '../../_lib/validators/notifications';
 import { loadVisibility, scopedReader, type Visibility } from '../roles/visibility';
 import { recipientsOf } from './audience';
+import { availableChannels, type NotificationChannel } from './channels';
+import { queueDeliveries } from './deliveries';
+import { kindIsOn, preferencesOf } from './preferences';
 import {
   type Rendered,
   renderActivityAssigned,
@@ -40,40 +40,42 @@ const RENDERERS: Record<NotificationKind, Renderer> = {
 const dedupeKeyOf = (kind: NotificationKind, entityId: string, userId: string): string =>
   `${kind}:${entityId}:${userId}`;
 
-/** Whether this person is told this kind: the catalogue's default until the preferences of #171 say otherwise. */
-const wants = (_user: Doc<'users'>, kind: NotificationKind): boolean =>
-  notificationKindOnByDefault(kind);
+/** What one run loads once and keeps: a person's visibility and their preferences, however many facts concern them, and the channels that can deliver. */
+export interface FanOutRun {
+  visibilities: Map<string, Promise<Visibility>>;
+  preferences: Map<string, Promise<Doc<'notificationPreferences'> | null>>;
+  channels?: Promise<NotificationChannel[]>;
+}
 
-/** The visibilities loaded during one run, one per person: a batch addressed to the settings right reads each once. */
-export type VisibilityCache = Map<string, Promise<Visibility>>;
+export const newFanOutRun = (): FanOutRun => ({ visibilities: new Map(), preferences: new Map() });
 
-const visibilityOf = (ctx: MutationCtx, cache: VisibilityCache, user: Doc<'users'>) => {
-  let loading = cache.get(user._id);
+function once<V>(cache: Map<string, Promise<V>>, key: string, load: () => Promise<V>): Promise<V> {
+  let loading = cache.get(key);
   if (!loading) {
-    loading = loadVisibility(ctx, user);
-    cache.set(user._id, loading);
+    loading = load();
+    cache.set(key, loading);
   }
   return loading;
-};
+}
 
 /** Whether the person could open the record: read through their own scoped reader, the rules the record's page applies. */
 async function canOpen(
   ctx: MutationCtx,
-  cache: VisibilityCache,
+  run: FanOutRun,
   user: Doc<'users'>,
   record: NonNullable<Rendered['record']>,
 ): Promise<boolean> {
   const id = ctx.db.normalizeId(record.table, record.id);
   if (!id) return false;
-  const visibility = await visibilityOf(ctx, cache, user);
+  const visibility = await once(run.visibilities, user._id, () => loadVisibility(ctx, user));
   return (await scopedReader(ctx, visibility).get(id)) !== null;
 }
 
-/** Writes the inbox rows of one fact: the text rendered once from the record, one row per recipient; a recipient whose unread row of the same key is still there gets that row refreshed with the latest news instead of a second one. */
+/** Writes the inbox rows of one fact: the text rendered once from the record, one row per recipient who wants the kind; a recipient whose unread row of the same key is still there gets that row refreshed with the latest news instead of a second one. Each row written is queued on the external channels its reader turned on. */
 export async function fanOutEvent(
   ctx: MutationCtx,
   event: Doc<'notificationEvents'>,
-  cache: VisibilityCache = new Map(),
+  run: FanOutRun = newFanOutRun(),
 ): Promise<number> {
   const rendered = await RENDERERS[event.kind](ctx, event);
   if (!rendered) return 0;
@@ -106,24 +108,31 @@ export async function fanOutEvent(
     }
   }
   for (const user of recipients) {
-    if (!wants(user, event.kind)) continue;
+    // A kind the person turned off costs this lookup and writes nothing.
+    const preferences = await once(run.preferences, user._id, () => preferencesOf(ctx, user._id));
+    if (!kindIsOn(preferences, event.kind)) continue;
     // The record's own access rules bound the inbox: a person who could not open it is not told of it.
-    if (rendered.record && !(await canOpen(ctx, cache, user, rendered.record))) continue;
+    if (rendered.record && !(await canOpen(ctx, run, user, rendered.record))) continue;
     const dedupeKey = dedupeKeyOf(event.kind, event.entity.id, user._id);
     const unread = await unreadOf(user._id);
-    if (unread) {
-      // One row, the latest news: a deal moved twice while unread shows where it is now.
-      await ctx.db.patch(unread._id, news);
-    } else {
-      await ctx.db.insert('notifications', {
+    // One row, the latest news: a deal moved twice while unread shows where it is now.
+    if (unread) await ctx.db.patch(unread._id, news);
+    const notificationId =
+      unread?._id ??
+      (await ctx.db.insert('notifications', {
         userId: user._id,
         kind: event.kind,
         entity: event.entity,
         dedupeKey,
         ...news,
-      });
-    }
+      }));
     written += 1;
+    // Nobody is on an external channel until they say so: without a row there is nothing to queue, and the channels are not even read.
+    if (!preferences || !Object.values(preferences.channels).some((choice) => choice.enabled)) {
+      continue;
+    }
+    run.channels ??= availableChannels(ctx);
+    await queueDeliveries(ctx, await run.channels, preferences, notificationId);
   }
   return written;
 }

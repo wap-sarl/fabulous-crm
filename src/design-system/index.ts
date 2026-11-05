@@ -11,6 +11,7 @@ export { HelperText } from './components/inputs/helper-text';
 export { Textarea } from './components/inputs/textarea';
 export { Label } from './components/inputs/label';
 export { Switch } from './components/inputs/switch';
+export { SwitchRow } from './components/inputs/switch-row';
 export {
   Select,
   SelectGroup,

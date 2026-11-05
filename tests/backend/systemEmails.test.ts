@@ -6,6 +6,7 @@ import {
   LOGIN_EMAIL,
   TEST_EMAIL,
   generateEmailHtml,
+  notificationEmail,
   subjectOf,
 } from '../../convex/auth/emailTemplates';
 import { recordedLogoImage } from '../../convex/lib/config/logoImage';
@@ -116,6 +117,24 @@ describe('the system e-mails', () => {
     expect(test).not.toContain('mso-padding-alt');
     expect(test).not.toContain('copiez ce lien');
     expect(test).toContain(TEST_EMAIL.disclaimer);
+  });
+
+  test('a notification is mailed with its record’s words escaped, a button to the record and where to turn the channel off; its subject stays as written', () => {
+    const content = notificationEmail(
+      'Lead attribué : <Max> & fils',
+      'Lou "L" Martin vous a attribué le lead <Max> & fils.',
+      'https://crm.example.com/settings/notifications',
+    );
+    expect(subjectOf(content, BRAND)).toBe('[Clinique Nord] Lead attribué : <Max> & fils');
+    const html = generateEmailHtml(content, BRAND, 'https://crm.example.com/leads/abc');
+    expect(html).toContain('<title>Lead attribué : &lt;Max&gt; &amp; fils</title>');
+    expect(html).toContain(
+      'Lou &quot;L&quot; Martin vous a attribué le lead &lt;Max&gt; &amp; fils.',
+    );
+    expect(html).not.toContain('<Max>');
+    expect(html.split('href="https://crm.example.com/leads/abc"')).toHaveLength(3);
+    expect(html).toContain('Ouvrir dans le CRM');
+    expect(html).toContain('href="https://crm.example.com/settings/notifications"');
   });
 
   test('the layout is tables and inline styles, with the Outlook width fallback and the phone rule', () => {
