@@ -312,6 +312,15 @@ describe('a delivery', () => {
     });
   });
 
+  test('is skipped when the person read the notification in the app while it waited', async () => {
+    await skippedWhen('read', async ({ t, camille, asCamille }) => {
+      const [row] = await inboxOf(t, camille.userId);
+      await asCamille.mutation(api.features.notifications.mutations.markRead, {
+        notificationId: row!._id,
+      });
+    });
+  });
+
   test('is skipped when the person turned its kind off while it waited', async () => {
     await skippedWhen('kind_disabled', async ({ asCamille }) => {
       await choose(asCamille, { kinds: { 'lead.assigned': false } });

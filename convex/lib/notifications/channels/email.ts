@@ -7,7 +7,8 @@ import type { NotificationChannel } from './index';
 export const emailChannel: NotificationChannel = {
   key: 'email',
   label: 'E-mail',
-  description: 'Chaque notification vous est aussi envoyée à l’adresse de votre compte.',
+  description:
+    'Chaque notification vous est aussi envoyée à l’adresse de votre compte, sauf si vous l’avez déjà lue dans le CRM.',
   isConfigured: async (ctx) => emailPresence(await loadAppConfig(ctx)).emailConfigured,
   deliver: internal.features.notifications.actions.deliverEmail,
 };

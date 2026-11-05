@@ -125,7 +125,8 @@ describe('a person’s notification preferences', () => {
       {
         key: 'email',
         label: 'E-mail',
-        description: 'Chaque notification vous est aussi envoyée à l’adresse de votre compte.',
+        description:
+          'Chaque notification vous est aussi envoyée à l’adresse de votre compte, sauf si vous l’avez déjà lue dans le CRM.',
         enabled: false,
       },
     ]);

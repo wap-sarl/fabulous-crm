@@ -72,6 +72,8 @@ export async function beginDelivery(
   }
   const notification = await ctx.db.get(delivery.notificationId);
   if (!notification) return await skip('notification_gone');
+  // Read in the app while the delivery waited: the message would only repeat what the person saw.
+  if (notification.readAt !== undefined) return await skip('read');
   const user = await ctx.db.get(notification.userId);
   if (!user || user.deletedAt !== undefined) return await skip('recipient_gone');
   const available = await availableChannels(ctx);

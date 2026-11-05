@@ -30,7 +30,8 @@ export const Off: Story = { args: { checked: false } };
 export const Described: Story = {
   args: {
     label: 'E-mail',
-    description: 'Chaque notification vous est aussi envoyée à l’adresse de votre compte.',
+    description:
+      'Chaque notification vous est aussi envoyée à l’adresse de votre compte, sauf si vous l’avez déjà lue dans le CRM.',
     checked: false,
   },
 };
