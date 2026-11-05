@@ -5,7 +5,8 @@ import { NOTIFICATION_FAN_OUT_BATCH } from '../../_lib/validators/notifications'
 import { scheduledWorkAllowed } from '../../lib/extensions/gates';
 import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensions/types';
 import { ensureFanOut } from '../../lib/notifications/emit';
-import { fanOutEvent, type VisibilityCache } from '../../lib/notifications/fanOut';
+import { beginDelivery, expireDelivery, finishDelivery } from '../../lib/notifications/deliveries';
+import { fanOutEvent, newFanOutRun } from '../../lib/notifications/fanOut';
 
 /** The unread rows one run marks read; a person with more gets another run. */
 const MARK_READ_BATCH = 200;
@@ -24,9 +25,9 @@ export const fanOut = internalMutation({
       .withIndex('by_at')
       .order('asc')
       .take(NOTIFICATION_FAN_OUT_BATCH);
-    const visibilities: VisibilityCache = new Map();
+    const run = newFanOutRun();
     for (const event of events) {
-      await fanOutEvent(ctx, event, visibilities);
+      await fanOutEvent(ctx, event, run);
       await ctx.db.delete(event._id);
     }
     const left = await ctx.db.query('notificationEvents').withIndex('by_at').first();
@@ -54,6 +55,40 @@ export const markAllReadFor = internalMutation({
         args,
       );
     }
+    return null;
+  },
+});
+
+/** First step of a channel's delivery action: what to send, or null when the delivery must not leave now. */
+export const beginNotificationDelivery = internalMutation({
+  args: { deliveryId: v.id('notificationDeliveries') },
+  returns: v.union(
+    v.null(),
+    v.object({ title: v.string(), body: v.string(), path: v.string(), to: v.string() }),
+  ),
+  handler: async (ctx, args) => await beginDelivery(ctx, args.deliveryId),
+});
+
+/** Last step of a channel's delivery action: what became of it. */
+export const finishNotificationDelivery = internalMutation({
+  args: {
+    deliveryId: v.id('notificationDeliveries'),
+    result: v.union(v.literal('sent'), v.literal('skipped'), v.literal('failed')),
+    error: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await finishDelivery(ctx, args.deliveryId, args.result, args.error);
+    return null;
+  },
+});
+
+/** Scheduled when a delivery starts sending: ends it if its action never recorded a result. */
+export const expireNotificationDelivery = internalMutation({
+  args: { deliveryId: v.id('notificationDeliveries'), attempts: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await expireDelivery(ctx, args.deliveryId, args.attempts);
     return null;
   },
 });

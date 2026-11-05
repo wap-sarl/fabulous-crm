@@ -1,7 +1,15 @@
 import { paginationOptsValidator, paginationResultValidator } from 'convex/server';
 import { v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
-import { NOTIFICATION_LATEST, NOTIFICATION_UNREAD_CAP } from '../../_lib/validators/notifications';
+import {
+  NOTIFICATION_LATEST,
+  NOTIFICATION_UNREAD_CAP,
+  notificationGroupValidator,
+  notificationKindValidator,
+  notificationKindsFor,
+} from '../../_lib/validators/notifications';
+import { availableChannels } from '../../lib/notifications/channels';
+import { channelIsOn, kindIsOn, preferencesOf } from '../../lib/notifications/preferences';
 import { docOf } from '../../lib/shared/docs';
 
 const notificationRow = docOf('notifications');
@@ -52,5 +60,46 @@ export const listMine = employeeQuery({
           .query('notifications')
           .withIndex('by_user_created', (q) => q.eq('userId', ctx.userId));
     return await query.order('desc').paginate(args.paginationOpts);
+  },
+});
+
+/** The settings page in one answer: the kinds the caller's role can receive, each with their choice or its default, and the channels that can deliver with theirs; a target is never returned. */
+export const getMyNotificationPreferences = employeeQuery({
+  args: {},
+  returns: v.object({
+    kinds: v.array(
+      v.object({
+        key: notificationKindValidator,
+        group: notificationGroupValidator,
+        label: v.string(),
+        on: v.boolean(),
+      }),
+    ),
+    channels: v.array(
+      v.object({
+        key: v.string(),
+        label: v.string(),
+        description: v.string(),
+        enabled: v.boolean(),
+      }),
+    ),
+  }),
+  handler: async (ctx) => {
+    const preferences = await preferencesOf(ctx, ctx.userId);
+    const channels = await availableChannels(ctx);
+    return {
+      kinds: notificationKindsFor(ctx.visibility.access).map(({ key, group, label }) => ({
+        key,
+        group,
+        label,
+        on: kindIsOn(preferences, key),
+      })),
+      channels: channels.map(({ key, label, description }) => ({
+        key,
+        label,
+        description,
+        enabled: channelIsOn(preferences, key),
+      })),
+    };
   },
 });

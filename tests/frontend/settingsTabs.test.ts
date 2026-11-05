@@ -73,14 +73,16 @@ describe('the settings page', () => {
           '/settings/retention',
         ],
       ],
+      ['Personnel', ['/settings/notifications']],
     ]);
   });
 
-  test('without the settings right, the three tabs every employee has; a group left empty is not shown', () => {
+  test('without the settings right, the four tabs every employee has; a group left empty is not shown', () => {
     expect(paths(visibleTabGroups(SETTINGS_GROUPS, [], false, []))).toEqual([
       ['Données', ['/settings/lists']],
       ['Canaux', ['/settings/templates']],
       ['Connexions et conformité', ['/settings/integrations']],
+      ['Personnel', ['/settings/notifications']],
     ]);
   });
 
@@ -103,7 +105,7 @@ describe('the settings page', () => {
       { ...webhooks, group: 'Développeurs' },
       { ...reports },
     ];
-    expect(paths(visibleTabGroups(SETTINGS_GROUPS, named, true, [])).slice(4)).toEqual([
+    expect(paths(visibleTabGroups(SETTINGS_GROUPS, named, true, [])).slice(5)).toEqual([
       ['Abonnement', ['/settings/billing']],
       ['Développeurs', ['/settings/webhooks']],
     ]);
@@ -118,6 +120,7 @@ describe('the settings page', () => {
       'Données',
       'Canaux',
       'Connexions et conformité',
+      'Personnel',
       'Développeurs',
     ]);
     expect(joined[1][1]).toEqual([

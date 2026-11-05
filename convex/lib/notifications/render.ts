@@ -1,7 +1,10 @@
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { pipelineStage } from '../../_lib/validators/deals';
-import type { NotificationEventData } from '../../_lib/validators/notifications';
+import type {
+  NotificationEventData,
+  NotificationRecord,
+} from '../../_lib/validators/notifications';
 import { settingsUsers, teamMatesOf } from './audience';
 
 // What a fact says to the people it concerns, read from the record when the fan-out runs.
@@ -19,7 +22,7 @@ export interface Rendered {
   /** The body for the actor's own unread row, refreshed by their change: no need to name them to themselves. */
   ownBody?: string;
   /** The record a recipient must be able to open, read through their own scoped reader: the inbox never shows what the record's access rules hide. Absent, everyone in the audience may be told. */
-  record?: { table: 'leads' | 'deals' | 'activities' | 'campaigns' | 'workflows'; id: string };
+  record?: NotificationRecord;
 }
 
 const personName = (user: Pick<Doc<'users'>, 'firstName' | 'lastName'> | null | undefined) =>

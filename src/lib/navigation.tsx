@@ -1,4 +1,5 @@
 import {
+  Bell,
   Blocks,
   Building2,
   ClipboardList,
@@ -66,7 +67,7 @@ export const NAV_ITEMS: ShellNavItem[] = [
     : []),
   // Imports are for every employee, on the modules the role may write to.
   { label: 'Importer', icon: <Upload />, path: '/import', position: 'bottom' },
-  // One entry for every setting: the page shows the tabs the role may see, and two of them are for every employee.
+  // One entry for every setting: the page shows the tabs the role may see, and a few of them are for every employee.
   { label: 'Paramètres', icon: <Settings />, path: SETTINGS_ROOT, position: 'bottom' },
 ];
 
@@ -113,5 +114,10 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
       settings({ label: 'Fichiers', icon: <Paperclip />, path: '/settings/files' }),
       settings({ label: 'Conservation', icon: <Hourglass />, path: '/settings/retention' }),
     ],
+  },
+  {
+    name: 'Personnel',
+    // A person's own settings, for every employee.
+    tabs: [{ label: 'Notifications', icon: <Bell />, path: '/settings/notifications' }],
   },
 ];
