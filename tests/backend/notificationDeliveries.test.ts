@@ -4,11 +4,12 @@ import type { Id } from '../../convex/_generated/dataModel';
 import {
   NOTIFICATION_DELIVERY_BACKOFF_MS,
   NOTIFICATION_DELIVERY_HOLD_MS,
+  NOTIFICATION_DELIVERY_TIMEOUT_MS,
 } from '../../convex/_lib/validators/notifications';
 import { setExtensionsForTests } from '../../convex/extensions';
 import { defaultExtensions, SCHEDULED_WORK_RETRY_MS } from '../../convex/lib/extensions/types';
 import { emailChannel } from '../../convex/lib/notifications/channels/email';
-import { queueDeliveries } from '../../convex/lib/notifications/deliveries';
+import { expireDelivery, queueDeliveries } from '../../convex/lib/notifications/deliveries';
 import {
   asIdentity,
   createTestConvex,
@@ -403,6 +404,49 @@ describe('a delivery', () => {
       await queueDeliveries(run, [emailChannel], preferences, first!.notificationId);
     });
     expect((await deliveries(t)).map((d) => d.status)).toEqual(['sending', 'pending']);
+  });
+
+  test('whose send was interrupted does not stay sending: it is ended after the time an action can live, and not tried again', async () => {
+    const ctx = await setup();
+    const { t, asCamille } = ctx;
+    await emailOn(asCamille);
+    await assignLead(ctx);
+    const [first] = await deliveries(t);
+    // The action began and never recorded its result.
+    await t.mutation(internal.features.notifications.internal.beginNotificationDelivery, {
+      deliveryId: first!._id,
+    });
+    await t.run(async (run) => {
+      const jobs = await run.db.system.query('_scheduled_functions').collect();
+      for (const job of jobs) {
+        if (job.name.endsWith(':deliverEmail')) await run.scheduler.cancel(job._id);
+      }
+    });
+    // An attempt that is not the one sending leaves it alone.
+    await t.run((run) => expireDelivery(run, first!._id, 3));
+    expect((await deliveries(t))[0]).toMatchObject({ status: 'sending', attempts: 0 });
+
+    await runAfter(t, NOTIFICATION_DELIVERY_TIMEOUT_MS - 1000);
+    expect((await deliveries(t))[0]).toMatchObject({ status: 'sending' });
+    await runAfter(t, 1000);
+    expect((await deliveries(t))[0]).toMatchObject({
+      status: 'failed',
+      attempts: 1,
+      error: 'interrupted',
+    });
+    await runAfter(t, 2 * 60 * MINUTE);
+    expect(mails).toEqual([]);
+  });
+
+  test('that was sent is left alone when the time an action can live has passed', async () => {
+    const ctx = await setup();
+    await emailOn(ctx.asCamille);
+    await assignLead(ctx);
+    await runAfter(ctx.t, NOTIFICATION_DELIVERY_HOLD_MS);
+    await runAfter(ctx.t, NOTIFICATION_DELIVERY_TIMEOUT_MS);
+    const [delivery] = await deliveries(ctx.t);
+    expect(delivery).toMatchObject({ status: 'sent', attempts: 1 });
+    expect(delivery!.error).toBeUndefined();
   });
 
   test('is skipped when the deployment no longer has an e-mail provider', async () => {

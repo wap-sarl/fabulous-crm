@@ -2,11 +2,11 @@ import { paginationOptsValidator, paginationResultValidator } from 'convex/serve
 import { v } from 'convex/values';
 import { employeeQuery } from '../../_lib/auth';
 import {
-  NOTIFICATION_KINDS,
   NOTIFICATION_LATEST,
   NOTIFICATION_UNREAD_CAP,
   notificationGroupValidator,
   notificationKindValidator,
+  notificationKindsFor,
 } from '../../_lib/validators/notifications';
 import { availableChannels } from '../../lib/notifications/channels';
 import { channelIsOn, kindIsOn, preferencesOf } from '../../lib/notifications/preferences';
@@ -63,7 +63,7 @@ export const listMine = employeeQuery({
   },
 });
 
-/** The settings page in one answer: every kind of the catalogue with the caller's choice or its default, and the channels that can deliver with theirs; a target is never returned. */
+/** The settings page in one answer: the kinds the caller's role can receive, each with their choice or its default, and the channels that can deliver with theirs; a target is never returned. */
 export const getMyNotificationPreferences = employeeQuery({
   args: {},
   returns: v.object({
@@ -88,7 +88,7 @@ export const getMyNotificationPreferences = employeeQuery({
     const preferences = await preferencesOf(ctx, ctx.userId);
     const channels = await availableChannels(ctx);
     return {
-      kinds: NOTIFICATION_KINDS.map(({ key, group, label }) => ({
+      kinds: notificationKindsFor(ctx.visibility.access).map(({ key, group, label }) => ({
         key,
         group,
         label,

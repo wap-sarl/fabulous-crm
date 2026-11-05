@@ -154,7 +154,9 @@ workspaces.
   Chacun règle les siennes dans *Paramètres → Notifications* (groupe
   « Personnel », ouvert à tous les employés) : les types dont il veut être
   informé, par groupe (un type désactivé n'écrit plus rien pour lui, ni dans
-  l'application ni ailleurs), et les canaux externes où il les reçoit en plus de
+  l'application ni ailleurs ; seuls les types que son rôle peut recevoir sont
+  proposés, pas ceux du droit « paramètres » sans ce droit ni ceux d'un module
+  auquel son rôle n'a pas accès), et les canaux externes où il les reçoit en plus de
   la cloche, qui reste toujours active (`notificationPreferences`, une ligne par
   personne ; sans ligne, le catalogue décide et aucun canal externe n'est actif).
   Les canaux viennent d'un registre (`convex/lib/notifications/channels`) que la
@@ -172,7 +174,9 @@ workspaces.
   fournisseur retiré, une personne supprimée, une fiche que la personne ne peut
   plus ouvrir donnent `skipped` aussitôt, et rien ne sort. Tant qu'un envoi est `pending`, une notification rafraîchie n'en
   ajoute pas ; s'il est déjà `sending`, il a lu son texte et le changement a son
-  propre envoi. En dev, `DEV_WHITELIST_EMAILS` s'applique comme aux autres
+  propre envoi. Un envoi interrompu (un déploiement relancé en plein envoi) ne
+  reste pas `sending` : quinze minutes après son départ il passe `failed`
+  (`interrupted`), sans nouvelle tentative, le message ayant pu partir. En dev, `DEV_WHITELIST_EMAILS` s'applique comme aux autres
   envois. Limite connue, dans l'application seulement : une personne qui perd
   l'accès à une fiche après avoir été prévenue garde la ligne non lue, avec son
   titre, jusqu'à sa lecture ou sa purge ; la fiche elle-même reste fermée, et

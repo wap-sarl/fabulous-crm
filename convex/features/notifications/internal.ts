@@ -5,7 +5,7 @@ import { NOTIFICATION_FAN_OUT_BATCH } from '../../_lib/validators/notifications'
 import { scheduledWorkAllowed } from '../../lib/extensions/gates';
 import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensions/types';
 import { ensureFanOut } from '../../lib/notifications/emit';
-import { beginDelivery, finishDelivery } from '../../lib/notifications/deliveries';
+import { beginDelivery, expireDelivery, finishDelivery } from '../../lib/notifications/deliveries';
 import { fanOutEvent, newFanOutRun } from '../../lib/notifications/fanOut';
 
 /** The unread rows one run marks read; a person with more gets another run. */
@@ -79,6 +79,16 @@ export const finishNotificationDelivery = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await finishDelivery(ctx, args.deliveryId, args.result, args.error);
+    return null;
+  },
+});
+
+/** Scheduled when a delivery starts sending: ends it if its action never recorded a result. */
+export const expireNotificationDelivery = internalMutation({
+  args: { deliveryId: v.id('notificationDeliveries'), attempts: v.number() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await expireDelivery(ctx, args.deliveryId, args.attempts);
     return null;
   },
 });

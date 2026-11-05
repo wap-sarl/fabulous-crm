@@ -1,50 +1,75 @@
 import { type Infer, v } from 'convex/values';
 import { z } from 'zod';
+import type { AccessModule, RoleAccess } from './access';
+
+/** One kind of the catalogue; `module` and `settings` say which roles it can reach at all: a role without that module, or without the settings right, is never told. */
+interface NotificationKindEntry {
+  key: string;
+  group: string;
+  label: string;
+  defaultOn: boolean;
+  module?: AccessModule;
+  settings?: true;
+}
 
 /** What a person can be told about: a closed catalogue, like the plugins'; `defaultOn` is the choice until the person sets theirs. */
-export const NOTIFICATION_KINDS = [
-  { key: 'lead.assigned', group: 'leads', label: 'Un lead vous est attribué', defaultOn: true },
+const NOTIFICATION_KINDS = [
+  {
+    key: 'lead.assigned',
+    group: 'leads',
+    label: 'Un lead vous est attribué',
+    defaultOn: true,
+    module: 'leads',
+  },
   {
     key: 'lead.form_submitted',
     group: 'leads',
     label: 'Un formulaire que vous possédez reçoit un envoi',
     defaultOn: true,
+    module: 'leads',
   },
   {
     key: 'deal.assigned',
     group: 'deals',
     label: 'Une transaction vous est attribuée',
     defaultOn: true,
+    module: 'deals',
   },
   {
     key: 'deal.stage_changed',
     group: 'deals',
     label: 'Une de vos transactions change de stade',
     defaultOn: true,
+    module: 'deals',
   },
   {
     key: 'deal.closed',
     group: 'deals',
     label: 'Une transaction de votre équipe est gagnée ou perdue',
     defaultOn: true,
+    module: 'deals',
   },
   {
     key: 'activity.assigned',
     group: 'activities',
     label: 'Une tâche vous est attribuée',
     defaultOn: true,
+    module: 'activities',
   },
   {
     key: 'campaign.finished',
     group: 'campaigns',
     label: 'Une campagne que vous avez créée est terminée ou en échec',
     defaultOn: true,
+    module: 'campaigns',
   },
   {
     key: 'workflow.run_failed',
     group: 'campaigns',
     label: 'Une étape de workflow a échoué',
     defaultOn: true,
+    module: 'workflows',
+    settings: true,
   },
   { key: 'import.finished', group: 'imports', label: 'Votre import est terminé', defaultOn: true },
   {
@@ -52,8 +77,9 @@ export const NOTIFICATION_KINDS = [
     group: 'team',
     label: 'Une personne invitée a rejoint le CRM',
     defaultOn: false,
+    settings: true,
   },
-] as const;
+] as const satisfies readonly NotificationKindEntry[];
 
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number]['key'];
 export type NotificationGroup = (typeof NOTIFICATION_KINDS)[number]['group'];
@@ -69,6 +95,13 @@ export const notificationGroupOf = (kind: NotificationKind): NotificationGroup =
 /** Whether a kind is told until the person chooses: the catalogue's default. */
 export const notificationKindOnByDefault = (kind: NotificationKind): boolean =>
   NOTIFICATION_KINDS.find((entry) => entry.key === kind)?.defaultOn ?? true;
+
+/** The kinds a role can receive: the settings page shows these, a switch that could change nothing is not shown. */
+export const notificationKindsFor = (access: RoleAccess) =>
+  NOTIFICATION_KINDS.filter((kind) => {
+    const { module, settings }: NotificationKindEntry = kind;
+    return (!settings || access.settings) && (!module || access[module] !== 'none');
+  });
 
 // A kind the catalogue drops fails loudly at deploy, never silently in a row.
 export const notificationKindValidator = v.union(...KIND_KEYS.map((key) => v.literal(key)));
@@ -191,5 +224,7 @@ export const NOTIFICATION_UNREAD_CAP = 100;
 export const NOTIFICATION_LATEST = 20;
 /** A delivery waits this long before it leaves: a record changed twice in the minute is one message, carrying where it is now. */
 export const NOTIFICATION_DELIVERY_HOLD_MS = 60_000;
+/** A delivery still sending after this long was interrupted: an action lives ten minutes at most. */
+export const NOTIFICATION_DELIVERY_TIMEOUT_MS = 15 * 60_000;
 /** A delivery that failed is tried again after each of these, then given up. */
 export const NOTIFICATION_DELIVERY_BACKOFF_MS = [1, 5, 15, 60].map((minutes) => minutes * 60_000);

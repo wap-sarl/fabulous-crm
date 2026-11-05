@@ -1,8 +1,10 @@
+import { internal } from '../../_generated/api';
 import type { Doc, Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import {
   NOTIFICATION_DELIVERY_BACKOFF_MS,
   NOTIFICATION_DELIVERY_HOLD_MS,
+  NOTIFICATION_DELIVERY_TIMEOUT_MS,
 } from '../../_lib/validators/notifications';
 import { scheduledWorkAllowed } from '../extensions/gates';
 import { SCHEDULED_WORK_RETRY_MS } from '../extensions/types';
@@ -96,6 +98,12 @@ export async function beginDelivery(
       : stored;
   if (!to) return await skip('no_target');
   await ctx.db.patch(deliveryId, { status: 'sending' });
+  // An action that stops before recording its result would leave the row sending for good: this ends it.
+  await ctx.scheduler.runAfter(
+    NOTIFICATION_DELIVERY_TIMEOUT_MS,
+    internal.features.notifications.internal.expireNotificationDelivery,
+    { deliveryId, attempts: delivery.attempts },
+  );
   return { title: notification.title, body: notification.body, path: notification.path, to };
 }
 
@@ -130,4 +138,19 @@ export async function finishDelivery(
     error,
   });
   await ctx.scheduler.runAfter(wait, channel.deliver, { deliveryId });
+}
+
+/** Ends a delivery whose send was interrupted: still sending, on the same attempt, long after an action could have lived. Not tried again, the message may have left. */
+export async function expireDelivery(
+  ctx: MutationCtx,
+  deliveryId: Id<'notificationDeliveries'>,
+  attempts: number,
+): Promise<void> {
+  const delivery = await ctx.db.get(deliveryId);
+  if (delivery?.status !== 'sending' || delivery.attempts !== attempts) return;
+  await ctx.db.patch(deliveryId, {
+    status: 'failed',
+    attempts: attempts + 1,
+    error: 'interrupted',
+  });
 }

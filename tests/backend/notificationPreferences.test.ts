@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { z } from 'zod';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
+import { uniformAccess } from '../../convex/_lib/validators/access';
 import { emitEvent } from '../../convex/lib/notifications/emit';
 import {
   NOTIFICATION_CHANNELS,
@@ -111,8 +112,8 @@ const off = (answer: Awaited<ReturnType<typeof read>>) =>
 
 describe('a person’s notification preferences', () => {
   test('until they choose, every kind follows the catalogue and no external channel is on; nothing is stored', async () => {
-    const { t, camille, asCamille } = await setup();
-    const answer = await read(asCamille);
+    const { t, lou, asLou } = await setup();
+    const answer = await read(asLou);
     expect(answer.kinds).toHaveLength(10);
     expect(answer.kinds[0]).toEqual({
       key: 'lead.assigned',
@@ -130,14 +131,48 @@ describe('a person’s notification preferences', () => {
         enabled: false,
       },
     ]);
-    expect(await storedOf(t, camille.userId)).toEqual([]);
+    expect(await storedOf(t, lou.userId)).toEqual([]);
+  });
+
+  test('only the kinds a role can receive are shown: not those of the settings right without it, not those of a module the role does not have', async () => {
+    const { t, camille, asLou, asCamille } = await setup();
+    const keys = async (as: Session) => (await read(as)).kinds.map((kind) => kind.key);
+    const all = await keys(asLou);
+    // A member has every module at « own » and no settings right.
+    expect(await keys(asCamille)).toEqual(
+      all.filter((key) => key !== 'workflow.run_failed' && key !== 'team.invitation_accepted'),
+    );
+
+    const support = await asLou.mutation(api.features.roles.mutations.createRole, {
+      label: 'Support',
+      access: { ...uniformAccess('own', false), deals: 'none', campaigns: 'none' },
+    });
+    await asLou.mutation(api.features.users.mutations.setEmployeeRole, {
+      userId: camille.userId,
+      role: support,
+    });
+    expect(await keys(asCamille)).toEqual([
+      'lead.assigned',
+      'lead.form_submitted',
+      'activity.assigned',
+      'import.finished',
+    ]);
+
+    // A choice made under another role is kept, and still accepted: the role may come back.
+    await update(asCamille, { kinds: { 'deal.assigned': false } });
+    expect((await storedOf(t, camille.userId))[0]!.kinds).toEqual({ 'deal.assigned': false });
+    await asLou.mutation(api.features.users.mutations.setEmployeeRole, {
+      userId: camille.userId,
+      role: 'member',
+    });
+    expect(off(await read(asCamille))).toEqual(['deal.assigned']);
   });
 
   test('a choice is written over the ones already made, in one row, and is the person’s own', async () => {
     const { t, camille, asLou, asCamille } = await setup();
     await update(asCamille, { kinds: { 'deal.stage_changed': false } });
     await update(asCamille, {
-      kinds: { 'team.invitation_accepted': true },
+      kinds: { 'import.finished': true },
       channels: { email: { enabled: true } },
     });
     const answer = await read(asCamille);
@@ -146,7 +181,7 @@ describe('a person’s notification preferences', () => {
     const rows = await storedOf(t, camille.userId);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      kinds: { 'deal.stage_changed': false, 'team.invitation_accepted': true },
+      kinds: { 'deal.stage_changed': false, 'import.finished': true },
       channels: { email: { enabled: true } },
       updatedAt: NOW,
     });
