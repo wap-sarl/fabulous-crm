@@ -201,7 +201,7 @@ export const notificationDeliveryValidator = v.object({
 });
 
 /** A person's choice for one external channel; `target` is what the channel reaches them at, ciphertext when the channel says it is a secret, and `hint` the part of it their page may show. */
-export const notificationChannelChoiceValidator = v.object({
+const notificationChannelChoiceValidator = v.object({
   enabled: v.boolean(),
   target: v.optional(v.string()),
   hint: v.optional(v.string()),

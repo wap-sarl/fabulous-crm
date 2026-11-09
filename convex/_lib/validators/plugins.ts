@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /** What installing a plugin adds to a part of the core, beyond its own pages: the Plugins page says it. */
-export type PluginProvision = 'notification-channel';
+type PluginProvision = 'notification-channel';
 
 interface PluginEntry {
   key: string;
