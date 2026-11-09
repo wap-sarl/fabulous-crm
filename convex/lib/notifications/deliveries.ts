@@ -5,19 +5,20 @@ import {
   NOTIFICATION_DELIVERY_BACKOFF_MS,
   NOTIFICATION_DELIVERY_HOLD_MS,
   NOTIFICATION_DELIVERY_TIMEOUT_MS,
+  notificationKindLabel,
 } from '../../_lib/validators/notifications';
 import { scheduledWorkAllowed } from '../extensions/gates';
 import { SCHEDULED_WORK_RETRY_MS } from '../extensions/types';
 import { loadVisibility } from '../roles/visibility';
-import { decryptSecret } from '../security/crypto';
 import { canOpenRecord } from './access';
-import { availableChannels, channelOf, type NotificationChannel } from './channels';
-import { channelIsOn, kindIsOn, preferencesOf } from './preferences';
+import { availableChannels, channelNames, channelOf, type NotificationChannel } from './channels';
+import { channelIsOn, kindIsOn, preferencesOf, targetOf } from './preferences';
 
 // One row per notification and channel; the scheduler carries the hold and the retries, no cron polls them.
 
 /** What a channel's action needs to send: the text, where the notification opens, and what reaches the person. */
 export interface DeliveryJob {
+  channel: string;
   title: string;
   body: string;
   path: string;
@@ -90,13 +91,9 @@ export async function beginDelivery(
       return await skip('access_lost');
     }
   }
-  const stored = preferences?.channels[channel.key]?.target;
-  const to = !channel.target
-    ? user.email
-    : stored && channel.target.secret
-      ? await decryptSecret(stored)
-      : stored;
+  const to = await targetOf(channel, user, preferences);
   if (!to) return await skip('no_target');
+  const bare = (await channelNames(ctx, channel)) === 'none';
   await ctx.db.patch(deliveryId, { status: 'sending' });
   // An action that stops before recording its result would leave the row sending for good: this ends it.
   await ctx.scheduler.runAfter(
@@ -104,7 +101,14 @@ export async function beginDelivery(
     internal.features.notifications.internal.expireNotificationDelivery,
     { deliveryId, attempts: delivery.attempts },
   );
-  return { title: notification.title, body: notification.body, path: notification.path, to };
+  return {
+    channel: channel.key,
+    // Without names, the message says what kind of thing happened and where to read it.
+    title: bare ? notificationKindLabel(notification.kind) : notification.title,
+    body: bare ? '' : notification.body,
+    path: notification.path,
+    to,
+  };
 }
 
 /** Records what became of a delivery that left: sent, skipped by the channel itself, or failed, which tries again after the next wait of the backoff and gives up after the last. */

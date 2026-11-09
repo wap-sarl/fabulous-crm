@@ -54,8 +54,9 @@ const publicPlugins = async (t: T) =>
     .plugins;
 
 describe('the catalogue', () => {
-  test('lists hosted pages as the first plugin, and only keys of the catalogue pass', () => {
-    expect(PLUGINS.map((plugin) => plugin.key)).toEqual(['landing-pages']);
+  test('lists hosted pages as the first plugin, says what each one adds to the core, and only keys of the catalogue pass', () => {
+    expect(PLUGINS.map((plugin) => plugin.key)).toEqual(['landing-pages', 'slack']);
+    expect(PLUGINS.map((plugin) => plugin.provides)).toEqual([[], ['notification-channel']]);
     expect(pluginKeySchema.safeParse('landing-pages').success).toBe(true);
     expect(pluginKeySchema.safeParse('quotes').success).toBe(false);
     expect(new Set(PLUGINS.map((plugin) => plugin.name)).size).toBe(PLUGINS.length);
@@ -68,7 +69,17 @@ describe('the catalogue', () => {
         key: 'landing-pages',
         name: 'Pages',
         description: PLUGINS[0].description,
+        provides: [],
         installed: true,
+        publicUrls: [],
+        morePublicUrls: false,
+      },
+      {
+        key: 'slack',
+        name: 'Slack',
+        description: PLUGINS[1].description,
+        provides: ['notification-channel'],
+        installed: false,
         publicUrls: [],
         morePublicUrls: false,
       },
@@ -195,6 +206,7 @@ describe('a deployment from before the catalogue', () => {
     );
     expect(await admin.query(api.features.plugins.queries.listPlugins, {})).toMatchObject([
       { key: 'landing-pages', installed: true },
+      { key: 'slack', installed: false },
     ]);
 
     await t.mutation(internal.migrations.addPluginsInUse, {});

@@ -7,8 +7,19 @@ import { describeError } from '../../lib/errors';
 import { PluginCard } from '../../features/plugins/components/PluginCard';
 import type { PluginRow } from '../../features/plugins/types';
 
-/** What an uninstall does, with the public addresses it closes when there are some. */
+/** What an uninstall does: a channel leaves everyone's settings; a plugin with pages leaves the menu, with the public addresses it closes when there are some. */
 function UninstallNotice({ plugin }: { plugin: PluginRow | null }) {
+  if (plugin?.provides.includes('notification-channel')) {
+    return (
+      <span className="flex flex-col gap-2">
+        <span>
+          Le canal disparaît des réglages de chaque personne et plus rien n’y est envoyé ; les
+          envois en attente sont abandonnés.
+        </span>
+        <span>Les réglages de chacun sont conservés : une réinstallation les retrouve.</span>
+      </span>
+    );
+  }
   const urls = plugin?.publicUrls ?? [];
   const closes =
     urls.length === 0

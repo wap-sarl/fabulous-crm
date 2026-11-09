@@ -180,8 +180,16 @@ workspaces.
   envois. Limite connue, dans l'application seulement : une personne qui perd
   l'accès à une fiche après avoir été prévenue garde la ligne non lue, avec son
   titre, jusqu'à sa lecture ou sa purge ; la fiche elle-même reste fermée, et
-  aucun envoi externe ne part plus pour elle. Slack et Discord arrivent avec les
-  lots suivants, comme plugins.
+  aucun envoi externe ne part plus pour elle. Un plugin peut apporter un canal
+  (`provides: ['notification-channel']` au catalogue) : il n'est proposé que
+  tant que le plugin est installé, et le désinstaller retire sa ligne des
+  réglages de chacun, n'écrit plus d'envoi pour lui et abandonne ceux qui
+  attendent (`skipped`, `channel_not_available`) ; les choix de chacun restent,
+  une réinstallation les retrouve. Un canal qui demande une destination à la
+  personne (`target`) la vérifie par son schéma, la chiffre (`SECRETS_KEY`) et
+  n'en redonne jamais que l'indice (« Configuré · hooks.slack.com ») ; la
+  personne peut la remplacer ou la retirer, ce qui coupe le canal. Slack est le
+  premier, ci-dessous ; Discord arrive avec le lot suivant.
 - **Plugins** : des fonctionnalités en option, installées par un administrateur
   depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue
   (`convex/_lib/validators/plugins.ts`) est fermé et fait partie du code : rien
@@ -189,8 +197,9 @@ workspaces.
   déploiement (`appConfig.plugins`). Un plugin non installé n'apparaît ni dans le
   menu ni dans les paramètres, ses fonctions refusent (`plugin_not_installed`) et
   ses adresses publiques répondent 404 ; le désinstaller conserve ses données,
-  le réinstaller les retrouve telles quelles. Premier plugin : les pages
-  hébergées ci-dessous. Un déploiement neuf n'en a aucun ; un déploiement
+  le réinstaller les retrouve telles quelles. Une entrée du catalogue dit aussi
+  ce que le plugin ajoute au cœur (`provides`), que sa carte affiche. Les
+  plugins : les pages hébergées et Slack, ci-dessous. Un déploiement neuf n'en a aucun ; un déploiement
   antérieur aux plugins garde ceux dont il tient des données.
 - **Pages** (plugin) : des pages hébergées par le déploiement (`GET /p/<slug>`,
   servies sous une politique de sécurité stricte, écrite dans le document
@@ -215,6 +224,25 @@ workspaces.
   vérifie B comme A, et l'on garde la gagnante, dont les blocs deviennent
   ceux de la page. Quand le suivi web est activé, la page charge son script,
   et l'origine du déploiement compte comme site suivi.
+- **Slack** (plugin) : les notifications dans Slack, pour les personnes qui le
+  choisissent. Pas d'application à installer dans l'espace Slack ni de jeton
+  pour le déploiement : chaque personne crée son propre **webhook entrant**
+  (sur <https://api.slack.com/apps>, « Create New App », « From scratch »,
+  activer « Incoming Webhooks », puis « Add New Webhook to Workspace » en
+  choisissant la conversation, un canal ou sa propre messagerie directe) et
+  colle l'URL obtenue dans *Paramètres → Notifications*, à la ligne Slack.
+  Seule une adresse `https://hooks.slack.com/services/…` est acceptée ; elle
+  est chiffrée, jamais réaffichée ni écrite dans un journal. Un envoi est un
+  `POST` : le titre, le texte et un lien vers la fiche. Une réponse définitive
+  de Slack (webhook révoqué, conversation archivée) donne `skipped`
+  (`target_refused`) sans nouvelle tentative ; une erreur 429 ou 5xx, ou pas de
+  réponse, suit les tentatives des autres envois. La page du plugin
+  (*Paramètres → Slack*, droit « paramètres ») dit ce qui sort du CRM, le nom
+  d'un lead ou d'un collègue dans un message, et porte deux réglages : « Inclure
+  les noms dans les messages » (`appConfig.notificationChannels.slack.names`,
+  `full` par défaut ; sur `none`, un message ne dit que le type de notification
+  et donne le lien) et « Tester le canal », qui envoie un message à la propre
+  destination de l'administrateur.
 - **Formulaires de capture** (*Paramètres → Formulaires*) : formulaires publics
   composés de champs standard ou de propriétés personnalisées, à intégrer par
   un script (`GET /forms/<id>/embed.js`, l'élément cible par `data-target`,

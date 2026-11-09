@@ -1,6 +1,6 @@
 import { useAuthMutation, useAuthQuery } from '@crm/widgets';
-import { api, type NotificationGroup } from '@crm/lib/backend';
-import { Card, Skeleton, SwitchRow, toast } from '@crm/design-system';
+import { api, NOTIFICATION_TARGET_SCHEMAS, type NotificationGroup } from '@crm/lib/backend';
+import { Card, SecretField, Skeleton, SwitchRow, toast } from '@crm/design-system';
 import { errorLabel } from '@crm/lib/errors';
 import { groupPresentationOf } from '../lib/presentation';
 
@@ -8,6 +8,12 @@ const PREFERENCE_ERRORS: Record<string, string> = {
   unknown_notification_kind: 'Ce type de notification n’existe plus. Rechargez la page.',
   channel_not_available: 'Ce canal n’est plus disponible sur ce CRM.',
   invalid_channel_target: 'La destination donnée pour ce canal n’est pas valide.',
+};
+
+/** What is wrong with a target typed for a channel, by the rule the mutation applies; null when it passes, or when the channel has no rule here. */
+const targetProblem = (channel: string) => (value: string) => {
+  const checked = NOTIFICATION_TARGET_SCHEMAS[channel]?.safeParse(value);
+  return checked && !checked.success ? (checked.error.issues[0]?.message ?? null) : null;
 };
 
 const myPreferences = api.features.notifications.queries.getMyNotificationPreferences;
@@ -34,10 +40,13 @@ export function NotificationPreferences() {
       },
     );
   });
-  const save = (choice: Parameters<typeof update>[0]) =>
-    void update(choice).catch((error) =>
-      toast.error(errorLabel(error, PREFERENCE_ERRORS, 'Le réglage n’a pas été enregistré.')),
-    );
+  // Rejects after saying why: a field that waits for the answer stays open.
+  const send = (choice: Parameters<typeof update>[0]) =>
+    update(choice).catch((error) => {
+      toast.error(errorLabel(error, PREFERENCE_ERRORS, 'Le réglage n’a pas été enregistré.'));
+      throw error;
+    });
+  const save = (choice: Parameters<typeof update>[0]) => void send(choice).catch(() => {});
 
   if (!preferences) {
     return (
@@ -99,14 +108,38 @@ export function NotificationPreferences() {
             </p>
           ) : (
             <Card className="divide-y divide-border px-4 py-1">
-              {preferences.channels.map((channel) => (
-                <SwitchRow
-                  key={channel.key}
-                  label={channel.label}
-                  description={channel.description}
-                  checked={channel.enabled}
-                  onCheckedChange={(enabled) => save({ channels: { [channel.key]: { enabled } } })}
-                />
+              {preferences.channels.map(({ key, label, description, enabled, target }) => (
+                <div key={key}>
+                  <SwitchRow
+                    label={label}
+                    description={description}
+                    checked={enabled}
+                    // A channel that asks for a target waits for it.
+                    disabled={target !== undefined && !target.set}
+                    onCheckedChange={(on) => save({ channels: { [key]: { enabled: on } } })}
+                  />
+                  {target && (
+                    <SecretField
+                      className="pb-3"
+                      label={target.label}
+                      placeholder={target.placeholder}
+                      set={target.set}
+                      hint={target.hint}
+                      validate={targetProblem(key)}
+                      // A first target turns the channel on; a replaced one leaves it as it was.
+                      onSave={(value) =>
+                        send({
+                          channels: {
+                            [key]: { enabled: target.set ? enabled : true, target: value },
+                          },
+                        })
+                      }
+                      onRemove={() =>
+                        send({ channels: { [key]: { enabled: false, target: null } } })
+                      }
+                    />
+                  )}
+                </div>
               ))}
             </Card>
           )}

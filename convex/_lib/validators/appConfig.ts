@@ -6,6 +6,7 @@ import { slugOf } from '../text';
 import { connectorConfigValidator } from './connectors';
 import { attachmentsConfigValidator } from './attachments';
 import { lifecycleConfigValidator } from './lifecycle';
+import { notificationChannelSettingsValidator } from './notifications';
 
 /** A custom OIDC issuer: `providerId` rides in the callback path and must never change; only the invite-only gate of convex/auth.ts decides who signs in. */
 export const ssoProviderValidator = v.object({
@@ -115,6 +116,8 @@ export const appConfigValidator = v.object({
   connectors: v.optional(v.array(connectorConfigValidator)),
   // The installed plugins' keys (validators/plugins.ts); strings, so that a key the catalogue drops leaves the row valid.
   plugins: v.optional(v.array(v.string())),
+  // What each plugin's notification channel is set to, by channel key (validators/notifications.ts).
+  notificationChannels: v.optional(v.record(v.string(), notificationChannelSettingsValidator)),
   updatedAt: v.number(),
   updatedBy: v.optional(v.id('users')),
 });

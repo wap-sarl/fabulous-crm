@@ -92,6 +92,10 @@ const KIND_KEYS = NOTIFICATION_KINDS.map((kind) => kind.key) as [
 export const notificationGroupOf = (kind: NotificationKind): NotificationGroup =>
   NOTIFICATION_KINDS.find((entry) => entry.key === kind)?.group ?? 'leads';
 
+/** A kind as the settings page names it: what an external message says when it may not carry the record's name. */
+export const notificationKindLabel = (kind: NotificationKind): string =>
+  NOTIFICATION_KINDS.find((entry) => entry.key === kind)?.label ?? kind;
+
 /** Whether a kind is told until the person chooses: the catalogue's default. */
 export const notificationKindOnByDefault = (kind: NotificationKind): boolean =>
   NOTIFICATION_KINDS.find((entry) => entry.key === kind)?.defaultOn ?? true;
@@ -196,12 +200,44 @@ export const notificationDeliveryValidator = v.object({
   createdAt: v.number(),
 });
 
-/** A person's choice for one external channel; `target` is what the channel reaches them at, ciphertext when the channel says it is a secret. */
+/** A person's choice for one external channel; `target` is what the channel reaches them at, ciphertext when the channel says it is a secret, and `hint` the part of it their page may show. */
 export const notificationChannelChoiceValidator = v.object({
   enabled: v.boolean(),
   target: v.optional(v.string()),
+  hint: v.optional(v.string()),
 });
 export type NotificationChannelChoice = Infer<typeof notificationChannelChoiceValidator>;
+
+/** The choice as a person sends it: a target given replaces theirs, `null` takes it back, absent keeps it. */
+export const notificationChannelChoiceArg = v.object({
+  enabled: v.boolean(),
+  target: v.optional(v.union(v.string(), v.null())),
+});
+export type NotificationChannelChoiceArg = Infer<typeof notificationChannelChoiceArg>;
+
+/** What an external message may say: `full` is the notification as the inbox shows it, `none` its kind and its link, without the record's name. */
+export const notificationNamesValidator = v.union(v.literal('full'), v.literal('none'));
+export type NotificationNames = Infer<typeof notificationNamesValidator>;
+
+/** What an administrator sets once for a plugin's channel, on the plugin's settings page. */
+export const notificationChannelSettingsValidator = v.object({
+  names: v.optional(notificationNamesValidator),
+});
+
+/** A Slack incoming webhook, the only address the Slack channel writes to. */
+export const slackWebhookSchema = z
+  .string()
+  .trim()
+  .max(200)
+  .regex(
+    /^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9]+\/[A-Za-z0-9]+\/[A-Za-z0-9]+$/,
+    'Collez l’URL d’un webhook entrant Slack, de la forme https://hooks.slack.com/services/…',
+  );
+
+/** The rule of each channel's target, by channel key: the page checks with the one the mutation applies. */
+export const NOTIFICATION_TARGET_SCHEMAS: Record<string, z.ZodType<string>> = {
+  slack: slackWebhookSchema,
+};
 
 /** One row per person: the kinds they turned on or off (absent = the catalogue's default) and the channels they chose (absent = off). */
 export const notificationPreferencesValidator = v.object({

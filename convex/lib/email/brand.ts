@@ -1,7 +1,7 @@
 import type { StorageReader } from 'convex/server';
 import type { Doc } from '../../_generated/dataModel';
 import type { EmailBrand, EmailLogo } from '../../auth/emailTemplates';
-import { appOrigin } from '../config/appUrl';
+import { appUrlOf } from '../config/appUrl';
 
 /** What Gmail, Outlook and the rest all display: no SVG, no WebP. */
 const MAIL_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif']);
@@ -26,6 +26,6 @@ export async function emailBrandOf(
     organizationName: cfg?.organizationName || 'CRM',
     logo: cfg ? await mailLogoOf(ctx, cfg) : null,
     primaryColor: cfg?.primaryColor ?? null,
-    appUrl: (cfg?.appUrl || appOrigin()).replace(/\/+$/, ''),
+    appUrl: appUrlOf(cfg),
   };
 }
