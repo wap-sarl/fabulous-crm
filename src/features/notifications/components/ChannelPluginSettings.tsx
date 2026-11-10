@@ -1,14 +1,8 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuthAction, useAuthMutation, useAuthQuery } from '@crm/widgets';
+import { useAuthMutation, useAuthQuery } from '@crm/widgets';
 import { api, type NotificationNames } from '@crm/lib/backend';
 import { Button, Card, Skeleton, SwitchRow, toast } from '@crm/design-system';
-import { errorLabel } from '@crm/lib/errors';
-
-const TEST_ERRORS: Record<string, string> = {
-  channel_not_available: 'Ce canal n’est plus disponible sur ce CRM.',
-  no_channel_target: 'Renseignez d’abord votre destination dans Paramètres → Notifications.',
-};
+import { useChannelTest } from '../lib/useChannelTest';
 
 /** What an administrator sets once for a plugin's channel: whether its messages carry names, and a test message to their own target. */
 export function ChannelPluginSettings({ channel }: { channel: string }) {
@@ -22,28 +16,12 @@ export function ChannelPluginSettings({ channel }: { channel: string }) {
     const shown = store.getQuery(settingsOf, args);
     if (shown) store.setQuery(settingsOf, args, { ...shown, names });
   });
-  const test = useAuthAction(api.features.notifications.actions.testNotificationChannel);
-  const [testing, setTesting] = useState(false);
+  const { test, testing } = useChannelTest(channel, settings?.label ?? '');
 
   if (!settings) return <Skeleton className="h-40 w-full" />;
   const { label } = settings;
   const setNames = (names: NotificationNames) =>
     void update({ channel, names }).catch(() => toast.error('Le réglage n’a pas été enregistré.'));
-  const onTest = async () => {
-    setTesting(true);
-    try {
-      const result = await test({ channel });
-      if (result === 'sent') toast.success(`Message de test envoyé : regardez dans ${label}.`);
-      else if (result === 'refused') {
-        toast.error(`${label} a refusé le message : votre destination n’est plus valable.`);
-      } else toast.error(`${label} n’a pas répondu. Réessayez dans un instant.`);
-    } catch (error) {
-      toast.error(errorLabel(error, TEST_ERRORS, 'Le test n’a pas pu être envoyé.'));
-    } finally {
-      setTesting(false);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <Card className="px-5 py-4">
@@ -68,12 +46,13 @@ export function ChannelPluginSettings({ channel }: { channel: string }) {
           <Link to="/settings/notifications" className="text-primary hover:underline">
             Paramètres → Notifications
           </Link>
-          .{!settings.targetSet && ' Vous n’en avez pas encore donné.'}
+          , où chaque personne peut aussi tester la sienne.
+          {!settings.targetSet && ' Vous n’en avez pas encore donné.'}
         </p>
         <Button
           className="mt-3"
           variant="outline"
-          onClick={onTest}
+          onClick={test}
           disabled={testing || !settings.targetSet}
         >
           Tester le canal

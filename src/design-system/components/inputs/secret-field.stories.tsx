@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, fn, userEvent, within } from 'storybook/test';
+import { expect, fn, userEvent, waitFor, within } from 'storybook/test';
+import { Button } from './button';
 import { SecretField } from './secret-field';
 import { SwitchRow } from './switch-row';
 
@@ -38,10 +39,32 @@ type Story = StoryObj<typeof meta>;
 export const Empty: Story = {};
 
 /** A value is kept: only the part that may be shown is said, here the host of the address. */
-export const Kept: Story = { args: { set: true, hint: 'hooks.slack.com' } };
+export const Kept: Story = { args: { set: true, hint: 'hooks.slack.com · T0123ABC' } };
 
 /** Kept, with nothing that may be shown of it. */
 export const KeptWithoutHint: Story = { name: 'Kept, no hint', args: { set: true } };
+
+/** With something more to do with the kept value, before « Modifier »: here a test of it. */
+export const WithAction: Story = {
+  name: 'Kept, with an action',
+  args: {
+    set: true,
+    hint: 'hooks.slack.com · T0123ABC',
+    actions: (
+      <Button variant="ghost" size="sm">
+        Tester
+      </Button>
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const buttons = within(canvasElement).getAllByRole('button');
+    await expect(buttons.map((button) => button.textContent)).toEqual([
+      'Tester',
+      'Modifier',
+      'Retirer',
+    ]);
+  },
+};
 
 /** A value that cannot be taken back, only replaced: no « Retirer ». */
 export const ReplaceOnly: Story = {
@@ -81,7 +104,7 @@ function Channel(args: React.ComponentProps<typeof SecretField>) {
   );
 }
 
-/** A channel's row on the notification settings: the switch waits for the address; what is typed is checked before it is sent, kept it is never shown again, and taking it back turns the channel off. */
+/** A channel's row on the notification settings: the switch waits for the address; what is typed is checked before it is sent, kept it is never shown again, and taking it back turns the channel off. The focus is never dropped: it goes to the field when one opens, back to « Modifier » when it closes. */
 export const ChannelTarget: Story = {
   name: 'A channel and its target',
   render: (args) => <Channel {...args} />,
@@ -93,6 +116,7 @@ export const ChannelTarget: Story = {
     const field = canvas.getByLabelText('URL de votre webhook entrant');
     await userEvent.click(canvas.getByRole('button', { name: 'Enregistrer' }));
     await expect(canvas.getByRole('alert')).toHaveTextContent('Ce champ est vide.');
+    await expect(field).toHaveFocus();
     await userEvent.type(field, 'https://example.com/hook');
     await expect(canvas.queryByRole('alert')).toBeNull();
     await userEvent.click(canvas.getByRole('button', { name: 'Enregistrer' }));
@@ -104,6 +128,7 @@ export const ChannelTarget: Story = {
     await userEvent.type(field, `  ${WEBHOOK} {Enter}`);
     await expect(args.onSave).toHaveBeenCalledWith(WEBHOOK);
     await expect(await canvas.findByText('Configuré')).toBeVisible();
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Modifier' })).toHaveFocus());
     await expect(canvas.getByText(/hooks\.slack\.com/)).toBeVisible();
     await expect(canvasElement.textContent).not.toContain('abcdef');
     await expect(toggle).toBeEnabled();
@@ -112,12 +137,15 @@ export const ChannelTarget: Story = {
     // Replacing opens an empty field; cancelling leaves what is kept.
     await userEvent.click(canvas.getByRole('button', { name: 'Modifier' }));
     await expect(canvas.getByLabelText('URL de votre webhook entrant')).toHaveValue('');
+    await expect(canvas.getByLabelText('URL de votre webhook entrant')).toHaveFocus();
     await userEvent.click(canvas.getByRole('button', { name: 'Annuler' }));
     await expect(canvas.getByText('Configuré')).toBeVisible();
+    await expect(canvas.getByRole('button', { name: 'Modifier' })).toHaveFocus();
 
     await userEvent.click(canvas.getByRole('button', { name: 'Retirer' }));
     await expect(args.onRemove).toHaveBeenCalled();
-    await expect(await canvas.findByLabelText('URL de votre webhook entrant')).toBeVisible();
+    const reopened = await canvas.findByLabelText('URL de votre webhook entrant');
+    await waitFor(() => expect(reopened).toHaveFocus());
     await expect(toggle).toBeDisabled();
   },
 };
@@ -132,6 +160,6 @@ export const SaveRefused: Story = {
     await userEvent.type(field, `${WEBHOOK}{Enter}`);
     await expect(args.onSave).toHaveBeenCalledWith(WEBHOOK);
     await expect(field).toHaveValue(WEBHOOK);
-    await expect(canvas.getByRole('button', { name: 'Enregistrer' })).toBeEnabled();
+    await waitFor(() => expect(canvas.getByRole('button', { name: 'Enregistrer' })).toBeEnabled());
   },
 };

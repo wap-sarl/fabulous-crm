@@ -200,11 +200,12 @@ export const notificationDeliveryValidator = v.object({
   createdAt: v.number(),
 });
 
-/** A person's choice for one external channel; `target` is what the channel reaches them at, ciphertext when the channel says it is a secret, and `hint` the part of it their page may show. */
+/** A person's choice for one external channel; `target` is what the channel reaches them at, ciphertext when the channel says it is a secret, and `hint` the part of it their page may show. `refusedAt` is when the service refused that target for good: the channel went off with it, until the person chooses again. */
 const notificationChannelChoiceValidator = v.object({
   enabled: v.boolean(),
   target: v.optional(v.string()),
   hint: v.optional(v.string()),
+  refusedAt: v.optional(v.number()),
 });
 export type NotificationChannelChoice = Infer<typeof notificationChannelChoiceValidator>;
 

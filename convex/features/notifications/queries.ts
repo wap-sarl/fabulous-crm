@@ -89,6 +89,8 @@ export const getMyNotificationPreferences = employeeQuery({
             placeholder: v.string(),
             set: v.boolean(),
             hint: v.optional(v.string()),
+            // When the service refused the target for good: the channel went off with it.
+            refusedAt: v.optional(v.number()),
           }),
         ),
       }),
@@ -117,6 +119,7 @@ export const getMyNotificationPreferences = employeeQuery({
               placeholder: target.placeholder,
               set: choice?.target !== undefined,
               ...(choice?.hint !== undefined && { hint: choice.hint }),
+              ...(choice?.refusedAt !== undefined && { refusedAt: choice.refusedAt }),
             },
           }),
         };

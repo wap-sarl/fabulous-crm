@@ -165,7 +165,7 @@ describe('the Slack channel', () => {
     await choose(asCamille, { enabled: true, target: HOOK });
     expect((await read(asCamille)).channels[0]).toMatchObject({
       enabled: true,
-      target: { set: true, hint: 'hooks.slack.com' },
+      target: { set: true, hint: 'hooks.slack.com · T0SLACKTEST' },
     });
 
     await uninstall(asLou);
@@ -182,12 +182,12 @@ describe('the Slack channel', () => {
     await install(asLou);
     expect((await read(asCamille)).channels[0]).toMatchObject({
       enabled: true,
-      target: { set: true, hint: 'hooks.slack.com' },
+      target: { set: true, hint: 'hooks.slack.com · T0SLACKTEST' },
     });
     expect((await storedOf(t, camille.userId))?.enabled).toBe(true);
   });
 
-  test('takes an incoming webhook of hooks.slack.com and nothing else, keeps it as ciphertext, and says only its host', async () => {
+  test('takes an incoming webhook of hooks.slack.com and nothing else, keeps it as ciphertext, and says only its host and its workspace', async () => {
     const { t, camille, asCamille } = await setup();
     for (const target of [
       'http://hooks.slack.com/services/T0SLACKTEST/B0CAMILLE/camilleSecret',
@@ -209,7 +209,8 @@ describe('the Slack channel', () => {
 
     await choose(asCamille, { enabled: true, target: ` ${HOOK}\n` });
     const stored = await storedOf(t, camille.userId);
-    expect(stored).toMatchObject({ enabled: true, hint: 'hooks.slack.com' });
+    expect(stored).toMatchObject({ enabled: true, hint: 'hooks.slack.com · T0SLACKTEST' });
+    expect(stored!.hint).not.toContain('B0CAMILLE');
     expect(stored!.target).toMatch(/^v1:/);
     expect(JSON.stringify(stored)).not.toContain('camilleSecret');
     expect(JSON.stringify(await read(asCamille))).not.toContain('camilleSecret');
@@ -255,23 +256,66 @@ describe('a notification delivered to Slack', () => {
     );
   });
 
-  test('that Slack refuses for good is skipped at once: a revoked webhook is not tried again', async () => {
+  test('that Slack refuses for good is skipped at once, and the person’s channel goes off saying when: a revoked webhook is written to once, not at every notification', async () => {
     const ctx = await setup();
-    await choose(ctx.asCamille, { enabled: true, target: HOOK });
+    const { t, camille, asCamille } = ctx;
+    await choose(asCamille, { enabled: true, target: HOOK });
     statuses.push(404);
     await assignLead(ctx);
-    await runAfter(ctx.t, NOTIFICATION_DELIVERY_HOLD_MS);
-    expect(await deliveries(ctx.t)).toMatchObject([{ status: 'skipped', error: 'target_refused' }]);
-    await runAfter(ctx.t, 2 * 60 * MINUTE);
+    await runAfter(t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(await deliveries(t)).toMatchObject([{ status: 'skipped', error: 'target_refused' }]);
     expect(posts).toHaveLength(1);
+
+    const refused = await storedOf(t, camille.userId);
+    expect(refused).toMatchObject({ enabled: false, hint: 'hooks.slack.com · T0SLACKTEST' });
+    expect(refused!.refusedAt).toEqual(expect.any(Number));
+    expect(refused!.target).toMatch(/^v1:/);
+    expect((await read(asCamille)).channels[0]).toMatchObject({
+      enabled: false,
+      target: { set: true, refusedAt: refused!.refusedAt },
+    });
+    // The next notification writes no delivery and nothing reaches Slack.
+    await assignLead(ctx, { firstName: 'Anne', lastName: 'Petit' });
+    await runAfter(t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(await deliveries(t)).toHaveLength(1);
+    expect(posts).toHaveLength(1);
+
+    // A new webhook is a new choice: the refusal is forgotten, and messages leave again.
+    await choose(asCamille, { enabled: true, target: HOOK.replace('camilleSecret', 'camilleNew') });
+    const replaced = await storedOf(t, camille.userId);
+    expect(replaced!.enabled).toBe(true);
+    expect(replaced!.refusedAt).toBeUndefined();
+    expect((await read(asCamille)).channels[0]!.target!.refusedAt).toBeUndefined();
+    await assignLead(ctx, { firstName: 'Paul', lastName: 'Morel' });
+    await runAfter(t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(posts.at(-1)!.url).toContain('camilleNew');
+    // The refused delivery itself is never tried again.
+    await runAfter(t, 2 * 60 * MINUTE);
+    expect(posts).toHaveLength(2);
+    expect((await deliveries(t)).map((d) => d.status)).toEqual(['skipped', 'sent']);
   });
 
-  test('that Slack cannot take now is tried again, whether it answers 500, 429 or not at all, and no log line carries the webhook', async () => {
+  test('refused once and turned on again by the person is tried again: the choice is theirs', async () => {
+    const ctx = await setup();
+    await choose(ctx.asCamille, { enabled: true, target: HOOK });
+    statuses.push(410);
+    await assignLead(ctx);
+    await runAfter(ctx.t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect((await storedOf(ctx.t, ctx.camille.userId))!.enabled).toBe(false);
+    await choose(ctx.asCamille, { enabled: true });
+    expect((await storedOf(ctx.t, ctx.camille.userId))!.refusedAt).toBeUndefined();
+    await assignLead(ctx, { firstName: 'Anne', lastName: 'Petit' });
+    await runAfter(ctx.t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(posts).toHaveLength(2);
+    expect((await deliveries(ctx.t)).at(-1)).toMatchObject({ status: 'sent' });
+  });
+
+  test('that Slack cannot take now is tried again, whether it answers 500, 429, 400 or not at all: the channel stays on, and no log line carries the webhook', async () => {
     const ctx = await setup();
     await choose(ctx.asCamille, { enabled: true, target: HOOK });
     const logged = spyOn(console, 'error').mockImplementation(() => {});
     try {
-      statuses.push(500, 429, 'down');
+      statuses.push(500, 429, 400, 'down');
       await assignLead(ctx);
       await runAfter(ctx.t, NOTIFICATION_DELIVERY_HOLD_MS);
       expect(await deliveries(ctx.t)).toMatchObject([
@@ -279,17 +323,70 @@ describe('a notification delivered to Slack', () => {
       ]);
       await runAfter(ctx.t, MINUTE);
       await runAfter(ctx.t, 5 * MINUTE);
-      expect(await deliveries(ctx.t)).toMatchObject([{ status: 'pending', attempts: 3 }]);
       await runAfter(ctx.t, 15 * MINUTE);
-      expect(posts).toHaveLength(4);
+      expect(await deliveries(ctx.t)).toMatchObject([{ status: 'pending', attempts: 4 }]);
+      await runAfter(ctx.t, 60 * MINUTE);
+      expect(posts).toHaveLength(5);
       const [delivery] = await deliveries(ctx.t);
-      expect(delivery).toMatchObject({ status: 'sent', attempts: 4 });
+      expect(delivery).toMatchObject({ status: 'sent', attempts: 5 });
       expect(delivery!.error).toBeUndefined();
+      expect(await storedOf(ctx.t, ctx.camille.userId)).toMatchObject({ enabled: true });
       expect(JSON.stringify(logged.mock.calls)).not.toContain('hooks.slack.com');
     } finally {
       logged.mockRestore();
     }
   });
+
+  const unreadable: [string, (ctx: Ctx) => Promise<void>][] = [
+    [
+      'a damaged ciphertext',
+      async ({ t, camille }) => {
+        const row = await t.run((c) =>
+          c.db
+            .query('notificationPreferences')
+            .withIndex('by_user', (q) => q.eq('userId', camille.userId))
+            .first(),
+        );
+        await t.run((c) =>
+          c.db.patch(row!._id, {
+            channels: { slack: { ...row!.channels.slack!, target: 'v1:damaged' } },
+          }),
+        );
+      },
+    ],
+    [
+      'a key that changed',
+      async () => {
+        process.env.SECRETS_KEY = 'b'.repeat(64);
+      },
+    ],
+    [
+      'a key that is gone',
+      async () => {
+        delete process.env.SECRETS_KEY;
+      },
+    ],
+  ];
+  for (const [what, change] of unreadable) {
+    test(`whose webhook can no longer be decrypted is skipped, not left pending: ${what}`, async () => {
+      const ctx = await setup();
+      await choose(ctx.asCamille, { enabled: true, target: HOOK });
+      await assignLead(ctx);
+      await change(ctx);
+      await runAfter(ctx.t, NOTIFICATION_DELIVERY_HOLD_MS);
+      expect(await deliveries(ctx.t)).toMatchObject([
+        { status: 'skipped', attempts: 0, error: 'target_unreadable' },
+      ]);
+      // The test of the channel says the same, as a refusal the page words.
+      await expect(testChannel(ctx.asCamille)).rejects.toMatchObject({
+        data: { code: 'channel_target_unreadable' },
+      });
+      // Nothing is left scheduled for it.
+      await runAfter(ctx.t, 2 * 60 * MINUTE);
+      expect(await deliveries(ctx.t)).toMatchObject([{ status: 'skipped' }]);
+      expect(posts).toEqual([]);
+    });
+  }
 
   test('still waiting when the plugin is uninstalled is skipped, and nothing reaches Slack', async () => {
     const ctx = await setup();
@@ -407,11 +504,25 @@ describe('« tester le canal »', () => {
     expect(await testChannel(asLou)).toBe('failed');
   });
 
-  test('is the settings right’s, and only for a plugin’s channel that is installed', async () => {
-    const { asLou, asCamille } = await setup();
+  test('is every employee’s, to their own webhook, and only for a plugin’s channel that is installed', async () => {
+    const { t, asLou, asCamille } = await setup();
+    await expect(testChannel(asCamille)).rejects.toMatchObject({
+      data: { code: 'no_channel_target' },
+    });
     await choose(asCamille, { enabled: true, target: HOOK });
     await choose(asLou, { enabled: true, target: HOOK_LOU });
-    await expect(testChannel(asCamille)).rejects.toThrow('Unauthorized');
+    expect(await testChannel(asCamille)).toBe('sent');
+    expect(posts.map((post) => post.url)).toEqual([HOOK]);
+    // A test that Slack refuses says so and leaves the channel as it is.
+    statuses.push(404);
+    expect(await testChannel(asCamille)).toBe('refused');
+    expect(await read(asCamille)).toMatchObject({ channels: [{ enabled: true }] });
+    await expect(
+      t.action(api.features.notifications.actions.testNotificationChannel, {
+        channel: 'slack',
+      }),
+    ).rejects.toThrow('Unauthorized');
+    posts.length = 0;
     await expect(testChannel(asLou, 'email')).rejects.toMatchObject({
       data: { code: 'channel_not_available' },
     });

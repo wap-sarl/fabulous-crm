@@ -1,8 +1,19 @@
 import { useAuthMutation, useAuthQuery } from '@crm/widgets';
+import type { FunctionReturnType } from 'convex/server';
 import { api, NOTIFICATION_TARGET_SCHEMAS, type NotificationGroup } from '@crm/lib/backend';
-import { Card, SecretField, Skeleton, SwitchRow, toast } from '@crm/design-system';
+import {
+  Button,
+  Card,
+  HelperText,
+  SecretField,
+  Skeleton,
+  SwitchRow,
+  toast,
+} from '@crm/design-system';
 import { errorLabel } from '@crm/lib/errors';
+import { dateFormat } from '@crm/lib/format';
 import { groupPresentationOf } from '../lib/presentation';
+import { useChannelTest } from '../lib/useChannelTest';
 
 const PREFERENCE_ERRORS: Record<string, string> = {
   unknown_notification_kind: 'Ce type de notification n’existe plus. Rechargez la page.',
@@ -17,6 +28,62 @@ const targetProblem = (channel: string) => (value: string) => {
 };
 
 const myPreferences = api.features.notifications.queries.getMyNotificationPreferences;
+type Preferences = FunctionReturnType<typeof myPreferences>;
+type Choice = { channels: Record<string, { enabled: boolean; target?: string | null }> };
+
+/** One channel: its switch, and for a channel that asks for a target, the field that keeps it, a test of it, and a word when the service refused it. */
+function ChannelRow({
+  channel: { key, label, description, enabled, target },
+  send,
+}: {
+  channel: Preferences['channels'][number];
+  send: (choice: Choice) => Promise<unknown>;
+}) {
+  const { test, testing } = useChannelTest(key, label);
+  const choose = (choice: Choice['channels'][string]) => send({ channels: { [key]: choice } });
+  return (
+    <div>
+      <SwitchRow
+        label={label}
+        description={description}
+        checked={enabled}
+        // A channel that asks for a target waits for it.
+        disabled={target !== undefined && !target.set}
+        onCheckedChange={(on) => void choose({ enabled: on }).catch(() => {})}
+      />
+      {target?.refusedAt !== undefined && (
+        <HelperText variant="error" className="pb-2">
+          {label} a refusé votre destination le {dateFormat.format(target.refusedAt)} : le canal a
+          été désactivé. Remplacez-la pour le réactiver.
+        </HelperText>
+      )}
+      {target && (
+        <SecretField
+          className="pb-3"
+          label={target.label}
+          placeholder={target.placeholder}
+          set={target.set}
+          hint={target.hint}
+          validate={targetProblem(key)}
+          // A first target turns the channel on, as does one that replaces a refused one; any other replacement leaves it as it was.
+          onSave={(value) =>
+            choose({
+              enabled: target.set && target.refusedAt === undefined ? enabled : true,
+              target: value,
+            })
+          }
+          onRemove={() => choose({ enabled: false, target: null })}
+          actions={
+            <Button variant="ghost" size="sm" onClick={test} disabled={testing}>
+              Tester
+            </Button>
+          }
+        />
+      )}
+    </div>
+  );
+}
+
 const SKELETON_ROWS = ['s1', 's2', 's3'];
 
 /** A person's own settings: what they are told about, by group, then where; each switch saves itself. */
@@ -108,38 +175,8 @@ export function NotificationPreferences() {
             </p>
           ) : (
             <Card className="divide-y divide-border px-4 py-1">
-              {preferences.channels.map(({ key, label, description, enabled, target }) => (
-                <div key={key}>
-                  <SwitchRow
-                    label={label}
-                    description={description}
-                    checked={enabled}
-                    // A channel that asks for a target waits for it.
-                    disabled={target !== undefined && !target.set}
-                    onCheckedChange={(on) => save({ channels: { [key]: { enabled: on } } })}
-                  />
-                  {target && (
-                    <SecretField
-                      className="pb-3"
-                      label={target.label}
-                      placeholder={target.placeholder}
-                      set={target.set}
-                      hint={target.hint}
-                      validate={targetProblem(key)}
-                      // A first target turns the channel on; a replaced one leaves it as it was.
-                      onSave={(value) =>
-                        send({
-                          channels: {
-                            [key]: { enabled: target.set ? enabled : true, target: value },
-                          },
-                        })
-                      }
-                      onRemove={() =>
-                        send({ channels: { [key]: { enabled: false, target: null } } })
-                      }
-                    />
-                  )}
-                </div>
+              {preferences.channels.map((channel) => (
+                <ChannelRow key={channel.key} channel={channel} send={send} />
               ))}
             </Card>
           )}

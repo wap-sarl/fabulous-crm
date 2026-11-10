@@ -12,7 +12,7 @@ import { SCHEDULED_WORK_RETRY_MS } from '../extensions/types';
 import { loadVisibility } from '../roles/visibility';
 import { canOpenRecord } from './access';
 import { availableChannels, channelNames, channelOf, type NotificationChannel } from './channels';
-import { channelIsOn, kindIsOn, preferencesOf, targetOf } from './preferences';
+import { channelIsOn, kindIsOn, markTargetRefused, preferencesOf, targetOf } from './preferences';
 
 // One row per notification and channel; the scheduler carries the hold and the retries, no cron polls them.
 
@@ -91,8 +91,10 @@ export async function beginDelivery(
       return await skip('access_lost');
     }
   }
-  const to = await targetOf(channel, user, preferences);
-  if (!to) return await skip('no_target');
+  const target = await targetOf(channel, user, preferences);
+  if (target === 'none') return await skip('no_target');
+  // Thrown here, the error would roll this back and leave the row pending for good: nothing else ends it.
+  if (target === 'unreadable') return await skip('target_unreadable');
   const bare = (await channelNames(ctx, channel)) === 'none';
   await ctx.db.patch(deliveryId, { status: 'sending' });
   // An action that stops before recording its result would leave the row sending for good: this ends it.
@@ -107,19 +109,25 @@ export async function beginDelivery(
     title: bare ? notificationKindLabel(notification.kind) : notification.title,
     body: bare ? '' : notification.body,
     path: notification.path,
-    to,
+    to: target.to,
   };
 }
 
-/** Records what became of a delivery that left: sent, skipped by the channel itself, or failed, which tries again after the next wait of the backoff and gives up after the last. */
+/** Records what became of a delivery that left: sent, skipped by the channel itself, refused for good by the service, which also turns the person's channel off, or failed, which tries again after the next wait of the backoff and gives up after the last. */
 export async function finishDelivery(
   ctx: MutationCtx,
   deliveryId: Id<'notificationDeliveries'>,
-  result: 'sent' | 'skipped' | 'failed',
+  result: 'sent' | 'skipped' | 'refused' | 'failed',
   error?: string,
 ): Promise<void> {
   const delivery = await ctx.db.get(deliveryId);
   if (delivery?.status !== 'sending') return;
+  if (result === 'refused') {
+    await ctx.db.patch(deliveryId, { status: 'skipped', error: 'target_refused' });
+    const notification = await ctx.db.get(delivery.notificationId);
+    if (notification) await markTargetRefused(ctx, notification.userId, delivery.channel);
+    return;
+  }
   if (result === 'skipped') {
     await ctx.db.patch(deliveryId, { status: 'skipped', error });
     return;

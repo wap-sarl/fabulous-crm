@@ -10,7 +10,6 @@ import { ensureFanOut } from '../../lib/notifications/emit';
 import { beginDelivery, expireDelivery, finishDelivery } from '../../lib/notifications/deliveries';
 import { fanOutEvent, newFanOutRun } from '../../lib/notifications/fanOut';
 import { preferencesOf, targetOf } from '../../lib/notifications/preferences';
-import { loadVisibility } from '../../lib/roles/visibility';
 
 /** The unread rows one run marks read; a person with more gets another run. */
 const MARK_READ_BATCH = 200;
@@ -83,7 +82,12 @@ export const beginNotificationDelivery = internalMutation({
 export const finishNotificationDelivery = internalMutation({
   args: {
     deliveryId: v.id('notificationDeliveries'),
-    result: v.union(v.literal('sent'), v.literal('skipped'), v.literal('failed')),
+    result: v.union(
+      v.literal('sent'),
+      v.literal('skipped'),
+      v.literal('refused'),
+      v.literal('failed'),
+    ),
     error: v.optional(v.string()),
   },
   returns: v.null(),
@@ -103,12 +107,13 @@ export const expireNotificationDelivery = internalMutation({
   },
 });
 
-/** What « tester le canal » needs: the caller's own target on a plugin's channel, or why there is no test to send. The caller holds the settings right, as the page that asks does. */
+/** What « tester le canal » needs: the caller's own target on a plugin's channel, or why there is no test to send. Any employee may test the target they gave. */
 export const channelTestOf = internalQuery({
   args: { authId: v.string(), channel: v.string() },
   returns: v.union(
     v.literal('channel_not_available'),
     v.literal('no_channel_target'),
+    v.literal('channel_target_unreadable'),
     v.object({ to: v.string() }),
   ),
   handler: async (ctx, args) => {
@@ -119,12 +124,10 @@ export const channelTestOf = internalQuery({
     if (!user || user.deletedAt !== undefined || user.type !== 'employee') {
       throw new Error('Unauthorized: employees only');
     }
-    if (!(await loadVisibility(ctx, user)).access.settings) {
-      throw new Error('Unauthorized: settings access');
-    }
     const channel = await pluginChannel(ctx, args.channel);
     if (!channel?.send) return 'channel_not_available';
-    const to = await targetOf(channel, user, await preferencesOf(ctx, user._id));
-    return to ? { to } : 'no_channel_target';
+    const target = await targetOf(channel, user, await preferencesOf(ctx, user._id));
+    if (target === 'none') return 'no_channel_target';
+    return target === 'unreadable' ? 'channel_target_unreadable' : target;
   },
 });

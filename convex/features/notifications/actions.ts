@@ -64,39 +64,42 @@ export const deliverMessage = internalAction({
       args,
     );
     if (!job) return null;
-    let result: SendResult = 'failed';
+    const send = channelOf(job.channel)?.send;
+    let result: SendResult | 'skipped' = send ? 'failed' : 'skipped';
     try {
-      const send = channelOf(job.channel)?.send;
+      // A `send` never throws, it answers `failed`: only this read can, and it is then an attempt that failed.
       const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-      result = send
-        ? await send(job.to, {
-            title: job.title,
-            body: job.body,
-            url: `${appUrlOf(cfg)}${job.path}`,
-          })
-        : 'refused';
-    } catch {
-      // Nothing of the error is logged: it may quote the person's target.
-      console.error(`[notifications] ${job.channel} delivery failed`);
+      if (send) {
+        result = await send(job.to, {
+          title: job.title,
+          body: job.body,
+          url: `${appUrlOf(cfg)}${job.path}`,
+        });
+      }
+    } catch (error) {
+      console.error('[notifications] the configuration could not be read for a delivery:', error);
     }
+    const errors = { failed: 'send_failed', skipped: 'channel_cannot_send' } as const;
     await ctx.runMutation(internal.features.notifications.internal.finishNotificationDelivery, {
       ...args,
-      result: result === 'refused' ? 'skipped' : result,
-      error:
-        result === 'sent' ? undefined : result === 'refused' ? 'target_refused' : 'send_failed',
+      result,
+      error: result === 'failed' || result === 'skipped' ? errors[result] : undefined,
     });
     return null;
   },
 });
 
-/** « Tester le canal »: one message to the caller's own target on a plugin's channel, and what the service made of it. */
+/** Why a channel has no test to send, as the refusal's code. */
+type NoChannelTest = 'channel_not_available' | 'no_channel_target' | 'channel_target_unreadable';
+
+/** « Tester le canal »: one message to the caller's own target on a plugin's channel, and what the service made of it; for any employee, the target is their own. */
 export const testNotificationChannel = employeeAction({
   args: { channel: v.string() },
   returns: v.union(v.literal('sent'), v.literal('refused'), v.literal('failed')),
   handler: async (ctx, args): Promise<SendResult> => {
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) throw new Error('Unauthorized: employees only');
-    const test: { to: string } | 'channel_not_available' | 'no_channel_target' = await ctx.runQuery(
+    const test: { to: string } | NoChannelTest = await ctx.runQuery(
       internal.features.notifications.internal.channelTestOf,
       {
         authId: authUser._id,
