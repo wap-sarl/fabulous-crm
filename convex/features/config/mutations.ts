@@ -56,6 +56,7 @@ export const updateConfig = settingsMutation({
     await ctx.db.patch(cfg._id, {
       ...(args.organizationName !== undefined && { organizationName: args.organizationName }),
       ...(args.timezone !== undefined && { timezone: args.timezone }),
+      ...(args.tasksDueHour !== undefined && { tasksDueHour: args.tasksDueHour }),
       ...(args.appUrl !== undefined && { appUrl: args.appUrl.replace(/\/+$/, '') }),
       ...(args.senderEmail !== undefined && { senderEmail: args.senderEmail.trim().toLowerCase() }),
       ...(args.senderName !== undefined && { senderName: args.senderName }),

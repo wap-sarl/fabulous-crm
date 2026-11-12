@@ -1,5 +1,5 @@
 import { v } from 'convex/values';
-import { DEFAULT_TIMEZONE } from '../../_lib/validators/appConfig';
+import { DEFAULT_TASKS_DUE_HOUR, DEFAULT_TIMEZONE } from '../../_lib/validators/appConfig';
 import { retentionPolicyValidator } from '../../_lib/validators/retention';
 import { trackingModeValidator } from '../../_lib/validators/tracking';
 import { connectorProviderValidator } from '../../_lib/validators/connectors';
@@ -71,6 +71,7 @@ export const getAdminConfig = settingsQuery({
     v.object({
       organizationName: v.string(),
       timezone: v.string(),
+      tasksDueHour: v.number(),
       appUrl: v.string(),
       senderEmail: v.string(),
       senderName: v.string(),
@@ -153,6 +154,7 @@ export const getAdminConfig = settingsQuery({
     return {
       organizationName: cfg.organizationName,
       timezone: cfg.timezone ?? DEFAULT_TIMEZONE,
+      tasksDueHour: cfg.tasksDueHour ?? DEFAULT_TASKS_DUE_HOUR,
       appUrl: cfg.appUrl,
       senderEmail: cfg.senderEmail,
       senderName: cfg.senderName,

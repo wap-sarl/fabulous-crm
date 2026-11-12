@@ -57,6 +57,13 @@ const NOTIFICATION_KINDS = [
     module: 'activities',
   },
   {
+    key: 'activity.due',
+    group: 'activities',
+    label: 'Vos tâches à faire aujourd’hui',
+    defaultOn: true,
+    module: 'activities',
+  },
+  {
     key: 'campaign.finished',
     group: 'campaigns',
     label: 'Une campagne que vous avez créée est terminée ou en échec',
@@ -126,6 +133,8 @@ const notificationEntityValidator = v.object({
     v.literal('workflowRun'),
     v.literal('importJob'),
     v.literal('invitation'),
+    // A fact about a day rather than a record: the tasks due that day, its id the day in the organisation's time zone.
+    v.literal('day'),
   ),
   id: v.string(),
 });

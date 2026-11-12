@@ -115,7 +115,7 @@ describe('a person’s notification preferences', () => {
   test('until they choose, every kind follows the catalogue and no external channel is on; nothing is stored', async () => {
     const { t, lou, asLou } = await setup();
     const answer = await read(asLou);
-    expect(answer.kinds).toHaveLength(10);
+    expect(answer.kinds).toHaveLength(11);
     expect(answer.kinds[0]).toEqual({
       key: 'lead.assigned',
       group: 'leads',
@@ -156,6 +156,7 @@ describe('a person’s notification preferences', () => {
       'lead.assigned',
       'lead.form_submitted',
       'activity.assigned',
+      'activity.due',
       'import.finished',
     ]);
 

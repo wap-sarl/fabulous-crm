@@ -151,6 +151,18 @@ workspaces.
   (une transaction glissée puis ramenée) ne sonne qu'une fois tant que le premier
   n'est pas lu. Les notifications et leurs envois suivent leur propre durée dans
   *Paramètres → Conservation* (`notificationDays`, 90 jours par défaut, 7 à 365).
+  Un type suit l'horloge et non une écriture : « Vos tâches à faire
+  aujourd'hui » (`activity.due`), une notification par personne et par jour,
+  produite par une tâche planifiée horaire quand l'heure de l'organisation
+  sonne dans son fuseau (*Paramètres → E-mail & SMS*, « Heure du rappel des
+  tâches du jour », `appConfig.tasksDueHour`, 08:00 par défaut, à côté du
+  fuseau) : le nombre de tâches ouvertes dont l'échéance tombe ce jour-là dans
+  ce fuseau, les premiers titres, et un lien vers les tâches du jour. Les
+  tâches sont lues personne par personne, sur l'index de chacun par échéance
+  (`by_owner_status_dueAt`), jamais toute la table ; une personne déjà
+  prévenue ce jour-là (clé
+  `activity.due:<jour>:<personne>`, lue ou non) ne l'est pas deux fois, une
+  tâche confiée à une équipe sans responsable ne prévient personne.
   Chacun règle les siennes dans *Paramètres → Notifications* (groupe
   « Personnel », ouvert à tous les employés) : les types dont il veut être
   informé, par groupe (un type désactivé n'écrit plus rien pour lui, ni dans

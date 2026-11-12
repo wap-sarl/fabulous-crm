@@ -27,4 +27,12 @@ crons.hourly(
   {},
 );
 
+// Each hour, the people whose organisation's clock just struck its hour are told of their tasks due today (lib/notifications/due.ts).
+crons.hourly(
+  'tasks due today',
+  { minuteUTC: 0 },
+  internal.features.notifications.internal.tellTasksDue,
+  {},
+);
+
 export default crons;
