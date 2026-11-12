@@ -29,7 +29,7 @@ export async function emitEvent(ctx: MutationCtx, fact: NotificationFact): Promi
 /** One pending run at a time: mutations writing facts at once queue one run, not one each that would read and delete the same head of the queue; a run in progress is left alone, it reschedules itself while facts remain. */
 export async function ensureFanOut(ctx: MutationCtx, delayMs: number): Promise<void> {
   const state = await ctx.db.query('notificationFanOut').first();
-  if (state) {
+  if (state?.scheduledFnId) {
     const job = await ctx.db.system.get(state.scheduledFnId);
     if (job?.state.kind === 'pending') return;
   }

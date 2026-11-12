@@ -61,6 +61,8 @@ export type EmailConfig = Infer<typeof emailConfigValidator>;
 
 /** A singleton: the setup wizard creates it (convex/setup/mutations.ts), or convex/seed/bootstrapConfig.ts backfills it on an existing deployment. */
 export const DEFAULT_TIMEZONE = 'Europe/Paris';
+/** The hour, in that time zone, at which each person is told of their tasks due today. */
+export const DEFAULT_TASKS_DUE_HOUR = 8;
 /** An IANA name the runtime knows; the browser and the server agree on them. */
 export const timezoneSchema = z.string().refine((name) => {
   try {
@@ -88,6 +90,8 @@ export const appConfigValidator = v.object({
   organizationName: v.string(),
   // The organisation's time zone (IANA), where a scheduled campaign's time is read; absent means Europe/Paris.
   timezone: v.optional(v.string()),
+  // The hour of that time zone at which the daily « tasks due today » notification is produced; absent means 08:00.
+  tasksDueHour: v.optional(v.number()),
   appUrl: v.string(), // canonical origin, no trailing slash
   senderEmail: v.string(),
   senderName: v.string(),

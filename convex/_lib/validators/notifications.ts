@@ -57,6 +57,13 @@ const NOTIFICATION_KINDS = [
     module: 'activities',
   },
   {
+    key: 'activity.due',
+    group: 'activities',
+    label: 'Vos tâches à faire aujourd’hui',
+    defaultOn: true,
+    module: 'activities',
+  },
+  {
     key: 'campaign.finished',
     group: 'campaigns',
     label: 'Une campagne que vous avez créée est terminée ou en échec',
@@ -126,6 +133,8 @@ const notificationEntityValidator = v.object({
     v.literal('workflowRun'),
     v.literal('importJob'),
     v.literal('invitation'),
+    // A fact about a day rather than a record: the tasks due that day, its id the day in the organisation's time zone.
+    v.literal('day'),
   ),
   id: v.string(),
 });
@@ -260,9 +269,10 @@ export const notificationPreferencesValidator = v.object({
   updatedAt: v.number(),
 });
 
-/** The one pending fan-out run, so that mutations writing facts at once queue one run, not one each. */
+/** The engine's one state row: the pending fan-out run, so that mutations writing facts at once queue one run, not one each; and the last day « tasks due today » was told of, so that the cron tells it once. */
 export const notificationFanOutValidator = v.object({
-  scheduledFnId: v.id('_scheduled_functions'),
+  scheduledFnId: v.optional(v.id('_scheduled_functions')),
+  tasksDueDay: v.optional(v.string()),
 });
 
 /** The fan-out drains this many events per run; a run that drained a full batch schedules the next. */

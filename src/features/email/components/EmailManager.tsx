@@ -7,6 +7,11 @@ import {
   Combobox,
   Input,
   Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Spinner,
   Tabs,
   TabsContent,
@@ -18,6 +23,9 @@ import { timeZoneOptions } from '@crm/lib/timezone';
 import { BrevoSettings } from './BrevoSettings';
 import { SmtpSettings } from './SmtpSettings';
 import { errorText } from '@crm/lib/errors';
+
+/** The hours of a day, for the daily reminder. */
+const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
 export function EmailManager() {
   const config = useQuery(api.features.config.queries.getAdminConfig);
@@ -65,6 +73,7 @@ export function EmailManager() {
       senderEmail: config.senderEmail,
       senderName: config.senderName,
       timezone: config.timezone,
+      tasksDueHour: config.tasksDueHour,
       provider: config.email.provider,
       brevoApiKey: '',
       brevoWebhookSecret: '',
@@ -114,6 +123,7 @@ export function EmailManager() {
         senderEmail: draft.senderEmail,
         senderName: draft.senderName,
         timezone: draft.timezone,
+        tasksDueHour: draft.tasksDueHour,
         email: {
           provider: draft.provider,
           // Empty secret → undefined → server keeps the stored value.
@@ -206,6 +216,28 @@ export function EmailManager() {
             />
             <p className="text-xs text-muted-foreground">
               L'heure à laquelle une campagne programmée part est lue dans ce fuseau.
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="tasks-due-hour">Heure du rappel des tâches du jour</Label>
+            <Select
+              value={String(draft.tasksDueHour)}
+              onValueChange={(hour) => set('tasksDueHour', Number(hour))}
+            >
+              <SelectTrigger id="tasks-due-hour" className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {HOURS.map((hour) => (
+                  <SelectItem key={hour} value={String(hour)}>
+                    {`${String(hour).padStart(2, '0')}:00`}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Chaque jour, à cette heure dans ce fuseau, chacun est prévenu de ses tâches à faire
+              aujourd'hui ; un jour où elle n'existe pas (changement d'heure), à l'heure suivante.
             </p>
           </div>
         </div>

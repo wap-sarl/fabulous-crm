@@ -27,4 +27,12 @@ crons.hourly(
   {},
 );
 
+// Every half hour, so that a zone thirty minutes off the hour is on time: once the organisation's clock has reached its hour, each person is told of their tasks due today (lib/notifications/due.ts).
+crons.cron(
+  'tasks due today',
+  '0,30 * * * *',
+  internal.features.notifications.internal.tellTasksDue,
+  {},
+);
+
 export default crons;

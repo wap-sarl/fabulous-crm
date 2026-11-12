@@ -34,6 +34,7 @@ const SMALL: Record<string, string> = {
 
 /** Index ranges bounded by what they hang from: the rows of one parent, which the product keeps few. */
 const BOUNDED: Record<string, string> = {
+  'activities.by_owner_status_dueAt': 'the open tasks of one person due on one day',
   'attachments.by_entity': 'the files of one record',
   'campaignEvents.by_send': 'the events of one send: a handful',
   'campaignLinkTokens.by_send': 'the tracked links of one send: those of the message',

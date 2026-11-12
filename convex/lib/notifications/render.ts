@@ -151,6 +151,29 @@ export async function renderActivityAssigned(
   };
 }
 
+/** « 3 tâches à faire aujourd'hui », the first titles in the body, opening the day's tasks; nothing is read back, the cron counted when it ran. */
+export async function renderActivityDue(
+  _ctx: Ctx,
+  event: Doc<'notificationEvents'>,
+): Promise<Rendered | null> {
+  const userId = typeof event.data?.userId === 'string' ? (event.data.userId as Id<'users'>) : null;
+  const count = typeof event.data?.count === 'number' ? event.data.count : 0;
+  const titles = Array.isArray(event.data?.titles) ? (event.data.titles as string[]) : [];
+  if (!userId || count < 1) return null;
+  const more = count - titles.length;
+  const named =
+    titles.length > 1 && more === 0
+      ? `${titles.slice(0, -1).join(', ')} et ${titles[titles.length - 1]}`
+      : titles.join(', ');
+  const rest = more > 0 ? ` et ${more} autre${more > 1 ? 's' : ''}` : '';
+  return {
+    recipients: [userId],
+    title: `${count} tâche${count > 1 ? 's' : ''} à faire aujourd’hui`,
+    body: named ? `${named}${rest}.` : '',
+    path: '/tasks',
+  };
+}
+
 export async function renderCampaignFinished(
   ctx: Ctx,
   event: Doc<'notificationEvents'>,

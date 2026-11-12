@@ -73,6 +73,7 @@ const emailConfigInput = v.object({
 export const settingsArgs = {
   organizationName: v.optional(v.string()),
   timezone: v.optional(v.string()),
+  tasksDueHour: v.optional(v.number()),
   appUrl: v.optional(v.string()),
   senderEmail: v.optional(v.string()),
   senderName: v.optional(v.string()),
@@ -116,6 +117,9 @@ export function checkSettings(cfg: Config, args: SettingsArgs): void {
   }
   if (args.timezone !== undefined && !follows(timezoneSchema, args.timezone)) {
     throw refusal('invalid_timezone');
+  }
+  if (args.tasksDueHour !== undefined && !follows(boundedInt(0, 23), args.tasksDueHour)) {
+    throw refusal('invalid_tasks_due_hour');
   }
   if (args.ssoProviders) {
     // An id already stored is not checked again: its callback path is declared at the issuer.

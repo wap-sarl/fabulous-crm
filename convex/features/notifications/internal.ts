@@ -9,6 +9,7 @@ import { pluginChannel } from '../../lib/notifications/channels';
 import { ensureFanOut } from '../../lib/notifications/emit';
 import { beginDelivery, expireDelivery, finishDelivery } from '../../lib/notifications/deliveries';
 import { fanOutEvent, newFanOutRun } from '../../lib/notifications/fanOut';
+import { tellTasksDue as tellOfTasksDue } from '../../lib/notifications/due';
 import { preferencesOf, targetOf } from '../../lib/notifications/preferences';
 
 /** The unread rows one run marks read; a person with more gets another run. */
@@ -37,6 +38,13 @@ export const fanOut = internalMutation({
     if (left) await ensureFanOut(ctx, 0);
     return null;
   },
+});
+
+/** The cron, every half hour: once the organisation's clock has reached its hour, one « tasks due today » fact per person with an open task due that day, once a day. */
+export const tellTasksDue = internalMutation({
+  args: {},
+  returns: v.number(),
+  handler: async (ctx) => await tellOfTasksDue(ctx),
 });
 
 /** Marks read what a person had in their inbox when they asked, one batch per run; a row delivered since, whatever the age of its fact, stays unread. */

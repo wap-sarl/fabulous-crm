@@ -8,6 +8,7 @@ export type Draft = {
   senderEmail: string;
   senderName: string;
   timezone: string;
+  tasksDueHour: number;
   provider: Provider;
   brevoApiKey: string;
   brevoWebhookSecret: string;

@@ -10,6 +10,7 @@ import { kindIsOn, preferencesOf } from './preferences';
 import {
   type Rendered,
   renderActivityAssigned,
+  renderActivityDue,
   renderCampaignFinished,
   renderDealAssigned,
   renderDealClosed,
@@ -32,6 +33,7 @@ const RENDERERS: Record<NotificationKind, Renderer> = {
   'deal.stage_changed': renderDealStageChanged,
   'deal.closed': renderDealClosed,
   'activity.assigned': renderActivityAssigned,
+  'activity.due': renderActivityDue,
   'campaign.finished': renderCampaignFinished,
   'workflow.run_failed': renderWorkflowRunFailed,
   'import.finished': renderImportFinished,
