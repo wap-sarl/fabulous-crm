@@ -8,6 +8,8 @@ import { emitEvent } from './emit';
 
 /** The titles a notification names before « et N autres ». */
 const TITLES_NAMED = 3;
+/** How long after the hour a day may still be told: enough for the daylight-saving gap and a missed run or two, not so long that a deployment at 15:00 or an outage reminds everyone in the evening. A day outside the window is skipped. */
+const CATCH_UP_HOURS = 3;
 
 /** What one person has due that day: how many open activities, whatever their type, as the tasks page lists them, and the first titles by due time; null with none. Their own index range, never the table: an activity handed to a team and nobody is no one's. */
 async function dueOf(
@@ -42,11 +44,12 @@ async function activitiesAllowed(
   return await allowed;
 }
 
-/** Run every half hour: once the organisation's clock, in its time zone, has reached the chosen hour, one fact per live employee whose role has the activities module and who has an open activity due that day, each person's read from their own index range. The day is then written down on the engine's state row, so the runs that follow that day tell nobody again: a day without the hour (clocks going forward) is told at the next, a day with it twice (clocks going back) once. Answers how many people were told. */
+/** Run every half hour: once the organisation's clock, in its time zone, has reached the chosen hour, one fact per live employee whose role has the activities module and who has an open activity due that day, each person's read from their own index range. The day is then written down on the engine's state row, so the runs that follow that day tell nobody again: a day without the hour (clocks going forward) is told at the next, a day with it twice (clocks going back) once, and a day whose window passed untold is left alone. Answers how many people were told. */
 export async function tellTasksDue(ctx: MutationCtx, now = Date.now()): Promise<number> {
   const cfg = await loadAppConfig(ctx);
   const today = zonedDayOf(now, cfg?.timezone ?? DEFAULT_TIMEZONE);
-  if (today.hour < (cfg?.tasksDueHour ?? DEFAULT_TASKS_DUE_HOUR)) return 0;
+  const due = cfg?.tasksDueHour ?? DEFAULT_TASKS_DUE_HOUR;
+  if (today.hour < due || today.hour >= due + CATCH_UP_HOURS) return 0;
   if ((await ctx.db.query('notificationFanOut').first())?.tasksDueDay === today.key) return 0;
   const employees = await ctx.db
     .query('users')

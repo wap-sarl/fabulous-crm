@@ -201,11 +201,20 @@ describe('« vos tâches à faire aujourd’hui »', () => {
     ]);
   });
 
-  test('a run that missed the hour tells at the next: a deployment down at 08:00 reminds at 11:00', async () => {
+  test('a run that missed the hour tells within three hours of it, and a day whose window passed is skipped: a deployment at 15:00 reminds nobody that day, the next morning as usual', async () => {
     const ctx = await setup();
     await plan(ctx, 'Aujourd’hui', ctx.camille.userId, Date.UTC(2026, 10, 12, 18));
+    await plan(ctx, 'Demain', ctx.camille.userId, Date.UTC(2026, 10, 13, 18));
     await runDue(ctx.t);
-    expect(await strike(ctx.t, EIGHT + 3 * HOUR)).toBe(1);
+    expect(await strike(ctx.t, EIGHT + 3 * HOUR)).toBe(0);
+    expect(await strike(ctx.t, EIGHT + 7 * HOUR)).toBe(0);
+    expect((await stateOf(ctx.t))?.tasksDueDay).toBeUndefined();
+    expect(await strike(ctx.t, EIGHT + 24 * HOUR)).toBe(1);
+
+    const late = await setup();
+    await plan(late, 'Aujourd’hui', late.camille.userId, Date.UTC(2026, 10, 12, 18));
+    await runDue(late.t);
+    expect(await strike(late.t, EIGHT + 2 * HOUR + 30 * 60 * 1000)).toBe(1);
   });
 
   test('a zone thirty minutes off the hour is told on the hour, and a day without the hour, when clocks go forward, at the next; a day with it twice, when they go back, once', async () => {

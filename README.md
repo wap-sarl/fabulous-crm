@@ -158,7 +158,9 @@ workspaces.
   E-mail & SMS*, « Heure du rappel des tâches du jour »,
   `appConfig.tasksDueHour`, 08:00 par défaut, à côté du fuseau ; un fuseau à
   la demi-heure est servi à l'heure, un jour sans cette heure, au changement
-  d'heure, à l'heure suivante) : le nombre d'activités ouvertes, tâches,
+  d'heure, à l'heure suivante ; au-delà de trois heures après l'heure choisie,
+  un jour non prévenu, déploiement ou panne, est passé, personne n'est rappelé
+  le soir) : le nombre d'activités ouvertes, tâches,
   appels, réunions, tout ce que la page des tâches liste, dont l'échéance tombe
   ce jour-là dans ce fuseau, les premiers titres, et un lien vers les tâches
   du jour. Elles sont lues personne par personne, sur l'index de chacun par
