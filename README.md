@@ -198,8 +198,8 @@ workspaces.
   peut aussi réactiver le canal tel quel si le problème est réglé côté service.
   Un refus qui arrive après qu'elle a remplacé sa destination ne compte pas :
   il visait l'ancienne (`finishNotificationDelivery` nomme la destination
-  utilisée, le canal n'est coupé que si c'est encore celle-là). Slack est
-  le premier, ci-dessous ; Discord arrive avec le lot suivant.
+  utilisée, le canal n'est coupé que si c'est encore celle-là). Slack et
+  Discord sont les deux premiers, ci-dessous.
 - **Plugins** : des fonctionnalités en option, installées par un administrateur
   depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue
   (`convex/_lib/validators/plugins.ts`) est fermé et fait partie du code : rien
@@ -209,8 +209,9 @@ workspaces.
   ses adresses publiques répondent 404 ; le désinstaller conserve ses données,
   le réinstaller les retrouve telles quelles. Une entrée du catalogue dit aussi
   ce que le plugin ajoute au cœur (`provides`), que sa carte affiche. Les
-  plugins : les pages hébergées et Slack, ci-dessous. Un déploiement neuf n'en a aucun ; un déploiement
-  antérieur aux plugins garde ceux dont il tient des données.
+  plugins : les pages hébergées, Slack et Discord, ci-dessous. Un déploiement
+  neuf n'en a aucun ; un déploiement antérieur aux plugins garde ceux dont il
+  tient des données.
 - **Pages** (plugin) : des pages hébergées par le déploiement (`GET /p/<slug>`,
   servies sous une politique de sécurité stricte, écrite dans le document
   lui-même pour que l'aperçu de l'éditeur se comporte comme la page, limitées
@@ -255,6 +256,27 @@ workspaces.
   `full` par défaut ; sur `none`, un message ne dit que le type de notification
   et donne le lien) et « Tester le canal », le même test que chaque personne a
   sur sa propre ligne.
+- **Discord** (plugin) : la même forme que Slack, avec le **webhook d'un
+  salon**. Un webhook Discord n'écrit jamais en message privé : chaque personne
+  crée sur son serveur un salon textuel privé, visible d'elle seule
+  (paramètres du salon, « Intégrations », « Webhooks », « Nouveau webhook »,
+  « Copier l'URL du webhook »), et colle l'URL dans *Paramètres →
+  Notifications*, à la ligne Discord ; les administrateurs d'un serveur voient
+  tous ses salons, la page le dit. Seule une adresse
+  `https://discord.com/api/webhooks/<id>/<jeton>` est acceptée, aussi sous
+  `ptb.`, `canary.` ou `discordapp.com`, ramenée à `discord.com` ; la page n'en
+  montre que l'hôte et l'identifiant du webhook, jamais le jeton. Un envoi est
+  un `POST` de `content` : le titre en gras, le texte et un lien « Ouvrir dans
+  le CRM » sans aperçu, les caractères de mise en forme échappés et
+  `allowed_mentions` vide, un nom ne mentionne donc personne ; le titre puis le
+  texte sont coupés, à un point de code entier, pour tenir dans les 2 000
+  caractères de Discord, le lien reste entier. Une réponse
+  définitive de Discord (401, 403, 404 : jeton invalide, webhook supprimé)
+  donne `skipped` (`target_refused`) et coupe le canal ; toute autre erreur ou
+  l'absence de réponse suit les tentatives des autres envois. La page du plugin
+  (*Paramètres → Discord*, droit « paramètres ») explique le salon privé et
+  porte les deux réglages de Slack : les noms dans les messages
+  (`appConfig.notificationChannels.discord.names`) et « Tester le canal ».
 - **Formulaires de capture** (*Paramètres → Formulaires*) : formulaires publics
   composés de champs standard ou de propriétés personnalisées, à intégrer par
   un script (`GET /forms/<id>/embed.js`, l'élément cible par `data-target`,
