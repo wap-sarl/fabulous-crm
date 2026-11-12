@@ -235,17 +235,18 @@ export const slackWebhookSchema = z
     'Collez l’URL d’un webhook entrant Slack, de la forme https://hooks.slack.com/services/…',
   );
 
-/** The rule of each channel's target, by channel key: the page checks with the one the mutation applies. */
-/** A Discord channel webhook: Discord's two hosts, https, the webhook's id and its token, nothing after. */
+/** A Discord channel webhook: https, the webhook's id and its token, nothing after. Discord's four hosts (its two client builds, its old domain) are the same webhook, kept as `discord.com` so the hint says one thing. */
 export const discordWebhookSchema = z
   .string()
   .trim()
   .max(200)
   .regex(
-    /^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+$/,
+    /^https:\/\/((ptb|canary)\.)?(discord\.com|discordapp\.com)\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+$/,
     'Collez l’URL d’un webhook de salon Discord, de la forme https://discord.com/api/webhooks/…',
-  );
+  )
+  .transform((url) => url.replace(/^https:\/\/[^/]+\//, 'https://discord.com/'));
 
+/** The rule of each channel's target, by channel key: the page checks with the one the mutation applies. */
 export const NOTIFICATION_TARGET_SCHEMAS: Record<string, z.ZodType<string>> = {
   slack: slackWebhookSchema,
   discord: discordWebhookSchema,

@@ -261,13 +261,16 @@ workspaces.
   crée sur son serveur un salon textuel privé, visible d'elle seule
   (paramètres du salon, « Intégrations », « Webhooks », « Nouveau webhook »,
   « Copier l'URL du webhook »), et colle l'URL dans *Paramètres →
-  Notifications*, à la ligne Discord. Seule une adresse
-  `https://discord.com/api/webhooks/<id>/<jeton>` (ou `discordapp.com`) est
-  acceptée ; la page n'en montre que l'hôte et l'identifiant du webhook, jamais
-  le jeton. Un envoi est un `POST` de `content` : le titre en gras, le texte et
-  un lien « Ouvrir dans le CRM » sans aperçu, les caractères de mise en forme
-  échappés et `allowed_mentions` vide, un nom ne mentionne donc personne ; le
-  texte est coupé pour tenir dans les 2 000 caractères de Discord. Une réponse
+  Notifications*, à la ligne Discord ; les administrateurs d'un serveur voient
+  tous ses salons, la page le dit. Seule une adresse
+  `https://discord.com/api/webhooks/<id>/<jeton>` est acceptée, aussi sous
+  `ptb.`, `canary.` ou `discordapp.com`, ramenée à `discord.com` ; la page n'en
+  montre que l'hôte et l'identifiant du webhook, jamais le jeton. Un envoi est
+  un `POST` de `content` : le titre en gras, le texte et un lien « Ouvrir dans
+  le CRM » sans aperçu, les caractères de mise en forme échappés et
+  `allowed_mentions` vide, un nom ne mentionne donc personne ; le titre puis le
+  texte sont coupés, à un point de code entier, pour tenir dans les 2 000
+  caractères de Discord, le lien reste entier. Une réponse
   définitive de Discord (401, 403, 404 : jeton invalide, webhook supprimé)
   donne `skipped` (`target_refused`) et coupe le canal ; toute autre erreur ou
   l'absence de réponse suit les tentatives des autres envois. La page du plugin

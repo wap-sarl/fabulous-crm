@@ -16,7 +16,9 @@ export function DiscordSettingsPage() {
           <h2 className="text-[15px] font-bold text-ink">Comment chacun se connecte</h2>
           <p className="mt-2 text-sm text-soft">
             Un webhook Discord écrit dans un salon, jamais en message privé : chaque personne crée
-            un salon textuel privé, visible d’elle seule, et y reçoit ses notifications.
+            un salon textuel privé, visible d’elle seule, et y reçoit ses notifications. Les
+            administrateurs d’un serveur voient tous ses salons, leurs webhooks et leurs messages :
+            prenez un serveur dont vous êtes seul administrateur, ou acceptez qu’ils le voient.
           </p>
           <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm text-soft">
             <li>

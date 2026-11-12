@@ -181,13 +181,12 @@ describe('the Discord channel', () => {
     expect((await storedOf(t, camille.userId))?.enabled).toBe(true);
   });
 
-  test('takes a channel webhook of discord.com or discordapp.com and nothing else, keeps it as ciphertext, and says only its host and its id', async () => {
+  test('takes a channel webhook of discord.com, under any of Discord’s hosts, and nothing else, keeps it as ciphertext under discord.com, and says only its host and its id', async () => {
     const { t, camille, asCamille } = await setup();
     for (const target of [
       'http://discord.com/api/webhooks/1230000000000000001/camille-Secret_Token',
       'https://discord.com.example.com/api/webhooks/1230000000000000001/camille-Secret_Token',
       'https://example.com/api/webhooks/1230000000000000001/camille-Secret_Token',
-      'https://canary.discord.com/api/webhooks/1230000000000000001/camille-Secret_Token',
       'https://discord.com/api/webhooks/1230000000000000001',
       'https://discord.com/api/webhooks/notanid/camille-Secret_Token',
       'https://discord.com/api/webhooks/1230000000000000001/camille-Secret_Token?wait=true',
@@ -209,8 +208,13 @@ describe('the Discord channel', () => {
     expect(JSON.stringify(stored)).not.toContain('Secret_Token');
     expect(JSON.stringify(await read(asCamille))).not.toContain('Secret_Token');
 
-    await choose(asCamille, { enabled: true, target: HOOK_OLD_HOST });
-    expect((await storedOf(t, camille.userId))!.hint).toBe('discordapp.com · 1230000000000000002');
+    // Discord's other hosts name the same webhook: kept as discord.com, written to there.
+    for (const host of ['discordapp.com', 'ptb.discord.com', 'canary.discord.com']) {
+      await choose(asCamille, { enabled: true, target: HOOK.replace('discord.com', host) });
+      expect((await storedOf(t, camille.userId))!.hint).toBe('discord.com · 1230000000000000001');
+    }
+    expect(await testChannel(asCamille)).toBe('sent');
+    expect(posts.at(-1)!.url).toBe(HOOK);
   });
 });
 
@@ -257,15 +261,22 @@ describe('a notification delivered to Discord', () => {
       ].join('\n'),
       allowed_mentions: { parse: [] },
     });
-    const long = discordMessage({
-      title: 'T',
-      body: 'x'.repeat(3000),
-      url: 'https://crm.example.com/leads/1',
-    });
+    const url = 'https://crm.example.com/leads/1';
+    const link = `[Ouvrir dans le CRM](<${url}>)`;
+    const long = discordMessage({ title: 'T', body: 'x'.repeat(3000), url });
     expect(long.content.length).toBeLessThanOrEqual(2000);
-    expect(
-      long.content.endsWith('…\n[Ouvrir dans le CRM](<https://crm.example.com/leads/1>)'),
-    ).toBe(true);
+    expect(long.content.endsWith(`…\n${link}`)).toBe(true);
+    // An emoji is two units: the cut lands between code points, never inside one.
+    const emoji = discordMessage({ title: 'T', body: '😀'.repeat(1500), url });
+    expect(emoji.content.length).toBeLessThanOrEqual(2000);
+    expect(emoji.content).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/);
+    expect(emoji.content).toMatch(/😀…\n\[Ouvrir/);
+    // A title alone can be too long: it is cut too, the body gives way, the link is whole.
+    const title = discordMessage({ title: '🙂'.repeat(1200), body: 'Texte', url });
+    expect(title.content.length).toBeLessThanOrEqual(2000);
+    expect(title.content).toMatch(/^\*\*🙂+…\*\*\n\[Ouvrir/u);
+    expect(title.content.endsWith(link)).toBe(true);
+    expect(title.content).not.toContain('Texte');
     expect(
       discordMessage({ title: 'T', body: '', url: 'https://crm.example.com/leads/1' }).content,
     ).toBe('**T**\n[Ouvrir dans le CRM](<https://crm.example.com/leads/1>)');

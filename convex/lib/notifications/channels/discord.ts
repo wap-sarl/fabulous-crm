@@ -8,18 +8,28 @@ const DISCORD_CONTENT_MAX = 2000;
 
 /** A text as Discord shows it literally: its formatting characters escaped, and what would open a mention, a channel or an emoji. */
 const literal = (text: string) =>
-  text.replace(/[\\*_~`|<\[\]]/g, '\\$&').replace(/^([>#-])/gm, '\\$1');
+  text.replace(/[\\*_~`|<[\]]/g, '\\$&').replace(/^([>#-])/gm, '\\$1');
 
-/** The message as Discord shows it: the title in bold, the body when there is one, a link that opens the record without a preview card; no mention pings anyone, whatever a name contains. */
+/** The text within `max` UTF-16 units, as Discord counts them, cut at a code point so no emoji is left in halves, with an ellipsis. */
+const clip = (text: string, max: number) => {
+  if (text.length <= max) return text;
+  let kept = '';
+  for (const point of text) {
+    if (kept.length + point.length > max - 1) break;
+    kept += point;
+  }
+  return `${kept}…`;
+};
+
+/** The message as Discord shows it: the title in bold, the body when there is one, a link that opens the record without a preview card; no mention pings anyone, whatever a name contains. The link is kept whole, the title then the body give way to the limit. */
 export function discordMessage(message: ChannelMessage): {
   content: string;
   allowed_mentions: { parse: [] };
 } {
   const link = `[Ouvrir dans le CRM](<${message.url}>)`;
-  const title = `**${literal(message.title)}**`;
+  const title = `**${clip(literal(message.title), DISCORD_CONTENT_MAX - link.length - 5)}**`;
   const room = DISCORD_CONTENT_MAX - title.length - link.length - 2;
-  let body = message.body ? literal(message.body) : '';
-  if (body.length > room) body = `${body.slice(0, Math.max(room - 1, 0))}…`;
+  const body = message.body && room > 0 ? clip(literal(message.body), room) : '';
   return {
     content: [title, body, link].filter(Boolean).join('\n'),
     allowed_mentions: { parse: [] },
