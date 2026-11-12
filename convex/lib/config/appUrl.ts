@@ -19,3 +19,7 @@ export function appOrigin(): string {
 export function consentOrigin(): string {
   return appOrigin() || 'http://localhost:4202';
 }
+
+/** Where the app answers, as a link in a message writes it: the configured address, else the environment's, no trailing slash. */
+export const appUrlOf = (cfg: { appUrl?: string } | null | undefined): string =>
+  (cfg?.appUrl || appOrigin()).replace(/\/+$/, '');

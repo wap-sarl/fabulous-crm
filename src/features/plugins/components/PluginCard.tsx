@@ -3,6 +3,11 @@ import { Blocks } from 'lucide-react';
 import { PLUGIN_ICONS } from '../lib/icons';
 import type { PluginRow } from '../types';
 
+/** What a plugin adds to a part of the core, as the card says it. */
+const PROVISION_LABELS: Record<string, string> = {
+  'notification-channel': 'Ajoute un canal à Paramètres → Notifications',
+};
+
 interface PluginCardProps {
   plugin: PluginRow;
   busy: boolean;
@@ -28,9 +33,17 @@ export function PluginCard({ plugin, busy, onInstall, onUninstall }: PluginCardP
             </StatusBadge>
           </div>
           <p className="mt-1 text-sm text-soft">{plugin.description}</p>
+          {plugin.provides.map(
+            (provision) =>
+              PROVISION_LABELS[provision] && (
+                <p key={provision} className="mt-2 text-xs font-medium text-faint">
+                  {PROVISION_LABELS[provision]}
+                </p>
+              ),
+          )}
         </div>
       </div>
-      <div className="flex justify-end">
+      <div className="mt-auto flex justify-end">
         {plugin.installed ? (
           <Button variant="outline" onClick={onUninstall} disabled={busy}>
             Désinstaller

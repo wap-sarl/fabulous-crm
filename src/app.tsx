@@ -74,6 +74,10 @@ const NotificationSettingsPage = page(
   () => import('./pages/settings/NotificationSettingsPage'),
   'NotificationSettingsPage',
 );
+const SlackSettingsPage = page(
+  () => import('./pages/settings/SlackSettingsPage'),
+  'SlackSettingsPage',
+);
 const LeadListsPage = page(() => import('./pages/settings/LeadListsPage'), 'LeadListsPage');
 const LifecyclePage = page(() => import('./pages/settings/LifecyclePage'), 'LifecyclePage');
 const ScoringPage = page(() => import('./pages/settings/ScoringPage'), 'ScoringPage');
@@ -192,6 +196,9 @@ function AppRoutes() {
                 <Route path="/settings/plugins" element={<PluginsPage />} />
                 <Route path="/settings/roles" element={<RolesPage />} />
                 <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+                <Route element={<RequirePlugin plugin="slack" />}>
+                  <Route path="/settings/slack" element={<SlackSettingsPage />} />
+                </Route>
                 {frontendExtensions()
                   .routes.filter(inSettings)
                   .map((route) => (

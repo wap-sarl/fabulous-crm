@@ -1,13 +1,16 @@
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
-import { employeeMutation } from '../../_lib/auth';
+import { employeeMutation, settingsMutation } from '../../_lib/auth';
 import { refusal } from '../../_lib/refusal';
 import { follows } from '../../_lib/validators/fields';
 import {
-  notificationChannelChoiceValidator,
+  notificationChannelChoiceArg,
   notificationKindChoicesSchema,
+  notificationNamesValidator,
 } from '../../_lib/validators/notifications';
-import { availableChannels } from '../../lib/notifications/channels';
+import { logAudit } from '../../lib/audit/log';
+import { loadAppConfig } from '../../lib/config/load';
+import { availableChannels, channelNames, pluginChannel } from '../../lib/notifications/channels';
 import { channelChoice, preferencesOf, savePreferences } from '../../lib/notifications/preferences';
 
 /** Opening a notification reads it; one that is not the caller's is not there. */
@@ -41,7 +44,7 @@ export const markAllRead = employeeMutation({
 export const updateMyNotificationPreferences = employeeMutation({
   args: {
     kinds: v.optional(v.record(v.string(), v.boolean())),
-    channels: v.optional(v.record(v.string(), notificationChannelChoiceValidator)),
+    channels: v.optional(v.record(v.string(), notificationChannelChoiceArg)),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -59,6 +62,32 @@ export const updateMyNotificationPreferences = employeeMutation({
     await savePreferences(ctx, ctx.userId, previous, {
       kinds: { ...previous?.kinds, ...args.kinds },
       channels,
+    });
+    return null;
+  },
+});
+
+/** What a plugin's channel may say outside the app, set once for everyone by the settings right, audited; the choice it already has changes nothing. */
+export const updateNotificationChannelSettings = settingsMutation({
+  args: { channel: v.string(), names: notificationNamesValidator },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const channel = await pluginChannel(ctx, args.channel);
+    const cfg = await loadAppConfig(ctx);
+    if (!channel?.plugin || !cfg) throw refusal('channel_not_available');
+    if ((await channelNames(ctx, channel)) === args.names) return null;
+    await ctx.db.patch(cfg._id, {
+      notificationChannels: { ...cfg.notificationChannels, [channel.key]: { names: args.names } },
+      updatedAt: Date.now(),
+      updatedBy: ctx.userId,
+    });
+    await logAudit({
+      ctx,
+      userId: ctx.userId,
+      entityType: 'plugin',
+      entityId: channel.plugin,
+      action: 'update',
+      metadata: { names: args.names },
     });
     return null;
   },

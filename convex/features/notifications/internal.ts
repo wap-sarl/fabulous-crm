@@ -1,12 +1,15 @@
 import { v } from 'convex/values';
 import { internal } from '../../_generated/api';
+import { internalQuery } from '../../_generated/server';
 import { internalMutation } from '../../_lib/functions';
 import { NOTIFICATION_FAN_OUT_BATCH } from '../../_lib/validators/notifications';
 import { scheduledWorkAllowed } from '../../lib/extensions/gates';
 import { SCHEDULED_WORK_RETRY_MS } from '../../lib/extensions/types';
+import { pluginChannel } from '../../lib/notifications/channels';
 import { ensureFanOut } from '../../lib/notifications/emit';
 import { beginDelivery, expireDelivery, finishDelivery } from '../../lib/notifications/deliveries';
 import { fanOutEvent, newFanOutRun } from '../../lib/notifications/fanOut';
+import { preferencesOf, targetOf } from '../../lib/notifications/preferences';
 
 /** The unread rows one run marks read; a person with more gets another run. */
 const MARK_READ_BATCH = 200;
@@ -64,7 +67,14 @@ export const beginNotificationDelivery = internalMutation({
   args: { deliveryId: v.id('notificationDeliveries') },
   returns: v.union(
     v.null(),
-    v.object({ title: v.string(), body: v.string(), path: v.string(), to: v.string() }),
+    v.object({
+      channel: v.string(),
+      title: v.string(),
+      body: v.string(),
+      path: v.string(),
+      to: v.string(),
+      target: v.optional(v.string()),
+    }),
   ),
   handler: async (ctx, args) => await beginDelivery(ctx, args.deliveryId),
 });
@@ -73,12 +83,19 @@ export const beginNotificationDelivery = internalMutation({
 export const finishNotificationDelivery = internalMutation({
   args: {
     deliveryId: v.id('notificationDeliveries'),
-    result: v.union(v.literal('sent'), v.literal('skipped'), v.literal('failed')),
+    result: v.union(
+      v.literal('sent'),
+      v.literal('skipped'),
+      v.literal('refused'),
+      v.literal('failed'),
+    ),
     error: v.optional(v.string()),
+    // The target the message was sent to, as kept: a refusal is held against that one only.
+    target: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await finishDelivery(ctx, args.deliveryId, args.result, args.error);
+    await finishDelivery(ctx, args.deliveryId, args.result, args.error, args.target);
     return null;
   },
 });
@@ -90,5 +107,30 @@ export const expireNotificationDelivery = internalMutation({
   handler: async (ctx, args) => {
     await expireDelivery(ctx, args.deliveryId, args.attempts);
     return null;
+  },
+});
+
+/** What « tester le canal » needs: the caller's own target on a plugin's channel, or why there is no test to send. Any employee may test the target they gave. */
+export const channelTestOf = internalQuery({
+  args: { authId: v.string(), channel: v.string() },
+  returns: v.union(
+    v.literal('channel_not_available'),
+    v.literal('no_channel_target'),
+    v.literal('channel_target_unreadable'),
+    v.object({ to: v.string() }),
+  ),
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_authId', (q) => q.eq('authId', args.authId))
+      .first();
+    if (!user || user.deletedAt !== undefined || user.type !== 'employee') {
+      throw new Error('Unauthorized: employees only');
+    }
+    const channel = await pluginChannel(ctx, args.channel);
+    if (!channel?.send) return 'channel_not_available';
+    const target = await targetOf(channel, user, await preferencesOf(ctx, user._id));
+    if (target === 'none') return 'no_channel_target';
+    return target === 'unreadable' ? 'channel_target_unreadable' : { to: target.to };
   },
 });

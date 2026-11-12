@@ -32,6 +32,7 @@ export const listPlugins = settingsQuery({
       key: v.string(),
       name: v.string(),
       description: v.string(),
+      provides: v.array(v.string()),
       installed: v.boolean(),
       publicUrls: v.array(v.string()),
       morePublicUrls: v.boolean(),
@@ -44,6 +45,7 @@ export const listPlugins = settingsQuery({
       const isInstalled = installed.includes(plugin.key);
       rows.push({
         ...plugin,
+        provides: [...plugin.provides],
         installed: isInstalled,
         ...(isInstalled
           ? await publicUrlsOf(ctx, plugin.key)

@@ -15,6 +15,7 @@ import {
   ListTodo,
   Mail,
   Megaphone,
+  MessagesSquare,
   Milestone,
   Palette,
   PanelsTopLeft,
@@ -102,6 +103,10 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
       { label: 'Modèles', icon: <LayoutTemplate />, path: '/settings/templates' },
       settings({ label: 'Formulaires', icon: <ClipboardList />, path: '/settings/forms' }),
       settings({ label: 'Suivi web', icon: <Radar />, path: '/settings/tracking' }),
+      {
+        ...settings({ label: 'Slack', icon: <MessagesSquare />, path: '/settings/slack' }),
+        plugin: 'slack',
+      },
     ],
   },
   {

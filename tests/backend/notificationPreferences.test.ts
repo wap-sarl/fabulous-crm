@@ -48,8 +48,9 @@ const pager: NotificationChannel = {
   target: {
     label: 'Adresse du pager',
     placeholder: 'https://pager.example.com/…',
-    schema: z.string().startsWith('https://pager.example.com/'),
+    schema: z.string().trim().startsWith('https://pager.example.com/'),
     secret: true,
+    hint: (url) => new URL(url).host,
   },
   isConfigured: async () => true,
   deliver: internal.features.notifications.actions.deliverEmail,
@@ -89,7 +90,7 @@ const update = (
   as: Session,
   choice: {
     kinds?: Record<string, boolean>;
-    channels?: Record<string, { enabled: boolean; target?: string }>;
+    channels?: Record<string, { enabled: boolean; target?: string | null }>;
   },
 ) => as.mutation(api.features.notifications.mutations.updateMyNotificationPreferences, choice);
 const storedOf = (t: T, userId: Id<'users'>) =>
@@ -264,7 +265,7 @@ describe('a channel that asks for a target', () => {
     ]);
   });
 
-  test('takes the target its schema accepts, keeps it as ciphertext, never returns it, and hands it in clear to its delivery', async () => {
+  test('takes the target its schema accepts, keeps it as ciphertext, never returns it but for its hint, and hands it in clear to its delivery', async () => {
     NOTIFICATION_CHANNELS.push(pager);
     process.env.SECRETS_KEY = 'a'.repeat(64);
     const { t, lou, camille, asCamille } = await setup({ plugins: ['landing-pages'] });
@@ -285,11 +286,18 @@ describe('a channel that asks for a target', () => {
     expect(stored.enabled).toBe(true);
     expect(stored.target).toMatch(/^v1:/);
     expect(JSON.stringify(await read(asCamille))).not.toContain('pager.example.com/camille');
+    expect(stored.hint).toBe('pager.example.com');
     expect((await read(asCamille)).channels[1]).toEqual({
       key: 'pager',
       label: 'Pager',
       description: 'Sur votre pager.',
       enabled: true,
+      target: {
+        label: 'Adresse du pager',
+        placeholder: 'https://pager.example.com/…',
+        set: true,
+        hint: 'pager.example.com',
+      },
     });
 
     // Turned off and on again without giving it twice: the target is kept.
@@ -313,6 +321,56 @@ describe('a channel that asks for a target', () => {
       internal.features.notifications.internal.beginNotificationDelivery,
       { deliveryId: delivery!._id },
     );
-    expect(job).toMatchObject({ to: target, path: `/leads/${leadId}` });
+    expect(job).toMatchObject({ channel: 'pager', to: target, path: `/leads/${leadId}` });
+  });
+
+  test('says it waits for one until the person gives it; a target replaced is kept as its schema reads it, one taken back turns the channel off and leaves nothing of it', async () => {
+    NOTIFICATION_CHANNELS.push(pager);
+    process.env.SECRETS_KEY = 'a'.repeat(64);
+    const { t, lou, camille, asCamille } = await setup({ plugins: ['landing-pages'] });
+    expect((await read(asCamille)).channels[1]).toMatchObject({
+      enabled: false,
+      target: { set: false },
+    });
+    expect((await read(asCamille)).channels[0]!.target).toBeUndefined();
+
+    await update(asCamille, {
+      channels: { pager: { enabled: true, target: 'https://pager.example.com/one' } },
+    });
+    const first = (await storedOf(t, camille.userId))[0]!.channels.pager!.target;
+    // Replaced while the channel is off: it stays off, with the new target, spaces around it dropped.
+    await update(asCamille, {
+      channels: { pager: { enabled: false, target: '  https://pager.example.com/two ' } },
+    });
+    const replaced = (await storedOf(t, camille.userId))[0]!.channels.pager!;
+    expect(replaced.enabled).toBe(false);
+    expect(replaced.target).not.toBe(first);
+    await update(asCamille, { channels: { pager: { enabled: true } } });
+    const leadId = await seedLead(t, { ownerIds: [camille.userId] });
+    await t.run((ctx) =>
+      emitEvent(ctx, {
+        kind: 'lead.assigned',
+        entity: { type: 'lead', id: leadId },
+        actorId: lou.userId,
+        data: { assigned: [camille.userId] },
+      }),
+    );
+    await runDue(t);
+    const [delivery] = await deliveries(t);
+    expect(
+      await t.mutation(internal.features.notifications.internal.beginNotificationDelivery, {
+        deliveryId: delivery!._id,
+      }),
+    ).toMatchObject({ to: 'https://pager.example.com/two' });
+
+    await update(asCamille, { channels: { pager: { enabled: true, target: null } } });
+    expect((await storedOf(t, camille.userId))[0]!.channels.pager).toEqual({ enabled: false });
+    expect((await read(asCamille)).channels[1]).toMatchObject({
+      enabled: false,
+      target: { set: false },
+    });
+    // Nothing to take back on a channel that asks for no target: the choice stands.
+    await update(asCamille, { channels: { email: { enabled: true, target: null } } });
+    expect((await storedOf(t, camille.userId))[0]!.channels.email).toEqual({ enabled: true });
   });
 });

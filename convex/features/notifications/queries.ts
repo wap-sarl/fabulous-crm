@@ -1,14 +1,15 @@
 import { paginationOptsValidator, paginationResultValidator } from 'convex/server';
 import { v } from 'convex/values';
-import { employeeQuery } from '../../_lib/auth';
+import { employeeQuery, settingsQuery } from '../../_lib/auth';
 import {
   NOTIFICATION_LATEST,
   NOTIFICATION_UNREAD_CAP,
   notificationGroupValidator,
   notificationKindValidator,
   notificationKindsFor,
+  notificationNamesValidator,
 } from '../../_lib/validators/notifications';
-import { availableChannels } from '../../lib/notifications/channels';
+import { availableChannels, channelNames, pluginChannel } from '../../lib/notifications/channels';
 import { channelIsOn, kindIsOn, preferencesOf } from '../../lib/notifications/preferences';
 import { docOf } from '../../lib/shared/docs';
 
@@ -81,6 +82,17 @@ export const getMyNotificationPreferences = employeeQuery({
         label: v.string(),
         description: v.string(),
         enabled: v.boolean(),
+        // What the channel asks the person for, and whether they gave it: `hint` is all that is said of a target kept.
+        target: v.optional(
+          v.object({
+            label: v.string(),
+            placeholder: v.string(),
+            set: v.boolean(),
+            hint: v.optional(v.string()),
+            // When the service refused the target for good: the channel went off with it.
+            refusedAt: v.optional(v.number()),
+          }),
+        ),
       }),
     ),
   }),
@@ -94,12 +106,43 @@ export const getMyNotificationPreferences = employeeQuery({
         label,
         on: kindIsOn(preferences, key),
       })),
-      channels: channels.map(({ key, label, description }) => ({
-        key,
-        label,
-        description,
-        enabled: channelIsOn(preferences, key),
-      })),
+      channels: channels.map(({ key, label, description, target }) => {
+        const choice = preferences?.channels[key];
+        return {
+          key,
+          label,
+          description,
+          enabled: channelIsOn(preferences, key),
+          ...(target && {
+            target: {
+              label: target.label,
+              placeholder: target.placeholder,
+              set: choice?.target !== undefined,
+              ...(choice?.hint !== undefined && { hint: choice.hint }),
+              ...(choice?.refusedAt !== undefined && { refusedAt: choice.refusedAt }),
+            },
+          }),
+        };
+      }),
+    };
+  },
+});
+
+/** A plugin's settings page: what the channel's messages may say, and whether the caller gave their own target, which « tester le canal » writes to; null once the plugin is uninstalled. */
+export const getNotificationChannelSettings = settingsQuery({
+  args: { channel: v.string() },
+  returns: v.union(
+    v.null(),
+    v.object({ label: v.string(), names: notificationNamesValidator, targetSet: v.boolean() }),
+  ),
+  handler: async (ctx, args) => {
+    const channel = await pluginChannel(ctx, args.channel);
+    if (!channel) return null;
+    const preferences = await preferencesOf(ctx, ctx.userId);
+    return {
+      label: channel.label,
+      names: await channelNames(ctx, channel),
+      targetSet: preferences?.channels[channel.key]?.target !== undefined,
     };
   },
 });
