@@ -84,6 +84,7 @@ export const deliverMessage = internalAction({
       ...args,
       result,
       error: result === 'failed' || result === 'skipped' ? errors[result] : undefined,
+      target: job.target,
     });
     return null;
   },

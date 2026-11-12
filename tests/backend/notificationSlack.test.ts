@@ -295,6 +295,35 @@ describe('a notification delivered to Slack', () => {
     expect((await deliveries(t)).map((d) => d.status)).toEqual(['skipped', 'sent']);
   });
 
+  test('refused while the person was replacing their webhook leaves the new one on: the refusal was the old one’s', async () => {
+    const ctx = await setup();
+    const { t, camille, asCamille } = ctx;
+    await choose(asCamille, { enabled: true, target: HOOK });
+    const sending = globalThis.fetch;
+    // Slack answers 404 for the old webhook, after the new one has been saved.
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      globalThis.fetch = sending;
+      await choose(asCamille, {
+        enabled: true,
+        target: HOOK.replace('camilleSecret', 'camilleNew'),
+      });
+      statuses.push(404);
+      return await sending(input, init);
+    }) as typeof fetch;
+    await assignLead(ctx);
+    await runAfter(t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(await deliveries(t)).toMatchObject([{ status: 'skipped', error: 'target_refused' }]);
+    expect(posts.map((post) => post.url)).toEqual([HOOK]);
+    const kept = await storedOf(t, camille.userId);
+    expect(kept).toMatchObject({ enabled: true });
+    expect(kept!.refusedAt).toBeUndefined();
+    expect((await read(asCamille)).channels[0]!.target!.refusedAt).toBeUndefined();
+    await assignLead(ctx, { firstName: 'Anne', lastName: 'Petit' });
+    await runAfter(t, NOTIFICATION_DELIVERY_HOLD_MS);
+    expect(posts.at(-1)!.url).toContain('camilleNew');
+    expect((await deliveries(t)).map((d) => d.status)).toEqual(['skipped', 'sent']);
+  });
+
   test('refused once and turned on again by the person is tried again: the choice is theirs', async () => {
     const ctx = await setup();
     await choose(ctx.asCamille, { enabled: true, target: HOOK });

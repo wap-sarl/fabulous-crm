@@ -73,6 +73,7 @@ export const beginNotificationDelivery = internalMutation({
       body: v.string(),
       path: v.string(),
       to: v.string(),
+      target: v.optional(v.string()),
     }),
   ),
   handler: async (ctx, args) => await beginDelivery(ctx, args.deliveryId),
@@ -89,10 +90,12 @@ export const finishNotificationDelivery = internalMutation({
       v.literal('failed'),
     ),
     error: v.optional(v.string()),
+    // The target the message was sent to, as kept: a refusal is held against that one only.
+    target: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await finishDelivery(ctx, args.deliveryId, args.result, args.error);
+    await finishDelivery(ctx, args.deliveryId, args.result, args.error, args.target);
     return null;
   },
 });
@@ -128,6 +131,6 @@ export const channelTestOf = internalQuery({
     if (!channel?.send) return 'channel_not_available';
     const target = await targetOf(channel, user, await preferencesOf(ctx, user._id));
     if (target === 'none') return 'no_channel_target';
-    return target === 'unreadable' ? 'channel_target_unreadable' : target;
+    return target === 'unreadable' ? 'channel_target_unreadable' : { to: target.to };
   },
 });

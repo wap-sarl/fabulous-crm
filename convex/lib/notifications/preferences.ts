@@ -66,26 +66,27 @@ export async function targetOf(
   channel: NotificationChannel,
   user: Pick<Doc<'users'>, 'email'>,
   preferences: Preferences,
-): Promise<{ to: string } | 'none' | 'unreadable'> {
+): Promise<{ to: string; stored: string } | 'none' | 'unreadable'> {
   const stored = channel.target ? preferences?.channels[channel.key]?.target : user.email;
   if (!stored) return 'none';
-  if (!channel.target?.secret) return { to: stored };
+  if (!channel.target?.secret) return { to: stored, stored };
   try {
-    return { to: await decryptSecret(stored) };
+    return { to: await decryptSecret(stored), stored };
   } catch {
     return 'unreadable';
   }
 }
 
-/** The service refused a person's target for good: their channel goes off and says when, so that no later notification is sent to it and their page tells them why. */
+/** The service refused a person's target for good: their channel goes off and says when, so that no later notification is sent to it and their page tells them why. A target they replaced while the message was leaving is not the one refused: nothing changes then. */
 export async function markTargetRefused(
   ctx: MutationCtx,
   userId: Id<'users'>,
   key: string,
+  refused: string | undefined,
 ): Promise<void> {
   const preferences = await preferencesOf(ctx, userId);
   const entry = preferences?.channels[key];
-  if (!preferences || !entry) return;
+  if (!preferences || !entry || entry.target !== refused) return;
   await ctx.db.patch(preferences._id, {
     channels: {
       ...preferences.channels,

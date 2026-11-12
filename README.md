@@ -194,7 +194,11 @@ workspaces.
   et le test le dit. Une destination que le service refuse définitivement coupe
   le canal de la personne et le lui dit sur sa page, avec la date
   (`channels[clé].refusedAt`) : on n'écrit pas à chaque notification à une
-  adresse morte ; tout nouveau choix de la personne efface ce refus. Slack est
+  adresse morte ; tout nouveau choix de la personne efface ce refus, et elle
+  peut aussi réactiver le canal tel quel si le problème est réglé côté service.
+  Un refus qui arrive après qu'elle a remplacé sa destination ne compte pas :
+  il visait l'ancienne (`finishNotificationDelivery` nomme la destination
+  utilisée, le canal n'est coupé que si c'est encore celle-là). Slack est
   le premier, ci-dessous ; Discord arrive avec le lot suivant.
 - **Plugins** : des fonctionnalités en option, installées par un administrateur
   depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue

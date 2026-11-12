@@ -24,6 +24,8 @@ export interface DeliveryJob {
   path: string;
   /** The person's target on the channel, in clear; the address of their account for a channel that asks for none. */
   to: string;
+  /** The target as the person's row keeps it, for a channel that asks for one: a refusal names it, so that one replaced meanwhile is left alone. */
+  target?: string;
 }
 
 /** Queues one delivery of an inbox row per channel its reader turned on; a row refreshed while a delivery is still pending adds none, whatever its deadline: that one reads the row when it leaves. One already sending has read its text, so the change gets a delivery of its own. */
@@ -110,6 +112,7 @@ export async function beginDelivery(
     body: bare ? '' : notification.body,
     path: notification.path,
     to: target.to,
+    target: channel.target ? target.stored : undefined,
   };
 }
 
@@ -119,13 +122,14 @@ export async function finishDelivery(
   deliveryId: Id<'notificationDeliveries'>,
   result: 'sent' | 'skipped' | 'refused' | 'failed',
   error?: string,
+  target?: string,
 ): Promise<void> {
   const delivery = await ctx.db.get(deliveryId);
   if (delivery?.status !== 'sending') return;
   if (result === 'refused') {
     await ctx.db.patch(deliveryId, { status: 'skipped', error: 'target_refused' });
     const notification = await ctx.db.get(delivery.notificationId);
-    if (notification) await markTargetRefused(ctx, notification.userId, delivery.channel);
+    if (notification) await markTargetRefused(ctx, notification.userId, delivery.channel, target);
     return;
   }
   if (result === 'skipped') {

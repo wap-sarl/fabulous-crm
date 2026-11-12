@@ -54,7 +54,7 @@ function ChannelRow({
       {target?.refusedAt !== undefined && (
         <HelperText variant="error" className="pb-2">
           {label} a refusé votre destination le {dateFormat.format(target.refusedAt)} : le canal a
-          été désactivé. Remplacez-la pour le réactiver.
+          été désactivé. Remplacez-la, ou réactivez le canal si le problème est réglé côté {label}.
         </HelperText>
       )}
       {target && (
