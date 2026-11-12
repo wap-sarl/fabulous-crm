@@ -6,6 +6,7 @@ import type { NotificationNames } from '../../../_lib/validators/notifications';
 import type { PluginKey } from '../../../_lib/validators/plugins';
 import { loadAppConfig } from '../../config/load';
 import { loadInstalledPlugins } from '../../plugins/installed';
+import { discordChannel } from './discord';
 import { emailChannel } from './email';
 import { slackChannel } from './slack';
 
@@ -45,7 +46,11 @@ export interface NotificationChannel {
   send?: (to: string, message: ChannelMessage) => Promise<SendResult>;
 }
 
-export const NOTIFICATION_CHANNELS: NotificationChannel[] = [emailChannel, slackChannel];
+export const NOTIFICATION_CHANNELS: NotificationChannel[] = [
+  emailChannel,
+  slackChannel,
+  discordChannel,
+];
 
 export const channelOf = (key: string): NotificationChannel | undefined =>
   NOTIFICATION_CHANNELS.find((channel) => channel.key === key);

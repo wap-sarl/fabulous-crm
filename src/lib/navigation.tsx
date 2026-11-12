@@ -15,6 +15,7 @@ import {
   ListTodo,
   Mail,
   Megaphone,
+  MessageCircle,
   MessagesSquare,
   Milestone,
   Palette,
@@ -106,6 +107,10 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
       {
         ...settings({ label: 'Slack', icon: <MessagesSquare />, path: '/settings/slack' }),
         plugin: 'slack',
+      },
+      {
+        ...settings({ label: 'Discord', icon: <MessageCircle />, path: '/settings/discord' }),
+        plugin: 'discord',
       },
     ],
   },

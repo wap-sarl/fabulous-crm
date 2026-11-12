@@ -236,8 +236,19 @@ export const slackWebhookSchema = z
   );
 
 /** The rule of each channel's target, by channel key: the page checks with the one the mutation applies. */
+/** A Discord channel webhook: Discord's two hosts, https, the webhook's id and its token, nothing after. */
+export const discordWebhookSchema = z
+  .string()
+  .trim()
+  .max(200)
+  .regex(
+    /^https:\/\/(discord\.com|discordapp\.com)\/api\/webhooks\/[0-9]+\/[A-Za-z0-9_-]+$/,
+    'Collez l’URL d’un webhook de salon Discord, de la forme https://discord.com/api/webhooks/…',
+  );
+
 export const NOTIFICATION_TARGET_SCHEMAS: Record<string, z.ZodType<string>> = {
   slack: slackWebhookSchema,
+  discord: discordWebhookSchema,
 };
 
 /** One row per person: the kinds they turned on or off (absent = the catalogue's default) and the channels they chose (absent = off). */

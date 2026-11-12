@@ -26,6 +26,13 @@ export const PLUGINS = [
       'Les notifications du CRM dans Slack : chaque personne colle le webhook entrant de son espace et reçoit là aussi ce dont elle a choisi d’être informée.',
     provides: ['notification-channel'],
   },
+  {
+    key: 'discord',
+    name: 'Discord',
+    description:
+      'Les notifications du CRM dans Discord : chaque personne colle le webhook d’un salon privé de son serveur et reçoit là aussi ce dont elle a choisi d’être informée.',
+    provides: ['notification-channel'],
+  },
 ] as const satisfies readonly PluginEntry[];
 
 export type PluginKey = (typeof PLUGINS)[number]['key'];
