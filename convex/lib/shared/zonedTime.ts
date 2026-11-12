@@ -46,7 +46,7 @@ function midnightOf(timeZone: string, year: number, month: number, day: number):
   return guess;
 }
 
-/** The day an instant falls in for the zone: its key, the hour the clock shows, and its bounds as instants (`end` excluded). */
+/** The day an instant falls in for the zone: its key, the hour the clock shows, and its bounds as instants (`end` excluded). What the organisation's clock calls today; a browser elsewhere may call it otherwise, and its own « aujourd'hui » follows the browser. */
 export function zonedDayOf(
   instant: number,
   timeZone: string,

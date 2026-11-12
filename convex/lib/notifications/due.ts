@@ -1,13 +1,15 @@
 import type { Id } from '../../_generated/dataModel';
 import type { MutationCtx } from '../../_generated/server';
 import { DEFAULT_TASKS_DUE_HOUR, DEFAULT_TIMEZONE } from '../../_lib/validators/appConfig';
+import { loadAppConfig } from '../config/load';
+import { resolveRoleAccess } from '../roles/access';
 import { zonedDayOf } from '../shared/zonedTime';
 import { emitEvent } from './emit';
 
 /** The titles a notification names before « et N autres ». */
 const TITLES_NAMED = 3;
 
-/** What one person has due that day: how many open tasks, and the first titles by due time; null with none. Their own index range, never the table: a task handed to a team and nobody is no one's. */
+/** What one person has due that day: how many open activities, whatever their type, as the tasks page lists them, and the first titles by due time; null with none. Their own index range, never the table: an activity handed to a team and nobody is no one's. */
 async function dueOf(
   ctx: MutationCtx,
   userId: Id<'users'>,
@@ -25,27 +27,35 @@ async function dueOf(
   return { count: live.length, titles: live.slice(0, TITLES_NAMED).map((a) => a.title) };
 }
 
-/** Whether the person was already told of that day: the row's key names the day, read or not. */
-async function toldOf(ctx: MutationCtx, day: string, userId: Id<'users'>): Promise<boolean> {
-  const told = await ctx.db
-    .query('notifications')
-    .withIndex('by_dedupe_unread', (q) => q.eq('dedupeKey', `activity.due:${day}:${userId}`))
-    .first();
-  return told !== null;
+/** Whether a role may open the tasks page at all: a person whose role lost the module is not reminded of what they cannot open, nor shown the switch to refuse it. One resolution per distinct role. */
+async function activitiesAllowed(
+  ctx: MutationCtx,
+  roles: Map<string, Promise<boolean>>,
+  role: string | undefined,
+): Promise<boolean> {
+  const key = role ?? 'member';
+  let allowed = roles.get(key);
+  if (!allowed) {
+    allowed = resolveRoleAccess(ctx, key).then(({ access }) => access.activities !== 'none');
+    roles.set(key, allowed);
+  }
+  return await allowed;
 }
 
-/** Run each hour: when the organisation's clock shows its hour, one fact per live employee with an open task due that day, the day read in the organisation's time zone, each person's tasks read from their own index range; a person told of that day already is not told again, so a run that repeats tells nobody twice. Answers how many people were told. */
+/** Run every half hour: once the organisation's clock, in its time zone, has reached the chosen hour, one fact per live employee whose role has the activities module and who has an open activity due that day, each person's read from their own index range. The day is then written down on the engine's state row, so the runs that follow that day tell nobody again: a day without the hour (clocks going forward) is told at the next, a day with it twice (clocks going back) once. Answers how many people were told. */
 export async function tellTasksDue(ctx: MutationCtx, now = Date.now()): Promise<number> {
-  const cfg = await ctx.db.query('appConfig').first();
+  const cfg = await loadAppConfig(ctx);
   const today = zonedDayOf(now, cfg?.timezone ?? DEFAULT_TIMEZONE);
-  if (today.hour !== (cfg?.tasksDueHour ?? DEFAULT_TASKS_DUE_HOUR)) return 0;
+  if (today.hour < (cfg?.tasksDueHour ?? DEFAULT_TASKS_DUE_HOUR)) return 0;
+  if ((await ctx.db.query('notificationFanOut').first())?.tasksDueDay === today.key) return 0;
   const employees = await ctx.db
     .query('users')
     .withIndex('by_type_deleted', (q) => q.eq('type', 'employee').eq('deletedAt', undefined))
     .collect();
+  const roles = new Map<string, Promise<boolean>>();
   let told = 0;
   for (const employee of employees) {
-    if (await toldOf(ctx, today.key, employee._id)) continue;
+    if (!(await activitiesAllowed(ctx, roles, employee.role))) continue;
     const due = await dueOf(ctx, employee._id, today.start, today.end);
     if (!due) continue;
     await emitEvent(ctx, {
@@ -55,5 +65,9 @@ export async function tellTasksDue(ctx: MutationCtx, now = Date.now()): Promise<
     });
     told += 1;
   }
+  // Read again: a fact emitted above may have created the row.
+  const state = await ctx.db.query('notificationFanOut').first();
+  if (state) await ctx.db.patch(state._id, { tasksDueDay: today.key });
+  else await ctx.db.insert('notificationFanOut', { tasksDueDay: today.key });
   return told;
 }

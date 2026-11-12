@@ -153,16 +153,22 @@ workspaces.
   *Paramètres → Conservation* (`notificationDays`, 90 jours par défaut, 7 à 365).
   Un type suit l'horloge et non une écriture : « Vos tâches à faire
   aujourd'hui » (`activity.due`), une notification par personne et par jour,
-  produite par une tâche planifiée horaire quand l'heure de l'organisation
-  sonne dans son fuseau (*Paramètres → E-mail & SMS*, « Heure du rappel des
-  tâches du jour », `appConfig.tasksDueHour`, 08:00 par défaut, à côté du
-  fuseau) : le nombre de tâches ouvertes dont l'échéance tombe ce jour-là dans
-  ce fuseau, les premiers titres, et un lien vers les tâches du jour. Les
-  tâches sont lues personne par personne, sur l'index de chacun par échéance
-  (`by_owner_status_dueAt`), jamais toute la table ; une personne déjà
-  prévenue ce jour-là (clé
-  `activity.due:<jour>:<personne>`, lue ou non) ne l'est pas deux fois, une
-  tâche confiée à une équipe sans responsable ne prévient personne.
+  produite par une tâche planifiée toutes les demi-heures dès que l'horloge de
+  l'organisation, dans son fuseau, a atteint l'heure choisie (*Paramètres →
+  E-mail & SMS*, « Heure du rappel des tâches du jour »,
+  `appConfig.tasksDueHour`, 08:00 par défaut, à côté du fuseau ; un fuseau à
+  la demi-heure est servi à l'heure, un jour sans cette heure, au changement
+  d'heure, à l'heure suivante) : le nombre d'activités ouvertes, tâches,
+  appels, réunions, tout ce que la page des tâches liste, dont l'échéance tombe
+  ce jour-là dans ce fuseau, les premiers titres, et un lien vers les tâches
+  du jour. Elles sont lues personne par personne, sur l'index de chacun par
+  échéance (`by_owner_status_dueAt`), jamais toute la table, et seulement pour
+  les rôles qui ont le module des activités ; le jour prévenu est noté
+  (`notificationFanOut.tasksDueDay`), une seconde passe le même jour ne
+  prévient personne, et une tâche confiée à une équipe sans responsable ne
+  prévient personne. Le jour est celui de l'organisation ; la page des tâches
+  lit « aujourd'hui » dans le fuseau du navigateur, ce qui ne diffère que
+  pour une personne qui travaille depuis un autre fuseau.
   Chacun règle les siennes dans *Paramètres → Notifications* (groupe
   « Personnel », ouvert à tous les employés) : les types dont il veut être
   informé, par groupe (un type désactivé n'écrit plus rien pour lui, ni dans

@@ -40,7 +40,7 @@ export const fanOut = internalMutation({
   },
 });
 
-/** The hourly cron: at the organisation's hour, one « tasks due today » fact per person with an open task due that day; any other hour, nothing. */
+/** The cron, every half hour: once the organisation's clock has reached its hour, one « tasks due today » fact per person with an open task due that day, once a day. */
 export const tellTasksDue = internalMutation({
   args: {},
   returns: v.number(),

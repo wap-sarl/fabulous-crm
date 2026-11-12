@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { api, internal } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
+import { uniformAccess } from '../../convex/_lib/validators/access';
 import { zonedDayOf } from '../../convex/lib/shared/zonedTime';
 import {
   asIdentity,
@@ -60,6 +61,9 @@ const plan = (ctx: Ctx, title: string, ownerId: Id<'users'> | null, dueAt?: numb
     ownerId,
     dueAt,
   });
+
+/** The engine's state row, where the day told of is written down. */
+const stateOf = (t: T) => t.run((ctx) => ctx.db.query('notificationFanOut').first());
 
 /** The cron's run at the instant, then the fan-out it queued. */
 async function strike(t: T, at: number): Promise<number> {
@@ -164,24 +168,30 @@ describe('« vos tâches à faire aujourd’hui »', () => {
     });
   });
 
-  test('is told once a day: the cron run again, even after the row was read, adds nothing; the next day has its own', async () => {
+  test('is told once a day, from the first run at or after the hour: a run before it, a run again, a run after the row was read, a task planned later that day add nothing; the next day has its own', async () => {
     const ctx = await setup();
-    const { t, camille } = ctx;
+    const { t, camille, sam } = ctx;
     const asCamille = asIdentity(t, camille.identity);
     await plan(ctx, 'Aujourd’hui', camille.userId, Date.UTC(2026, 10, 12, 18));
     await plan(ctx, 'Demain', camille.userId, Date.UTC(2026, 10, 13, 18));
     await runDue(t);
+    expect(await strike(t, EIGHT - HOUR)).toBe(0);
+    expect((await stateOf(t))?.tasksDueDay).toBeUndefined();
     expect(await strike(t, EIGHT)).toBe(1);
+    expect(await stateOf(t)).toMatchObject({ tasksDueDay: '2026-11-12' });
     expect(await strike(t, EIGHT)).toBe(0);
-    // Read, then the run repeats within the hour: still nothing.
+    // Read, then the run repeats: still nothing.
     const [row] = (await inboxOf(t, camille.userId)).filter((n) => n.kind === 'activity.due');
     await asCamille.mutation(api.features.notifications.mutations.markRead, {
       notificationId: row!._id,
     });
-    expect(await strike(t, EIGHT + 5 * 60 * 1000)).toBe(0);
-    // Not at another hour either.
-    expect(await strike(t, EIGHT + HOUR)).toBe(0);
-    expect(await strike(t, EIGHT - HOUR)).toBe(0);
+    expect(await strike(t, EIGHT + 30 * 60 * 1000)).toBe(0);
+    // A task planned for today after the reminder waits for tomorrow's page, not a second reminder.
+    pinClock(EIGHT + 2 * HOUR);
+    await plan(ctx, 'Pour Sam', sam.userId, Date.UTC(2026, 10, 12, 23));
+    await runDue(t);
+    expect(await strike(t, EIGHT + 3 * HOUR)).toBe(0);
+    expect((await inboxOf(t, sam.userId)).filter((n) => n.kind === 'activity.due')).toEqual([]);
     // The next morning: the task of the day before is overdue, not due today; tomorrow's is.
     expect(await strike(t, EIGHT + 24 * HOUR)).toBe(1);
     const due = (await inboxOf(t, camille.userId)).filter((n) => n.kind === 'activity.due');
@@ -189,6 +199,56 @@ describe('« vos tâches à faire aujourd’hui »', () => {
       ['2026-11-12', 'Aujourd’hui.'],
       ['2026-11-13', 'Demain.'],
     ]);
+  });
+
+  test('a run that missed the hour tells at the next: a deployment down at 08:00 reminds at 11:00', async () => {
+    const ctx = await setup();
+    await plan(ctx, 'Aujourd’hui', ctx.camille.userId, Date.UTC(2026, 10, 12, 18));
+    await runDue(ctx.t);
+    expect(await strike(ctx.t, EIGHT + 3 * HOUR)).toBe(1);
+  });
+
+  test('a zone thirty minutes off the hour is told on the hour, and a day without the hour, when clocks go forward, at the next; a day with it twice, when they go back, once', async () => {
+    // Kolkata, 08:00 is 02:30 UTC.
+    const kolkata = await setup({ timezone: 'Asia/Kolkata' });
+    await plan(kolkata, 'Ce matin', kolkata.camille.userId, Date.UTC(2026, 10, 12, 6));
+    await runDue(kolkata.t);
+    expect(await strike(kolkata.t, Date.UTC(2026, 10, 12, 2, 0))).toBe(0);
+    expect(await strike(kolkata.t, Date.UTC(2026, 10, 12, 2, 30))).toBe(1);
+
+    // Paris at 02:00: on 2027-03-28 the clock goes from 02:00 to 03:00 at 01:00 UTC.
+    const forward = await setup({ timezone: 'Europe/Paris', tasksDueHour: 2 });
+    await plan(forward, 'Dimanche', forward.camille.userId, Date.UTC(2027, 2, 28, 10));
+    await runDue(forward.t);
+    expect(await strike(forward.t, Date.UTC(2027, 2, 28, 0, 30))).toBe(0);
+    expect(await strike(forward.t, Date.UTC(2027, 2, 28, 1, 0))).toBe(1);
+    expect((await stateOf(forward.t))?.tasksDueDay).toBe('2027-03-28');
+
+    // On 2026-10-25 the clock shows 02:00 at 00:00 UTC and again at 01:00 UTC.
+    const back = await setup({ timezone: 'Europe/Paris', tasksDueHour: 2 });
+    await plan(back, 'Dimanche', back.camille.userId, Date.UTC(2026, 9, 25, 10));
+    await runDue(back.t);
+    expect(await strike(back.t, Date.UTC(2026, 9, 25, 0, 0))).toBe(1);
+    expect(await strike(back.t, Date.UTC(2026, 9, 25, 1, 0))).toBe(0);
+  });
+
+  test('a person whose role has no activities module is not reminded of what they cannot open', async () => {
+    const ctx = await setup();
+    const { t, camille, sam, asLou } = ctx;
+    const support = await asLou.mutation(api.features.roles.mutations.createRole, {
+      label: 'Support',
+      access: { ...uniformAccess('own', false), activities: 'none' },
+    });
+    await asLou.mutation(api.features.users.mutations.setEmployeeRole, {
+      userId: camille.userId,
+      role: support,
+    });
+    await plan(ctx, 'Héritée', camille.userId, Date.UTC(2026, 10, 12, 18));
+    await plan(ctx, 'La sienne', sam.userId, Date.UTC(2026, 10, 12, 18));
+    await runDue(t);
+    expect(await strike(t, EIGHT)).toBe(1);
+    expect((await inboxOf(t, camille.userId)).filter((n) => n.kind === 'activity.due')).toEqual([]);
+    expect((await inboxOf(t, sam.userId)).filter((n) => n.kind === 'activity.due')).toHaveLength(1);
   });
 
   test('follows the hour the settings right chooses, 08:00 until set, between 0 and 23; the kind is the person’s to turn off', async () => {

@@ -236,8 +236,8 @@ export function EmailManager() {
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Chaque jour à cette heure, dans ce fuseau, chacun est prévenu de ses tâches à faire
-              aujourd'hui.
+              Chaque jour, à cette heure dans ce fuseau, chacun est prévenu de ses tâches à faire
+              aujourd'hui ; un jour où elle n'existe pas (changement d'heure), à l'heure suivante.
             </p>
           </div>
         </div>
