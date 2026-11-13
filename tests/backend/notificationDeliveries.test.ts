@@ -426,7 +426,7 @@ describe('a delivery', () => {
       }
     });
     // An attempt that is not the one sending leaves it alone.
-    await t.run((run) => expireDelivery(run, first!._id, 3));
+    await t.run((run) => expireDelivery(run, first!._id, 3, 0));
     expect((await deliveries(t))[0]).toMatchObject({ status: 'sending', attempts: 0 });
 
     await runAfter(t, NOTIFICATION_DELIVERY_TIMEOUT_MS - 1000);

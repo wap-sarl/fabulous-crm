@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { api } from '../../convex/_generated/api';
+import { api, internal } from '../../convex/_generated/api';
 import {
   NOTIFICATION_DELIVERY_HOLD_MS,
   NOTIFICATION_DELIVERY_JITTER,
@@ -10,6 +10,7 @@ import {
 import {
   asIdentity,
   createTestConvex,
+  loadedDice,
   pinClock,
   pinDice,
   runAfter,
@@ -176,6 +177,53 @@ describe('a burst against a rate-limited webhook', () => {
     expect((await deliveries(ctx.t)).map((row) => row.attempts)).toEqual([1, 1, 1]);
   });
 
+  test('thirty against Slack’s one per second: the asked wait takes a share of chance, so the refused do not come back as one, and all pass within the waits allowed', async () => {
+    const ctx = await setup();
+    await choose(ctx, 'slack', SLACK);
+    await burst(ctx, 30);
+    pinDice(loadedDice(7));
+    await runAfter(ctx.t, HOLD);
+    expect(await statuses(ctx.t)).toEqual({ sent: 1, pending: 29, failed: 0 });
+    const asked = (await deliveries(ctx.t)).filter((row) => row.status === 'pending');
+    // One second asked, up to five of chance on top: not two alike in thirty.
+    const comebacks = new Set(asked.map((row) => row.nextAt));
+    expect(comebacks.size).toBeGreaterThan(20);
+    for (const row of asked) expect(row.nextAt - Date.now()).toBeWithin(SECOND, 6 * SECOND + 1);
+    for (let second = 0; second < 120; second++) await runAfter(ctx.t, SECOND);
+    const rows = await deliveries(ctx.t);
+    expect(rows.every((row) => row.status === 'sent' && row.attempts === 1)).toBe(true);
+    expect(Math.max(...rows.map((row) => row.waits ?? 0))).toBeLessThanOrEqual(
+      NOTIFICATION_DELIVERY_MAX_WAITS,
+    );
+  });
+
+  test('a check left by an earlier send does not end a later one: waited once, sent again, the first expiry finds the same attempt but not the same waits', async () => {
+    const ctx = await setup();
+    await choose(ctx, 'discord', DISCORD);
+    await burst(ctx, 1);
+    answers.push(Response.json({ retry_after: 2 }, { status: 429 }));
+    await runAfter(ctx.t, HOLD);
+    const [row] = await deliveries(ctx.t);
+    expect(row).toMatchObject({ status: 'pending', attempts: 0, waits: 1 });
+    // The second send is in progress when the first send's check fires, as it was scheduled: attempt 0, no wait yet.
+    const stub = globalThis.fetch;
+    globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+      globalThis.fetch = stub;
+      await ctx.t.mutation(internal.features.notifications.internal.expireNotificationDelivery, {
+        deliveryId: row!._id,
+        attempts: 0,
+        waits: 0,
+      });
+      expect((await deliveries(ctx.t))[0]).toMatchObject({ status: 'sending' });
+      return await stub(input, init);
+    }) as typeof fetch;
+    await runAfter(ctx.t, 2 * SECOND);
+    expect((await deliveries(ctx.t))[0]).toMatchObject({ status: 'sent', attempts: 1, waits: 1 });
+    // The check of the second send, in its turn, finds a row that is no longer sending.
+    await runAfter(ctx.t, 15 * MINUTE);
+    expect((await deliveries(ctx.t))[0]).toMatchObject({ status: 'sent', attempts: 1 });
+  });
+
   test('a wait is honoured within bounds: a second at least, five minutes at most; a 429 that says nothing usable is a failed attempt on the backoff', async () => {
     const ctx = await setup();
     await choose(ctx, 'discord', DISCORD);
@@ -202,11 +250,18 @@ describe('a burst against a rate-limited webhook', () => {
     expect(row).toMatchObject({ status: 'pending', attempts: 0, waits: 3 });
     expect(row!.nextAt).toBe(Math.floor(until / SECOND) * SECOND);
 
-    // Nothing usable: the backoff, and an attempt.
-    answers.push(new Response('', { status: 429 }));
+    // Zero means now: a wait all the same, of a second.
+    answers.push(new Response('', { status: 429, headers: { 'retry-after': '0' } }));
     await runAfter(ctx.t, 5 * SECOND);
     [row] = await deliveries(ctx.t);
-    expect(row).toMatchObject({ status: 'pending', attempts: 1, waits: 3, error: 'send_failed' });
+    expect(row).toMatchObject({ status: 'pending', attempts: 0, waits: 4 });
+    expectAbout(row!.nextAt, Date.now() + NOTIFICATION_DELIVERY_WAIT_MIN_MS);
+
+    // Nothing usable: the backoff, and an attempt.
+    answers.push(new Response('', { status: 429 }));
+    await runAfter(ctx.t, NOTIFICATION_DELIVERY_WAIT_MIN_MS);
+    [row] = await deliveries(ctx.t);
+    expect(row).toMatchObject({ status: 'pending', attempts: 1, waits: 4, error: 'send_failed' });
     expectAbout(row!.nextAt, Date.now() + MINUTE);
     await runAfter(ctx.t, MINUTE);
     expect((await deliveries(ctx.t))[0]).toMatchObject({ status: 'sent', attempts: 2 });
@@ -282,7 +337,7 @@ describe('a burst against a rate-limited webhook', () => {
     );
   });
 
-  test('« tester » is not retried: a service asking to wait did not take the message', async () => {
+  test('« tester » is not retried: a service asking to wait did not take the message, and the answer says so', async () => {
     const ctx = await setup();
     await choose(ctx, 'discord', DISCORD);
     answers.push(Response.json({ retry_after: 2 }, { status: 429 }));
@@ -290,6 +345,6 @@ describe('a burst against a rate-limited webhook', () => {
       await ctx.asCamille.action(api.features.notifications.actions.testNotificationChannel, {
         channel: 'discord',
       }),
-    ).toBe('failed');
+    ).toBe('rate_limited');
   });
 });

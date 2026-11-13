@@ -24,5 +24,6 @@ export async function waitAskedBy(response: Response): Promise<SendResult> {
       // Not JSON: nothing asked.
     }
   }
-  return Number.isFinite(seconds) && seconds > 0 ? { wait: Math.ceil(seconds * 1000) } : 'failed';
+  // Zero means « now »: a wait all the same, which the floor raises to a second.
+  return Number.isFinite(seconds) && seconds >= 0 ? { wait: Math.ceil(seconds * 1000) } : 'failed';
 }

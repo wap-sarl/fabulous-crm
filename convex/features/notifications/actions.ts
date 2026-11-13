@@ -96,8 +96,13 @@ type NoChannelTest = 'channel_not_available' | 'no_channel_target' | 'channel_ta
 /** « Tester le canal »: one message to the caller's own target on a plugin's channel, and what the service made of it; for any employee, the target is their own. */
 export const testNotificationChannel = employeeAction({
   args: { channel: v.string() },
-  returns: v.union(v.literal('sent'), v.literal('refused'), v.literal('failed')),
-  handler: async (ctx, args): Promise<'sent' | 'refused' | 'failed'> => {
+  returns: v.union(
+    v.literal('sent'),
+    v.literal('refused'),
+    v.literal('failed'),
+    v.literal('rate_limited'),
+  ),
+  handler: async (ctx, args): Promise<'sent' | 'refused' | 'failed' | 'rate_limited'> => {
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) throw new Error('Unauthorized: employees only');
     const test: { to: string } | NoChannelTest = await ctx.runQuery(
@@ -116,7 +121,7 @@ export const testNotificationChannel = employeeAction({
       body: `Ce canal fonctionne : vos notifications de ${cfg?.organizationName || 'votre CRM'} arriveront ici.`,
       url: `${appUrlOf(cfg)}/settings/notifications`,
     });
-    // A test is not retried: a service asking to wait did not take it.
-    return typeof answer === 'string' ? answer : 'failed';
+    // A test is not retried: a service asking to wait did not take it, and the page says why.
+    return typeof answer === 'string' ? answer : 'rate_limited';
   },
 });

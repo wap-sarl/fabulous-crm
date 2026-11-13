@@ -191,10 +191,12 @@ workspaces.
   `failed`, `skipped`). L'attente et chaque délai prennent jusqu'à 20 % de
   hasard en plus, pour que trente envois d'un coup ne partent ni ne reviennent
   d'un coup ; un service qui répond 429 en disant quand revenir (`Retry-After`,
-  `retry_after` chez Discord) est écouté, entre une seconde et cinq minutes,
-  sans compter de tentative (`waits`), dix fois au plus, après quoi chaque
-  nouvelle demande d'attente compte comme un échec ; un 429 sans indication
-  suit les tentatives. Au moment de partir, à la fin de l'attente comme à chaque
+  `retry_after` chez Discord, zéro compris) est écouté, entre une seconde et
+  cinq minutes, avec jusqu'à cinq secondes de hasard en plus pour que les
+  refusés ensemble ne reviennent pas ensemble, sans compter de tentative
+  (`waits`), dix fois au plus, après quoi chaque nouvelle demande d'attente
+  compte comme un échec ; un 429 sans indication suit les tentatives. Le
+  bouton « Tester » le dit aussi quand le service demande d'attendre. Au moment de partir, à la fin de l'attente comme à chaque
   nouvelle tentative, tout est redemandé tel que c'est alors : une notification
   déjà lue dans l'application, un canal ou un type désactivé entre-temps, un
   fournisseur retiré, une personne supprimée, une fiche que la personne ne peut

@@ -9,6 +9,7 @@ import {
   NOTIFICATION_DELIVERY_TIMEOUT_MS,
   NOTIFICATION_DELIVERY_WAIT_MAX_MS,
   NOTIFICATION_DELIVERY_WAIT_MIN_MS,
+  NOTIFICATION_DELIVERY_WAIT_SPREAD_MS,
   notificationKindLabel,
 } from '../../_lib/validators/notifications';
 import { scheduledWorkAllowed } from '../extensions/gates';
@@ -109,10 +110,11 @@ export async function beginDelivery(
   const bare = (await channelNames(ctx, channel)) === 'none';
   await ctx.db.patch(deliveryId, { status: 'sending' });
   // An action that stops before recording its result would leave the row sending for good: this ends it.
+  // Named by its attempt and its waits: a wait sends the row back without an attempt, and an older check must not end a later send.
   await ctx.scheduler.runAfter(
     NOTIFICATION_DELIVERY_TIMEOUT_MS,
     internal.features.notifications.internal.expireNotificationDelivery,
-    { deliveryId, attempts: delivery.attempts },
+    { deliveryId, attempts: delivery.attempts, waits: delivery.waits ?? 0 },
   );
   return {
     channel: channel.key,
@@ -142,10 +144,12 @@ export async function finishDelivery(
   if (typeof result === 'object') {
     const waits = (delivery.waits ?? 0) + 1;
     if (channel && waits <= NOTIFICATION_DELIVERY_MAX_WAITS) {
-      const wait = Math.min(
-        Math.max(result.wait, NOTIFICATION_DELIVERY_WAIT_MIN_MS),
-        NOTIFICATION_DELIVERY_WAIT_MAX_MS,
+      const asked = Math.max(result.wait, NOTIFICATION_DELIVERY_WAIT_MIN_MS);
+      // Thirty deliveries refused in the same second are all asked the same wait: a share of chance, five seconds at least, keeps them from coming back as one.
+      const spread = Math.floor(
+        Math.random() * Math.max(asked, NOTIFICATION_DELIVERY_WAIT_SPREAD_MS),
       );
+      const wait = Math.min(asked + spread, NOTIFICATION_DELIVERY_WAIT_MAX_MS);
       await ctx.db.patch(deliveryId, {
         status: 'pending',
         waits,
@@ -189,14 +193,16 @@ export async function finishDelivery(
   await ctx.scheduler.runAfter(wait, channel.deliver, { deliveryId });
 }
 
-/** Ends a delivery whose send was interrupted: still sending, on the same attempt, long after an action could have lived. Not tried again, the message may have left. */
+/** Ends a delivery whose send was interrupted: still sending, on the same attempt and the same waits, long after an action could have lived. Not tried again, the message may have left. */
 export async function expireDelivery(
   ctx: MutationCtx,
   deliveryId: Id<'notificationDeliveries'>,
   attempts: number,
+  waits: number,
 ): Promise<void> {
   const delivery = await ctx.db.get(deliveryId);
   if (delivery?.status !== 'sending' || delivery.attempts !== attempts) return;
+  if ((delivery.waits ?? 0) !== waits) return;
   await ctx.db.patch(deliveryId, {
     status: 'failed',
     attempts: attempts + 1,

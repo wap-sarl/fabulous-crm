@@ -294,4 +294,6 @@ export const NOTIFICATION_DELIVERY_JITTER = 0.2;
 /** A wait the service asks for (a 429 that says when) is honoured within these bounds, and without counting an attempt; past this many waits on one delivery, a wait counts as a failed attempt, so a service that always says « later » cannot park a delivery. */
 export const NOTIFICATION_DELIVERY_WAIT_MIN_MS = 1_000;
 export const NOTIFICATION_DELIVERY_WAIT_MAX_MS = 5 * 60_000;
+/** A wait the service asks for takes up to this much, or up to itself if longer, of chance on top: a burst refused together does not come back together. */
+export const NOTIFICATION_DELIVERY_WAIT_SPREAD_MS = 5_000;
 export const NOTIFICATION_DELIVERY_MAX_WAITS = 10;
