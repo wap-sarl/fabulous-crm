@@ -1,6 +1,7 @@
 import { internal } from '../../../_generated/api';
 import { slackWebhookSchema } from '../../../_lib/validators/notifications';
-import type { ChannelMessage, NotificationChannel, SendResult } from './index';
+import type { NotificationChannel } from './index';
+import { type ChannelMessage, type SendResult, waitAskedBy } from './send';
 
 const SLACK_TIMEOUT_MS = 10_000;
 
@@ -39,6 +40,8 @@ async function sendToSlack(to: string, message: ChannelMessage): Promise<SendRes
       signal: AbortSignal.timeout(SLACK_TIMEOUT_MS),
     });
     if (response.ok) return 'sent';
+    // Rate-limited: Slack says when to come back, and the delivery waits that long rather than burning an attempt.
+    if (response.status === 429) return await waitAskedBy(response);
     return REFUSALS.has(response.status) ? 'refused' : 'failed';
   } catch {
     return 'failed';

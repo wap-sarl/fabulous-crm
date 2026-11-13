@@ -245,6 +245,7 @@ import type * as lib_notifications_audience from "../lib/notifications/audience.
 import type * as lib_notifications_channels_discord from "../lib/notifications/channels/discord.js";
 import type * as lib_notifications_channels_email from "../lib/notifications/channels/email.js";
 import type * as lib_notifications_channels_index from "../lib/notifications/channels/index.js";
+import type * as lib_notifications_channels_send from "../lib/notifications/channels/send.js";
 import type * as lib_notifications_channels_slack from "../lib/notifications/channels/slack.js";
 import type * as lib_notifications_deliveries from "../lib/notifications/deliveries.js";
 import type * as lib_notifications_due from "../lib/notifications/due.js";
@@ -543,6 +544,7 @@ declare const fullApi: ApiFromModules<{
   "lib/notifications/channels/discord": typeof lib_notifications_channels_discord;
   "lib/notifications/channels/email": typeof lib_notifications_channels_email;
   "lib/notifications/channels/index": typeof lib_notifications_channels_index;
+  "lib/notifications/channels/send": typeof lib_notifications_channels_send;
   "lib/notifications/channels/slack": typeof lib_notifications_channels_slack;
   "lib/notifications/deliveries": typeof lib_notifications_deliveries;
   "lib/notifications/due": typeof lib_notifications_due;

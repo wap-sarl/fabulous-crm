@@ -1,6 +1,7 @@
 import { internal } from '../../../_generated/api';
 import { discordWebhookSchema } from '../../../_lib/validators/notifications';
-import type { ChannelMessage, NotificationChannel, SendResult } from './index';
+import type { NotificationChannel } from './index';
+import { type ChannelMessage, type SendResult, waitAskedBy } from './send';
 
 const DISCORD_TIMEOUT_MS = 10_000;
 /** Discord refuses a longer `content` with a 400, which would be retried for nothing. */
@@ -59,6 +60,8 @@ async function sendToDiscord(to: string, message: ChannelMessage): Promise<SendR
       signal: AbortSignal.timeout(DISCORD_TIMEOUT_MS),
     });
     if (response.ok) return 'sent';
+    // Rate-limited: Discord says when to come back, and the delivery waits that long rather than burning an attempt.
+    if (response.status === 429) return await waitAskedBy(response);
     return REFUSALS.has(response.status) ? 'refused' : 'failed';
   } catch {
     return 'failed';

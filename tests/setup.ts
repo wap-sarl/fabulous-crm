@@ -1,6 +1,7 @@
 import { afterEach, jest, mock } from 'bun:test';
 import { join } from 'node:path';
 import { endTest } from './support/teardown';
+import { unpinDice } from './support/clock';
 import { refuseNetwork, takeRefused } from './support/network';
 import { overlayStandIn } from './support/overlayStandIn';
 
@@ -25,6 +26,7 @@ afterEach(async () => {
   setExtensionsForTests(null);
   await endTest();
   jest.useRealTimers();
+  unpinDice();
   const refused = takeRefused();
   if (refused.length > 0) {
     throw new Error(`the test reached the network:\n${refused.join('\n')}`);

@@ -7,6 +7,7 @@ import {
   asIdentity,
   createTestConvex,
   pinClock,
+  pinDice,
   runAfter,
   runDue,
   seedConfig,
@@ -31,6 +32,8 @@ let statuses: (number | 'down')[] = [];
 
 beforeEach(() => {
   pinClock(NOW);
+  // The delays this file advances to are exact: no share of chance on top.
+  pinDice(0);
   saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
   for (const k of ENV) delete process.env[k];
   process.env.SECRETS_KEY = 'a'.repeat(64);

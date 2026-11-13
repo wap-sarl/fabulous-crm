@@ -8,19 +8,12 @@ import { loadAppConfig } from '../../config/load';
 import { loadInstalledPlugins } from '../../plugins/installed';
 import { discordChannel } from './discord';
 import { emailChannel } from './email';
+import type { ChannelMessage, SendResult } from './send';
 import { slackChannel } from './slack';
 
 // Every channel the core can deliver to: the settings page, the fan-out and the preference mutation all read this list.
 
-/** What a channel that is one HTTP call sends: the text, and the address that opens the record. */
-export interface ChannelMessage {
-  title: string;
-  body: string;
-  url: string;
-}
-
-/** What became of a send: `refused` is an answer that will not change, `failed` one that may pass later. */
-export type SendResult = 'sent' | 'refused' | 'failed';
+export type { SendResult } from './send';
 
 export interface NotificationChannel {
   key: string;

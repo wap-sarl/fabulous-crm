@@ -97,7 +97,7 @@ type NoChannelTest = 'channel_not_available' | 'no_channel_target' | 'channel_ta
 export const testNotificationChannel = employeeAction({
   args: { channel: v.string() },
   returns: v.union(v.literal('sent'), v.literal('refused'), v.literal('failed')),
-  handler: async (ctx, args): Promise<SendResult> => {
+  handler: async (ctx, args): Promise<'sent' | 'refused' | 'failed'> => {
     const authUser = await authComponent.safeGetAuthUser(ctx);
     if (!authUser) throw new Error('Unauthorized: employees only');
     const test: { to: string } | NoChannelTest = await ctx.runQuery(
@@ -111,10 +111,12 @@ export const testNotificationChannel = employeeAction({
     const send = channelOf(args.channel)?.send;
     if (!send) throw refusal('channel_not_available');
     const cfg = await ctx.runQuery(internal.features.config.internal.getConfig);
-    return await send(test.to, {
+    const answer: SendResult = await send(test.to, {
       title: 'Message de test',
       body: `Ce canal fonctionne : vos notifications de ${cfg?.organizationName || 'votre CRM'} arriveront ici.`,
       url: `${appUrlOf(cfg)}/settings/notifications`,
     });
+    // A test is not retried: a service asking to wait did not take it.
+    return typeof answer === 'string' ? answer : 'failed';
   },
 });

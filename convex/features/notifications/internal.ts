@@ -96,6 +96,7 @@ export const finishNotificationDelivery = internalMutation({
       v.literal('skipped'),
       v.literal('refused'),
       v.literal('failed'),
+      v.object({ wait: v.number() }),
     ),
     error: v.optional(v.string()),
     // The target the message was sent to, as kept: a refusal is held against that one only.

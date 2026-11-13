@@ -37,6 +37,18 @@ export async function runDue(t: Schedulable): Promise<void> {
   throw new Error(`runDue: scheduled work is still due after ${MAX_ROUNDS} rounds`);
 }
 
+const realRandom = Math.random;
+
+/** What `Math.random` answers while a test runs: a fixed value, so that a delay with a share of chance on top is one the test can advance to (zero: no jitter). Undone after each test. */
+export function pinDice(value: number): void {
+  Math.random = () => value;
+}
+
+/** Back to chance, for a test about it. */
+export function unpinDice(): void {
+  Math.random = realRandom;
+}
+
 /** A date for the test to start from. */
 export function pinClock(now: number): void {
   jest.useFakeTimers();

@@ -16,7 +16,7 @@ import { leadSearchText } from '../../convex/lib/leads/search';
 import schema from '../../convex/schema';
 import { onTestEnd } from '../support/teardown';
 
-export { pinClock, runAfter, runAll, runDue } from '../support/clock';
+export { pinClock, pinDice, runAfter, runAll, runDue, unpinDice } from '../support/clock';
 
 function globModules(
   root: string,
