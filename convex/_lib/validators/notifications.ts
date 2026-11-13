@@ -204,6 +204,8 @@ export const notificationDeliveryValidator = v.object({
   channel: v.string(),
   status: notificationDeliveryStatusValidator,
   attempts: v.number(),
+  // How many times the service asked to wait (a 429 saying when): a wait is not an attempt, up to a point.
+  waits: v.optional(v.number()),
   nextAt: v.number(),
   error: v.optional(v.string()),
   createdAt: v.number(),
@@ -287,3 +289,11 @@ export const NOTIFICATION_DELIVERY_HOLD_MS = 60_000;
 export const NOTIFICATION_DELIVERY_TIMEOUT_MS = 15 * 60_000;
 /** A delivery that failed is tried again after each of these, then given up. */
 export const NOTIFICATION_DELIVERY_BACKOFF_MS = [1, 5, 15, 60].map((minutes) => minutes * 60_000);
+/** The hold and each wait of the backoff take up to this share on top, drawn at random: a burst of deliveries spreads instead of leaving, and retrying, as one. */
+export const NOTIFICATION_DELIVERY_JITTER = 0.2;
+/** A wait the service asks for (a 429 that says when) is honoured within these bounds, and without counting an attempt; past this many waits on one delivery, a wait counts as a failed attempt, so a service that always says « later » cannot park a delivery. */
+export const NOTIFICATION_DELIVERY_WAIT_MIN_MS = 1_000;
+export const NOTIFICATION_DELIVERY_WAIT_MAX_MS = 5 * 60_000;
+/** A wait the service asks for takes up to this much, or up to itself if longer, of chance on top: a burst refused together does not come back together. */
+export const NOTIFICATION_DELIVERY_WAIT_SPREAD_MS = 5_000;
+export const NOTIFICATION_DELIVERY_MAX_WAITS = 10;

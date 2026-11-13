@@ -22,6 +22,8 @@ export function useChannelTest(channel: string, label: string) {
       if (result === 'sent') toast.success(`Message de test envoyé : regardez dans ${label}.`);
       else if (result === 'refused') {
         toast.error(`${label} a refusé le message : votre destination n’est plus valable.`);
+      } else if (result === 'rate_limited') {
+        toast.error(`${label} demande d’attendre : réessayez dans un instant.`);
       } else toast.error(`${label} n’a pas répondu. Réessayez dans un instant.`);
     } catch (error) {
       toast.error(errorLabel(error, TEST_ERRORS, 'Le test n’a pas pu être envoyé.'));

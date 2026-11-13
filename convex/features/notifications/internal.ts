@@ -96,6 +96,7 @@ export const finishNotificationDelivery = internalMutation({
       v.literal('skipped'),
       v.literal('refused'),
       v.literal('failed'),
+      v.object({ wait: v.number() }),
     ),
     error: v.optional(v.string()),
     // The target the message was sent to, as kept: a refusal is held against that one only.
@@ -110,10 +111,15 @@ export const finishNotificationDelivery = internalMutation({
 
 /** Scheduled when a delivery starts sending: ends it if its action never recorded a result. */
 export const expireNotificationDelivery = internalMutation({
-  args: { deliveryId: v.id('notificationDeliveries'), attempts: v.number() },
+  // `waits` is optional for a check scheduled before it existed.
+  args: {
+    deliveryId: v.id('notificationDeliveries'),
+    attempts: v.number(),
+    waits: v.optional(v.number()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await expireDelivery(ctx, args.deliveryId, args.attempts);
+    await expireDelivery(ctx, args.deliveryId, args.attempts, args.waits ?? 0);
     return null;
   },
 });

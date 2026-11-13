@@ -4,7 +4,12 @@ import type { MutationCtx } from '../../_generated/server';
 import {
   NOTIFICATION_DELIVERY_BACKOFF_MS,
   NOTIFICATION_DELIVERY_HOLD_MS,
+  NOTIFICATION_DELIVERY_JITTER,
+  NOTIFICATION_DELIVERY_MAX_WAITS,
   NOTIFICATION_DELIVERY_TIMEOUT_MS,
+  NOTIFICATION_DELIVERY_WAIT_MAX_MS,
+  NOTIFICATION_DELIVERY_WAIT_MIN_MS,
+  NOTIFICATION_DELIVERY_WAIT_SPREAD_MS,
   notificationKindLabel,
 } from '../../_lib/validators/notifications';
 import { scheduledWorkAllowed } from '../extensions/gates';
@@ -15,6 +20,10 @@ import { availableChannels, channelNames, channelOf, type NotificationChannel } 
 import { channelIsOn, kindIsOn, markTargetRefused, preferencesOf, targetOf } from './preferences';
 
 // One row per notification and channel; the scheduler carries the hold and the retries, no cron polls them.
+
+/** A delay with its share of chance on top: thirty deliveries queued in the same second do not leave, nor retry, in the same second. */
+const jittered = (ms: number): number =>
+  ms + Math.floor(Math.random() * ms * NOTIFICATION_DELIVERY_JITTER);
 
 /** What a channel's action needs to send: the text, where the notification opens, and what reaches the person. */
 export interface DeliveryJob {
@@ -38,6 +47,7 @@ export async function queueDeliveries(
   const now = Date.now();
   for (const channel of channels) {
     if (!channelIsOn(preferences, channel.key)) continue;
+    const hold = jittered(NOTIFICATION_DELIVERY_HOLD_MS);
     const waiting = await ctx.db
       .query('notificationDeliveries')
       .withIndex('by_notification', (q) =>
@@ -50,10 +60,10 @@ export async function queueDeliveries(
       channel: channel.key,
       status: 'pending',
       attempts: 0,
-      nextAt: now + NOTIFICATION_DELIVERY_HOLD_MS,
+      nextAt: now + hold,
       createdAt: now,
     });
-    await ctx.scheduler.runAfter(NOTIFICATION_DELIVERY_HOLD_MS, channel.deliver, { deliveryId });
+    await ctx.scheduler.runAfter(hold, channel.deliver, { deliveryId });
   }
 }
 
@@ -100,10 +110,11 @@ export async function beginDelivery(
   const bare = (await channelNames(ctx, channel)) === 'none';
   await ctx.db.patch(deliveryId, { status: 'sending' });
   // An action that stops before recording its result would leave the row sending for good: this ends it.
+  // Named by its attempt and its waits: a wait sends the row back without an attempt, and an older check must not end a later send.
   await ctx.scheduler.runAfter(
     NOTIFICATION_DELIVERY_TIMEOUT_MS,
     internal.features.notifications.internal.expireNotificationDelivery,
-    { deliveryId, attempts: delivery.attempts },
+    { deliveryId, attempts: delivery.attempts, waits: delivery.waits ?? 0 },
   );
   return {
     channel: channel.key,
@@ -116,16 +127,42 @@ export async function beginDelivery(
   };
 }
 
-/** Records what became of a delivery that left: sent, skipped by the channel itself, refused for good by the service, which also turns the person's channel off, or failed, which tries again after the next wait of the backoff and gives up after the last. */
+/** What a delivery's action reports; `wait` is the service saying when to come back, in ms. */
+export type DeliveryResult = 'sent' | 'skipped' | 'refused' | 'failed' | { wait: number };
+
+/** Records what became of a delivery that left: sent; skipped by the channel itself; refused for good by the service, which also turns the person's channel off; asked to wait, which comes back when the service said, within bounds and without counting an attempt, up to a number of waits; or failed, which tries again after the next wait of the backoff and gives up after the last. */
 export async function finishDelivery(
   ctx: MutationCtx,
   deliveryId: Id<'notificationDeliveries'>,
-  result: 'sent' | 'skipped' | 'refused' | 'failed',
+  result: DeliveryResult,
   error?: string,
   target?: string,
 ): Promise<void> {
   const delivery = await ctx.db.get(deliveryId);
   if (delivery?.status !== 'sending') return;
+  const channel = channelOf(delivery.channel);
+  if (typeof result === 'object') {
+    const waits = (delivery.waits ?? 0) + 1;
+    if (channel && waits <= NOTIFICATION_DELIVERY_MAX_WAITS) {
+      const asked = Math.max(result.wait, NOTIFICATION_DELIVERY_WAIT_MIN_MS);
+      // Thirty deliveries refused in the same second are all asked the same wait: a share of chance, five seconds at least, keeps them from coming back as one.
+      const spread = Math.floor(
+        Math.random() * Math.max(asked, NOTIFICATION_DELIVERY_WAIT_SPREAD_MS),
+      );
+      const wait = Math.min(asked + spread, NOTIFICATION_DELIVERY_WAIT_MAX_MS);
+      await ctx.db.patch(deliveryId, {
+        status: 'pending',
+        waits,
+        nextAt: Date.now() + wait,
+        error: 'rate_limited',
+      });
+      await ctx.scheduler.runAfter(wait, channel.deliver, { deliveryId });
+      return;
+    }
+    // Asked to wait once too often: this one is an attempt that failed.
+    result = 'failed';
+    error = 'rate_limited';
+  }
   if (result === 'refused') {
     await ctx.db.patch(deliveryId, { status: 'skipped', error: 'target_refused' });
     const notification = await ctx.db.get(delivery.notificationId);
@@ -141,12 +178,12 @@ export async function finishDelivery(
     await ctx.db.patch(deliveryId, { status: 'sent', attempts, error: undefined });
     return;
   }
-  const wait = NOTIFICATION_DELIVERY_BACKOFF_MS[delivery.attempts];
-  const channel = channelOf(delivery.channel);
-  if (wait === undefined || !channel) {
+  const step = NOTIFICATION_DELIVERY_BACKOFF_MS[delivery.attempts];
+  if (step === undefined || !channel) {
     await ctx.db.patch(deliveryId, { status: 'failed', attempts, error });
     return;
   }
+  const wait = jittered(step);
   await ctx.db.patch(deliveryId, {
     status: 'pending',
     attempts,
@@ -156,14 +193,16 @@ export async function finishDelivery(
   await ctx.scheduler.runAfter(wait, channel.deliver, { deliveryId });
 }
 
-/** Ends a delivery whose send was interrupted: still sending, on the same attempt, long after an action could have lived. Not tried again, the message may have left. */
+/** Ends a delivery whose send was interrupted: still sending, on the same attempt and the same waits, long after an action could have lived. Not tried again, the message may have left. */
 export async function expireDelivery(
   ctx: MutationCtx,
   deliveryId: Id<'notificationDeliveries'>,
   attempts: number,
+  waits: number,
 ): Promise<void> {
   const delivery = await ctx.db.get(deliveryId);
   if (delivery?.status !== 'sending' || delivery.attempts !== attempts) return;
+  if ((delivery.waits ?? 0) !== waits) return;
   await ctx.db.patch(deliveryId, {
     status: 'failed',
     attempts: attempts + 1,

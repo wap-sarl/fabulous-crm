@@ -14,6 +14,7 @@ import {
   asIdentity,
   createTestConvex,
   pinClock,
+  pinDice,
   runAfter,
   runDue,
   seedConfig,
@@ -40,6 +41,8 @@ let statuses: number[] = [];
 
 beforeEach(() => {
   pinClock(NOW);
+  // The delays this file advances to are exact: no share of chance on top.
+  pinDice(0);
   saved = Object.fromEntries(ENV.map((k) => [k, process.env[k]]));
   for (const k of ENV) delete process.env[k];
   const mine: Mail[] = [];
@@ -423,7 +426,7 @@ describe('a delivery', () => {
       }
     });
     // An attempt that is not the one sending leaves it alone.
-    await t.run((run) => expireDelivery(run, first!._id, 3));
+    await t.run((run) => expireDelivery(run, first!._id, 3, 0));
     expect((await deliveries(t))[0]).toMatchObject({ status: 'sending', attempts: 0 });
 
     await runAfter(t, NOTIFICATION_DELIVERY_TIMEOUT_MS - 1000);
