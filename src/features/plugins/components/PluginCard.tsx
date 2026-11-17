@@ -3,9 +3,10 @@ import { Blocks } from 'lucide-react';
 import { PLUGIN_ICONS } from '../lib/icons';
 import type { PluginRow } from '../types';
 
-/** What a plugin adds to a part of the core, as the card says it. */
-const PROVISION_LABELS: Record<string, string> = {
-  'notification-channel': 'Ajoute un canal à Paramètres → Notifications',
+/** What a kind of plugin adds to the core, as the card says it. */
+const TAG_LABELS: Record<string, string> = {
+  'discussion-channel': 'Ajoute un canal à Paramètres → Notifications',
+  'public-pages': 'Publie des pages sous /p/… sur ce déploiement',
 };
 
 interface PluginCardProps {
@@ -21,7 +22,7 @@ export function PluginCard({ plugin, busy, onInstall, onUninstall }: PluginCardP
     <Card className="flex flex-col gap-4 p-5" data-testid="plugin-card" data-plugin={plugin.key}>
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-          {PLUGIN_ICONS[plugin.key as keyof typeof PLUGIN_ICONS] ?? (
+          {(plugin.icon && PLUGIN_ICONS[plugin.icon]) ?? (
             <Blocks className="size-5" aria-hidden="true" />
           )}
         </span>
@@ -33,11 +34,11 @@ export function PluginCard({ plugin, busy, onInstall, onUninstall }: PluginCardP
             </StatusBadge>
           </div>
           <p className="mt-1 text-sm text-soft">{plugin.description}</p>
-          {plugin.provides.map(
-            (provision) =>
-              PROVISION_LABELS[provision] && (
-                <p key={provision} className="mt-2 text-xs font-medium text-faint">
-                  {PROVISION_LABELS[provision]}
+          {plugin.tags.map(
+            (tag) =>
+              TAG_LABELS[tag] && (
+                <p key={tag} className="mt-2 text-xs font-medium text-faint">
+                  {TAG_LABELS[tag]}
                 </p>
               ),
           )}

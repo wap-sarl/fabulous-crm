@@ -225,6 +225,7 @@ import type * as lib_http_body from "../lib/http/body.js";
 import type * as lib_http_cors from "../lib/http/cors.js";
 import type * as lib_invitations_pending from "../lib/invitations/pending.js";
 import type * as lib_landingPages_pages from "../lib/landingPages/pages.js";
+import type * as lib_landingPages_plugin from "../lib/landingPages/plugin.js";
 import type * as lib_landingPages_render from "../lib/landingPages/render.js";
 import type * as lib_landingPages_stats from "../lib/landingPages/stats.js";
 import type * as lib_leadLists_dynamic from "../lib/leadLists/dynamic.js";
@@ -255,6 +256,7 @@ import type * as lib_notifications_observe from "../lib/notifications/observe.js
 import type * as lib_notifications_preferences from "../lib/notifications/preferences.js";
 import type * as lib_notifications_render from "../lib/notifications/render.js";
 import type * as lib_plugins_installed from "../lib/plugins/installed.js";
+import type * as lib_plugins_registry from "../lib/plugins/registry.js";
 import type * as lib_properties_definitions from "../lib/properties/definitions.js";
 import type * as lib_retention_budget from "../lib/retention/budget.js";
 import type * as lib_retention_purge from "../lib/retention/purge.js";
@@ -524,6 +526,7 @@ declare const fullApi: ApiFromModules<{
   "lib/http/cors": typeof lib_http_cors;
   "lib/invitations/pending": typeof lib_invitations_pending;
   "lib/landingPages/pages": typeof lib_landingPages_pages;
+  "lib/landingPages/plugin": typeof lib_landingPages_plugin;
   "lib/landingPages/render": typeof lib_landingPages_render;
   "lib/landingPages/stats": typeof lib_landingPages_stats;
   "lib/leadLists/dynamic": typeof lib_leadLists_dynamic;
@@ -554,6 +557,7 @@ declare const fullApi: ApiFromModules<{
   "lib/notifications/preferences": typeof lib_notifications_preferences;
   "lib/notifications/render": typeof lib_notifications_render;
   "lib/plugins/installed": typeof lib_plugins_installed;
+  "lib/plugins/registry": typeof lib_plugins_registry;
   "lib/properties/definitions": typeof lib_properties_definitions;
   "lib/retention/budget": typeof lib_retention_budget;
   "lib/retention/purge": typeof lib_retention_purge;

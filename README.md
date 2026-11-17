@@ -209,7 +209,7 @@ workspaces.
   l'accès à une fiche après avoir été prévenue garde la ligne non lue, avec son
   titre, jusqu'à sa lecture ou sa purge ; la fiche elle-même reste fermée, et
   aucun envoi externe ne part plus pour elle. Un plugin peut apporter un canal
-  (`provides: ['notification-channel']` au catalogue) : il n'est proposé que
+  (étiquette `discussion-channel` au catalogue, le canal dans le registre) : il n'est proposé que
   tant que le plugin est installé, et le désinstaller retire sa ligne des
   réglages de chacun, n'écrit plus d'envoi pour lui et abandonne ceux qui
   attendent (`skipped`, `channel_not_available`) ; les choix de chacun restent,
@@ -232,14 +232,23 @@ workspaces.
   depuis Paramètres → Plugins quand l'organisation en a besoin. Le catalogue
   (`convex/_lib/validators/plugins.ts`) est fermé et fait partie du code : rien
   n'est téléchargé, un plugin est une fonctionnalité du dépôt activée par
-  déploiement (`appConfig.plugins`). Un plugin non installé n'apparaît ni dans le
+  déploiement (`appConfig.plugins`). Une entrée du catalogue dit ce que les
+  deux côtés peuvent savoir d'un plugin : sa clé, son nom, ses **étiquettes**
+  (`tags` : `discussion-channel`, `public-pages`), que sa carte traduit, et
+  l'entrée de menu ou l'onglet des paramètres qu'il apporte (chemin, libellé,
+  icône) ; le **registre** (`convex/lib/plugins/registry.ts`) dit, sous la
+  même clé, ce que le serveur apporte pour lui : son canal de notification, la
+  présence de ses données, ses adresses publiques. Le cœur ne nomme jamais un
+  plugin : il parcourt le catalogue par étiquette et le registre par clé, le
+  menu, les onglets et les icônes en viennent, et seule la table des pages du
+  frontend (`src/features/plugins/lib/pages.tsx`) épelle encore une clé, un
+  test le garantit. Ajouter un plugin, c'est son dossier, une entrée du
+  catalogue et une du registre. Un plugin non installé n'apparaît ni dans le
   menu ni dans les paramètres, ses fonctions refusent (`plugin_not_installed`) et
   ses adresses publiques répondent 404 ; le désinstaller conserve ses données,
-  le réinstaller les retrouve telles quelles. Une entrée du catalogue dit aussi
-  ce que le plugin ajoute au cœur (`provides`), que sa carte affiche. Les
-  plugins : les pages hébergées, Slack et Discord, ci-dessous. Un déploiement
-  neuf n'en a aucun ; un déploiement antérieur aux plugins garde ceux dont il
-  tient des données.
+  le réinstaller les retrouve telles quelles. Les plugins : les pages
+  hébergées, Slack et Discord, ci-dessous. Un déploiement neuf n'en a aucun ;
+  un déploiement antérieur aux plugins garde ceux dont il tient des données.
 - **Pages** (plugin) : des pages hébergées par le déploiement (`GET /p/<slug>`,
   servies sous une politique de sécurité stricte, écrite dans le document
   lui-même pour que l'aperçu de l'éditeur se comporte comme la page, limitées

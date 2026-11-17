@@ -15,11 +15,8 @@ import {
   ListTodo,
   Mail,
   Megaphone,
-  MessageCircle,
-  MessagesSquare,
   Milestone,
   Palette,
-  PanelsTopLeft,
   Radar,
   Settings,
   Upload,
@@ -33,7 +30,8 @@ import {
   LogIn,
 } from 'lucide-react';
 import type { NavItem } from '@crm/widgets';
-import type { PluginKey } from '@crm/lib/backend';
+import { type PluginEntry, type PluginKey, PLUGINS } from '@crm/lib/backend';
+import { PLUGIN_NAV_ICONS } from '../features/plugins/lib/icons';
 import { SETTINGS_ROOT, type TabGroup } from './settingsTabs';
 
 /** A sidebar entry; module pages derive their access check from the path, settings pages declare it. */
@@ -55,7 +53,18 @@ export const NAV_ITEMS: ShellNavItem[] = [
   { label: 'Transactions', icon: <Handshake />, path: '/deals' },
   { label: 'Tâches', icon: <ListTodo />, path: '/tasks' },
   { label: 'Campagnes', icon: <Megaphone />, path: '/campaigns' },
-  { label: 'Pages', icon: <PanelsTopLeft />, path: '/pages', plugin: 'landing-pages' },
+  // The menu entries the plugins bring, shown while each is installed.
+  ...(PLUGINS as readonly PluginEntry[]).flatMap((plugin) =>
+    plugin.nav
+      ? [
+          {
+            ...plugin.nav,
+            icon: PLUGIN_NAV_ICONS[plugin.nav.icon],
+            plugin: plugin.key as PluginKey,
+          },
+        ]
+      : [],
+  ),
   { label: 'Workflows', icon: <Workflow />, path: '/workflows' },
   ...(import.meta.env.DEV
     ? [
@@ -73,8 +82,26 @@ export const NAV_ITEMS: ShellNavItem[] = [
   { label: 'Paramètres', icon: <Settings />, path: SETTINGS_ROOT, position: 'bottom' },
 ];
 
+/** The tabs the plugins bring, placed in the groups they name after the core's tabs; a group none of the core has is added at the end. */
+function withPluginTabs(groups: TabGroup<ShellNavItem>[]): TabGroup<ShellNavItem>[] {
+  for (const plugin of PLUGINS as readonly PluginEntry[]) {
+    if (!plugin.settings) continue;
+    const { group: name, icon, ...tab } = plugin.settings;
+    let group = groups.find((g) => g.name === name);
+    if (!group) {
+      group = { name, tabs: [] };
+      groups.push(group);
+    }
+    group.tabs.push({
+      ...settings({ ...tab, icon: PLUGIN_NAV_ICONS[icon] }),
+      plugin: plugin.key as PluginKey,
+    });
+  }
+  return groups;
+}
+
 /** The tabs of the settings page, in the order they are shown; each keeps the address it had as a sidebar entry. */
-export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
+export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = withPluginTabs([
   {
     name: 'Organisation',
     tabs: [
@@ -104,14 +131,6 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
       { label: 'Modèles', icon: <LayoutTemplate />, path: '/settings/templates' },
       settings({ label: 'Formulaires', icon: <ClipboardList />, path: '/settings/forms' }),
       settings({ label: 'Suivi web', icon: <Radar />, path: '/settings/tracking' }),
-      {
-        ...settings({ label: 'Slack', icon: <MessagesSquare />, path: '/settings/slack' }),
-        plugin: 'slack',
-      },
-      {
-        ...settings({ label: 'Discord', icon: <MessageCircle />, path: '/settings/discord' }),
-        plugin: 'discord',
-      },
     ],
   },
   {
@@ -130,4 +149,4 @@ export const SETTINGS_GROUPS: TabGroup<ShellNavItem>[] = [
     // A person's own settings, for every employee.
     tabs: [{ label: 'Notifications', icon: <Bell />, path: '/settings/notifications' }],
   },
-];
+]);

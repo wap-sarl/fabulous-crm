@@ -9,7 +9,7 @@ import type { PluginRow } from '../../features/plugins/types';
 
 /** What an uninstall does: a channel leaves everyone's settings; a plugin with pages leaves the menu, with the public addresses it closes when there are some. */
 function UninstallNotice({ plugin }: { plugin: PluginRow | null }) {
-  if (plugin?.provides.includes('notification-channel')) {
+  if (plugin?.tags.includes('discussion-channel')) {
     return (
       <span className="flex flex-col gap-2">
         <span>

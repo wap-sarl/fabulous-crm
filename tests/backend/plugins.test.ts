@@ -54,12 +54,12 @@ const publicPlugins = async (t: T) =>
     .plugins;
 
 describe('the catalogue', () => {
-  test('lists hosted pages as the first plugin, says what each one adds to the core, and only keys of the catalogue pass', () => {
+  test('lists hosted pages as the first plugin, tags what kind of thing each one is, and only keys of the catalogue pass', () => {
     expect(PLUGINS.map((plugin) => plugin.key)).toEqual(['landing-pages', 'slack', 'discord']);
-    expect(PLUGINS.map((plugin) => plugin.provides)).toEqual([
-      [],
-      ['notification-channel'],
-      ['notification-channel'],
+    expect(PLUGINS.map((plugin) => plugin.tags)).toEqual([
+      ['public-pages'],
+      ['discussion-channel'],
+      ['discussion-channel'],
     ]);
     expect(pluginKeySchema.safeParse('landing-pages').success).toBe(true);
     expect(pluginKeySchema.safeParse('quotes').success).toBe(false);
@@ -73,7 +73,8 @@ describe('the catalogue', () => {
         key: 'landing-pages',
         name: 'Pages',
         description: PLUGINS[0].description,
-        provides: [],
+        tags: ['public-pages'],
+        icon: 'PanelsTopLeft',
         installed: true,
         publicUrls: [],
         morePublicUrls: false,
@@ -82,7 +83,8 @@ describe('the catalogue', () => {
         key: 'slack',
         name: 'Slack',
         description: PLUGINS[1].description,
-        provides: ['notification-channel'],
+        tags: ['discussion-channel'],
+        icon: 'MessagesSquare',
         installed: false,
         publicUrls: [],
         morePublicUrls: false,
@@ -91,7 +93,8 @@ describe('the catalogue', () => {
         key: 'discord',
         name: 'Discord',
         description: PLUGINS[2].description,
-        provides: ['notification-channel'],
+        tags: ['discussion-channel'],
+        icon: 'MessageCircle',
         installed: false,
         publicUrls: [],
         morePublicUrls: false,

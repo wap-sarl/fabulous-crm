@@ -3,19 +3,21 @@ import type { MutationCtx, QueryCtx } from '../../_generated/server';
 import { refusal } from '../../_lib/refusal';
 import { isPluginKey, type PluginKey } from '../../_lib/validators/plugins';
 import { loadAppConfig } from '../config/load';
+import { PLUGIN_REGISTRY, pluginKeys } from './registry';
 
 type PluginsField = Pick<Doc<'appConfig'>, 'plugins'> | null | undefined;
 
 /** The keys of the catalogue a config names: a key the catalogue dropped is ignored, not an error. */
 const namedPlugins = (cfg: PluginsField): PluginKey[] => (cfg?.plugins ?? []).filter(isPluginKey);
 
-/** The plugins whose data a deployment holds, live rows only: what a deployment from before the catalogue was using. */
+/** The plugins whose data a deployment holds, live rows only, as each one's registry entry says: what a deployment from before the catalogue was using. */
 export async function pluginsWithData(ctx: Pick<QueryCtx, 'db'>): Promise<PluginKey[]> {
-  const page = await ctx.db
-    .query('landingPages')
-    .withIndex('by_deletedAt', (q) => q.eq('deletedAt', undefined))
-    .first();
-  return page ? ['landing-pages'] : [];
+  const found: PluginKey[] = [];
+  for (const key of pluginKeys()) {
+    const hasData = PLUGIN_REGISTRY[key].hasData;
+    if (hasData && (await hasData(ctx))) found.push(key);
+  }
+  return found;
 }
 
 /** The installed plugins: those the config names; a config without the field is from before the catalogue (the wizard writes an empty list), and counts the plugins whose data exists, so an upgrade takes nothing offline. */
