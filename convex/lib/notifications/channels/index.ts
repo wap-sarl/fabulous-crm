@@ -6,10 +6,9 @@ import type { NotificationNames } from '../../../_lib/validators/notifications';
 import type { PluginKey } from '../../../_lib/validators/plugins';
 import { loadAppConfig } from '../../config/load';
 import { loadInstalledPlugins } from '../../plugins/installed';
-import { discordChannel } from './discord';
+import { pluginChannels } from '../../plugins/registry';
 import { emailChannel } from './email';
 import type { ChannelMessage, SendResult } from './send';
-import { slackChannel } from './slack';
 
 // Every channel the core can deliver to: the settings page, the fan-out and the preference mutation all read this list.
 
@@ -39,11 +38,8 @@ export interface NotificationChannel {
   send?: (to: string, message: ChannelMessage) => Promise<SendResult>;
 }
 
-export const NOTIFICATION_CHANNELS: NotificationChannel[] = [
-  emailChannel,
-  slackChannel,
-  discordChannel,
-];
+/** The core's own channels, then those the installed plugins may bring, as the registry lists them by tag: nothing here names a plugin. */
+export const NOTIFICATION_CHANNELS: NotificationChannel[] = [emailChannel, ...pluginChannels()];
 
 export const channelOf = (key: string): NotificationChannel | undefined =>
   NOTIFICATION_CHANNELS.find((channel) => channel.key === key);

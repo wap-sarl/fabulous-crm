@@ -88,7 +88,15 @@ describe('the settings page', () => {
 
   test('every settings route is a tab, and every tab a route', () => {
     const app = readFileSync(join(import.meta.dir, '../../src/app.tsx'), 'utf8');
-    const routes = [...app.matchAll(/<Route path="(\/settings\/[^"]+)"/g)].map((m) => m[1]);
+    // The plugins' routes are declared in their page map, rendered by app.tsx behind each plugin.
+    const pages = readFileSync(
+      join(import.meta.dir, '../../src/features/plugins/lib/pages.tsx'),
+      'utf8',
+    );
+    const routes = [
+      ...[...app.matchAll(/<Route path="(\/settings\/[^"]+)"/g)].map((m) => m[1]),
+      ...[...pages.matchAll(/path: '(\/settings\/[^']+)'/g)].map((m) => m[1]),
+    ];
     const tabs = SETTINGS_GROUPS.flatMap((group) => group.tabs.map((tab) => tab.path));
     expect(routes.sort()).toEqual([...tabs].sort());
     expect(new Set(tabs).size).toBe(tabs.length);

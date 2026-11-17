@@ -3,6 +3,7 @@ import type { QueryCtx } from '../../_generated/server';
 import { settingsQuery } from '../../_lib/auth';
 import { PLUGINS, type PluginKey } from '../../_lib/validators/plugins';
 import { loadInstalledPlugins } from '../../lib/plugins/installed';
+import { pluginContribution } from '../../lib/plugins/registry';
 
 const PUBLIC_URLS_SHOWN = 10;
 
@@ -11,16 +12,10 @@ async function publicUrlsOf(
   ctx: Pick<QueryCtx, 'db'>,
   key: PluginKey,
 ): Promise<{ publicUrls: string[]; morePublicUrls: boolean }> {
-  if (key !== 'landing-pages') return { publicUrls: [], morePublicUrls: false };
-  const pages = await ctx.db
-    .query('landingPages')
-    .withIndex('by_deletedAt', (q) => q.eq('deletedAt', undefined))
-    .filter((q) => q.eq(q.field('status'), 'published'))
-    .take(PUBLIC_URLS_SHOWN + 1);
-  const base = process.env.CONVEX_SITE_URL ?? '';
+  const urls = (await pluginContribution(key).publicUrls?.(ctx, PUBLIC_URLS_SHOWN)) ?? [];
   return {
-    publicUrls: pages.slice(0, PUBLIC_URLS_SHOWN).map((page) => `${base}/p/${page.slug}`),
-    morePublicUrls: pages.length > PUBLIC_URLS_SHOWN,
+    publicUrls: urls.slice(0, PUBLIC_URLS_SHOWN),
+    morePublicUrls: urls.length > PUBLIC_URLS_SHOWN,
   };
 }
 
@@ -32,7 +27,8 @@ export const listPlugins = settingsQuery({
       key: v.string(),
       name: v.string(),
       description: v.string(),
-      provides: v.array(v.string()),
+      tags: v.array(v.string()),
+      icon: v.optional(v.string()),
       installed: v.boolean(),
       publicUrls: v.array(v.string()),
       morePublicUrls: v.boolean(),
@@ -42,14 +38,16 @@ export const listPlugins = settingsQuery({
     const installed = await loadInstalledPlugins(ctx);
     const rows = [];
     for (const plugin of PLUGINS) {
-      const isInstalled = installed.includes(plugin.key);
+      const { key } = plugin;
+      const isInstalled = installed.includes(key);
       rows.push({
-        ...plugin,
-        provides: [...plugin.provides],
+        key,
+        name: plugin.name,
+        description: plugin.description,
+        tags: [...plugin.tags],
+        icon: (plugin.nav ?? plugin.settings)?.icon,
         installed: isInstalled,
-        ...(isInstalled
-          ? await publicUrlsOf(ctx, plugin.key)
-          : { publicUrls: [], morePublicUrls: false }),
+        ...(isInstalled ? await publicUrlsOf(ctx, key) : { publicUrls: [], morePublicUrls: false }),
       });
     }
     return rows;

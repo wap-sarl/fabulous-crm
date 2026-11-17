@@ -72,7 +72,8 @@ export function SettingsLayout() {
   }
 
   return (
-    <div className="flex min-h-full flex-col lg:flex-row">
+    // A flex child of the scrolling main shrinks to its height by default: the row must take its content's, or the sticky column has no room to stick.
+    <div className="flex min-h-full shrink-0 flex-col lg:flex-row">
       <nav
         aria-label="Paramètres"
         className="shrink-0 border-b border-border bg-card lg:sticky lg:top-0 lg:h-screen lg:w-[248px] lg:self-start lg:overflow-y-auto lg:border-b-0 lg:border-r"

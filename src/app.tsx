@@ -1,4 +1,4 @@
-import { type ComponentType, lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import {
   ErrorNotFoundPage,
@@ -17,11 +17,19 @@ import { SettingsLayout } from './layouts/SettingsLayout';
 import { isSettingsPath, SETTINGS_ROOT } from './lib/settingsTabs';
 import { RequireModule } from './features/access/components/RequireModule';
 import { RequirePlugin } from './features/plugins/components/RequirePlugin';
+import { PLUGIN_ROUTES } from './features/plugins/lib/pages';
+import { page } from './lib/page';
 import { frontendExtensions } from './lib/frontendExtensions';
 
-/** A page is loaded when its route is first opened: the first screen carries the shell and nothing of the pages it does not show. */
-const page = <Name extends string>(load: () => Promise<Record<Name, ComponentType>>, name: Name) =>
-  lazy(() => load().then((module) => ({ default: module[name] })));
+/** The routes of every plugin whose path `keep` accepts, each behind its plugin being installed. */
+const pluginRoutes = (keep: (route: { path: string }) => boolean) =>
+  PLUGIN_ROUTES.filter((plugin) => plugin.routes.some(keep)).map((plugin) => (
+    <Route key={plugin.key} element={<RequirePlugin plugin={plugin.key} />}>
+      {plugin.routes.filter(keep).map((route) => (
+        <Route key={route.path} path={route.path} element={<route.Page />} />
+      ))}
+    </Route>
+  ));
 
 const LeadsPage = page(() => import('./pages/leads/LeadsPage'), 'LeadsPage');
 const LeadDetailPage = page(() => import('./pages/leads/LeadDetailPage'), 'LeadDetailPage');
@@ -29,14 +37,6 @@ const CampaignsPage = page(() => import('./pages/campaigns/CampaignsPage'), 'Cam
 const CampaignCreatePage = page(
   () => import('./pages/campaigns/CampaignCreatePage'),
   'CampaignCreatePage',
-);
-const LandingPagesPage = page(
-  () => import('./pages/landingPages/LandingPagesPage'),
-  'LandingPagesPage',
-);
-const LandingPageEditorPage = page(
-  () => import('./pages/landingPages/LandingPageEditorPage'),
-  'LandingPageEditorPage',
 );
 const CampaignDetailPage = page(
   () => import('./pages/campaigns/CampaignDetailPage'),
@@ -73,14 +73,6 @@ const RolesPage = page(() => import('./pages/settings/RolesPage'), 'RolesPage');
 const NotificationSettingsPage = page(
   () => import('./pages/settings/NotificationSettingsPage'),
   'NotificationSettingsPage',
-);
-const SlackSettingsPage = page(
-  () => import('./pages/settings/SlackSettingsPage'),
-  'SlackSettingsPage',
-);
-const DiscordSettingsPage = page(
-  () => import('./pages/settings/DiscordSettingsPage'),
-  'DiscordSettingsPage',
 );
 const LeadListsPage = page(() => import('./pages/settings/LeadListsPage'), 'LeadListsPage');
 const LifecyclePage = page(() => import('./pages/settings/LifecyclePage'), 'LifecyclePage');
@@ -169,10 +161,8 @@ function AppRoutes() {
                 <Route path="/campaigns" element={<CampaignsPage />} />
                 <Route path="/campaigns/new" element={<CampaignCreatePage />} />
                 <Route path="/campaigns/:campaignId" element={<CampaignDetailPage />} />
-                <Route element={<RequirePlugin plugin="landing-pages" />}>
-                  <Route path="/pages" element={<LandingPagesPage />} />
-                  <Route path="/pages/:pageId" element={<LandingPageEditorPage />} />
-                </Route>
+                {/* A plugin's pages open while it is installed; the registry says which. */}
+                {pluginRoutes((route) => !inSettings(route))}
                 <Route path="/workflows" element={<WorkflowsPage />} />
                 <Route path="/workflows/new" element={<WorkflowEditorPage />} />
                 <Route path="/workflows/:workflowId" element={<WorkflowDetailPage />} />
@@ -200,12 +190,7 @@ function AppRoutes() {
                 <Route path="/settings/plugins" element={<PluginsPage />} />
                 <Route path="/settings/roles" element={<RolesPage />} />
                 <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
-                <Route element={<RequirePlugin plugin="slack" />}>
-                  <Route path="/settings/slack" element={<SlackSettingsPage />} />
-                </Route>
-                <Route element={<RequirePlugin plugin="discord" />}>
-                  <Route path="/settings/discord" element={<DiscordSettingsPage />} />
-                </Route>
+                {pluginRoutes(inSettings)}
                 {frontendExtensions()
                   .routes.filter(inSettings)
                   .map((route) => (

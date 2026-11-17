@@ -22,7 +22,11 @@ export {
   abWindowHoursSchema,
 } from '../../convex/_lib/validators/crm';
 export { DEFAULT_TIMEZONE } from '../../convex/_lib/validators/appConfig';
-export { PLUGINS, type PluginKey } from '../../convex/_lib/validators/plugins';
+export {
+  PLUGINS,
+  type PluginIcon,
+  type PluginKey,
+} from '../../convex/_lib/validators/plugins';
 export {
   NOTIFICATION_TARGET_SCHEMAS,
   notificationGroupOf,
