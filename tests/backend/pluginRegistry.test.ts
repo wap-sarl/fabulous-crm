@@ -7,7 +7,7 @@ import { PLUGIN_REGISTRY, pluginChannels } from '../../convex/lib/plugins/regist
 
 const ROOT = join(import.meta.dir, '../..');
 
-/** Where each plugin may be named: the catalogue, the registry, the frontend's page map, and the plugin's own files. */
+/** Where each plugin's key may be written: the catalogue, the registry, the frontend's page map, and the plugin's own files. The core still imports a plugin's code where it must (its tables in the schema, its HTTP routes): this guard is about the keys. */
 const ALLOWED: Record<string, string[]> = {
   '*': [
     'convex/_lib/validators/plugins.ts',
@@ -50,7 +50,7 @@ describe('the plugin registry', () => {
     expect(NOTIFICATION_CHANNELS.map((c) => c.key)).toEqual(['email', ...tagged]);
   });
 
-  test('is the only place the core names a plugin: a plugin is spelled out in the catalogue, the registry, the page map and its own files', () => {
+  test('no file of the core spells a plugin’s key: a key is written in the catalogue, the registry, the page map and the plugin’s own files only', () => {
     const keys = PLUGINS.map((p) => p.key);
     const offenders: string[] = [];
     for (const file of [...sourcesOf('convex'), ...sourcesOf('src')]) {

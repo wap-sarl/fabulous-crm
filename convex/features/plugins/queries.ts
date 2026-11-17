@@ -1,7 +1,7 @@
 import { v } from 'convex/values';
 import type { QueryCtx } from '../../_generated/server';
 import { settingsQuery } from '../../_lib/auth';
-import { type PluginEntry, type PluginKey, PLUGINS } from '../../_lib/validators/plugins';
+import { PLUGINS, type PluginKey } from '../../_lib/validators/plugins';
 import { loadInstalledPlugins } from '../../lib/plugins/installed';
 import { pluginContribution } from '../../lib/plugins/registry';
 
@@ -37,8 +37,8 @@ export const listPlugins = settingsQuery({
   handler: async (ctx) => {
     const installed = await loadInstalledPlugins(ctx);
     const rows = [];
-    for (const plugin of PLUGINS as readonly PluginEntry[]) {
-      const key = plugin.key as PluginKey;
+    for (const plugin of PLUGINS) {
+      const { key } = plugin;
       const isInstalled = installed.includes(key);
       rows.push({
         key,

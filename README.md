@@ -238,12 +238,13 @@ workspaces.
   l'entrée de menu ou l'onglet des paramètres qu'il apporte (chemin, libellé,
   icône) ; le **registre** (`convex/lib/plugins/registry.ts`) dit, sous la
   même clé, ce que le serveur apporte pour lui : son canal de notification, la
-  présence de ses données, ses adresses publiques. Le cœur ne nomme jamais un
-  plugin : il parcourt le catalogue par étiquette et le registre par clé, le
-  menu, les onglets et les icônes en viennent, et seule la table des pages du
-  frontend (`src/features/plugins/lib/pages.tsx`) épelle encore une clé, un
-  test le garantit. Ajouter un plugin, c'est son dossier, une entrée du
-  catalogue et une du registre. Un plugin non installé n'apparaît ni dans le
+  présence de ses données, ses adresses publiques. Le cœur n'épelle jamais la
+  clé d'un plugin : il parcourt le catalogue par étiquette et le registre par
+  clé, le menu, les onglets et les icônes en viennent, et seule la table des
+  pages du frontend (`src/features/plugins/lib/pages.tsx`) écrit encore une
+  clé, un test le garantit (il porte sur les clés : le schéma et les routes
+  HTTP importent encore le code des pages hébergées). Ajouter un plugin, c'est
+  son dossier, une entrée du catalogue et une du registre. Un plugin non installé n'apparaît ni dans le
   menu ni dans les paramètres, ses fonctions refusent (`plugin_not_installed`) et
   ses adresses publiques répondent 404 ; le désinstaller conserve ses données,
   le réinstaller les retrouve telles quelles. Les plugins : les pages

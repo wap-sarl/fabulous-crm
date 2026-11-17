@@ -24,7 +24,6 @@ export {
 export { DEFAULT_TIMEZONE } from '../../convex/_lib/validators/appConfig';
 export {
   PLUGINS,
-  type PluginEntry,
   type PluginIcon,
   type PluginKey,
 } from '../../convex/_lib/validators/plugins';

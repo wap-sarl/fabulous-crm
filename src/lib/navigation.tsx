@@ -30,8 +30,8 @@ import {
   LogIn,
 } from 'lucide-react';
 import type { NavItem } from '@crm/widgets';
-import { type PluginEntry, type PluginKey, PLUGINS } from '@crm/lib/backend';
-import { PLUGIN_NAV_ICONS } from '../features/plugins/lib/icons';
+import { PLUGINS, type PluginIcon, type PluginKey } from '@crm/lib/backend';
+import { PLUGIN_ICONS } from '../features/plugins/lib/icons';
 import { SETTINGS_ROOT, type TabGroup } from './settingsTabs';
 
 /** A sidebar entry; module pages derive their access check from the path, settings pages declare it. */
@@ -47,6 +47,12 @@ export const PLUGINS_SETTINGS_PATH = '/settings/plugins';
 
 const settings = (item: NavItem): ShellNavItem => ({ ...item, requires: 'settings' });
 
+/** A plugin's icon at the size of a menu entry. */
+const pluginIcon = (name: PluginIcon) => {
+  const Icon = PLUGIN_ICONS[name];
+  return <Icon />;
+};
+
 export const NAV_ITEMS: ShellNavItem[] = [
   { label: 'Leads', icon: <Users />, path: '/leads' },
   { label: 'Entreprises', icon: <Building2 />, path: '/companies' },
@@ -54,16 +60,8 @@ export const NAV_ITEMS: ShellNavItem[] = [
   { label: 'Tâches', icon: <ListTodo />, path: '/tasks' },
   { label: 'Campagnes', icon: <Megaphone />, path: '/campaigns' },
   // The menu entries the plugins bring, shown while each is installed.
-  ...(PLUGINS as readonly PluginEntry[]).flatMap((plugin) =>
-    plugin.nav
-      ? [
-          {
-            ...plugin.nav,
-            icon: PLUGIN_NAV_ICONS[plugin.nav.icon],
-            plugin: plugin.key as PluginKey,
-          },
-        ]
-      : [],
+  ...PLUGINS.flatMap((plugin) =>
+    plugin.nav ? [{ ...plugin.nav, icon: pluginIcon(plugin.nav.icon), plugin: plugin.key }] : [],
   ),
   { label: 'Workflows', icon: <Workflow />, path: '/workflows' },
   ...(import.meta.env.DEV
@@ -84,7 +82,7 @@ export const NAV_ITEMS: ShellNavItem[] = [
 
 /** The tabs the plugins bring, placed in the groups they name after the core's tabs; a group none of the core has is added at the end. */
 function withPluginTabs(groups: TabGroup<ShellNavItem>[]): TabGroup<ShellNavItem>[] {
-  for (const plugin of PLUGINS as readonly PluginEntry[]) {
+  for (const plugin of PLUGINS) {
     if (!plugin.settings) continue;
     const { group: name, icon, ...tab } = plugin.settings;
     let group = groups.find((g) => g.name === name);
@@ -92,10 +90,7 @@ function withPluginTabs(groups: TabGroup<ShellNavItem>[]): TabGroup<ShellNavItem
       group = { name, tabs: [] };
       groups.push(group);
     }
-    group.tabs.push({
-      ...settings({ ...tab, icon: PLUGIN_NAV_ICONS[icon] }),
-      plugin: plugin.key as PluginKey,
-    });
+    group.tabs.push({ ...settings({ ...tab, icon: pluginIcon(icon) }), plugin: plugin.key });
   }
   return groups;
 }

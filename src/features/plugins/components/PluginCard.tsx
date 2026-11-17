@@ -16,15 +16,19 @@ interface PluginCardProps {
   onUninstall: () => void;
 }
 
+/** The icon the catalogue names, the generic one for a plugin that names none. */
+function PluginIcon({ name }: { name?: string }) {
+  const Icon = (name && PLUGIN_ICONS[name as keyof typeof PLUGIN_ICONS]) || Blocks;
+  return <Icon className="size-5" aria-hidden="true" />;
+}
+
 /** One plugin of the catalogue: what it does, whether it is installed, the one button that changes that. */
 export function PluginCard({ plugin, busy, onInstall, onUninstall }: PluginCardProps) {
   return (
     <Card className="flex flex-col gap-4 p-5" data-testid="plugin-card" data-plugin={plugin.key}>
       <div className="flex items-start gap-3">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
-          {(plugin.icon && PLUGIN_ICONS[plugin.icon]) ?? (
-            <Blocks className="size-5" aria-hidden="true" />
-          )}
+          <PluginIcon name={plugin.icon} />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

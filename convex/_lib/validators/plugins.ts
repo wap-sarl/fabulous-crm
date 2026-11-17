@@ -26,7 +26,7 @@ export interface PluginEntry {
 }
 
 /** The optional features of this repository a deployment installs from Paramètres → Plugins; the closed catalogue, nothing is downloaded. */
-export const PLUGINS = [
+const CATALOGUE = [
   {
     key: 'landing-pages',
     name: 'Pages',
@@ -58,7 +58,10 @@ export const PLUGINS = [
   },
 ] as const satisfies readonly PluginEntry[];
 
-export type PluginKey = (typeof PLUGINS)[number]['key'];
+export type PluginKey = (typeof CATALOGUE)[number]['key'];
+
+/** The catalogue as a list to walk: each entry with its optional parts, its key one of the catalogue's. */
+export const PLUGINS: readonly (PluginEntry & { key: PluginKey })[] = CATALOGUE;
 
 const PLUGIN_KEYS = PLUGINS.map((plugin) => plugin.key) as [PluginKey, ...PluginKey[]];
 
