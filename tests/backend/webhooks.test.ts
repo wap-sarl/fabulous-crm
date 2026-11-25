@@ -221,6 +221,49 @@ describe('email events', () => {
     expect(send?.unsubscribedAt).toBe(1_700_000_500);
   });
 
+  test("Brevo's unsubscribe revokes the email consent, keeps other channels, leaves a system note; a replay changes nothing", async () => {
+    const { t, emp } = await setup();
+    const { leadId } = await seedEmailSend(t, emp, 'msg-optout');
+    await setConsentChannels(t, leadId, ['email', 'sms']);
+    const unsubscribe = () =>
+      t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          event: 'unsubscribed',
+          'message-id': 'msg-optout',
+          ts_epoch: 1_700_000_500,
+        }),
+      });
+    expect((await unsubscribe()).status).toBe(200);
+    await unsubscribe(); // Brevo retry
+
+    const lead = await t.run((ctx) => ctx.db.get(leadId));
+    expect(lead?.marketingConsent).toEqual(['sms']);
+    expect(lead?.consentSource).toBe('email_unsubscribe');
+
+    const notes = await t.run((ctx) => ctx.db.query('leadNotes').collect());
+    expect(notes).toHaveLength(1);
+    expect(notes[0].content).toContain('Désinscription email');
+    expect(notes[0].createdBy).toBeUndefined();
+
+    const audits = await t.run(async (ctx) =>
+      (await ctx.db.query('auditLogs').collect()).filter(
+        (a) => (a.metadata as { source?: string } | undefined)?.source === 'email_unsubscribe',
+      ),
+    );
+    expect(audits).toHaveLength(1);
+    expect(audits[0]!.metadata).toEqual({
+      source: 'email_unsubscribe',
+      changes: { marketingConsent: { old: ['email', 'sms'], new: ['sms'] } },
+    });
+    const timeline = await asIdentity(t, emp.identity).query(
+      api.features.timeline.queries.listLeadTimeline,
+      { leadId, kinds: ['audit'], paginationOpts: { numItems: 20, cursor: null } },
+    );
+    const signed = timeline.page.flatMap((e) => (e.kind === 'audit' ? [e.userName] : []));
+    expect(signed).toContain('Désinscription email');
+  });
+
   test('an unknown message id is acknowledged without writing', async () => {
     const { t } = await setup();
     const res = await t.fetch(`/webhooks/brevo/email?secret=${SECRET}`, {
