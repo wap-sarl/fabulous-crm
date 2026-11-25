@@ -25,6 +25,8 @@ export const consentSourceValidator = v.union(
   v.literal('import'),
   // Brevo SMS webhook: the lead replied STOP to a marketing SMS.
   v.literal('sms_stop'),
+  // Brevo email webhook: the lead used Brevo's unsubscribe link or their mailbox's List-Unsubscribe button.
+  v.literal('email_unsubscribe'),
   // The lead checked the GDPR box of a public capture form.
   v.literal('form'),
   // The lead chose on the preference centre (/consent/<token>), with their address kept as a hash.

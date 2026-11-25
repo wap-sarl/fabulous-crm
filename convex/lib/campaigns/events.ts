@@ -139,10 +139,28 @@ export async function recordEmailEvent(
   if (type === 'clicked' && send.clickedAt === undefined) {
     await ctx.db.patch(send._id, { clickedAt: args.eventAt });
   }
-  // Brevo's own unsubscribe event; a click on the consent link stays a click, the preference centre says what the person decided.
-  if (type === 'unsubscribed' && send.unsubscribedAt === undefined) {
+  // A click on the consent link stays a click, the preference centre says what the person decided.
+  if (type !== 'unsubscribed') return;
+  if (send.unsubscribedAt === undefined) {
     await ctx.db.patch(send._id, { unsubscribedAt: args.eventAt });
   }
+
+  // Brevo's own unsubscribe (its link, or the mailbox's List-Unsubscribe button) is an email opt-out that names no type: the channel goes, and each email type with it, as a STOP does for SMS.
+  const lead = await ctx.db.get(send.leadId);
+  if (!lead || lead.deletedAt !== undefined) return;
+  if (!lead.marketingConsent.includes('email')) return;
+  await applyConsentChoice(
+    ctx,
+    lead,
+    { channels: lead.marketingConsent.filter((channel) => channel !== 'email') },
+    { source: 'email_unsubscribe' },
+  );
+  await insertSystemNote(
+    ctx,
+    lead._id,
+    'Désinscription email : le contact s’est désabonné via Brevo (événement Brevo).',
+    Date.now(),
+  );
 }
 
 /** Brevo's `msg_status` as the maps above key it: a reply that starts with STOP is an opt-out even when reported as a plain reply (transactional SMS), and the registration names `unsubscribe` / `blacklisted` stand for the payload values. */

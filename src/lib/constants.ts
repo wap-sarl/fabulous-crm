@@ -144,6 +144,7 @@ export const CONSENT_SOURCE_LABEL: Record<ConsentSource, string> = {
   public_link: 'Lien public',
   import: 'Import',
   sms_stop: 'Réponse STOP (SMS)',
+  email_unsubscribe: 'Désinscription email',
   form: 'Formulaire',
   preference_center: 'Centre de préférences',
   merge: 'Fusion de fiches',

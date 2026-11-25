@@ -53,6 +53,7 @@ function fetchRows<T>(
 const SYSTEM_ACTOR: Record<string, string> = {
   public_link: 'Lien de préférences',
   sms_stop: 'Réponse STOP par SMS',
+  email_unsubscribe: 'Désinscription email',
   tracked_link: 'Lien de campagne',
   workflow: 'Workflow',
   form: 'Formulaire public',
