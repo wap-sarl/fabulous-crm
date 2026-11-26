@@ -21,6 +21,7 @@ import {
   toast,
 } from '@crm/design-system';
 import { Lock, Plus, X } from 'lucide-react';
+import { CopyRow } from '@crm/features/forms/components/CopyRow';
 import { PROPERTY_TYPES, isOptionBased, rulesOf } from '../lib/customProperties';
 import type { PropertyDefinitionRow } from '../types';
 
@@ -228,6 +229,8 @@ export function DefinitionDialog({
               placeholder="Ex. Source, Budget…"
             />
           </div>
+
+          {definition && <CopyRow label="Clé API (customProperties)" value={definition._id} />}
 
           <div className="space-y-1">
             <Label>Type</Label>
